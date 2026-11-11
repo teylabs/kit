@@ -27,8 +27,18 @@ final class MediaUploads
         $table->string('status')->default('pending');
         $table->unsignedInteger('width')->nullable();
         $table->unsignedInteger('height')->nullable();
+        self::addMultipart($table);
         $table->timestamps();
         $table->unique(['scope', 'mutation_id']);
         $table->index(['scope', 'sha256', 'status']);
+    }
+
+    /**
+     * The S3 multipart upload id, for an existing table in the app's own additive migration: `Schema::table(MediaUploads::table(), MediaUploads::addMultipart(...))`.
+     * `schema()` includes it. Without it, multipart stays off and every upload is a single PUT.
+     */
+    public static function addMultipart(Blueprint $table): void
+    {
+        $table->string('multipart_upload_id')->nullable();
     }
 }

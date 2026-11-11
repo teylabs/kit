@@ -169,6 +169,7 @@
         "test:deliver": "@php tests/DeliverCheck.php vendor/autoload.php",
         "test:lifecycle-pages": "@php tests/LifecyclePagesCheck.php vendor/autoload.php",
         "test:media-uploads": "@php tests/MediaUploadCheck.php vendor/autoload.php",
+        "test:media-multipart": "@php tests/MediaMultipartCheck.php vendor/autoload.php",
         "test:upload-limits": "@php tests/UploadLimitCheck.php vendor/autoload.php",
         "test:breakout": "@php tests/BreakoutCheck.php vendor/autoload.php",
         "test:media-conversions": "@php tests/MediaConversionsCheck.php vendor/autoload.php",
@@ -186,6 +187,9 @@
         "test:adoption-completeness": "@php tests/AdoptionCompletenessCheck.php",
         "test:catalog-history": "@php tests/CatalogHistoryCheck.php",
         "test:form-payload-check": "@php tests/FormPayloadCheck.php"
+    },
+    "suggest": {
+        "league/flysystem-aws-s3-v3": "S3 multipart for large direct uploads (kit.media.multipart, docs/media.md)."
     },
     "config": {
         "sort-packages": true

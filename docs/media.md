@@ -111,6 +111,86 @@ Scope the confirm lookup to the same scope the request used, so one owner can't 
 - `MediaDelivery` serves the original under it: `Content-Disposition` with an RFC 6266 `filename*` and an ASCII fallback, proxied or redirected. Conversions keep their own names. A route of your own that serves the file can use `ClientFileName::disposition($media, 'attachment')` (null when there is no client name).
 - The name is set for that one attach only and cleared in a `finally`, so it never carries into another attach, a queued job or another request. Map `media.upload.*` refusals to a 422.
 
+## Large files: S3 multipart
+
+Off by default. With it on, a file over the threshold on an S3 disk goes up as an S3 multipart upload: parts in parallel, each retried on its own, so a dropped connection doesn't restart a large file. Anything else, including every upload while it is off, is the single presigned PUT above, unchanged.
+
+```php
+// config/kit.php (every key has this default, so the block is optional)
+'media' => ['multipart' => [
+    'enabled' => (bool) env('KIT_UPLOADS_MULTIPART', false),
+    'threshold_bytes' => 100 * 1024 * 1024, // larger files use multipart (any value; only parts have a minimum)
+    'part_bytes' => 16 * 1024 * 1024,       // raised to 5 MiB, the S3 minimum, if set lower
+    'part_checksums' => true,               // false for a store that rejects per-part checksum headers (R2, MinIO)
+]],
+```
+
+Multipart is used only when all of these hold. If any one doesn't, the upload is a single PUT:
+
+- the flag is on and the file is larger than `threshold_bytes`;
+- the disk is S3 (`Illuminate\Filesystem\AwsS3V3Adapter`, so `league/flysystem-aws-s3-v3` is installed). Other disks ignore the flag;
+- the uploads table has the `multipart_upload_id` column. New tables get it from `schema()`. An existing table needs an additive migration:
+
+  ```php
+  Schema::table(MediaUploads::table(), MediaUploads::addMultipart(...));
+  ```
+
+- the client offered it. BulkDrop and `directUpload` send `multipart: true` only when `direct` has a `complete` route.
+
+Add `complete` and `abort` to `direct`, and give them routes next to `store` and `confirm`. The store route switches to `RequestMultipartUpload`, which runs `RequestUpload` unchanged and only then turns an eligible PUT ticket into a `MULTIPART` one:
+
+```vue
+:direct="{ request: route('slides.uploads.store'), confirm: route('slides.uploads.confirm'),
+    complete: route('slides.uploads.complete'), abort: route('slides.uploads.abort') }"
+```
+
+```php
+// POST request: { mime, bytes, sha256, mutation_id, file_name, multipart?, part_sha256? }
+public function store(Request $request, Deck $deck): array
+{
+    Gate::authorize('update', $deck);
+    $data = $request->validate(['mime' => 'required|string', 'bytes' => 'required|integer', 'sha256' => 'required|string', 'mutation_id' => 'nullable|string|max:64',
+        'multipart' => 'boolean', 'part_sha256' => 'array|max:10000', 'part_sha256.*' => 'string']);
+
+    return RequestMultipartUpload::run('deck:'.$deck->id, Deck::slideRules(), $data['mime'], $data['bytes'], $data['sha256'], $data['mutation_id'] ?? null,
+        $request->boolean('multipart'), $data['part_sha256'] ?? [])->toArray();
+}
+
+// POST complete: { id, file_name, parts: [{ part, etag, checksum }] }
+public function complete(Request $request, Deck $deck): array
+{
+    Gate::authorize('update', $deck);
+    $upload = MediaUpload::query()->where('scope', 'deck:'.$deck->id)->findOrFail($request->input('id'));
+    $name = $request->input('file_name');
+    $media = ClientFileName::attach(CompleteMultipartUpload::run($upload, (array) $request->input('parts')), $deck, 'slides', is_string($name) ? $name : null);
+
+    return ['id' => $media->uuid];
+}
+
+// POST abort: { id }
+public function abort(Request $request, Deck $deck): array
+{
+    Gate::authorize('update', $deck);
+    AbortMultipartUpload::run(MediaUpload::query()->where('scope', 'deck:'.$deck->id)->findOrFail($request->input('id')));
+
+    return ['ok' => true];
+}
+```
+
+Scope both lookups to the request's scope, as for confirm, and map `media.upload.*` refusals to a 422.
+
+**The flow.** A `MULTIPART` ticket carries `upload_id` and one `{ part, url, headers }` per part. Every part is `ceil(bytes / parts)` bytes, and the last takes the rest, so the client derives the layout from the part count alone. With part checksums on, the first ticket has no URLs. The client hashes each part and asks again with the same mutation id and `part_sha256`, and each part URL then signs its part's length and SHA-256. The client uploads four parts at a time, tries each part up to three times, and sends every part's ETag (and checksum) to `complete`. The bucket's CORS rule must expose the `ETag` response header. A part that keeps failing, a part answered without an ETag, or a cancel (`directUpload`'s optional `signal`) sends the upload to `abort`, and no complete is sent.
+
+**Integrity.** S3 has no whole-object SHA-256 for a multipart upload, only a composite of the part hashes. That would prove the parts, but not that they make up the declared SHA-256, which is the content-addressed key that dedupe trusts. So `CompleteMultipartUpload` always re-hashes the joined object as a stream, never in memory, and compares its size and SHA-256 with the declaration before `ConfirmUpload` marks it ready. The multipart id stays on the record until the re-hash has run, and `ConfirmUpload` refuses a record that has one (`media.upload.multipart_pending`), so a concurrent confirm can't mark the object ready unverified. Per-part checksums are a transit check on top of that. Dedupe stays on. The cost is one full read of the object per completed upload: time on the request, and egress if the app runs outside the bucket's region. Set `part_checksums` to false on R2 or MinIO if the store rejects the per-part checksum headers. The re-hash still guarantees integrity, and a store that rejects the headers fails the part, and so the upload, rather than accept it unchecked.
+
+**Failure.** Every failure path fails closed:
+
+- Parts that don't cover every part number exactly once, or that lack an ETag (or a checksum, while part checksums are on), are refused (`media.upload.bad_parts`). Nothing is sent to S3, so the client can send them again.
+- If S3 refuses the complete, the upload is aborted (`media.upload.incomplete`).
+- If the re-hash doesn't match, the object is deleted unless a ready record shares the key (`media.upload.mismatch`).
+
+After an abort or a mismatch the record stays pending with no multipart id, so the same mutation starts a fresh upload. `AbortMultipartUpload` drops the parts at S3 and clears the id. It is the client's abort route, and it runs after a refused complete. `kit:uploads:prune` runs it for each stale pending record that still has a `multipart_upload_id`, before deleting the record, since S3 keeps and bills an unfinished upload's parts ([Pruning abandoned uploads](#pruning-abandoned-uploads)). A bucket lifecycle rule that aborts incomplete multipart uploads after a day is a good backstop.
+
 ## Conversions
 
 Declare responsive WebP widths in the model and set the kit's job (`config/media-library.php`):
@@ -251,6 +331,7 @@ A client that requests an upload and never confirms it leaves a pending row, and
 - **Across tenants.** Keys are content-addressed under the app's prefix, not under a tenant or scope, so the same object can back rows in several scopes (the same bytes uploaded in two workspaces get the same key). References are therefore matched on the disk and key across the whole ledger and media table, never within one scope: that only ever keeps more, and nothing outside the stale row's scope is changed or printed. With separate tenant databases (`multitenancy.tenant_database_connection_name` set), another tenant's rows can't be seen, so the command removes stale rows but always keeps their objects.
 - **Fail closed.** When a key's references can't be checked (a missing ledger or media table, a disk that errors), nothing for that key is deleted, not even its rows. It is listed as `not pruned` and the command exits nonzero. Other keys still prune.
 - The object is deleted before its rows, after a second reference check, so a refused delete leaves the rows for the next run.
+- **S3 multipart.** A stale row with an open S3 multipart upload (`multipart_upload_id`) has it aborted first, so the bucket drops its parts. An abort that fails (S3 refuses, or the disk has no multipart store) keeps that key's rows and object, is listed as `not pruned` and fails the run. `--dry-run` reports how many it would abort. A run with none prints exactly as before.
 - Rows are read in id chunks (`--chunk`, default 500).
 
 It isn't scheduled unless the app asks. Set `kit.media.prune_schedule` to `true` (daily at 03:00) or a cron expression, and the kit adds it to the schedule with `withoutOverlapping()` and `onOneServer()`:
@@ -300,4 +381,4 @@ It is tenant-aware, using spatie/laravel-multitenancy's own `TenantAware` comman
 
 ## Coverage
 
-`composer test:media-collection` covers a record's collection (listing, reorder, move and remove, owner-scoped, with the version). `composer test:media-uploads` covers the operations against a temporary local disk and a stubbed presigner. It runs with no network and no real S3. `composer test:media-conversions` runs real GD conversions over a faked queue, including a PNG with a malformed iCCP through TolerantImage. `composer test:media-delivery` covers both delivery modes over a stubbed URL signer. `composer test:media-prune` covers `kit:uploads:prune` over SQLite memory and a temporary local disk (dry run, age, ready rows, keys shared by another row or a Media item, fail-closed reference checks and the opt-in schedule). `composer test:media-adopt` covers adoption and the command pattern, including no tenant (a loud failure) and two tenants (each adopts only its own). `composer test:js` (`direct-upload.test.mjs`) covers the client flow over a fake transport. What S3 itself enforces (checksum and length refusal, and signed-URL expiry) is not exercised, and nor is a real queue worker or the dropzone's rendering in a browser.
+`composer test:media-collection` covers a record's collection (listing, reorder, move and remove, owner-scoped, with the version). `composer test:media-uploads` covers the operations against a temporary local disk and a stubbed presigner. It runs with no network and no real S3. `composer test:media-conversions` runs real GD conversions over a faked queue, including a PNG with a malformed iCCP through TolerantImage. `composer test:media-delivery` covers both delivery modes over a stubbed URL signer. `composer test:media-prune` covers `kit:uploads:prune` over SQLite memory and a temporary local disk (dry run, age, ready rows, keys shared by another row or a Media item, fail-closed reference checks, aborting stale S3 multipart uploads and the opt-in schedule). `composer test:media-adopt` covers adoption and the command pattern, including no tenant (a loud failure) and two tenants (each adopts only its own). `composer test:media-multipart` covers S3 multipart over a fake multipart store, plus the S3 store's calls over a mocked S3 client: off by default and identical when off, every single-PUT fallback, create, parts, complete, the re-hash, attach, refused parts and ETags, abort, and scopes. `composer test:js` (`direct-upload.test.mjs`, `direct-upload-multipart.test.mjs`) covers the client flow over a fake transport, including part layout, concurrency, a retried part, a missing ETag and cancel. What S3 itself enforces (checksum and length refusal, part ETags, and signed-URL expiry) and a real multipart upload against S3, R2 or MinIO are not exercised, and nor is a real queue worker or the dropzone's rendering in a browser.

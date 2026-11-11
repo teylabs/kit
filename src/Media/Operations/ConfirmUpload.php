@@ -15,7 +15,8 @@ use Tey\Kit\Media\ObjectProbe;
  * Step three: the object is checked against its declaration and the record marked ready. On a bucket that is a HEAD for the size and a read of only
  * the first bytes for the type and dimensions, never the whole object (the bucket already verified the checksum). On a local disk the file is hashed.
  * With `$file` (the multipart fallback) the body is checked first and written to the key. A mismatch deletes the object, unless a ready record shares
- * it, and leaves the record pending for the app's pruner. Confirming a ready record returns it unchanged.
+ * it, and leaves the record pending for the app's pruner. Confirming a ready record returns it unchanged. A record with an open S3 multipart upload is
+ * refused (`media.upload.multipart_pending`): only CompleteMultipartUpload, after its re-hash, confirms it.
  */
 class ConfirmUpload
 {
@@ -25,6 +26,10 @@ class ConfirmUpload
     {
         if ($upload->ready()) {
             return $upload;
+        }
+        // An S3 multipart upload is confirmed only through CompleteMultipartUpload, which re-hashes the object first (always null when off).
+        if ($upload->getAttribute('multipart_upload_id') !== null) {
+            throw new RuntimeException('media.upload.multipart_pending');
         }
         $disk = Storage::disk($upload->disk);
         if ($file !== null) {

@@ -178,6 +178,19 @@ return [
         'media' => ['disk' => env('KIT_NOTES_DISK', 'local'), 'accept' => ['image/png', 'image/jpeg', 'application/pdf'], 'max_files' => 5, 'max_kb' => (int) env('KIT_NOTES_MAX_KB', 10240)],
     ],
 
+    // Direct uploads (docs/media.md › Large files: S3 multipart). Off by default. When on, a file over `threshold_bytes` on an S3 disk uploads in parts
+    // of about `part_bytes` (at least 5 MiB, the S3 minimum) when the host also gives the client a `complete` route; any other upload is a single PUT.
+    // `part_checksums` signs each part's SHA-256; turn it off for a store that rejects per-part checksum headers (R2, MinIO). Either way the server
+    // re-hashes the whole object after the parts are joined, before the record is ready. Every key is read with a default, so this block is optional.
+    'media' => [
+        'multipart' => [
+            'enabled' => (bool) env('KIT_UPLOADS_MULTIPART', false),
+            'threshold_bytes' => 100 * 1024 * 1024,
+            'part_bytes' => 16 * 1024 * 1024,
+            'part_checksums' => true,
+        ],
+    ],
+
     // The host's user model. Null uses the `users` auth provider's model.
     'models' => ['user' => null],
 

@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\Storage;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 use Tey\Kit\Media\MediaUploads;
 use Tey\Kit\Media\Models\MediaUpload;
+use Tey\Kit\Media\MultipartUploads;
+use Tey\Kit\Media\Operations\AbortMultipartUpload;
 use Throwable;
 
 /**
@@ -26,6 +28,9 @@ use Throwable;
  *
  * Fail closed: when the references for a key can't be checked (a missing table, a disk error), nothing for that key is deleted, not even its rows;
  * it is reported and the command exits nonzero. Stale rows are read in id chunks (`--chunk`, default 500).
+ *
+ * A stale row with an S3 multipart upload still open (`multipart_upload_id`) has it aborted first, so the bucket drops its parts. An abort that fails
+ * keeps that key's rows and object, is reported and fails the run, like any other failure.
  */
 class PruneUploadsCommand extends Command
 {
@@ -58,7 +63,7 @@ class PruneUploadsCommand extends Command
         }
         $dry = (bool) $this->option('dry-run');
         $cutoff = now()->subHours((int) $hours);
-        $counts = ['rows' => 0, 'objects' => 0, 'kept' => 0, 'bytes' => 0, 'failed' => 0];
+        $counts = ['rows' => 0, 'objects' => 0, 'kept' => 0, 'bytes' => 0, 'failed' => 0, 'aborted' => 0];
         $samples = [];
         $failures = [];
         if (! $this->ledgerExists()) {
@@ -81,6 +86,10 @@ class PruneUploadsCommand extends Command
         $verb = $dry ? 'would delete' : 'deleted';
         $this->line(sprintf('Pending uploads older than %d h: %s %d rows and %d objects (%d bytes); %d objects kept as still referenced; %d keys failed.',
             (int) $hours, $verb, $counts['rows'], $counts['objects'], $counts['bytes'], $counts['kept'], $counts['failed']));
+        // Printed only when there was one, so a run with no multipart uploads reads exactly as before.
+        if ($counts['aborted'] > 0) {
+            $this->line(sprintf('S3 multipart uploads %s: %d.', $dry ? 'that would be aborted' : 'aborted', $counts['aborted']));
+        }
         foreach ($samples as $key) {
             $this->line('  '.$key);
         }
@@ -94,7 +103,7 @@ class PruneUploadsCommand extends Command
     /**
      * Prunes every stale pending row over one disk and key, and the object when nothing else references it.
      *
-     * @param  array{rows: int, objects: int, kept: int, bytes: int, failed: int}  $counts
+     * @param  array{rows: int, objects: int, kept: int, bytes: int, failed: int, aborted: int}  $counts
      * @param  list<string>  $samples
      * @param  list<string>  $failures
      */
@@ -106,6 +115,7 @@ class PruneUploadsCommand extends Command
             $storage = Storage::disk($disk);
             $exists = $storage->exists($key);
             $bytes = $exists && ! $referenced ? (int) $storage->size($key) : 0;
+            $multipart = $this->multipart($stale);
         } catch (Throwable $error) {
             $counts['failed']++;
             $failures[] = $disk.':'.$key.' ('.$this->reason($error).')';
@@ -122,6 +132,11 @@ class PruneUploadsCommand extends Command
                 // The stale set is read again too: a row confirmed or touched since the first read is no longer stale, so it counts as a
                 // reference and is not deleted.
                 $stale = $this->stale($disk, $key, $cutoff);
+                // Open multipart uploads are aborted before anything is deleted: an abort that fails throws, and the rows and object stay.
+                $multipart = $this->multipart($stale);
+                foreach ($multipart as $upload) {
+                    AbortMultipartUpload::run($upload);
+                }
                 if ($exists && ! $referenced) {
                     $referenced = $this->referenced($disk, $key, $stale);
                     if (! $referenced && ! $storage->delete($key)) {
@@ -137,6 +152,7 @@ class PruneUploadsCommand extends Command
             }
         }
         $counts['rows'] += count($stale);
+        $counts['aborted'] += count($multipart);
         if ($referenced) {
             $counts['kept']++;
         } elseif ($exists) {
@@ -150,6 +166,21 @@ class PruneUploadsCommand extends Command
     {
         return MediaUpload::query()->where('disk', $disk)->where('key', $key)->where('status', 'pending')->where('updated_at', '<', $cutoff)
             ->pluck('id')->all();
+    }
+
+    /**
+     * The stale rows with an S3 multipart upload still open; none when the table has no multipart column.
+     *
+     * @param  list<string>  $stale
+     * @return Collection<int, MediaUpload>
+     */
+    private function multipart(array $stale): Collection
+    {
+        if ($stale === [] || ! MultipartUploads::hasColumn()) {
+            return new Collection;
+        }
+
+        return MediaUpload::query()->whereKey($stale)->whereNotNull('multipart_upload_id')->get();
     }
 
     /** @param  list<string>  $stale */

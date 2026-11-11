@@ -2,7 +2,8 @@
 
 // kit:uploads:prune: a dry run changes nothing; stale pending rows go and recent ones stay; an object shared with another upload row (any status or
 // scope) or an attached Media item is kept while the stale row goes; ready rows are never pruned; a reference check that can't complete deletes
-// nothing for that key and fails the run; the schedule is off unless configured. SQLite memory and a temporary local disk; no network.
+// nothing for that key and fails the run; a stale open S3 multipart upload is aborted first, and an abort that fails keeps everything; the schedule
+// is off unless configured. SQLite memory and a temporary local disk; no network.
 use Illuminate\Bus\BusServiceProvider;
 use Illuminate\Cache\CacheServiceProvider;
 use Illuminate\Config\Repository;
@@ -27,6 +28,8 @@ use Tey\Kit\Media\KeptFileRemover;
 use Tey\Kit\Media\KeyPathGenerator;
 use Tey\Kit\Media\MediaUploads;
 use Tey\Kit\Media\Models\MediaUpload;
+use Tey\Kit\Media\MultipartStore;
+use Tey\Kit\Media\MultipartUploads;
 use Tey\Kit\Media\Operations\AttachUpload;
 
 $loader = require $argv[1];
@@ -39,6 +42,38 @@ final class Deck extends Model implements HasMedia
     public $timestamps = false;
 
     protected $guarded = [];
+}
+
+/** Records aborts; refuses them while `$refuse` is set. No other multipart call is expected from the pruner. */
+final class AbortRecorder implements MultipartStore
+{
+    /** @var list<string> */
+    public array $aborted = [];
+
+    public bool $refuse = false;
+
+    public function create(string $key, string $mime, string $cacheControl, bool $checksums): string
+    {
+        throw new LogicException('create');
+    }
+
+    public function presignPart(string $key, string $uploadId, int $part, int $bytes, ?string $sha256, DateTimeInterface $expiresAt): array
+    {
+        throw new LogicException('presign');
+    }
+
+    public function complete(string $key, string $uploadId, array $parts): void
+    {
+        throw new LogicException('complete');
+    }
+
+    public function abort(string $key, string $uploadId): void
+    {
+        if ($this->refuse) {
+            throw new RuntimeException('s3 refused the abort');
+        }
+        $this->aborted[] = $key.'#'.$uploadId;
+    }
 }
 
 function check(bool $ok, string $message): void
@@ -166,6 +201,29 @@ try {
     Schema::rename('media_moved', 'media');
     check($code !== 0 && MediaUpload::query()->find($tenantBlind->id) !== null && $disk->exists('app/ll/tenant-blind.png'), 'with separate tenant databases a missing media table still deletes nothing');
     $tenantBlind->delete();
+
+    // Stale open S3 multipart uploads are aborted before their rows go; recent ones are left; an abort that fails keeps everything.
+    $recorder = new AbortRecorder;
+    MultipartUploads::fake('bucket', $recorder);
+    $openStale = upload('ws:1', 'app/nn/open-stale.png', 'pending', 48, object: false);
+    $openRecent = upload('ws:1', 'app/oo/open-recent.png', 'pending', 2, object: false);
+    MediaUpload::query()->whereKey([$openStale->id, $openRecent->id])->toBase()->update(['multipart_upload_id' => 'mpu-stale']);
+    MediaUpload::query()->whereKey($openRecent->id)->toBase()->update(['multipart_upload_id' => 'mpu-recent']);
+    [$code, $output] = prune(['--dry-run' => true]);
+    check($code === 0 && $recorder->aborted === [] && str_contains($output, 'S3 multipart uploads that would be aborted: 1.'), 'a dry run reports the multipart uploads it would abort and aborts none');
+    $recorder->refuse = true;
+    [$code, $output] = prune();
+    check($code !== 0 && MediaUpload::query()->find($openStale->id)?->multipart_upload_id === 'mpu-stale' && str_contains($output, 'not pruned: bucket:app/nn/open-stale.png'), 'an abort S3 refuses keeps the row and its upload id, is reported and fails the run');
+    $recorder->refuse = false;
+    [$code, $output] = prune();
+    check($code === 0 && $recorder->aborted === ['app/nn/open-stale.png#mpu-stale'] && MediaUpload::query()->find($openStale->id) === null && str_contains($output, 'S3 multipart uploads aborted: 1.'), 'a stale open multipart upload is aborted, then its row is pruned');
+    check(MediaUpload::query()->find($openRecent->id)?->multipart_upload_id === 'mpu-recent', 'a recent multipart upload is left open');
+    MultipartUploads::fake('bucket', null);
+    $orphan = upload('ws:1', 'app/pp/no-store.png', 'pending', 48, object: false);
+    MediaUpload::query()->whereKey($orphan->id)->toBase()->update(['multipart_upload_id' => 'mpu-orphan']);
+    [$code] = prune();
+    check($code !== 0 && MediaUpload::query()->find($orphan->id) !== null, 'an open multipart upload on a disk with no multipart store keeps its row and fails the run');
+    MediaUpload::query()->whereKey([$orphan->id, $openRecent->id])->delete();
 
     // A row confirmed between the first and second reference check is not deleted, and keeps its object.
     $racing = upload('ws:1', 'app/mm/racing.png', 'pending', 48);
