@@ -8146,6 +8146,24 @@ const fillAll = async (theme) => {
             assert.deepEqual(await rgba(seg.divider.colour), sky, `dividerClass: segment ${i}'s divider takes the host's colour (${seg.divider.colour})`);
         }
         assert.equal(own.segments.at(-1).divider.width, '0px', 'dividerClass: the last segment draws no divider');
+        // triggerClass goes last on the ⌄ trigger: pl-3.5 pr-2 and a 20px chevron make it 42px; dividerClass="border-r-0" drops the default divider.
+        // The same held to 90px, where the bar compacts: the compact layout's trigger takes triggerClass too.
+        const trigger = (selector) => tab.$eval(selector, group => {
+            const [lead, trigger] = group.children;
+            return { lead: getComputedStyle(lead).borderRightWidth, width: trigger.getBoundingClientRect().width, menu: trigger.hasAttribute('data-action-menu'), pl: getComputedStyle(trigger).paddingLeft, pr: getComputedStyle(trigger).paddingRight, svg: trigger.querySelector('svg').getBoundingClientRect().width, ring: getComputedStyle(trigger).boxShadow };
+        });
+        await tab.waitForSelector('[data-fill-all-trigger-compact] [data-action-layout="compact"]');
+        for (const [name, selector] of [['full', '[data-fill-all-trigger] [data-action-layout-full] [data-action-group]'], ['compact', '[data-fill-all-trigger-compact] [data-action-layout="compact"]']]) {
+            const ringed = await trigger(selector);
+            assert.ok(ringed.menu, `${name}: the second segment is the ⌄ trigger`);
+            assert.equal(ringed.width, 42, `${name}: triggerClass makes the trigger 42px (${ringed.pl} + ${ringed.svg}px + ${ringed.pr})`);
+            assert.equal(ringed.svg, 20, `${name}: [&>svg]:size-5 sizes the chevron`);
+            assert.equal(ringed.lead, '0px', `${name}: dividerClass="border-r-0" leaves the segment before the trigger no right border`);
+            assert.match(ringed.ring, /inset/, `${name}: the trigger has its inset ring (${ringed.ring})`);
+        }
+        assert.equal(await tab.locator('[data-fill-all-trigger] [data-action-layout="compact"]').count(), 0, 'the roomy pill stays in its full layout');
+        const plainTrigger = all.segments.at(-1);
+        assert.deepEqual([plainTrigger.pl, plainTrigger.pr], ['12px', '12px'], 'without triggerClass the trigger keeps px-3');
         const dimmed = await read('[data-fill-all-disabled] [data-action-group]');
         assert.equal(dimmed.bg, probe.bg, 'the disabled pill is still filled');
         assert.ok(dimmed.segments.filter(seg => seg.action).every(seg => seg.opacity === '0.5'), `disabled segments dim on the filled pill (${dimmed.segments.map(seg => seg.opacity)})`);
