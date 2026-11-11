@@ -41,7 +41,8 @@ final class MediaDelivery
             $ttl = max(2, (int) config('kit.media.redirect_ttl', 3600));
             $url = $disk->temporaryUrl($path, now()->addSeconds($ttl), array_filter([
                 'ResponseContentType' => $type,
-                'ResponseContentDisposition' => $image ? null : (($conversion === '' ? ClientFileName::disposition($media, 'attachment') : null) ?? 'attachment; filename="'.self::filename($media).'"'),
+                // An original with a client file name is named after it in both modes (inline for an image); otherwise only a non-image is a download.
+                'ResponseContentDisposition' => ($conversion === '' ? ClientFileName::disposition($media, $image ? 'inline' : 'attachment') : null) ?? ($image ? null : 'attachment; filename="'.self::filename($media).'"'),
             ]));
 
             return response('', 302, [

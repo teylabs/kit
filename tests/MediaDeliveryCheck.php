@@ -190,6 +190,14 @@ try {
     deliver(fn () => $named, mode: MediaDelivery::REDIRECT);
     [, , $options] = end($signed);
     check($options['ResponseContentDisposition'] === $expected, 'a redirected original is signed with the same Content-Disposition');
+    $namedImage = ClientFileName::attach(MediaUpload::query()->findOrFail($image->getCustomProperty('kit_upload')), Slide::query()->create(), 'slides', 'Floor plan.png');
+    [, $inlineProxy] = deliver(fn () => $namedImage);
+    deliver(fn () => $namedImage, mode: MediaDelivery::REDIRECT);
+    [, , $options] = end($signed);
+    check($inlineProxy->headers->get('Content-Disposition') === 'inline; filename="Floor plan.png"' && ($options['ResponseContentDisposition'] ?? null) === $inlineProxy->headers->get('Content-Disposition'), 'an image original is named after its client file name inline, the same proxied and redirected');
+    deliver(fn () => $image, mode: MediaDelivery::REDIRECT);
+    [, , $options] = end($signed);
+    check(! isset($options['ResponseContentDisposition']), 'an image with no client file name is still redirected with no disposition');
     [, $unnamed] = deliver(fn () => $pdf);
     check(! str_contains((string) $unnamed->headers->get('Content-Disposition'), 'filename*') && str_contains((string) $unnamed->headers->get('Content-Disposition'), basename($pdf->getCustomProperty('kit_key'))), 'an item with no client file name keeps the generated download name');
     $named->setCustomProperty('client_file_name', "../evil\x00.exe")->save();
