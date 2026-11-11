@@ -30,6 +30,7 @@ use Tey\Kit\Media\KeptFileRemover;
 use Tey\Kit\Media\KeyPathGenerator;
 use Tey\Kit\Media\MediaRules;
 use Tey\Kit\Media\MediaUploads;
+use Tey\Kit\Media\Models\MediaUpload;
 use Tey\Kit\Media\MultipartStore;
 use Tey\Kit\Media\MultipartUploads;
 use Tey\Kit\Media\Operations\AbortMultipartUpload;
@@ -114,6 +115,43 @@ final class FakeMultipartStore implements MultipartStore
     {
         return count(array_filter($this->calls, fn (array $entry): bool => $entry[0] === $call));
     }
+}
+
+/** A bucket that is not a local disk (so ConfirmUpload trusts a content-addressed key): local files behind it, an MD5 for the ETag, a hook per HEAD. */
+final class RemoteAdapter implements League\Flysystem\FilesystemAdapter, League\Flysystem\ChecksumProvider
+{
+    public int $heads = 0;
+
+    /** @var ?Closure(int): void */
+    public ?Closure $onHead = null;
+
+    public function __construct(public LocalFilesystemAdapter $inner) {}
+
+    public function checksum(string $path, League\Flysystem\Config $config): string
+    {
+        $this->heads++;
+        $this->onHead && ($this->onHead)($this->heads);
+
+        return md5($this->inner->read($path));
+    }
+
+    public function fileExists(string $path): bool { return $this->inner->fileExists($path); }
+    public function directoryExists(string $path): bool { return $this->inner->directoryExists($path); }
+    public function write(string $path, string $contents, League\Flysystem\Config $config): void { $this->inner->write($path, $contents, $config); }
+    public function writeStream(string $path, $contents, League\Flysystem\Config $config): void { $this->inner->writeStream($path, $contents, $config); }
+    public function read(string $path): string { return $this->inner->read($path); }
+    public function readStream(string $path) { return $this->inner->readStream($path); }
+    public function delete(string $path): void { $this->inner->delete($path); }
+    public function deleteDirectory(string $path): void { $this->inner->deleteDirectory($path); }
+    public function createDirectory(string $path, League\Flysystem\Config $config): void { $this->inner->createDirectory($path, $config); }
+    public function setVisibility(string $path, string $visibility): void { $this->inner->setVisibility($path, $visibility); }
+    public function visibility(string $path): League\Flysystem\FileAttributes { return $this->inner->visibility($path); }
+    public function mimeType(string $path): League\Flysystem\FileAttributes { return $this->inner->mimeType($path); }
+    public function lastModified(string $path): League\Flysystem\FileAttributes { return $this->inner->lastModified($path); }
+    public function fileSize(string $path): League\Flysystem\FileAttributes { return $this->inner->fileSize($path); }
+    public function listContents(string $path, bool $deep): iterable { return $this->inner->listContents($path, $deep); }
+    public function move(string $source, string $destination, League\Flysystem\Config $config): void { $this->inner->move($source, $destination, $config); }
+    public function copy(string $source, string $destination, League\Flysystem\Config $config): void { $this->inner->copy($source, $destination, $config); }
 }
 
 function check(bool $ok, string $message): void
@@ -309,6 +347,42 @@ try {
     $mine = RequestMultipartUpload::run('ws:5', $lonely, 'image/png', $bytes, $sha, 'shared-id', true);
     $theirs = RequestMultipartUpload::run('ws:6', $lonely, 'image/png', $bytes, $sha, 'shared-id', true);
     check($mine->upload->id !== $theirs->upload->id && $mine->uploadId !== $theirs->uploadId, 'another scope with the same mutation id gets its own record and multipart upload');
+
+    // An object swapped at the key between complete's re-hash and the confirm (another upload's complete writing the same key) is refused: the
+    // confirm compares the checksum (ETag) complete read before its re-hash, a HEAD, not a second full read. On a bucket that is not a local disk.
+    $remote = new RemoteAdapter(new LocalFilesystemAdapter($base.'/remote'));
+    Storage::set('remote', new Illuminate\Filesystem\FilesystemAdapter(new Filesystem($remote), $remote, ['throw' => false]));
+    Storage::disk('remote')->buildTemporaryUploadUrlsUsing(fn (string $path): array => ['url' => 'https://remote.test/'.$path, 'headers' => []]);
+    $remoteStore = new FakeMultipartStore('remote');
+    MultipartUploads::fake('remote', $remoteStore);
+    $remoteRules = new MediaRules('remote', 'app/remote', ['image/png' => 'png'], 50 * $mib);
+    $swap = function (string $tag) use ($remoteRules, $remoteStore, $pieces, $hashes): MediaUpload {
+        $ticket = RequestMultipartUpload::run('ws:7', $remoteRules, 'image/png', strlen(implode('', $pieces)), hash('sha256', implode('', $pieces)), $tag, true, $hashes);
+        $tags = [$remoteStore->put($ticket->uploadId, 1, $pieces[0]), $remoteStore->put($ticket->uploadId, 2, $pieces[1])];
+        $GLOBALS['swapParts'] = [['part' => 1, 'etag' => $tags[0], 'checksum' => base64_encode(hex2bin($hashes[0]))], ['part' => 2, 'etag' => $tags[1], 'checksum' => base64_encode(hex2bin($hashes[1]))]];
+
+        return $ticket->upload->fresh();
+    };
+    $victim = $swap('swap-1');
+    // Same size and the same PNG header, so the size, type and dimensions all still match: only the checksum can tell.
+    $remote->onHead = function (int $head) use ($base, $victim, $tampered): void {
+        $head === 2 && file_put_contents($base.'/remote/'.$victim->key, $tampered);
+    };
+    check(refusal(fn () => CompleteMultipartUpload::run($victim, $GLOBALS['swapParts'])) === 'media.upload.mismatch' && $victim->fresh()->status === 'pending' && $victim->fresh()->multipart_upload_id === null, 'an object swapped after the re-hash and before the confirm is refused as a mismatch and the record left pending');
+    check(! Storage::disk('remote')->exists($victim->key) && $remote->heads === 2, 'the swapped object is deleted, and the confirm caught it with one more HEAD, not a re-read');
+    check(refusal(fn () => ConfirmUpload::run($victim->fresh())) === 'media.upload.missing', 'an ordinary confirm afterwards finds nothing to trust');
+    $remote->onHead = null;
+    $remote->heads = 0;
+    $honest = $swap('swap-2');
+    $done = CompleteMultipartUpload::run($honest, $GLOBALS['swapParts']);
+    check($done->ready() && $done->multipart_upload_id === null && $remote->heads === 2 && Storage::disk('remote')->get($done->key) === $body, 'an object left alone completes and confirms ready, with the checksum read once by complete and once by the confirm');
+
+    // The single PUT on the same bucket is unchanged: no checksum read, the content-addressed key trusted as before.
+    $remote->heads = 0;
+    $put = RequestUpload::run('ws:8', $remoteRules, 'image/png', strlen($small), hash('sha256', $small), 'put-1');
+    Storage::disk('remote')->put($put->upload->key, $small);
+    check(ConfirmUpload::run($put->upload->fresh())->ready() && $remote->heads === 0, 'a single PUT confirms as before, with no checksum read');
+    MultipartUploads::fake('remote', null);
 
     // The real S3 store, over a mocked S3 client (the SDK is optional, so a recording stand-in is declared when it is absent): the eligible disk,
     // the bucket and prefixed key, the signed part checksum, and what complete and abort send.

@@ -11,6 +11,7 @@ use RuntimeException;
 use Tey\Kit\Media\Models\MediaUpload;
 use Tey\Kit\Media\ObjectProbe;
 use Tey\Kit\Media\UploadSigning;
+use Tey\Kit\Media\VerifiedObjects;
 
 /**
  * Step three: the object is checked against its declaration and the record marked ready. On a bucket that is a HEAD for the size and a read of only
@@ -21,6 +22,9 @@ use Tey\Kit\Media\UploadSigning;
  *
  * A record whose key is not named after its SHA-256 (`kit.media.signing` `content_type`, UploadSigning) had no checksum signed, so its object is
  * re-hashed as a stream on any disk, and a mismatch fails closed as above. That costs one full read of the object.
+ *
+ * Run by CompleteMultipartUpload for a content-addressed key, the object's current checksum (its ETag on S3, a HEAD) must still be the one complete
+ * read before its re-hash (VerifiedObjects), or the object is refused as a mismatch: a swap after the re-hash is caught without a second full read.
  */
 class ConfirmUpload
 {
@@ -51,8 +55,9 @@ class ConfirmUpload
             throw new RuntimeException('media.upload.missing');
         }
         $probe = ObjectProbe::probe($disk, $upload->key);
+        $verified = VerifiedObjects::expected($upload->id);
         $local = method_exists($disk, 'getAdapter') && $disk->getAdapter() instanceof LocalFilesystemAdapter;
-        if ($probe['bytes'] !== $upload->bytes || $probe['mime'] !== $upload->mime || (($local || UploadSigning::needsRehash($upload)) && $this->hash($disk, $upload->key) !== $upload->sha256)) {
+        if ($probe['bytes'] !== $upload->bytes || $probe['mime'] !== $upload->mime || ($verified !== null && $disk->checksum($upload->key) !== $verified) || (($local || UploadSigning::needsRehash($upload)) && $this->hash($disk, $upload->key) !== $upload->sha256)) {
             $this->discard($disk, $upload);
             throw new RuntimeException('media.upload.mismatch');
         }
