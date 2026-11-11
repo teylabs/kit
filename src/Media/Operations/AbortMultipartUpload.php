@@ -23,7 +23,7 @@ final class AbortMultipartUpload
             return $upload;
         }
         $store = MultipartUploads::store($upload->disk) ?? throw new RuntimeException('media.upload.multipart_unavailable');
-        $store->abort($upload->key, $id);
+        $store->abort(MultipartUploads::stagingKey($upload->key, $upload->id), $id);
         // Without touching updated_at, so an aborted row keeps its age and the pruner can still clear it in the same run.
         MediaUpload::query()->whereKey($upload->id)->where('multipart_upload_id', $id)->toBase()->update(['multipart_upload_id' => null]);
 

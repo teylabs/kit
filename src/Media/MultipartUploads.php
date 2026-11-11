@@ -63,6 +63,17 @@ final class MultipartUploads
         return min($size, $bytes - ($part - 1) * $size);
     }
 
+    /**
+     * Where an upload's parts are joined: a per-record key beside its final key (`<dir>/.staging/<record id>`), never the final key itself, so
+     * nothing a client sends lands on a content-addressed key. CompleteMultipartUpload copies it over once verified; the pruner deletes leftovers.
+     */
+    public static function stagingKey(string $key, string $recordId): string
+    {
+        $dir = dirname($key);
+
+        return ($dir === '.' ? '' : $dir.'/').'.staging/'.$recordId;
+    }
+
     public static function store(string $disk): ?MultipartStore
     {
         if (isset(self::$fakes[$disk])) {

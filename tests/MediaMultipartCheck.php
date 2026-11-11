@@ -26,11 +26,11 @@ use League\Flysystem\Local\LocalFilesystemAdapter;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 use Spatie\MediaLibrary\MediaLibraryServiceProvider;
+use Tey\Kit\Media\ConditionalCopyStore;
 use Tey\Kit\Media\KeptFileRemover;
 use Tey\Kit\Media\KeyPathGenerator;
 use Tey\Kit\Media\MediaRules;
 use Tey\Kit\Media\MediaUploads;
-use Tey\Kit\Media\Models\MediaUpload;
 use Tey\Kit\Media\MultipartStore;
 use Tey\Kit\Media\MultipartUploads;
 use Tey\Kit\Media\Operations\AbortMultipartUpload;
@@ -117,41 +117,47 @@ final class FakeMultipartStore implements MultipartStore
     }
 }
 
-/** A bucket that is not a local disk (so ConfirmUpload trusts a content-addressed key): local files behind it, an MD5 for the ETag, a hook per HEAD. */
-final class RemoteAdapter implements League\Flysystem\FilesystemAdapter, League\Flysystem\ChecksumProvider
+/** A store that also copies conditionally, recording each copy; `$plant` puts an object at the target first, as a racing writer would. */
+final class ConditionalFakeStore implements ConditionalCopyStore, MultipartStore
 {
-    public int $heads = 0;
+    /** @var list<array{string, string}> */
+    public array $copies = [];
 
-    /** @var ?Closure(int): void */
-    public ?Closure $onHead = null;
+    public ?string $plant = null;
 
-    public function __construct(public LocalFilesystemAdapter $inner) {}
+    public function __construct(public FakeMultipartStore $inner, private string $disk) {}
 
-    public function checksum(string $path, League\Flysystem\Config $config): string
+    public function create(string $key, string $mime, string $cacheControl, bool $checksums): string
     {
-        $this->heads++;
-        $this->onHead && ($this->onHead)($this->heads);
-
-        return md5($this->inner->read($path));
+        return $this->inner->create($key, $mime, $cacheControl, $checksums);
     }
 
-    public function fileExists(string $path): bool { return $this->inner->fileExists($path); }
-    public function directoryExists(string $path): bool { return $this->inner->directoryExists($path); }
-    public function write(string $path, string $contents, League\Flysystem\Config $config): void { $this->inner->write($path, $contents, $config); }
-    public function writeStream(string $path, $contents, League\Flysystem\Config $config): void { $this->inner->writeStream($path, $contents, $config); }
-    public function read(string $path): string { return $this->inner->read($path); }
-    public function readStream(string $path) { return $this->inner->readStream($path); }
-    public function delete(string $path): void { $this->inner->delete($path); }
-    public function deleteDirectory(string $path): void { $this->inner->deleteDirectory($path); }
-    public function createDirectory(string $path, League\Flysystem\Config $config): void { $this->inner->createDirectory($path, $config); }
-    public function setVisibility(string $path, string $visibility): void { $this->inner->setVisibility($path, $visibility); }
-    public function visibility(string $path): League\Flysystem\FileAttributes { return $this->inner->visibility($path); }
-    public function mimeType(string $path): League\Flysystem\FileAttributes { return $this->inner->mimeType($path); }
-    public function lastModified(string $path): League\Flysystem\FileAttributes { return $this->inner->lastModified($path); }
-    public function fileSize(string $path): League\Flysystem\FileAttributes { return $this->inner->fileSize($path); }
-    public function listContents(string $path, bool $deep): iterable { return $this->inner->listContents($path, $deep); }
-    public function move(string $source, string $destination, League\Flysystem\Config $config): void { $this->inner->move($source, $destination, $config); }
-    public function copy(string $source, string $destination, League\Flysystem\Config $config): void { $this->inner->copy($source, $destination, $config); }
+    public function presignPart(string $key, string $uploadId, int $part, int $bytes, ?string $sha256, DateTimeInterface $expiresAt): array
+    {
+        return $this->inner->presignPart($key, $uploadId, $part, $bytes, $sha256, $expiresAt);
+    }
+
+    public function complete(string $key, string $uploadId, array $parts): void
+    {
+        $this->inner->complete($key, $uploadId, $parts);
+    }
+
+    public function abort(string $key, string $uploadId): void
+    {
+        $this->inner->abort($key, $uploadId);
+    }
+
+    public function copyIfAbsent(string $from, string $to, int $bytes): bool
+    {
+        $this->copies[] = [$from, $to];
+        $this->plant !== null && Storage::disk($this->disk)->put($to, $this->plant);
+        if (Storage::disk($this->disk)->exists($to)) {
+            return false;
+        }
+        Storage::disk($this->disk)->copy($from, $to);
+
+        return true;
+    }
 }
 
 function check(bool $ok, string $message): void
@@ -278,7 +284,7 @@ try {
     $first = RequestMultipartUpload::run('ws:1', $rules, 'image/png', $bytes, strtoupper($sha), 'big-1', true);
     $array = $first->toArray();
     check($first->method === 'MULTIPART' && $array['upload_id'] === 'mpu-1' && count($array['parts']) === 2 && $array['parts'][0]['url'] === null && $store->count('presign') === 0, 'the first request starts the upload and lists the parts with no URLs until their SHA-256s are sent');
-    check($store->calls[0] === ['create', $first->upload->key, 'image/png', RequestUpload::CACHE_CONTROL, true] && $first->upload->fresh()->multipart_upload_id === 'mpu-1', 'the upload is created with the type, immutable Cache-Control and SHA-256 part checksums, and its id recorded');
+    check($store->calls[0] === ['create', MultipartUploads::stagingKey($first->upload->key, $first->upload->id), 'image/png', RequestUpload::CACHE_CONTROL, true] && $first->upload->fresh()->multipart_upload_id === 'mpu-1', 'the upload is created with the type, immutable Cache-Control and SHA-256 part checksums, and its id recorded');
     $pieces = [substr($body, 0, MultipartUploads::partLength($bytes, 1)), substr($body, MultipartUploads::partLength($bytes, 1))];
     $hashes = array_map(fn (string $piece): string => hash('sha256', $piece), $pieces);
     check(refusal(fn () => RequestMultipartUpload::run('ws:1', $rules, 'image/png', $bytes, $sha, 'big-1', true, [$hashes[0]])) === 'validation:part_sha256', 'part hashes that do not cover every part are refused');
@@ -348,60 +354,61 @@ try {
     $theirs = RequestMultipartUpload::run('ws:6', $lonely, 'image/png', $bytes, $sha, 'shared-id', true);
     check($mine->upload->id !== $theirs->upload->id && $mine->uploadId !== $theirs->uploadId, 'another scope with the same mutation id gets its own record and multipart upload');
 
-    // An object swapped at the key between complete's re-hash and the confirm (another upload's complete writing the same key) is refused: the
-    // confirm compares the checksum (ETag) complete read before its re-hash, a HEAD, not a second full read. On a bucket that is not a local disk.
-    $remote = new RemoteAdapter(new LocalFilesystemAdapter($base.'/remote'));
-    Storage::set('remote', new Illuminate\Filesystem\FilesystemAdapter(new Filesystem($remote), $remote, ['throw' => false]));
-    Storage::disk('remote')->buildTemporaryUploadUrlsUsing(fn (string $path): array => ['url' => 'https://remote.test/'.$path, 'headers' => []]);
-    $remoteStore = new FakeMultipartStore('remote');
-    MultipartUploads::fake('remote', $remoteStore);
-    $remoteRules = new MediaRules('remote', 'app/remote', ['image/png' => 'png'], 50 * $mib);
-    // Each its own prefix, so no ready record shares its key and a refused object is deleted.
-    $swap = function (string $tag) use ($remoteStore, $pieces, $hashes, $mib): MediaUpload {
-        $ticket = RequestMultipartUpload::run('ws:7:'.$tag, new MediaRules('remote', 'app/'.$tag, ['image/png' => 'png'], 50 * $mib), 'image/png', strlen(implode('', $pieces)), hash('sha256', implode('', $pieces)), $tag, true, $hashes);
-        $tags = [$remoteStore->put($ticket->uploadId, 1, $pieces[0]), $remoteStore->put($ticket->uploadId, 2, $pieces[1])];
-        $GLOBALS['swapParts'] = [['part' => 1, 'etag' => $tags[0], 'checksum' => base64_encode(hex2bin($hashes[0]))], ['part' => 2, 'etag' => $tags[1], 'checksum' => base64_encode(hex2bin($hashes[1]))]];
+    // Staging: the parts are joined at a per-record staging key, never at the content key, so nothing a client sends can swap or overwrite a
+    // content-addressed object; only a verified object is copied there, never over an existing one.
+    $stagedRules = new MediaRules('bucket', 'app/staged', ['image/png' => 'png'], 50 * $mib);
+    $begin = function (string $scope, string $tag, string $bytesIn) use ($stagedRules, $store, $hashes, $sha, $bytes): array {
+        $ticket = RequestMultipartUpload::run($scope, $stagedRules, 'image/png', $bytes, $sha, $tag, true, $hashes);
+        $split = [substr($bytesIn, 0, MultipartUploads::partLength($bytes, 1)), substr($bytesIn, MultipartUploads::partLength($bytes, 1))];
+        $tags = [$store->put($ticket->uploadId, 1, $split[0]), $store->put($ticket->uploadId, 2, $split[1])];
 
-        return $ticket->upload->fresh();
+        return [$ticket->upload->fresh(), [['part' => 1, 'etag' => $tags[0]], ['part' => 2, 'etag' => $tags[1]]]];
     };
-    $victim = $swap('swap-1');
-    // Same size and the same PNG header, so the size, type and dimensions all still match: only the checksum can tell.
-    $remote->onHead = function (int $head) use ($base, $victim, $tampered): void {
-        $head === 2 && file_put_contents($base.'/remote/'.$victim->key, $tampered);
-    };
-    check(refusal(fn () => CompleteMultipartUpload::run($victim, $GLOBALS['swapParts'])) === 'media.upload.mismatch' && $victim->fresh()->status === 'pending' && $victim->fresh()->multipart_upload_id === null, 'an object swapped after the re-hash and before the confirm is refused as a mismatch and the record left pending');
-    check(! Storage::disk('remote')->exists($victim->key) && $remote->heads === 2, 'the swapped object is deleted, and the confirm caught it with one more HEAD, not a re-read');
-    check(refusal(fn () => ConfirmUpload::run($victim->fresh())) === 'media.upload.missing', 'an ordinary confirm afterwards finds nothing to trust');
-    $remote->onHead = null;
-    $remote->heads = 0;
-    $honest = $swap('swap-2');
-    $done = CompleteMultipartUpload::run($honest, $GLOBALS['swapParts']);
-    check($done->ready() && $done->multipart_upload_id === null && $remote->heads === 2 && Storage::disk('remote')->get($done->key) === $body, 'an object left alone completes and confirms ready, with the checksum read once by complete and once by the confirm');
-
-    // The multipart id stays set until the internal confirm: an ordinary confirm racing it (another request, after S3 joined the parts) is refused.
-    $remote->heads = 0;
-    $raced = $swap('swap-3');
+    config(['kit.media.multipart.part_checksums' => false]);
+    $conditional = new ConditionalFakeStore($store, 'bucket');
+    MultipartUploads::fake('bucket', $conditional);
+    [$a, $aParts] = $begin('ws:9', 'stage-a', $body);
+    $staging = MultipartUploads::stagingKey($a->key, $a->id);
+    check($staging === dirname($a->key).'/.staging/'.$a->id && end($store->calls)[0] === 'presign', 'the staging key is per record, beside the content key');
     $racer = null;
-    $remote->onHead = function (int $head) use (&$racer, $raced): void {
-        $head === 1 && $racer = refusal(fn () => ConfirmUpload::run($raced->fresh()));
-    };
-    $won = CompleteMultipartUpload::run($raced, $GLOBALS['swapParts']);
-    check($racer === 'media.upload.multipart_pending' && $won->ready() && $won->multipart_upload_id === null, 'an ordinary confirm during complete is refused, and complete then confirms the record and clears its id');
-    // A failed checksum read (a HEAD error) fails closed: the object is deleted and the id cleared, so nothing is left to trust.
-    $remote->heads = 0;
-    $broken = $swap('swap-4');
-    $remote->onHead = function (int $head): void {
-        throw new RuntimeException('head failed');
-    };
-    check(refusal(fn () => CompleteMultipartUpload::run($broken, $GLOBALS['swapParts'])) === 'head failed' && ! Storage::disk('remote')->exists($broken->key) && $broken->fresh()->multipart_upload_id === null && $broken->fresh()->status === 'pending', 'a checksum read that throws deletes the object, clears the id and leaves the record pending');
-    $remote->onHead = null;
+    $conditional->plant = null;
+    $aReady = (function () use ($a, $aParts, &$racer) {
+        // An ordinary confirm while complete runs is refused: the multipart id stays set until the object is in place.
+        $racer = refusal(fn () => ConfirmUpload::run($a->fresh()));
 
-    // The single PUT on the same bucket is unchanged: no checksum read, the content-addressed key trusted as before.
-    $remote->heads = 0;
-    $put = RequestUpload::run('ws:8', $remoteRules, 'image/png', strlen($small), hash('sha256', $small), 'put-1');
-    Storage::disk('remote')->put($put->upload->key, $small);
-    check(ConfirmUpload::run($put->upload->fresh())->ready() && $remote->heads === 0, 'a single PUT confirms as before, with no checksum read');
-    MultipartUploads::fake('remote', null);
+        return CompleteMultipartUpload::run($a, $aParts);
+    })();
+    check($racer === 'media.upload.multipart_pending' && $aReady->ready() && $aReady->multipart_upload_id === null, 'a confirm before complete is refused; complete then confirms the record and clears its id');
+    check($conditional->copies === [[$staging, $a->key]] && Storage::disk('bucket')->get($a->key) === $body && ! Storage::disk('bucket')->exists($staging), 'the verified staged object is copied to the content key with a conditional copy, and the staging object deleted');
+
+    // Overwrite: another scope declares the same SHA-256 but sends other bytes of the same size and PNG header. They are refused at staging; the
+    // ready object at the content key is never written to.
+    [$b, $bParts] = $begin('ws:10', 'stage-b', $tampered);
+    $copies = count($conditional->copies);
+    check(refusal(fn () => CompleteMultipartUpload::run($b, $bParts)) === 'media.upload.mismatch' && Storage::disk('bucket')->get($a->key) === $body && count($conditional->copies) === $copies, 'other bytes for the same key are refused at staging, and the ready object is untouched');
+    check(! Storage::disk('bucket')->exists(MultipartUploads::stagingKey($b->key, $b->id)) && $b->fresh()->status === 'pending' && $b->fresh()->multipart_upload_id === null, 'the refused staging object is deleted and the record left pending with no id');
+
+    // The same bytes again while the key already holds them: the existing object is used (a HEAD for its size), not overwritten.
+    [$c, $cParts] = $begin('ws:11', 'stage-c', $body);
+    $cReady = CompleteMultipartUpload::run($c, $cParts);
+    check($cReady->ready() && $cReady->key === $a->key && Storage::disk('bucket')->get($a->key) === $body && ! Storage::disk('bucket')->exists(MultipartUploads::stagingKey($c->key, $c->id)), 'verified bytes for a key that already holds them reuse the object and drop the staging copy');
+
+    // A writer that lands an object of another size on the key just before the copy: the conditional copy refuses to overwrite it and the record fails closed.
+    $lonelyRules = new MediaRules('bucket', 'app/raced', ['image/png' => 'png'], 50 * $mib);
+    $ticket = RequestMultipartUpload::run('ws:12', $lonelyRules, 'image/png', $bytes, $sha, 'stage-d', true);
+    $dTags = [$store->put($ticket->uploadId, 1, $pieces[0]), $store->put($ticket->uploadId, 2, $pieces[1])];
+    $conditional->plant = 'planted';
+    check(refusal(fn () => CompleteMultipartUpload::run($ticket->upload->fresh(), [['part' => 1, 'etag' => $dTags[0]], ['part' => 2, 'etag' => $dTags[1]]])) === 'media.upload.mismatch' && Storage::disk('bucket')->get($ticket->upload->key) === 'planted' && $ticket->upload->fresh()->status === 'pending', 'an object that appears at the key first is never overwritten; a size mismatch fails closed');
+    $conditional->plant = null;
+
+    // A store without a conditional copy: HEAD-then-copy through the disk.
+    MultipartUploads::fake('bucket', $store);
+    $plainRules = new MediaRules('bucket', 'app/plain-copy', ['image/png' => 'png'], 50 * $mib);
+    $ticket = RequestMultipartUpload::run('ws:13', $plainRules, 'image/png', $bytes, $sha, 'stage-e', true);
+    $eTags = [$store->put($ticket->uploadId, 1, $pieces[0]), $store->put($ticket->uploadId, 2, $pieces[1])];
+    $eReady = CompleteMultipartUpload::run($ticket->upload->fresh(), [['part' => 1, 'etag' => $eTags[0]], ['part' => 2, 'etag' => $eTags[1]]]);
+    check($eReady->ready() && Storage::disk('bucket')->get($eReady->key) === $body && ! Storage::disk('bucket')->exists(MultipartUploads::stagingKey($eReady->key, $eReady->id)), 'a store without a conditional copy copies after a HEAD, and drops the staging object');
+    config(['kit.media.multipart.part_checksums' => true]);
 
     // The real S3 store, over a mocked S3 client (the SDK is optional, so a recording stand-in is declared when it is absent): the eligible disk,
     // the bucket and prefixed key, the signed part checksum, and what complete and abort send.
@@ -422,6 +429,7 @@ try {
     check(end($client->calls) === ['completeMultipartUpload', ['Bucket' => 'media-bucket', 'Key' => 'tenant-a/k/a.png', 'UploadId' => 's3-1', 'MultipartUpload' => ['Parts' => [['PartNumber' => 1, 'ETag' => '"e1"', 'ChecksumSHA256' => 'c2hh'], ['PartNumber' => 2, 'ETag' => '"e2"']]]]], 'complete sends each part number with its ETag and checksum');
     $real->abort('k/a.png', 's3-1');
     check(end($client->calls) === ['abortMultipartUpload', ['Bucket' => 'media-bucket', 'Key' => 'tenant-a/k/a.png', 'UploadId' => 's3-1']], 'abort sends the bucket, key and upload id');
+    check($real->copyIfAbsent('k/.staging/01', 'k/a.png', 10) && end($client->calls) === ['copyObject', ['Bucket' => 'media-bucket', 'Key' => 'tenant-a/k/a.png', 'CopySource' => 'media-bucket/tenant-a/k/.staging/01', 'IfNoneMatch' => '*']], 'the conditional copy is one CopyObject from the staging key with If-None-Match: *');
 
     echo "OK media multipart\n";
 } catch (Throwable $error) {

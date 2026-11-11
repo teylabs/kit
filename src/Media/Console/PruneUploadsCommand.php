@@ -30,7 +30,8 @@ use Throwable;
  * it is reported and the command exits nonzero. Stale rows are read in id chunks (`--chunk`, default 500).
  *
  * A stale row with an S3 multipart upload still open (`multipart_upload_id`) has it aborted first, so the bucket drops its parts. An abort that fails
- * keeps that key's rows and object, is reported and fails the run, like any other failure.
+ * keeps that key's rows and object, is reported and fails the run, like any other failure. On a disk that can do multipart, a stale row's staging
+ * object (MultipartUploads::stagingKey, left by a complete that died) is deleted after that, and a delete that fails keeps the rows the same way.
  */
 class PruneUploadsCommand extends Command
 {
@@ -137,6 +138,8 @@ class PruneUploadsCommand extends Command
                 foreach ($multipart as $upload) {
                     AbortMultipartUpload::run($upload);
                 }
+                // Then any staged object a complete left behind (deleted only after the abort, so no part can still be joined there).
+                $this->deleteStaging($disk, $key, $stale);
                 if ($exists && ! $referenced) {
                     $referenced = $this->referenced($disk, $key, $stale);
                     if (! $referenced && ! $storage->delete($key)) {
@@ -181,6 +184,26 @@ class PruneUploadsCommand extends Command
         }
 
         return MediaUpload::query()->whereKey($stale)->whereNotNull('multipart_upload_id')->get();
+    }
+
+    /**
+     * Deletes the staging objects (MultipartUploads::stagingKey) of stale rows on a disk that can do multipart. A delete the disk refuses throws, so
+     * the rows stay for the next run.
+     *
+     * @param  list<string>  $stale
+     */
+    private function deleteStaging(string $disk, string $key, array $stale): void
+    {
+        if ($stale === [] || MultipartUploads::store($disk) === null || ! MultipartUploads::hasColumn()) {
+            return;
+        }
+        $storage = Storage::disk($disk);
+        foreach ($stale as $id) {
+            $staging = MultipartUploads::stagingKey($key, $id);
+            if ($storage->exists($staging) && ! $storage->delete($staging)) {
+                throw new \RuntimeException('media.prune.delete_failed');
+            }
+        }
     }
 
     /** @param  list<string>  $stale */

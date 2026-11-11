@@ -344,7 +344,7 @@ try {
     $hashes = array_map(fn (string $piece): string => hash('sha256', $piece), $pieces);
     $first = RequestMultipartUpload::run('ws:3', $rules, 'image/png', strlen($big), $bigSha, 'm-1', true);
     $second = RequestMultipartUpload::run('ws:3', $rules, 'image/png', strlen($big), $bigSha, 'm-1', true, $hashes);
-    check($first->method === 'MULTIPART' && ! UploadSigning::contentAddressed($first->upload) && $store->calls[0][1] === $first->upload->key && $second->parts[0]['headers'] === ['x-amz-checksum-sha256' => base64_encode(hex2bin($hashes[0]))], 'content_type composes with multipart: a random key, and part checksums still signed while part_checksums is on');
+    check($first->method === 'MULTIPART' && ! UploadSigning::contentAddressed($first->upload) && $store->calls[0][1] === MultipartUploads::stagingKey($first->upload->key, $first->upload->id) && $second->parts[0]['headers'] === ['x-amz-checksum-sha256' => base64_encode(hex2bin($hashes[0]))], 'content_type composes with multipart: a random key, and part checksums still signed while part_checksums is on');
     $tags = [$store->put('mpu-1', 1, $pieces[0]), $store->put('mpu-1', 2, $pieces[1])];
     $reads = $adapter->reads;
     $done = CompleteMultipartUpload::run($first->upload->fresh(), [['part' => 1, 'etag' => $tags[0], 'checksum' => base64_encode(hex2bin($hashes[0]))], ['part' => 2, 'etag' => $tags[1], 'checksum' => base64_encode(hex2bin($hashes[1]))]]);

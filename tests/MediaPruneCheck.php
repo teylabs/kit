@@ -216,8 +216,18 @@ try {
     check($code !== 0 && MediaUpload::query()->find($openStale->id)?->multipart_upload_id === 'mpu-stale' && str_contains($output, 'not pruned: bucket:app/nn/open-stale.png'), 'an abort S3 refuses keeps the row and its upload id, is reported and fails the run');
     $recorder->refuse = false;
     [$code, $output] = prune();
-    check($code === 0 && $recorder->aborted === ['app/nn/open-stale.png#mpu-stale'] && MediaUpload::query()->find($openStale->id) === null && str_contains($output, 'S3 multipart uploads aborted: 1.'), 'a stale open multipart upload is aborted, then its row is pruned');
+    check($code === 0 && $recorder->aborted === ['app/nn/.staging/'.$openStale->id.'#mpu-stale'] && MediaUpload::query()->find($openStale->id) === null && str_contains($output, 'S3 multipart uploads aborted: 1.'), 'a stale open multipart upload is aborted, then its row is pruned');
     check(MediaUpload::query()->find($openRecent->id)?->multipart_upload_id === 'mpu-recent', 'a recent multipart upload is left open');
+    // A staging object left by a complete that died goes with its stale row; a delete the disk refuses keeps the row.
+    $staged = upload('ws:1', 'app/qq/staged.png', 'pending', 48, object: false);
+    $stagingKey = MultipartUploads::stagingKey('app/qq/staged.png', $staged->id);
+    $disk->put($stagingKey, 'joined');
+    $recentStaged = upload('ws:1', 'app/qq/recent.png', 'pending', 2, object: false);
+    $disk->put(MultipartUploads::stagingKey('app/qq/recent.png', $recentStaged->id), 'joined');
+    [$code] = prune(['--dry-run' => true]);
+    check($code === 0 && $disk->exists($stagingKey), 'a dry run leaves staging objects');
+    [$code] = prune();
+    check($code === 0 && ! $disk->exists($stagingKey) && MediaUpload::query()->find($staged->id) === null && $disk->exists(MultipartUploads::stagingKey('app/qq/recent.png', $recentStaged->id)), 'a stale row\'s staging object is deleted with it; a recent one is kept');
     MultipartUploads::fake('bucket', null);
     $orphan = upload('ws:1', 'app/pp/no-store.png', 'pending', 48, object: false);
     MediaUpload::query()->whereKey($orphan->id)->toBase()->update(['multipart_upload_id' => 'mpu-orphan']);

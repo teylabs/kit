@@ -6,26 +6,28 @@ use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Storage;
 use Lorisleiva\Actions\Concerns\AsAction;
 use RuntimeException;
+use Tey\Kit\Media\ConditionalCopyStore;
 use Tey\Kit\Media\Models\MediaUpload;
+use Tey\Kit\Media\MultipartStore;
 use Tey\Kit\Media\MultipartUploads;
-use Tey\Kit\Media\UploadSigning;
-use Tey\Kit\Media\VerifiedObjects;
 use Throwable;
 
 /**
  * Step three for an S3 multipart upload (docs/media.md › Large files): the client's parts are checked (one per part number, each with an ETag, and
- * its SHA-256 when part checksums are on), S3 joins them, and then the whole object is re-hashed as a stream and compared with the declared size and
- * SHA-256 before ConfirmUpload marks the record ready. Part checksums only cover transit; the re-hash is what proves the object is the declared
- * content, so content-addressed keys and dedupe stay sound. It reads the whole object once, which costs time and egress for a large file.
+ * its SHA-256 when part checksums are on) and S3 joins them at the record's staging key (MultipartUploads::stagingKey), never at its final key.
+ * The staged object is re-hashed as a stream and compared with the declared size and SHA-256; only then is it copied server-side to the final key
+ * and ConfirmUpload marks the record ready. Nothing a client uploads ever lands on a content-addressed key, so another upload can't swap or
+ * overwrite one. It reads the whole object once, which costs time and egress for a large file.
+ *
+ * Placing it: when the final key already holds an object (an earlier verified upload of the same bytes), its size is checked with a HEAD and it is
+ * used as it is; otherwise the staged object is copied with a conditional write (ConditionalCopyStore: `If-None-Match: *`, so it never overwrites),
+ * or, on a store without one, HEAD-then-copy through the disk. The staged object is then deleted either way. A random key (`content_type`) takes the
+ * same path; ConfirmUpload re-hashes it again as it does for any random key.
  *
  * Fails closed: bad parts are refused with nothing sent to S3 (`media.upload.bad_parts`); a refused complete aborts the upload
- * (`media.upload.incomplete`); a re-hash mismatch deletes the object, unless a ready record shares it, and refuses (`media.upload.mismatch`). The
- * record then stays pending with no multipart id, so the client starts again. A ready record is returned unchanged.
- *
- * The multipart id stays set until the confirm run here clears it with the ready write, so no other confirm can mark the record ready meanwhile.
- * For a content-addressed key, the object's checksum (the ETag on S3, one HEAD) is read before the re-hash and that confirm compares it again, so an
- * object replaced at the key after the re-hash is refused (`media.upload.mismatch`) without a second full read. Any failure after the complete
- * (checksum, re-hash or confirm) deletes the object unless a ready record shares it.
+ * (`media.upload.incomplete`); a re-hash mismatch, or a final key holding an object of another size, deletes the staged object and refuses
+ * (`media.upload.mismatch`), leaving the final key untouched. The multipart id stays set until the object is in place, so no ordinary confirm can
+ * mark the record ready meanwhile; it is cleared after either way, and the client starts again. A ready record is returned unchanged.
  */
 final class CompleteMultipartUpload
 {
@@ -40,48 +42,45 @@ final class CompleteMultipartUpload
         $uploadId = $upload->multipart_upload_id ?? throw new RuntimeException('media.upload.not_multipart');
         $store = MultipartUploads::store($upload->disk) ?? throw new RuntimeException('media.upload.multipart_unavailable');
         $parts = $this->parts($parts, MultipartUploads::partCount($upload->bytes), MultipartUploads::partChecksums());
+        $staging = MultipartUploads::stagingKey($upload->key, $upload->id);
         try {
-            $store->complete($upload->key, $uploadId, $parts);
+            $store->complete($staging, $uploadId, $parts);
         } catch (Throwable) {
             AbortMultipartUpload::run($upload);
 
             throw new RuntimeException('media.upload.incomplete');
         }
-        // The id is kept until the confirm has run, so every other confirm refuses the record meanwhile (`media.upload.multipart_pending`) and can't
-        // mark the joined object ready unverified; the confirm run here clears it as it marks the record ready, in one conditional write. A
-        // content-addressed key is trusted by ConfirmUpload, so the object's checksum (its ETag on S3: a HEAD) is read before the re-hash and handed
-        // to it; it reads it again and refuses the record if it changed. A random key (`content_type`) is re-hashed by ConfirmUpload itself. Any
-        // failure from here deletes the object (unless a ready record shares it) and clears the id, so the client starts again.
         $disk = Storage::disk($upload->disk);
         try {
-            $verified = UploadSigning::contentAddressed($upload) && $disk->exists($upload->key) ? $this->checksum($disk, $upload->key) : null;
-            if (! ($disk->exists($upload->key) && $disk->size($upload->key) === $upload->bytes && $this->hash($disk, $upload->key) === $upload->sha256)) {
+            if (! ($disk->exists($staging) && $disk->size($staging) === $upload->bytes && $this->hash($disk, $staging) === $upload->sha256)) {
                 throw new RuntimeException('media.upload.mismatch');
             }
-
-            return VerifiedObjects::during($upload->id, $uploadId, $verified, fn (): MediaUpload => ConfirmUpload::run($upload));
-        } catch (Throwable $error) {
-            $upload->refresh()->ready() || $this->discard($disk, $upload);
-
-            throw $error;
+            $this->place($store, $disk, $staging, $upload);
         } finally {
+            // The staged object goes whatever happened (a leftover is the pruner's); then the id, so ConfirmUpload accepts the record.
+            rescue(fn () => $disk->delete($staging), report: true);
             MediaUpload::query()->whereKey($upload->id)->where('multipart_upload_id', $uploadId)->update(['multipart_upload_id' => null]);
             $upload->refresh();
         }
+
+        return ConfirmUpload::run($upload);
     }
 
-    private function discard(Filesystem $disk, MediaUpload $upload): void
+    /** Copies the verified staged object to the final key without overwriting anything there; an object already there must be the declared size. */
+    private function place(MultipartStore $store, Filesystem $disk, string $staging, MediaUpload $upload): void
     {
-        if (! MediaUpload::query()->where('disk', $upload->disk)->where('key', $upload->key)->where('status', 'ready')->exists()) {
-            $disk->delete($upload->key);
+        $copied = $store instanceof ConditionalCopyStore
+            ? $store->copyIfAbsent($staging, $upload->key, $upload->bytes)
+            : ! $disk->exists($upload->key) && $disk->copy($staging, $upload->key);
+        if ($copied) {
+            return;
         }
-    }
-
-    private function checksum(Filesystem $disk, string $key): string
-    {
-        $checksum = $disk->checksum($key);
-
-        return is_string($checksum) && $checksum !== '' ? $checksum : throw new RuntimeException('media.upload.missing');
+        if (! $disk->exists($upload->key)) {
+            throw new RuntimeException('media.upload.incomplete');
+        }
+        if ($disk->size($upload->key) !== $upload->bytes) {
+            throw new RuntimeException('media.upload.mismatch');
+        }
     }
 
     /**
