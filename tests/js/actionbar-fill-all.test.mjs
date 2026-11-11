@@ -28,7 +28,7 @@ test('fillAll is a new optional boolean defaulting off; filled keeps its boolean
 test('fillAll applies on a pill only: the group is the primary pill with ButtonGroup\'s divider, semibold segments py-2, the first pl-3.5 and the rest px-3, disabled still dims', () => {
     assert.match(bar, /const fillAll = computed\(\(\) => pill\.value && props\.fillAll\);/);
     assert.match(bar, /fillAll\.value && 'rounded-full bg-primary text-primary-foreground shadow-xs \[&>\*:not\(:last-child\)\]:border-r \[&>\*:not\(:last-child\)\]:border-solid', fillAll\.value && !props\.dividerClass && '\[&>\*:not\(:last-child\)\]:border-primary-foreground\/25'\]/, 'ButtonGroup\'s divider, in a colour that reads on the fill unless the host gives dividerClass');
-    assert.match(bar, /if \(fillAll\.value\) return \[base\.replace\('font-medium', 'font-semibold'\), 'bg-transparent py-2 text-primary-foreground hover:bg-primary-foreground\/10', first \? 'pr-3 pl-3\.5' : 'px-3', props\.dividerClass\];/);
+    assert.match(bar, /if \(fillAll\.value\) return \[base\.replace\('font-medium', 'font-semibold'\), 'bg-transparent py-2 text-primary-foreground hover:bg-primary-foreground\/10', first \? 'pr-3 pl-3\.5' : 'px-3', props\.dividerClass \?\? ''\];/);
     assert.match(bar, /const base = '[^']*disabled:opacity-50';/, 'the shared base keeps the disabled dimming');
     assert.match(bar, /pill\.value \? 'h-9 px-3\.5' : 'h-9 px-3'/, 'the default pill padding is unchanged');
     assert.equal((bar.match(/segment\(filled\([^)]*\)\)?, index === 0\)/g) ?? []).length, 2, 'both pill paths mark the first segment');

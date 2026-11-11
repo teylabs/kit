@@ -193,7 +193,7 @@ function segment(filled: boolean, first = false): string[] {
             base.replace('font-medium', 'font-semibold'),
             'bg-transparent py-2 text-primary-foreground hover:bg-primary-foreground/10',
             first ? 'pr-3 pl-3.5' : 'px-3',
-            props.dividerClass,
+            props.dividerClass ?? '',
         ];
     return [
         base,
