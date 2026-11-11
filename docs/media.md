@@ -35,7 +35,9 @@ Keys are content-addressed: `<prefix>/<sha[0..2]>/<sha256>.<ext>`.
 
 A file uploaded through the app (a note's attachment, an avatar) passes three limits before it's kept: the kit's own cap for it (`kit.notes.media.max_kb`, `kit.avatar.max_kb`), PHP's `upload_max_filesize` and `post_max_size`, and medialibrary's `max_file_size`. `Tey\Kit\Features\Core\UploadLimit::cap($bytes)` (`capKb()` for Laravel's `max:` rule) is the lowest of them. The kit's validation and the size its pages show both use it, so a page never promises more than the stack accepts, and an oversized file is refused up front with a 422 instead of failing when it's kept.
 
-To raise a limit, raise all three. `php artisan kit:preflight` lists each kit cap that PHP or medialibrary would cut down, naming the setting.
+To raise a limit, raise all three. The notes cap is `KIT_NOTES_MAX_KB` in `.env` (default 10240), so it can be raised without copying the whole `kit.notes` block. `php artisan kit:preflight` warns for each kit cap that PHP or medialibrary would cut down, naming the setting and both values ("notes attachments: 10.0 MB, but PHP's upload_max_filesize allows 2.0 MB"); the cap itself still drops to the lower limit.
+
+BulkDrop shows the size limit as its hint ("Up to 10.0 MB each") when no `hint` is given. Pass `:show-limit="false"` to leave it out; with no `hint` either, no hint line is rendered.
 
 Direct-to-bucket uploads (below) never pass through PHP: their limit is the `MediaRules` `maxBytes` alone.
 

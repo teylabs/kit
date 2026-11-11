@@ -7,6 +7,7 @@ require $argv[1] ?? dirname(__DIR__).'/vendor/autoload.php';
 
 use Illuminate\Config\Repository;
 use Illuminate\Container\Container;
+use Tey\Kit\Features\Core\Deploy\PreflightCommand;
 use Tey\Kit\Features\Core\UploadLimit;
 
 function limitCheck(bool $ok, string $message): void
@@ -58,6 +59,34 @@ try {
         'notes attachments: 10.0 MB, but medialibrary\'s max_file_size allows 5.0 MB',
     ], 'the preflight report names each cap the stack cuts down, by setting, and leaves out a cap that fits (avatar 1 MB)');
     limitCheck(underLimits('100M', '100M', null, 'return Tey\Kit\Features\Core\UploadLimit::shortfalls(["notes attachments" => 10 * 1024 ** 2]);') === [], 'nothing to report when every limit is above the kit caps');
+
+    // The fake() seam: the same report without a child PHP, and the real ini is never touched. kit:preflight's warning reads the configured caps through it.
+    $real = [ini_get('upload_max_filesize'), ini_get('post_max_size')];
+    try {
+        UploadLimit::fake(['upload_max_filesize' => '2M', 'post_max_size' => '100M']);
+        limitCheck(UploadLimit::php() === 2 * $mb && UploadLimit::cap(10 * $mb) === 2 * $mb, 'fake(): php() and cap() read the faked upload_max_filesize');
+        $container->instance('config', new Repository(['kit' => ['avatar' => ['max_kb' => 1024], 'notes' => ['media' => ['max_kb' => 10240]]]]));
+        limitCheck(PreflightCommand::uploadShortfalls() === ['notes attachments: 10.0 MB, but PHP\'s upload_max_filesize allows 2.0 MB'], 'kit:preflight warns for a configured cap above PHP\'s limit, naming the setting and both values; the avatar cap that fits is left out');
+        $container->instance('config', new Repository(['kit' => ['avatar' => ['max_kb' => 1024]]]));
+        limitCheck(PreflightCommand::uploadShortfalls() === [], 'no notes config, no notes warning');
+    } finally {
+        UploadLimit::fake(null);
+        $container->instance('config', new Repository([]));
+    }
+    $realLimits = array_filter([UploadLimit::bytes((string) $real[0]), UploadLimit::bytes((string) $real[1])]);
+    limitCheck([ini_get('upload_max_filesize'), ini_get('post_max_size')] === $real && UploadLimit::php() === ($realLimits === [] ? null : min($realLimits)), 'fake(null) reads the real ini again, which was never changed');
+
+    // kit.notes.media.max_kb comes from KIT_NOTES_MAX_KB (default 10240), so an app sets it without copying the whole notes block.
+    $notesKb = function (?string $value): mixed {
+        $value === null ? putenv('KIT_NOTES_MAX_KB') : putenv('KIT_NOTES_MAX_KB='.$value);
+        try {
+            return (require dirname(__DIR__).'/config/kit.php')['notes']['media']['max_kb'];
+        } finally {
+            putenv('KIT_NOTES_MAX_KB');
+        }
+    };
+    limitCheck($notesKb(null) === 10240, 'kit.notes.media.max_kb defaults to 10240 without KIT_NOTES_MAX_KB');
+    limitCheck($notesKb('25600') === 25600, 'KIT_NOTES_MAX_KB=25600 sets kit.notes.media.max_kb to 25600 (an int)');
 
     echo "Upload limits: UploadLimit in child PHP processes with real ini values; no HTTP, host or browser (the Notes page and its 422 are in NotesCheck).\n";
 } catch (Throwable $error) {

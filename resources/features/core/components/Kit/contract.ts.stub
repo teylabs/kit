@@ -974,6 +974,8 @@ export interface BulkDropProps {
     handleDrops?: boolean;
     prompt?: string;
     hint?: string;
+    /** Show the size limit as the hint when no `hint` is given (default true). */
+    showLimit?: boolean;
     disabled?: boolean;
     compact?: boolean;
     busy?: string;

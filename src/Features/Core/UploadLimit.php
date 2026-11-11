@@ -9,6 +9,20 @@ namespace Tey\Kit\Features\Core;
  */
 final class UploadLimit
 {
+    /** @var array<string, string>|null ini values a check reads instead of PHP's (fake()); null reads the real ini. */
+    private static ?array $ini = null;
+
+    /**
+     * A seam for checks: read these ini values (upload_max_filesize, post_max_size) instead of PHP's, which can't be changed at runtime. A key left out
+     * reads the real value. Null goes back to the real ini; call it in a `finally`.
+     *
+     * @param  array<string, string>|null  $ini
+     */
+    public static function fake(?array $ini): void
+    {
+        self::$ini = $ini;
+    }
+
     /** The effective cap, in bytes, for a kit cap of `$bytes`. */
     public static function cap(int $bytes): int
     {
@@ -24,7 +38,7 @@ final class UploadLimit
     /** PHP's own bound on one uploaded file: the lower of upload_max_filesize and post_max_size; null when neither is set. */
     public static function php(): ?int
     {
-        $limits = array_filter([self::bytes((string) ini_get('upload_max_filesize')), self::bytes((string) ini_get('post_max_size'))], fn (?int $limit): bool => $limit !== null);
+        $limits = array_filter([self::bytes(self::ini('upload_max_filesize')), self::bytes(self::ini('post_max_size'))], fn (?int $limit): bool => $limit !== null);
 
         return $limits === [] ? null : min($limits);
     }
@@ -47,7 +61,7 @@ final class UploadLimit
     {
         $found = [];
         foreach ($caps as $name => $bytes) {
-            foreach (['PHP\'s upload_max_filesize' => self::bytes((string) ini_get('upload_max_filesize')), 'PHP\'s post_max_size' => self::bytes((string) ini_get('post_max_size')), 'medialibrary\'s max_file_size' => self::media()] as $limit => $allows) {
+            foreach (['PHP\'s upload_max_filesize' => self::bytes(self::ini('upload_max_filesize')), 'PHP\'s post_max_size' => self::bytes(self::ini('post_max_size')), 'medialibrary\'s max_file_size' => self::media()] as $limit => $allows) {
                 if ($allows !== null && $allows < $bytes) {
                     $found[] = sprintf('%s: %s, but %s allows %s', $name, self::megabytes($bytes), $limit, self::megabytes($allows));
                 }
@@ -71,6 +85,11 @@ final class UploadLimit
             'G' => 1024 ** 3,
             default => 1,
         };
+    }
+
+    private static function ini(string $key): string
+    {
+        return self::$ini[$key] ?? (string) ini_get($key);
     }
 
     private static function megabytes(int $bytes): string
