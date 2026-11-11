@@ -89,7 +89,9 @@ With the settings feature, each workspace has **Settings → Email sending**. Ev
 
 - **Sender name.** The workspace's name unless the workspace sets one.
 - **From.** The platform address (`mail.from.address`), or an address on the workspace's own domain:
-  - Saving a domain creates `send.<domain>` at the mail provider, and the page shows its DNS records to copy, with a status: pending, verified or failed.
+  - The page recommends the domain itself (`from_mode: 'root'` on save): mail goes from `<local>@<domain>`. Under **Advanced**, the send. subdomain (`from_mode: 'domain'`) goes from `<local>@send.<domain>` instead. Both are stored as `domain`, with the domain as the provider holds it, so a row's choice is read from its `send.` prefix and an existing send. setup stays on it until someone picks another.
+  - Saving a domain creates it at the mail provider, and the page shows its DNS records as a list to copy, each with a status: pending, verified or failed.
+  - "Mail will show as" previews the From line and Replies-to as the form is typed; the line under it shows the address mail goes from right now, as the server resolved it.
   - **Check now** asks the provider to verify the domain.
   - Until the domain is verified, mail keeps the platform address with the workspace's sender name, so a pending or failed domain never stops mail.
   - Switching back to the platform address keeps the domain, so switching again doesn't create it twice.

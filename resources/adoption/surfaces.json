@@ -2279,7 +2279,8 @@
       "uses": {
         "imports": [
           "@/components/Kit:ScrollList",
-          "@/components/Kit:DescriptionList"
+          "@/components/Kit:DescriptionList",
+          "@/components/Kit:CopyButton"
         ]
       },
       "handRolled": [
@@ -3329,6 +3330,26 @@
     }
   ],
   "nonSurfaces": [
+    {
+      "ref": "@/components/Kit:fromLine",
+      "reason": "Label helper behind Settings › Email sending (the From line)."
+    },
+    {
+      "ref": "@/components/Kit:fromPreview",
+      "reason": "Label helper behind Settings › Email sending (the live address preview)."
+    },
+    {
+      "ref": "@/components/Kit:recordKind",
+      "reason": "Label helper behind Settings › Email sending (what a DNS record is for)."
+    },
+    {
+      "ref": "@/components/Kit:fullRecordName",
+      "reason": "Label helper behind Settings › Email sending (a DNS record's full name)."
+    },
+    {
+      "ref": "@/components/Kit:checkedAtLabel",
+      "reason": "Label helper behind Settings › Email sending (Last checked in the viewer's timezone)."
+    },
     {
       "ref": "@/components/Kit:alertVariants",
       "reason": "Styling helper behind Alert."

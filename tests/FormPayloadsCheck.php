@@ -249,6 +249,15 @@ try {
     httpCheck($row !== null && $row->sender_name === 'Northwind Support' && $row->from_mode === 'domain' && $row->domain === 'send.northwind.example' && $row->from_local === 'news' && $row->reply_to_mode === 'custom' && $row->reply_to_address === 'help@northwind.example', 'Email sending: every value is stored, the domain on its send. subdomain');
     httpCheck($fake->calls === [['create', 'send.northwind.example']], 'Email sending: the domain is added at the (fake) provider once');
 
+    // Email sending, the domain itself (the page's recommended choice): posted as root, stored as domain without send.
+    $root = $fresh('root');
+    $fake->calls = [];
+    $result = $save($root, 'settings/email', $fixture('email-root'));
+    httpCheck($saved($result, 'https://kit.test/@root/settings/email'), 'Email sending, the domain itself: the recorded payload saves, redirecting to the page with no errors'.$describe($result));
+    $row = DB::table('workspace_mail_identities')->where('workspace_id', $root->id)->first();
+    httpCheck($row !== null && $row->from_mode === 'domain' && $row->domain === 'northwind.example' && $row->from_local === 'news', 'Email sending, the domain itself: stored as domain, with no send. prefix');
+    httpCheck($fake->calls === [['create', 'northwind.example']], 'Email sending, the domain itself: the bare domain is added at the (fake) provider once');
+
     // Email sending, back to the platform address (the RadioCardGroup's other choice) with an emptied sender name.
     $platform = $fresh('platform');
     $result = $save($platform, 'settings/email', $fixture('email-platform'));

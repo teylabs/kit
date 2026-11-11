@@ -323,6 +323,39 @@ try {
     $m = $mail($workspace, $people['member']);
     httpCheck($status === 200 && $body['domain'] === 'send.acme.example' && $m['from'] === ['platform@kit.test', 'Acme'] && $m['reply_to'] === [['support@kit.test', 'Kit support']], 'switching back to the platform address keeps the domain for later; the fixed reply-to is the platform\'s');
 
+    // Root-domain sending: the page's `root` choice stores the domain itself, as `domain`; an existing send. setup keeps its subdomain until someone picks another.
+    $row = fn () => DB::table('workspace_mail_identities')->where('workspace_id', $workspace->getKey())->first();
+    [$status, $body] = $call('admin', 'GET', '');
+    httpCheck($status === 200 && $body['domain'] === 'send.acme.example' && $row()->domain === 'send.acme.example', '(b) reading Email sending leaves an existing send. domain as it is: nothing migrates it');
+    $version = $body['version'];
+    [$status, $body] = $call('admin', 'PUT', '', ['sender_name' => '', 'from_mode' => 'domain', 'domain' => 'acme.example', 'from_local' => 'reports', 'reply_to_mode' => 'fixed', 'expected_version' => $version]);
+    httpCheck($status === 200 && $body['from_mode'] === 'domain' && $body['domain'] === 'send.acme.example' && $row()->domain === 'send.acme.example', '(b) a save that keeps the domain choice keeps the send. subdomain; a bare domain posted as domain still gets send. (the server default is unchanged)');
+    $creates = count(array_filter($fake->calls, fn ($c) => $c[0] === 'create'));
+    [$status, $body] = $call('admin', 'PUT', '', ['sender_name' => '', 'from_mode' => 'root', 'domain' => 'send.acme.example', 'from_local' => 'reports', 'reply_to_mode' => 'fixed', 'expected_version' => $body['version']]);
+    httpCheck($status === 422 && str_contains($body['errors']['domain'][0], 'without send.') && $row()->domain === 'send.acme.example' && count(array_filter($fake->calls, fn ($c) => $c[0] === 'create')) === $creates, 'root refuses a send. domain (it would read back as the subdomain), creating and changing nothing');
+    $fake->calls = [];
+    $version = (int) $row()->version;
+    [$status, $body] = $call('admin', 'PUT', '', ['sender_name' => 'Acme Mail', 'from_mode' => 'root', 'domain' => 'Acme.Example', 'from_local' => 'Reports', 'reply_to_mode' => 'fixed', 'expected_version' => $version]);
+    httpCheck($status === 200 && $fake->calls === [['create', 'acme.example']] && $row()->from_mode === 'domain' && $row()->domain === 'acme.example' && $body['from_mode'] === 'domain' && $body['domain'] === 'acme.example' && $body['domain_status'] === 'pending', '(a) saving root stores the domain itself, lowercased, with no send. prefix, created at the provider as such; the stored mode is still domain');
+    httpCheck($body['effective_from'] === 'platform@kit.test' && $mail($workspace)['from'] === ['platform@kit.test', 'Acme Mail'], '(c) until the root domain is verified effective_from is the platform address, and mail goes from it');
+    $fake->next = 'verified';
+    [$status, $body] = $call('admin', 'POST', '/domain-checks');
+    httpCheck($status === 200 && $body['effective_from'] === 'reports@acme.example' && $mail($workspace)['from'] === ['reports@acme.example', 'Acme Mail'], '(c) once verified effective_from is <local>@<domain> with no send., the address mail actually uses');
+    [$status, $body] = $call('member', 'PUT', '', ['sender_name' => 'Hijack', 'from_mode' => 'root', 'domain' => 'evil.example', 'reply_to_mode' => 'fixed', 'expected_version' => $body['version']]);
+    httpCheck($status === 403 && $row()->domain === 'acme.example', 'a member cannot save root, and nothing changes');
+    $version = (int) $row()->version;
+    [$status] = $call('admin', 'PUT', '', ['sender_name' => 'Stale', 'from_mode' => 'root', 'domain' => 'other.example', 'reply_to_mode' => 'fixed', 'expected_version' => $version - 1]);
+    httpCheck($status === 409 && $row()->domain === 'acme.example', 'a stale root save is refused with 409 and changes nothing');
+    httpCheck($mail($other)['from'] === ['platform@kit.test', 'Beta'], 'another workspace\'s mail is untouched by root');
+    // Switching modes: root to the send. subdomain and back, each an explicit choice, each domain created once at the provider.
+    $fake->calls = [];
+    [$status, $body] = $call('admin', 'PUT', '', ['sender_name' => 'Acme Mail', 'from_mode' => 'domain', 'domain' => 'acme.example', 'from_local' => 'reports', 'reply_to_mode' => 'fixed', 'expected_version' => $version]);
+    httpCheck($status === 200 && $body['domain'] === 'send.acme.example' && $fake->calls === [['create', 'send.acme.example']] && $body['effective_from'] === 'platform@kit.test', 'switching root to the send. subdomain stores send.<domain>, creates it, and mail keeps the platform address until it is verified');
+    [$status, $body] = $call('admin', 'PUT', '', ['sender_name' => 'Acme Mail', 'from_mode' => 'root', 'domain' => 'acme.example', 'from_local' => 'reports', 'reply_to_mode' => 'fixed', 'expected_version' => $body['version']]);
+    httpCheck($status === 200 && $body['domain'] === 'acme.example' && $fake->calls === [['create', 'send.acme.example'], ['create', 'acme.example']], 'switching back to root stores the domain itself again');
+    [$status, $body] = $call('admin', 'PUT', '', ['sender_name' => 'Acme Mail', 'from_mode' => 'platform', 'reply_to_mode' => 'fixed', 'expected_version' => $body['version']]);
+    httpCheck($status === 200 && $body['from_mode'] === 'platform' && $body['domain'] === 'acme.example' && $body['effective_from'] === 'platform@kit.test' && $mail($workspace)['from'] === ['platform@kit.test', 'Acme Mail'], 'switching root to the platform address keeps the domain for later and mails from the platform');
+
     // The page posts only its own fields: a stray browser field is dropped and the save goes through; a bad value comes back inline on its field.
     $app['session.store']->forget('errors');
     [$status] = $call('admin', 'PUT', '', ['sender_name' => 'Acme Desk', 'from_mode' => 'platform', 'reply_to_mode' => 'fixed', 'expected_version' => $body['version'], 'stray_field' => 'x', 'remember' => '1'], inertia: true);
