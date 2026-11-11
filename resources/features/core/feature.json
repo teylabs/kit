@@ -912,6 +912,16 @@
       "scaffold": "kit",
       "ownership": "generated"
     },
+    "resources/js/components/Kit/Action/CopyButton.vue": {
+      "stub": "components/Kit/Action/CopyButton.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/components/Kit/Data/mailSending.ts": {
+      "stub": "components/Kit/Data/mailSending.ts.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
     "resources/js/components/Kit/Layout/DescriptionList.vue": {
       "stub": "components/Kit/Layout/DescriptionList.vue.stub",
       "scaffold": "kit",

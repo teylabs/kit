@@ -17,8 +17,10 @@ use Tey\Kit\Features\Workspaces\Workspaces;
  * Workspace mail identity: who a workspace's mail says it is from, which address it goes from, and where replies go.
  *
  * - Sender name: the workspace's name unless set.
- * - From: the platform address, or `<local>@send.<domain>` once the workspace's own domain is verified at the provider. Until then mail keeps
- *   the platform address (with the workspace's sender name), so a pending or failed domain never stops mail.
+ * - From: the platform address, or `<local>@<domain>` once the workspace's own domain is verified at the provider. Until then mail keeps
+ *   the platform address (with the workspace's sender name), so a pending or failed domain never stops mail. The domain is stored as the
+ *   provider holds it: `send.<domain>` for the `domain` mode, or the domain itself when the save chose `root`. Both are stored as `domain`,
+ *   so a row's mode is read from its prefix and an existing `send.` row keeps its subdomain until someone saves another choice.
  * - Reply-To: the member who sent the mail (`member`, falling back to the platform's reply-to when a mail has no sender), the platform's fixed
  *   reply-to address (`fixed`), or an address the workspace sets (`custom`).
  *
@@ -45,16 +47,24 @@ final class WorkspaceMailIdentity
         }
         $data = Validator::make($input, [
             'sender_name' => ['nullable', 'string', 'max:120', 'not_regex:/[\r\n<>"]/'],
-            'from_mode' => ['required', 'in:platform,domain'],
-            'domain' => ['nullable', 'required_if:from_mode,domain', 'string', 'max:200', 'regex:/^(?!-)(?:[a-z0-9-]{1,63}(?<!-)\.)+[a-z]{2,63}$/i'],
+            'from_mode' => ['required', 'in:platform,domain,root'],
+            'domain' => ['nullable', 'required_if:from_mode,domain,root', 'string', 'max:200', 'regex:/^(?!-)(?:[a-z0-9-]{1,63}(?<!-)\.)+[a-z]{2,63}$/i'],
             'from_local' => ['nullable', 'string', 'max:64', 'regex:/^[a-z0-9][a-z0-9._+-]*$/i'],
             'reply_to_mode' => ['required', 'in:member,fixed,custom'],
             'reply_to_address' => ['nullable', 'required_if:reply_to_mode,custom', 'email:rfc', 'max:254'],
             'expected_version' => ['required', 'integer', 'min:1'],
         ])->validate();
+        // `root` sends from the domain itself; a send. domain there would read back as the subdomain mode, so it is refused rather than guessed.
+        if ($data['from_mode'] === 'root' && preg_match('/^send\./i', (string) $data['domain'])) {
+            throw ValidationException::withMessages(['domain' => 'Enter the domain itself, without send., or choose the send. subdomain under Advanced.']);
+        }
         $workspace = app(Access::class)->authorize($principal, 'settings.write');
-        // The domain the provider holds: the workspace's own domain under send., so its root domain's mail setup is untouched.
-        $domain = $data['from_mode'] === 'domain' ? 'send.'.preg_replace('/^send\./i', '', strtolower((string) $data['domain'])) : null;
+        // The domain the provider holds: under send. for `domain`, so the root domain's mail setup is untouched; the domain itself for `root`.
+        $domain = match ($data['from_mode']) {
+            'domain' => 'send.'.preg_replace('/^send\./i', '', strtolower((string) $data['domain'])),
+            'root' => strtolower((string) $data['domain']),
+            default => null,
+        };
         $current = DB::table(self::TABLE)->where('workspace_id', $workspace->getKey())->first();
         if ((int) ($current->version ?? 1) !== (int) $data['expected_version']) {
             throw new RuntimeException('stale_mail_identity');
@@ -78,7 +88,8 @@ final class WorkspaceMailIdentity
             }
             $values = [
                 'sender_name' => filled($data['sender_name'] ?? null) ? trim((string) $data['sender_name']) : null,
-                'from_mode' => $data['from_mode'],
+                // `root` is stored as `domain` with the bare domain: the stored modes stay platform and domain.
+                'from_mode' => $data['from_mode'] === 'root' ? 'domain' : $data['from_mode'],
                 'from_local' => strtolower((string) ($data['from_local'] ?? '')) ?: 'hello',
                 'reply_to_mode' => $data['reply_to_mode'],
                 'reply_to_address' => $data['reply_to_mode'] === 'custom' ? $data['reply_to_address'] : null,

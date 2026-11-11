@@ -444,6 +444,17 @@ export {
     type DateTimeOptions,
 } from './Data/dateTime';
 export { useTimezone } from './Data/useTimezone';
+// Settings › Email sending's labels: the From line, the live address preview, each DNS record's purpose and full name, and Last checked in the viewer's zone.
+export {
+    checkedAtLabel,
+    fromLine,
+    fromPreview,
+    fullRecordName,
+    recordKind,
+    type MailDnsRecord,
+} from './Data/mailSending';
+// A button that copies a value, claiming success only once the clipboard write resolves.
+export { default as CopyButton } from './Action/CopyButton.vue';
 export { default as SortableList } from './Data/SortableList.vue';
 export { default as SortableHandle } from './Data/SortableHandle.vue';
 export {
