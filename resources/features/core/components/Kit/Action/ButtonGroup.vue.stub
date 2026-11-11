@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ChevronDown } from '@lucide/vue';
-import { computed } from 'vue';
+import { computed, nextTick } from 'vue';
+import { mixedIconsWarning } from '@/components/Kit/Action/actionIcons';
 import MenuPanel from '@/components/Kit/Menu/MenuPanel.vue';
 import MenuTrigger from '@/components/Kit/Menu/MenuTrigger.vue';
 
@@ -55,6 +56,24 @@ const disabled =
 // child's own border) wins and erases it. A right border on every segment but the last, listed after the reset, outranks it.
 const dividers =
     '[&>*:not(:last-child)]:border-r [&>*:not(:last-child)]:border-solid [&>*:not(:last-child)]:border-outline';
+// Dev builds only: when the open menu's rows mix icons and no icons, warn once for this group (mixedIconsWarning). A row's icon is an svg among its own
+// children or its link's. ActionMenuItems rows warn for themselves (their spacer marks them), so they are not counted twice.
+const warnMixed = mixedIconsWarning('ButtonGroup menu');
+function checkIcons(el: unknown): void {
+    if (!import.meta.env?.DEV || !(el instanceof HTMLElement)) return;
+    void nextTick(() => {
+        if (el.querySelector('[data-menu-icon-spacer]')) return;
+        warnMixed(
+            [
+                ...el.querySelectorAll<HTMLElement>(
+                    '[role="menuitem"], [role="menuitemcheckbox"]',
+                ),
+            ].map((row) =>
+                Boolean(row.querySelector(':scope > svg, :scope > * > svg')),
+            ),
+        );
+    });
+}
 </script>
 <template>
     <div
@@ -122,7 +141,7 @@ const dividers =
                 >
                     <slot name="menuheader" />
                 </div>
-                <div class="py-1"><slot name="menu" /></div>
+                <div :ref="checkIcons" class="py-1"><slot name="menu" /></div>
             </MenuPanel>
         </div>
     </div>

@@ -152,23 +152,45 @@ export function menuItemRole(action: {
         : 'menuitem';
 }
 
-/** The icon name an action shows: its own, else `plus` for a label starting Add, New or Create, else the menu's key fallbacks (`edit`, `payment`). */
+/**
+ * The icon name an action shows: its own, else `plus` for a label starting Add, New or Create, else, in a menu, the common intents by key, then by label:
+ * `edit` pencil, `payment` credit-card, `reopen`/`re-open` lock-open, `cancel`/`decline` x, `merge` merge, `delete`/`remove` trash, `download` download. An explicit `icon` always wins.
+ */
+const menuKeyIcons = new Map<string, string>(
+    Object.entries({
+        edit: 'pencil',
+        payment: 'credit-card',
+        reopen: 'lock-open',
+        're-open': 'lock-open',
+        cancel: 'x',
+        decline: 'x',
+        merge: 'merge',
+        delete: 'trash',
+        remove: 'trash',
+        download: 'download',
+    }),
+);
+const menuLabelIcons: [RegExp, string][] = [
+    [/^Edit\b/i, 'pencil'],
+    [/^Re-?open\b/i, 'lock-open'],
+    [/^(Cancel|Decline)\b/i, 'x'],
+    [/^Merge\b/i, 'merge'],
+    [/^(Delete|Remove)\b/i, 'trash'],
+    [/^Download\b/i, 'download'],
+];
 export function actionIconName(
     action: { label: string; icon?: string | null; key?: string | null },
     menu = false,
 ): string | null {
     if (action.icon) return action.icon;
     if (/^(Add|New|Create)\b/.test(action.label)) return 'plus';
-    if (menu)
-        return (
-            (
-                { edit: 'pencil', payment: 'credit-card' } as Record<
-                    string,
-                    string
-                >
-            )[action.key ?? ''] ?? null
-        );
-    return null;
+    if (!menu) return null;
+    const key = (action.key ?? '').toLowerCase();
+    return (
+        menuKeyIcons.get(key) ??
+        menuLabelIcons.find(([pattern]) => pattern.test(action.label))?.[1] ??
+        null
+    );
 }
 
 /** Whether the label shows the new-tab arrow: an explicit `newTab`, else document intent. It describes the link; it does not change navigation. */

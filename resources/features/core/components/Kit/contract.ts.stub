@@ -838,6 +838,8 @@ export interface ActionBarProps {
     primary?: boolean;
     /** Opt-in: the leading segment takes the primary fill on the outline (ButtonGroup) path too, not only semibold. Implies `primary`. */
     filled?: boolean;
+    /** Opt-in, for a phone header: never compacts into a More menu; every action stays visible and the bar wraps onto rows. */
+    wrap?: boolean;
 }
 /** ButtonGroup (ButtonGroup.md): raw `button`/`a`/`Link` children in the default slot, styled by the group; menu entries in `menu`; `label` names the trigger; `offset` is [skid, gap]. */
 export interface ButtonGroupProps {

@@ -12,16 +12,17 @@ const bar = read('Action/ActionBar.vue.stub');
 const group = read('Action/ButtonGroup.vue.stub');
 
 test('filled is an optional prop defaulting off, so the outline path stays semibold only unless a host opts in', () => {
-    assert.match(bar, /filled\?: boolean\}>/);
-    assert.match(bar, /filled: false\}/);
-    assert.match(read('contract.ts.stub'), /interface ActionBarProps \{[^}]*primary\?: boolean; filled\?: boolean\}/);
+    assert.match(bar, /filled\?: boolean;/);
+    assert.match(bar, /filled: false[,}]/);
+    assert.match(read('contract.ts.stub'), /interface ActionBarProps \{[^}]*primary\?: boolean; filled\?: boolean[;}]/);
     const lead = bar.match(/const lead = \(index: number\) => ([^;]+);/)?.[1];
     assert.ok(lead, 'lead() decides the leading segment class');
     assert.match(lead, /'primary-action font-semibold!'/);
     assert.match(lead, /props\.filled && 'bg-primary! text-primary-foreground!/);
     assert.match(bar, /const filled = \(index: number\) => \(props\.primary \|\| props\.filled\) && index === 0;/);
     // Both ButtonGroup layouts (full and compact) use it.
-    assert.equal((bar.match(/:class="lead\(index\)"/g) ?? []).length, 2);
+    assert.equal((bar.match(/:class="lead\(index\)"/g) ?? []).length, 1);
+    assert.equal((bar.match(/:class="lead\(at\(part\.key, index\)\)"/g) ?? []).length, 1);
 });
 
 test('a disabled segment is dimmed in ButtonGroup, hover and fill included, but not the action in flight', () => {
