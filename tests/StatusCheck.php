@@ -362,6 +362,11 @@ try {
     };
     file_put_contents($cards.'/pages/Settings/Page.vue', '<template><ActionCard title="Plan" description="Pro"><template #actions><Button>Change</Button></template></ActionCard><SummaryCard title="Team"><template #icon><Users /></template>Body</SummaryCard></template>');
     file_put_contents($cards.'/components/Kit/Card/SummaryCard.vue', '<template><SummaryCard><template #description>kit</template></SummaryCard></template>');
+    @mkdir($cards.'/pages/Settings/components/Kit', 0777, true);
+    file_put_contents($cards.'/pages/Settings/components/Kit/Nested.vue', '<template><SummaryCard title="Plan"><template #description>Pro</template></SummaryCard></template>');
+    [$attention, , , $message] = $cardStep();
+    check($attention === true && str_contains($message, 'pages/Settings/components/Kit/Nested.vue'), 'only the generated components/Kit under resources/js is skipped, not an app folder of the same name');
+    unlink($cards.'/pages/Settings/components/Kit/Nested.vue');
     [$attention, $state] = $cardStep();
     check($attention === false && $state === 'met', 'cards on the new names (and the kit\'s own files) are met');
     file_put_contents($cards.'/pages/Settings/Old.vue', "<template>\n<ActionCard title=\"Team\">\n<template #icon><Users /></template>\n</ActionCard>\n<ActionCard title=\"Plan\" :edit-url=\"url\" />\n<SummaryCard title=\"Plan\">\n<template #description>Pro</template>\n</SummaryCard>\n</template>");

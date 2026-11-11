@@ -29,6 +29,8 @@ test('fillAll applies on a pill only: the group is the primary pill, segments py
     assert.match(bar, /const base = '[^']*disabled:opacity-50';/, 'the shared base keeps the disabled dimming');
     assert.match(bar, /pill\.value \? 'h-9 px-3\.5' : 'h-9 px-3'/, 'the default pill padding is unchanged');
     assert.equal((bar.match(/segment\(filled\([^)]*\)\)?, index === 0\)/g) ?? []).length, 2, 'both pill paths mark the first segment');
+    assert.match(bar, /segment\(false, part\.inline\.length === 0\)/, 'a menu-only group\'s trigger is its first segment');
+    assert.match(bar, /segment\(false, compact\.inline\.length === 0\)/);
 });
 
 test('a GET with intent panel is an operation (a button), like a dialog; a plain GET stays a link', () => {

@@ -27,6 +27,7 @@ const hidden = false;
             <template #actions><Button variant="destructive">Leave workspace</Button></template>
         </ActionCard>
         <ActionCard data-case="bare" title="No actions">
+            <template #description><span v-if="hidden">never</span></template>
             <template #actions><span v-if="hidden">never</span></template>
             <span v-if="hidden">never</span>
         </ActionCard>

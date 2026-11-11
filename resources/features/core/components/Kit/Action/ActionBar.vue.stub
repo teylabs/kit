@@ -258,7 +258,10 @@ const holdFocus = (event: Event) => {
                         <DropdownMenuTrigger as-child>
                             <button
                                 type="button"
-                                :class="[segment(false), !fillAll && 'px-2.5']"
+                                :class="[
+                                    segment(false, part.inline.length === 0),
+                                    !fillAll && 'px-2.5',
+                                ]"
                                 :aria-label="
                                     part.inline.length
                                         ? `More actions: ${part.inline[0].label}`
@@ -343,7 +346,10 @@ const holdFocus = (event: Event) => {
                     <DropdownMenuTrigger as-child>
                         <button
                             type="button"
-                            :class="[segment(false), !fillAll && 'px-2.5']"
+                            :class="[
+                                segment(false, compact.inline.length === 0),
+                                !fillAll && 'px-2.5',
+                            ]"
                             :aria-label="
                                 compact.inline.length
                                     ? `More actions: ${compact.inline[0].label}`

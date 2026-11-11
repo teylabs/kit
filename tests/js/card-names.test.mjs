@@ -26,6 +26,7 @@ test('ActionCard (the panel): title, optional description, level, tone and align
 
 test('ActionCard: description capped at max-w-xl; actions centred by default, pinned to the top with align="top"', () => {
     assert.match(action, /<p class="max-w-xl" data-action-card-description>/);
+    assert.match(action, /v-if="\$slots\.description \? hasSlotContent\(\$slots\.description\) : description"/, 'a #description that renders nothing leaves no meta line');
     assert.match(action, /:actions-align="align === 'top' \? 'start' : 'center'"/);
     const header = read('Card/CardHeader.vue.stub');
     assert.match(header, /actionsAlign\?: 'center' \| 'start'[;}]/, 'CardHeader gains an optional actionsAlign');

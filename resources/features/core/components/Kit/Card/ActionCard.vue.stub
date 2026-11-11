@@ -39,7 +39,13 @@ withDefaults(
                 tone === 'danger' ? 'text-destructive-text' : 'text-foreground'
             "
         >
-            <template v-if="$slots.description || description" #meta
+            <template
+                v-if="
+                    $slots.description
+                        ? hasSlotContent($slots.description)
+                        : description
+                "
+                #meta
                 ><p class="max-w-xl" data-action-card-description>
                     <slot name="description">{{ description }}</slot>
                 </p></template

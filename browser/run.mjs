@@ -8050,7 +8050,7 @@ const cardNames = async (theme) => {
             const body = await box('[data-case="top"] [data-action-card-body]');
             assert.ok(body.top >= (await box('[data-case="top"] [data-action-card-actions]')).bottom, 'the default slot is below the text and actions');
             assert.equal(await tab.locator('[data-case="top"] h3').textContent(), 'Export members', 'the title is a level-3 heading');
-            assert.equal(await tab.locator('[data-case="bare"] [data-action-card-actions], [data-case="bare"] [data-action-card-body]').count(), 0, 'slots that render nothing leave no wrapper');
+            assert.equal(await tab.locator('[data-case="bare"] [data-action-card-actions], [data-case="bare"] [data-action-card-body], [data-case="bare"] [data-action-card-description]').count(), 0, 'slots that render nothing leave no wrapper');
             assert.equal(await tab.locator('[data-case="empty-card"] [data-card-body]').count(), 0, 'a SummaryCard with an empty default slot has no body');
             assert.equal(await tab.locator('[data-case="empty-card"] [data-card-header]').count(), 1);
             await tab.screenshot({ path: `${process.env.SCREENSHOT_DIR ?? '/tmp'}/card-names-${width}${theme === 'dark' ? '-dark' : ''}.png`, fullPage: true });

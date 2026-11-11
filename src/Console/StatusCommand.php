@@ -219,7 +219,7 @@ final class StatusCommand extends Command
         $files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS));
         foreach ($files as $file) {
             $path = str_replace('\\', '/', (string) $file);
-            if (! str_ends_with($path, '.vue') || str_contains($path, '/components/Kit/')) {
+            if (! str_ends_with($path, '.vue') || str_starts_with($path, rtrim(str_replace('\\', '/', $root), '/').'/components/Kit/')) {
                 continue;
             }
             $source = (string) file_get_contents($path);
