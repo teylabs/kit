@@ -52,6 +52,9 @@ final class AbortRecorder implements MultipartStore
 
     public bool $refuse = false;
 
+    /** When set, only an abort at this key succeeds (S3 answers NoSuchUpload anywhere else). */
+    public ?string $onlyKey = null;
+
     public function create(string $key, string $mime, string $cacheControl, bool $checksums): string
     {
         throw new LogicException('create');
@@ -71,6 +74,9 @@ final class AbortRecorder implements MultipartStore
     {
         if ($this->refuse) {
             throw new RuntimeException('s3 refused the abort');
+        }
+        if ($this->onlyKey !== null && $key !== $this->onlyKey) {
+            throw new RuntimeException('NoSuchUpload');
         }
         $this->aborted[] = $key.'#'.$uploadId;
     }
@@ -218,6 +224,13 @@ try {
     [$code, $output] = prune();
     check($code === 0 && $recorder->aborted === ['app/nn/.staging/'.$openStale->id.'#mpu-stale'] && MediaUpload::query()->find($openStale->id) === null && str_contains($output, 'S3 multipart uploads aborted: 1.'), 'a stale open multipart upload is aborted, then its row is pruned');
     check(MediaUpload::query()->find($openRecent->id)?->multipart_upload_id === 'mpu-recent', 'a recent multipart upload is left open');
+    // An upload started before staging keys is open at the final key: the abort falls back to it.
+    $legacy = upload('ws:1', 'app/rr/legacy.png', 'pending', 48, object: false);
+    MediaUpload::query()->whereKey($legacy->id)->toBase()->update(['multipart_upload_id' => 'mpu-legacy']);
+    $recorder->onlyKey = 'app/rr/legacy.png';
+    [$code] = prune();
+    $recorder->onlyKey = null;
+    check($code === 0 && in_array('app/rr/legacy.png#mpu-legacy', $recorder->aborted, true) && MediaUpload::query()->find($legacy->id) === null, 'an upload open at the final key (started before staging) is aborted there and its row pruned');
     // A staging object left by a complete that died goes with its stale row; a delete the disk refuses keeps the row.
     $staged = upload('ws:1', 'app/qq/staged.png', 'pending', 48, object: false);
     $stagingKey = MultipartUploads::stagingKey('app/qq/staged.png', $staged->id);
