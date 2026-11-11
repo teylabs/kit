@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **ActionBar `fillAll` keeps ButtonGroup's segment labels and divider.** Its segments are semibold again (they were medium, so the pill was 4px narrower than a ButtonGroup), and a 1px divider sits between segments in the primary text colour at 25%, so it reads on the primary fill in light and dark. Disabled segments still dim. The default and `filled` paths are unchanged.
+
 ## v0.16.0
 
 A minor release (v0.16.0): it renames two public components.
