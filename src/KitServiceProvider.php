@@ -2,6 +2,7 @@
 
 namespace Tey\Kit;
 
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\ServiceProvider;
 use Inertia\Inertia;
 use RuntimeException;
@@ -33,7 +34,9 @@ final class KitServiceProvider extends ServiceProvider
                 'kitNumber' => fn (): array => ['currency' => config('kit.currency') ?: null, 'locale' => str_replace('_', '-', (string) app()->getLocale())],
             ]);
         }
-        $this->commands([Console\AddCommand::class, Console\AdoptCommand::class, Console\InstallCommand::class, Console\LifecycleCommand::class, Console\ListCommand::class, Console\StatusCommand::class, Console\BrandCommand::class, Console\BrandMigrateCommand::class, Console\RemoveCommand::class]);
+        $this->commands([Console\AddCommand::class, Console\AdoptCommand::class, Console\InstallCommand::class, Console\LifecycleCommand::class, Console\ListCommand::class, Console\StatusCommand::class, Console\BrandCommand::class, Console\BrandMigrateCommand::class, Console\RemoveCommand::class, Media\Console\PruneUploadsCommand::class]);
+        // Off by default: a host opts in with `kit.media.prune_schedule` (true for daily at 03:00, or a cron expression).
+        $this->callAfterResolving(Schedule::class, fn (Schedule $schedule) => Media\Console\PruneUploadsCommand::schedule($schedule));
         // The v0.1 scaffold fixture; the starter features are adopted through kit.features instead.
         $features = config('kit.scaffold_features');
         // Under another layout the scaffold can't place its members, and Mod would warn on every boot that it's disabled. Unless the host asks for it
