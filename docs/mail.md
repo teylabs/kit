@@ -20,7 +20,7 @@ The branded views read `mail.brand`: `identity` (the header), `footer_identity` 
 
 ## The header: the brand lockup
 
-The branded layout is Laravel's base markdown layout with the brand's lockup (the mark with the wordmark) centred above the message, linked to `app.url`. The button and links keep the brand accent. Set the image with `mail_lockup` in the app's `config/brand.php` (`kit.brand.mail_lockup`; the env `KIT_BRAND_MAIL_LOCKUP` still works until 0.16, deprecated):
+The branded layout is Laravel's base markdown layout with the brand's lockup (the mark with the wordmark) centred above the message, linked to `app.url`. The button and links keep the brand accent. Set the image with `mail_lockup` in the app's `config/brand.php` (`kit.brand.mail_lockup`; the env `KIT_BRAND_MAIL_LOCKUP` still works until 0.17, deprecated):
 
 ```php
 // config/brand.php
@@ -39,7 +39,7 @@ return [
 
 The layout declares `light dark`. Apple Mail and iOS Mail apply its `prefers-color-scheme: dark` rules, and Outlook's dark mode gets the same colours through `[data-ogsc]` and `[data-ogsb]`. Every text colour holds 4.5:1 on its surface in both. The Gmail apps recolour the message on their own, so the parts they can't spoil are fixed in the message itself: the plated lockup, and the button.
 
-The button's fill comes from config, so an app themes it without publishing a view or CSS. In `config/brand.php`, `mail.button` (`kit.brand.mail.button`) is the light fill and `mail.button_dark` the dark one, each a `#rgb` or `#rrggbb`; `null` uses the theme (the default below). The env `KIT_BRAND_MAIL_BUTTON` and `KIT_BRAND_MAIL_BUTTON_DARK` still work until 0.16, deprecated:
+The button's fill comes from config, so an app themes it without publishing a view or CSS. In `config/brand.php`, `mail.button` (`kit.brand.mail.button`) is the light fill and `mail.button_dark` the dark one, each a `#rgb` or `#rrggbb`; `null` uses the theme (the default below). The env `KIT_BRAND_MAIL_BUTTON` and `KIT_BRAND_MAIL_BUTTON_DARK` still work until 0.17, deprecated:
 
 ```php
 // config/brand.php

@@ -74,7 +74,7 @@ final class StatusCommand extends Command
                         $this->line('  '.str_pad($key, $width).'  '.$source.(in_array($key, (array) config('kit.brand_env_empty', []), true) ? ', empty in env (theme)' : ''));
                     }
                     if (in_array(BrandConfig::SOURCE_ENV, $sources, true)) {
-                        $this->line('Env brand values are deprecated and removed in 0.16: run php artisan kit:brand:migrate to move them into config/brand.php.');
+                        $this->line('Env brand values are deprecated and removed in 0.17: run php artisan kit:brand:migrate to move them into config/brand.php.');
                     }
                 }
                 foreach ($requirements === null ? [] : [...HostRequirements::attention($requirements), ...HostRequirements::lines($requirements)] as $line) {
