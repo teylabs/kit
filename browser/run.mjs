@@ -7962,3 +7962,56 @@ test('a locked FormCard and a lone FormFieldset show their notice by default and
         await context.close();
     }
 });
+
+// ── ActionBar at phone width (?wrap-bar, `&dark`): `wrap` keeps all six actions visible on more than one row, with no compact copy and no More menu; the same
+// actions without `wrap` keep the main action and a More menu as before, and their More menu keeps Cancel destructive and lines up rows without an icon with rows that have one ───────────
+const wrapBar = async (theme) => {
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        const warnings = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        tab.on('console', message => message.type() === 'warning' && warnings.push(message.text()));
+        await tab.goto(`${url}?wrap-bar${theme === 'dark' ? '&dark' : ''}`);
+        await tab.waitForSelector('[data-default] [data-action-bar]');
+        const wrap = tab.locator('[data-wrap] [data-action-bar]');
+        assert.equal(await wrap.getAttribute('data-wrap'), 'true');
+        assert.equal(await wrap.getAttribute('data-compact'), null, 'wrap never compacts');
+        assert.equal(await tab.locator('[data-wrap] [data-action-layout-compact]').count(), 0, 'no compact copy is rendered');
+        assert.equal(await tab.locator('[data-wrap] [data-action-menu], [data-wrap] [data-button-group-menu]').count(), 0, 'no More menu');
+        const boxes = await tab.$$eval('[data-wrap] [data-action-layout-full] [data-action]', els => els.map(el => {
+            const r = el.getBoundingClientRect();
+            return { top: Math.round(r.top), right: r.right, visible: getComputedStyle(el).visibility === 'visible', clipped: el.scrollWidth > el.clientWidth };
+        }));
+        assert.equal(boxes.length, 6, 'all six actions are rendered');
+        assert.ok(boxes.every(box => box.visible && !box.clipped && box.right <= 390), 'each is visible, untruncated and on screen');
+        assert.ok(new Set(boxes.map(box => box.top)).size > 1, 'the actions wrap onto more than one row');
+        const lead = await tab.$$eval('[data-wrap] [data-action]', els => els.map(el => el.classList.contains('primary-action')));
+        assert.deepEqual(lead, [true, false, false, false, false, false], 'only the first action is the lead');
+        // The default mode is unchanged: the main action, with the rest behind the More menu.
+        // The stand-in menu item is reka's bare item; give it the host's shadcn item layout (a flex row, icon and label 8px apart) so the alignment is real.
+        await tab.addStyleTag({ content: '[role="menuitem"] { display: flex; align-items: center; gap: 8px; }' });
+        await tab.locator('[data-default] [data-button-group-menu]:visible').click();
+        const menu = tab.getByRole('menu');
+        await menu.waitFor();
+        const rows = await menu.locator('[role="menuitem"]').evaluateAll(els => els.map(el => {
+            const label = [...el.childNodes].find(node => node.nodeType === 1 && node.tagName !== 'svg' && !node.hasAttribute('data-menu-icon-spacer'));
+            return { key: el.dataset.action, colour: getComputedStyle(el).color, left: Math.round(label.getBoundingClientRect().left), icon: Boolean(el.querySelector(':scope > svg')) };
+        }));
+        const destructive = await tab.$eval('[data-destructive-probe]', el => getComputedStyle(el).color);
+        const cancel = rows.find(row => row.key === 'cancel');
+        assert.equal(cancel.colour, destructive, 'Cancel keeps the destructive colour');
+        assert.equal(cancel.icon, true, 'Cancel has the x default');
+        assert.notEqual(rows.find(row => row.key === 'edit').colour, destructive);
+        assert.ok(rows.some(row => !row.icon), 'the fixture has a row without an icon');
+        assert.equal(new Set(rows.map(row => row.left)).size, 1, 'labels line up with and without an icon');
+        await tab.screenshot({ path: `${process.env.SCREENSHOT_DIR ?? '/tmp'}/actionbar-wrap${theme === 'dark' ? '-dark' : ''}.png`, fullPage: true });
+        assert.deepEqual(warnings.filter(text => text.includes('[kit]')), [], 'a production build never warns about mixed icons');
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+};
+test('ActionBar wrap (light): every action wraps onto rows at phone width; the default More menu keeps Cancel red and its labels aligned', () => wrapBar('light'));
+test('ActionBar wrap (dark): the same under the dark tokens', () => wrapBar('dark'));

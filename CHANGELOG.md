@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **ActionBar `wrap`: an opt-in wrapping mode for a phone header.** With `wrap`, the bar never compacts into a More menu: every action stays visible and the row wraps onto as many rows as it needs. Without declared groups each action is its own button (only the first takes `primary`/`filled`); declared groups and their `menu` actions are kept as declared. Nothing is measured and the compact copy is not rendered in wrap mode. The default (no `wrap`) is unchanged. `wrap?: boolean` is added to `ActionBarProps`.
+- **Menu icon defaults for common intents.** In a menu, an action with no `icon` now gets one by key, else by label: `reopen`/`re-open` → `lock-open`, `cancel`/`decline` → `x`, `merge` → `merge`, `delete`/`remove` → `trash`, `download` → `download`, and `edit` → `pencil` by label too (by key it already had it). An explicit `icon` always wins; inline segments keep only the `plus` default. `lock-open`, `x`, `merge` and `download` are new known icon names in `actionIcons`.
+- **A dev-only warning for menus that mix icons.** In a dev build (`import.meta.env.DEV`), an ActionBar menu or a ButtonGroup menu whose rows mix items with and without an icon logs one `console.warn` per menu. Production builds never warn.
+
+### Fixed
+
+- **ActionBar menu rows without an icon line up with rows that have one.** A row with no icon, in a menu where another row has one, now keeps an icon-sized spacer, so the labels share one left edge. The destructive (red) style of a Cancel-type row is unchanged and now pinned by a test.
+
+Covered by `tests/js/actionbar-wrap.test.mjs` and two new browser checks (`?wrap-bar`, light and dark, at 390px: all six actions visible on more than one row, no compact copy or More menu in wrap mode; in the default mode's More menu, Cancel is in the destructive colour and labels line up with and without an icon; no mixed-icons warning in the production build). The browser floor goes from 297 to 299. core re-pinned (see the PR body).
+
 ## v0.15.87
 
 ### Added

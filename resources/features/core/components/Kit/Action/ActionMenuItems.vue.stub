@@ -1,13 +1,16 @@
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3';
-import { useId, type Directive } from 'vue';
+import { computed, useId, watchEffect, type Directive } from 'vue';
 import { ModalLink } from '@inertiaui/modal-vue';
 import {
     DropdownMenuCheckboxItem,
     DropdownMenuItem,
 } from '@/components/ui/dropdown-menu';
 import ActionLabel from '@/components/Kit/Action/ActionLabel.vue';
-import { actionIcons } from '@/components/Kit/Action/actionIcons';
+import {
+    actionIcons,
+    mixedIconsWarning,
+} from '@/components/Kit/Action/actionIcons';
 import {
     actionIconName,
     menuItemRole,
@@ -28,6 +31,14 @@ const props = defineProps<{
 }>();
 const menuIcon = (action: ActionDescriptor) =>
     actionIcons[actionIconName(action, true) ?? ''];
+// A row without an icon, in a menu where another row has one, keeps an icon-sized spacer so its label aligns with theirs. Dev builds warn once when a menu mixes.
+const anyIcon = computed(() =>
+    props.actions.some((action) => menuIcon(action)),
+);
+const warnMixed = mixedIconsWarning('ActionBar menu');
+watchEffect(() =>
+    warnMixed(props.actions.map((action) => Boolean(menuIcon(action)))),
+);
 // A `disabled` row stays focusable (aria-disabled, not the menu's own disabled, which skips it) so its `reason` shows as a tooltip and is read as its description;
 // choosing it does nothing and the menu stays open.
 const select = (action: ActionDescriptor) =>
@@ -77,6 +88,11 @@ const describes = (action: ActionDescriptor) =>
                 v-if="menuIcon(action)"
                 class="size-4"
                 aria-hidden="true"
+            /><span
+                v-else-if="anyIcon"
+                class="inline-block size-4 shrink-0"
+                aria-hidden="true"
+                data-menu-icon-spacer
             /><ActionLabel :action="action" menu /><span
                 v-if="describes(action)"
                 :id="reasonId(index)"
@@ -104,7 +120,11 @@ const describes = (action: ActionDescriptor) =>
                     :is="menuIcon(action)"
                     v-if="menuIcon(action)"
                     class="size-4"
-                    aria-hidden="true" /><ActionLabel :action="action" menu
+                    aria-hidden="true" /><span
+                    v-else-if="anyIcon"
+                    class="inline-block size-4 shrink-0"
+                    aria-hidden="true"
+                    data-menu-icon-spacer /><ActionLabel :action="action" menu
             /></ModalLink>
         </DropdownMenuItem>
         <DropdownMenuItem
@@ -119,7 +139,11 @@ const describes = (action: ActionDescriptor) =>
                     :is="menuIcon(action)"
                     v-if="menuIcon(action)"
                     class="size-4"
-                    aria-hidden="true" /><ActionLabel :action="action" menu
+                    aria-hidden="true" /><span
+                    v-else-if="anyIcon"
+                    class="inline-block size-4 shrink-0"
+                    aria-hidden="true"
+                    data-menu-icon-spacer /><ActionLabel :action="action" menu
             /></a>
         </DropdownMenuItem>
         <DropdownMenuItem
@@ -138,14 +162,22 @@ const describes = (action: ActionDescriptor) =>
                     :is="menuIcon(action)"
                     v-if="menuIcon(action)"
                     class="size-4"
-                    aria-hidden="true" /><ActionLabel :action="action" menu
+                    aria-hidden="true" /><span
+                    v-else-if="anyIcon"
+                    class="inline-block size-4 shrink-0"
+                    aria-hidden="true"
+                    data-menu-icon-spacer /><ActionLabel :action="action" menu
             /></a>
             <Link v-else :href="action.url"
                 ><component
                     :is="menuIcon(action)"
                     v-if="menuIcon(action)"
                     class="size-4"
-                    aria-hidden="true" /><ActionLabel :action="action" menu
+                    aria-hidden="true" /><span
+                    v-else-if="anyIcon"
+                    class="inline-block size-4 shrink-0"
+                    aria-hidden="true"
+                    data-menu-icon-spacer /><ActionLabel :action="action" menu
             /></Link>
         </DropdownMenuItem>
         <DropdownMenuItem
@@ -168,6 +200,11 @@ const describes = (action: ActionDescriptor) =>
                 v-if="menuIcon(action)"
                 class="size-4"
                 aria-hidden="true"
+            /><span
+                v-else-if="anyIcon"
+                class="inline-block size-4 shrink-0"
+                aria-hidden="true"
+                data-menu-icon-spacer
             /><ActionLabel :action="action" menu /><span
                 v-if="describes(action)"
                 :id="reasonId(index)"
