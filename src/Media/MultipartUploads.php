@@ -5,6 +5,7 @@ namespace Tey\Kit\Media;
 use Illuminate\Filesystem\AwsS3V3Adapter;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use Tey\Kit\Media\Models\MediaUpload;
 
 /**
  * Opt-in S3 multipart for large direct uploads (`kit.media.multipart`, docs/media.md › Large files). Multipart is used only when the flag is on, the
@@ -32,7 +33,7 @@ final class MultipartUploads
 
     public static function thresholdBytes(): int
     {
-        return max(self::MIN_PART_BYTES, (int) config('kit.media.multipart.threshold_bytes', 100 * 1024 * 1024));
+        return max(0, (int) config('kit.media.multipart.threshold_bytes', 100 * 1024 * 1024));
     }
 
     public static function partBytes(): int
@@ -74,9 +75,12 @@ final class MultipartUploads
 
     public static function hasColumn(): bool
     {
+        // Remembered per connection, database and table, so a process that switches tenant databases checks each one.
+        $connection = (new MediaUpload)->getConnection();
         $table = MediaUploads::table();
+        $name = $connection->getName().'|'.$connection->getDatabaseName().'|'.$table;
 
-        return self::$columns[$table] ??= Schema::hasColumn($table, 'multipart_upload_id');
+        return self::$columns[$name] ??= Schema::connection($connection->getName())->hasColumn($table, 'multipart_upload_id');
     }
 
     public static function eligible(string $disk, int $bytes): bool

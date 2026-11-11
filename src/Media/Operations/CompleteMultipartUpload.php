@@ -40,10 +40,16 @@ final class CompleteMultipartUpload
 
             throw new RuntimeException('media.upload.incomplete');
         }
-        MediaUpload::query()->whereKey($upload->id)->update(['multipart_upload_id' => null]);
-        $upload->refresh();
+        // The id is kept until the re-hash has run, so ConfirmUpload refuses the record meanwhile and a concurrent confirm can't mark the joined
+        // object ready unverified. It is cleared after: S3 has no open upload left, either way.
         $disk = Storage::disk($upload->disk);
-        if (! $disk->exists($upload->key) || $disk->size($upload->key) !== $upload->bytes || $this->hash($disk, $upload->key) !== $upload->sha256) {
+        try {
+            $matches = $disk->exists($upload->key) && $disk->size($upload->key) === $upload->bytes && $this->hash($disk, $upload->key) === $upload->sha256;
+        } finally {
+            MediaUpload::query()->whereKey($upload->id)->where('multipart_upload_id', $uploadId)->update(['multipart_upload_id' => null]);
+            $upload->refresh();
+        }
+        if (! $matches) {
             if (! MediaUpload::query()->where('disk', $upload->disk)->where('key', $upload->key)->where('status', 'ready')->exists()) {
                 $disk->delete($upload->key);
             }

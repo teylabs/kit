@@ -35,6 +35,7 @@ use Tey\Kit\Media\MultipartUploads;
 use Tey\Kit\Media\Operations\AbortMultipartUpload;
 use Tey\Kit\Media\Operations\AttachUpload;
 use Tey\Kit\Media\Operations\CompleteMultipartUpload;
+use Tey\Kit\Media\Operations\ConfirmUpload;
 use Tey\Kit\Media\Operations\RequestMultipartUpload;
 use Tey\Kit\Media\Operations\RequestUpload;
 use Tey\Kit\Media\S3MultipartStore;
@@ -196,6 +197,9 @@ try {
     config(['kit.media.multipart.part_bytes' => 1]);
     check(MultipartUploads::partBytes() === 5 * $mib, 'a part size under 5 MiB is raised to the S3 minimum');
     config(['kit.media.multipart.part_bytes' => 5 * $mib]);
+    config(['kit.media.multipart.threshold_bytes' => 1024]);
+    check(MultipartUploads::thresholdBytes() === 1024, 'a threshold under 5 MiB is kept as configured; only the part size has the S3 minimum');
+    config(['kit.media.multipart.threshold_bytes' => 5 * $mib]);
 
     // The single PUT stays for everything that is not eligible.
     check(RequestMultipartUpload::run('ws:1', $rules, 'image/png', strlen($small), hash('sha256', $small), 'small', true)->method === 'PUT', 'a file under the threshold is a single PUT');
@@ -222,6 +226,16 @@ try {
     config(['kit.media.uploads_table' => 'kit_media_uploads']);
     MultipartUploads::fake('bucket', $store);
 
+    // The column check is remembered per connection and database, so switching to a tenant database without the column turns multipart off there.
+    check(MultipartUploads::hasColumn(), 'the current database has the column');
+    config(['database.connections.tenant_b' => ['driver' => 'sqlite', 'database' => $base.'/tenant-b.sqlite', 'prefix' => '']]);
+    touch($base.'/tenant-b.sqlite');
+    Schema::connection('tenant_b')->create('kit_media_uploads', fn ($table) => $table->ulid('id')->primary());
+    config(['database.default' => 'tenant_b']);
+    check(! MultipartUploads::hasColumn(), 'another database without the column is checked afresh, not read from the first one');
+    config(['database.default' => 'testing']);
+    check(MultipartUploads::hasColumn(), 'and back again');
+
     // Above the threshold: create, then parts (hashed by the client), then complete, a re-hash, confirm and attach.
     $first = RequestMultipartUpload::run('ws:1', $rules, 'image/png', $bytes, strtoupper($sha), 'big-1', true);
     $array = $first->toArray();
@@ -236,6 +250,9 @@ try {
     check($parts[1]['url'] !== null && $parts[0]['headers']['x-amz-checksum-sha256'] === base64_encode(hex2bin($hashes[0])) && $store->calls[1] === ['presign', 'mpu-1', 1, strlen($pieces[0]), base64_encode(hex2bin($hashes[0]))], 'each part URL signs its length and SHA-256');
 
     $etags = [$store->put('mpu-1', 1, $pieces[0]), $store->put('mpu-1', 2, $pieces[1])];
+    Storage::disk('bucket')->put($first->upload->key, $body);
+    check(refusal(fn () => ConfirmUpload::run($first->upload->fresh())) === 'media.upload.multipart_pending' && $first->upload->fresh()->status === 'pending', 'the ordinary confirm refuses an open multipart upload, so nothing is ready before the re-hash');
+    Storage::disk('bucket')->delete($first->upload->key);
     $payload = [['part' => 1, 'etag' => $etags[0], 'checksum' => base64_encode(hex2bin($hashes[0]))], ['part' => 2, 'etag' => $etags[1], 'checksum' => base64_encode(hex2bin($hashes[1]))]];
     $before = count($store->calls);
     check(refusal(fn () => CompleteMultipartUpload::run($first->upload->fresh(), [$payload[0]])) === 'media.upload.bad_parts', 'a missing part is refused');

@@ -101,6 +101,34 @@ test('a part that keeps failing, or answers without an ETag, fails closed: no co
     assert.deepEqual(noEtag.calls.at(-1), ['json', routes.abort, { id: 'u1' }]);
 });
 
+test('after a part fails, the abort waits for the parts still in flight', async () => {
+    const transport = fake({ fail: { 1: 99 } });
+    const log = [];
+    const putPart = transport.putPart;
+    transport.putPart = async (url, part, headers, progress) => {
+        const number = Number(new URL(url).searchParams.get('partNumber'));
+        if (number !== 1) await new Promise(resolve => setTimeout(resolve, 40));
+        const result = await putPart(url, part, headers, progress);
+        log.push(`settled ${number}`);
+        return result;
+    };
+    const json = transport.json;
+    transport.json = async (url, body) => { if (url === routes.abort) log.push('abort'); return json(url, body); };
+    await assert.rejects(directUpload(file(), routes, undefined, transport), error => error.step === 'upload' && error.status === 500);
+    assert.equal(log.at(-1), 'abort');
+    assert.ok(log.filter(entry => entry.startsWith('settled')).length >= 2);
+});
+
+test('a cancel while the last parts are in flight aborts instead of completing', async () => {
+    const controller = new AbortController();
+    const transport = fake();
+    const putPart = transport.putPart;
+    transport.putPart = async (...args) => { const result = await putPart(...args); controller.abort(); return result; };
+    await assert.rejects(directUpload(file(), routes, undefined, transport, controller.signal), error => error.step === 'upload');
+    assert.ok(!transport.calls.some(call => call[1] === routes.complete));
+    assert.deepEqual(transport.calls.at(-1), ['json', routes.abort, { id: 'u1' }]);
+});
+
 test('a cancelled upload stops starting parts and is aborted', async () => {
     const controller = new AbortController();
     controller.abort();

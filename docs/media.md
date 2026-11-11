@@ -101,7 +101,7 @@ Off by default. With it on, a file over the threshold on an S3 disk goes up as a
 // config/kit.php (every key has this default, so the block is optional)
 'media' => ['multipart' => [
     'enabled' => (bool) env('KIT_UPLOADS_MULTIPART', false),
-    'threshold_bytes' => 100 * 1024 * 1024, // larger files use multipart
+    'threshold_bytes' => 100 * 1024 * 1024, // larger files use multipart (any value; only parts have a minimum)
     'part_bytes' => 16 * 1024 * 1024,       // raised to 5 MiB, the S3 minimum, if set lower
     'part_checksums' => true,               // false for a store that rejects per-part checksum headers (R2, MinIO)
 ]],
@@ -162,7 +162,7 @@ Scope both lookups to the request's scope, as for confirm, and map `media.upload
 
 **The flow.** A `MULTIPART` ticket carries `upload_id` and one `{ part, url, headers }` per part. Every part is `ceil(bytes / parts)` bytes, and the last takes the rest, so the client derives the layout from the part count alone. With part checksums on, the first ticket has no URLs. The client hashes each part and asks again with the same mutation id and `part_sha256`, and each part URL then signs its part's length and SHA-256. The client uploads four parts at a time, tries each part up to three times, and sends every part's ETag (and checksum) to `complete`. The bucket's CORS rule must expose the `ETag` response header. A part that keeps failing, a part answered without an ETag, or a cancel (`directUpload`'s optional `signal`) sends the upload to `abort`, and no complete is sent.
 
-**Integrity.** S3 has no whole-object SHA-256 for a multipart upload, only a composite of the part hashes. That would prove the parts, but not that they make up the declared SHA-256, which is the content-addressed key that dedupe trusts. So `CompleteMultipartUpload` always re-hashes the joined object as a stream, never in memory, and compares its size and SHA-256 with the declaration before `ConfirmUpload` marks it ready. Per-part checksums are a transit check on top of that. Dedupe stays on. The cost is one full read of the object per completed upload: time on the request, and egress if the app runs outside the bucket's region. Set `part_checksums` to false on R2 or MinIO if the store rejects the per-part checksum headers. The re-hash still guarantees integrity, and a store that rejects the headers fails the part, and so the upload, rather than accept it unchecked.
+**Integrity.** S3 has no whole-object SHA-256 for a multipart upload, only a composite of the part hashes. That would prove the parts, but not that they make up the declared SHA-256, which is the content-addressed key that dedupe trusts. So `CompleteMultipartUpload` always re-hashes the joined object as a stream, never in memory, and compares its size and SHA-256 with the declaration before `ConfirmUpload` marks it ready. The multipart id stays on the record until the re-hash has run, and `ConfirmUpload` refuses a record that has one (`media.upload.multipart_pending`), so a concurrent confirm can't mark the object ready unverified. Per-part checksums are a transit check on top of that. Dedupe stays on. The cost is one full read of the object per completed upload: time on the request, and egress if the app runs outside the bucket's region. Set `part_checksums` to false on R2 or MinIO if the store rejects the per-part checksum headers. The re-hash still guarantees integrity, and a store that rejects the headers fails the part, and so the upload, rather than accept it unchecked.
 
 **Failure.** Every failure path fails closed:
 

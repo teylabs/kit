@@ -162,7 +162,7 @@ function hexToBase64(hex: string): string {
     return btoa(binary);
 }
 
-/** Runs `tasks` with at most `limit` in flight; rejects with the first failure once nothing more is started. */
+/** Runs `tasks` with at most `limit` in flight. After a failure no task is started, and it rejects with the first failure only once every running task has settled. */
 async function pooled<T>(
     tasks: (() => Promise<T>)[],
     limit: number,
@@ -170,20 +170,22 @@ async function pooled<T>(
     const results: T[] = new Array(tasks.length);
     let next = 0;
     let failed = false;
+    let failure: unknown;
     const worker = async () => {
         while (!failed && next < tasks.length) {
             const index = next++;
             try {
                 results[index] = await tasks[index]();
             } catch (error) {
+                if (!failed) failure = error;
                 failed = true;
-                throw error;
             }
         }
     };
-    await Promise.all(
+    await Promise.allSettled(
         Array.from({ length: Math.min(limit, tasks.length) }, worker),
     );
+    if (failed) throw failure;
     return results;
 }
 
@@ -306,6 +308,8 @@ export async function directUpload(
                 transport,
                 signal,
             );
+            // Cancelled while the last parts were in flight: abort rather than complete.
+            if (signal?.aborted) throw new DirectUploadError('upload', 0);
         } catch (error) {
             if (routes.abort)
                 await transport
