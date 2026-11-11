@@ -137,7 +137,10 @@ try {
     check(MediaUpload::query()->find($mid->id) !== null, 'the default keeps a row younger than 24 hours');
     prune(['--older-than' => 6]);
     check(MediaUpload::query()->find($mid->id) === null && ! $disk->exists('app/hh/mid.png'), '--older-than lowers the age');
-    check(prune(['--older-than' => 'x'])[0] !== 0, 'a malformed --older-than is refused');
+    check(prune(['--older-than' => 'x'])[0] !== 0 && prune(['--older-than' => '1.5'])[0] !== 0, 'a malformed or fractional --older-than is refused');
+    config(['kit.media.prune_older_than' => 1.5]);
+    check(prune()[0] !== 0, 'a fractional kit.media.prune_older_than is refused');
+    config(['kit.media.prune_older_than' => null]);
 
     // Fail closed.
     $blind = upload('ws:1', 'app/ii/blind.png', 'pending', 48);
@@ -155,6 +158,27 @@ try {
     prune();
     config(['multitenancy.tenant_database_connection_name' => null]);
     check(MediaUpload::query()->find($split->id) === null && $disk->exists('app/kk/split.png'), 'with separate tenant databases the row goes but the object is always kept');
+    $tenantBlind = upload('ws:1', 'app/ll/tenant-blind.png', 'pending', 48);
+    Schema::rename('media', 'media_moved');
+    config(['multitenancy.tenant_database_connection_name' => 'tenant']);
+    [$code] = prune();
+    config(['multitenancy.tenant_database_connection_name' => null]);
+    Schema::rename('media_moved', 'media');
+    check($code !== 0 && MediaUpload::query()->find($tenantBlind->id) !== null && $disk->exists('app/ll/tenant-blind.png'), 'with separate tenant databases a missing media table still deletes nothing');
+    $tenantBlind->delete();
+
+    // A row confirmed between the first and second reference check is not deleted, and keeps its object.
+    $racing = upload('ws:1', 'app/mm/racing.png', 'pending', 48);
+    $listener = function ($query) use ($racing): void {
+        static $done = false;
+        if (! $done && str_contains($query->sql, 'select exists') && str_contains($query->sql, 'media"')) {
+            $done = true;
+            DB::table(MediaUploads::table())->where('id', $racing->id)->update(['status' => 'ready', 'updated_at' => now()]);
+        }
+    };
+    DB::listen($listener);
+    prune();
+    check(MediaUpload::query()->find($racing->id)?->status === 'ready' && $disk->exists('app/mm/racing.png'), 'a row confirmed after the first check is kept with its object');
     Schema::drop(MediaUploads::table());
     check(prune()[0] !== 0, 'a missing ledger fails the run');
 

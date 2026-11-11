@@ -49,8 +49,9 @@ class PruneUploadsCommand extends Command
 
     public function handle(): int
     {
-        $hours = $this->option('older-than') ?? config('kit.media.prune_older_than', 24);
-        if (! is_numeric($hours) || (int) $hours < 1) {
+        $hours = $this->option('older-than') ?? config('kit.media.prune_older_than') ?? 24;
+        // A whole number only, from the option or the config: `1.5` is refused rather than truncated to 1 and pruning more than asked.
+        if (! (is_int($hours) || (is_string($hours) && ctype_digit($hours))) || (int) $hours < 1) {
             $this->error('--older-than must be a whole number of hours, at least 1.');
 
             return self::FAILURE;
@@ -118,13 +119,16 @@ class PruneUploadsCommand extends Command
             try {
                 // Checked again just before the delete, so a reference made since the first check still keeps the object. The object goes
                 // before the rows: a delete the disk refuses leaves the rows for the next run instead of an object nothing points at.
+                // The stale set is read again too: a row confirmed or touched since the first read is no longer stale, so it counts as a
+                // reference and is not deleted.
+                $stale = $this->stale($disk, $key, $cutoff);
                 if ($exists && ! $referenced) {
                     $referenced = $this->referenced($disk, $key, $stale);
                     if (! $referenced && ! $storage->delete($key)) {
                         throw new \RuntimeException('media.prune.delete_failed');
                     }
                 }
-                MediaUpload::query()->whereKey($stale)->where('status', 'pending')->delete();
+                MediaUpload::query()->whereKey($stale)->where('status', 'pending')->where('updated_at', '<', $cutoff)->delete();
             } catch (Throwable $error) {
                 $counts['failed']++;
                 $failures[] = $disk.':'.$key.' ('.$this->reason($error).')';
@@ -151,9 +155,6 @@ class PruneUploadsCommand extends Command
     /** @param  list<string>  $stale */
     private function referenced(string $disk, string $key, array $stale): bool
     {
-        if (config('multitenancy.tenant_database_connection_name') !== null) {
-            return true;
-        }
         if (MediaUpload::query()->where('disk', $disk)->where('key', $key)->whereKeyNot($stale)->exists()) {
             return true;
         }
@@ -165,6 +166,10 @@ class PruneUploadsCommand extends Command
         $model = new $class;
         if (! Schema::connection($model->getConnectionName())->hasTable($model->getTable())) {
             throw new \RuntimeException('media.prune.no_media_table');
+        }
+        // Checked after the media table, so a tenant-database setup still fails closed when it can't see the table.
+        if (config('multitenancy.tenant_database_connection_name') !== null) {
+            return true;
         }
 
         // An item over the key (AttachUpload, AdoptObject) has the key's basename as its file name; any such item on the disk counts, whatever its
