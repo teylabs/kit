@@ -842,6 +842,8 @@ export interface ActionBarProps {
     wrap?: boolean;
     /** Opt-in, on a pill surface: the whole group is one primary-filled pill (py-2, first segment pl-3.5, the rest px-3). No effect elsewhere. */
     fillAll?: boolean;
+    /** With `fillAll`: the host's classes for the divider between segments (its colour, say), in place of the default primary text at 25%. No effect elsewhere. */
+    dividerClass?: string;
     /** The host's own classes for each menu row (its row height, say), added after the row's own; destructive and disabled still apply. */
     itemClass?: string;
 }
