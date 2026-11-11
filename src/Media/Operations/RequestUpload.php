@@ -9,6 +9,7 @@ use RuntimeException;
 use Tey\Kit\Features\Core\UploadLimit;
 use Tey\Kit\Media\MediaRules;
 use Tey\Kit\Media\Models\MediaUpload;
+use Tey\Kit\Media\UploadSigning;
 use Tey\Kit\Media\UploadTicket;
 
 /**
@@ -18,6 +19,9 @@ use Tey\Kit\Media\UploadTicket;
  *
  * Authorization is the caller's (a policy check in the controller, MCP tool or job) before this runs. Replaying a `mutationId` with the same
  * declaration returns the same record and a fresh URL; with a different declaration it is refused. Content already ready in the scope is reused.
+ *
+ * With `kit.media.signing` set to `content_type` (UploadSigning) the PUT signs only Content-Type, the key is random, the SHA-256 is advisory and
+ * nothing is reused by it; ConfirmUpload re-hashes the object instead.
  */
 class RequestUpload
 {
@@ -28,6 +32,8 @@ class RequestUpload
     public function handle(string $scope, MediaRules $rules, string $mime, int $bytes, string $sha256, ?string $mutationId = null): UploadTicket
     {
         $sha256 = strtolower($sha256);
+        // Read (and an unknown value refused) before anything else, replays included.
+        $full = UploadSigning::full();
         $errors = array_filter([
             'mime' => $rules->accepts($mime) ? null : 'That type of file is not accepted.',
             'bytes' => $bytes > 0 && $bytes <= $rules->maxBytes ? null : UploadLimit::message(intdiv($rules->maxBytes, 1024)).'.',
@@ -44,9 +50,10 @@ class RequestUpload
 
             return $this->ticket($replay, $rules);
         }
-        $existing = MediaUpload::query()->where('scope', $scope)->where('sha256', $sha256)->where('disk', $rules->disk)->where('status', 'ready')->first();
+        // `content_type` signing: the SHA-256 is only the client's word, so it is never an identity: no reuse by it and a random key.
+        $existing = $full ? MediaUpload::query()->where('scope', $scope)->where('sha256', $sha256)->where('disk', $rules->disk)->where('status', 'ready')->first() : null;
         $upload = MediaUpload::query()->create([
-            'scope' => $scope, 'mutation_id' => $mutationId, 'key' => $rules->key($sha256, $mime), ...$declared,
+            'scope' => $scope, 'mutation_id' => $mutationId, 'key' => $full ? $rules->key($sha256, $mime) : $rules->randomKey($mime), ...$declared,
             'status' => $existing !== null ? 'ready' : 'pending', 'width' => $existing?->width, 'height' => $existing?->height,
         ]);
 
@@ -63,11 +70,17 @@ class RequestUpload
             return new UploadTicket($upload, 'POST');
         }
         $expiresAt = now()->addSeconds($rules->ttlSeconds);
-        $headers = ['Content-Type' => $upload->mime, 'Cache-Control' => self::CACHE_CONTROL, 'x-amz-checksum-sha256' => base64_encode((string) hex2bin($upload->sha256))];
-        $signed = $disk->temporaryUploadUrl($upload->key, $expiresAt, [
-            'ContentType' => $upload->mime, 'ContentLength' => $upload->bytes, 'CacheControl' => self::CACHE_CONTROL,
-            'ChecksumAlgorithm' => 'SHA256', 'ChecksumSHA256' => $headers['x-amz-checksum-sha256'],
-        ]);
+        // The record's key decides, so a replay keeps the signing it was made with: a random key signs only the type (ConfirmUpload re-hashes it).
+        if (UploadSigning::contentAddressed($upload)) {
+            $headers = ['Content-Type' => $upload->mime, 'Cache-Control' => self::CACHE_CONTROL, 'x-amz-checksum-sha256' => base64_encode((string) hex2bin($upload->sha256))];
+            $signed = $disk->temporaryUploadUrl($upload->key, $expiresAt, [
+                'ContentType' => $upload->mime, 'ContentLength' => $upload->bytes, 'CacheControl' => self::CACHE_CONTROL,
+                'ChecksumAlgorithm' => 'SHA256', 'ChecksumSHA256' => $headers['x-amz-checksum-sha256'],
+            ]);
+        } else {
+            $headers = ['Content-Type' => $upload->mime];
+            $signed = $disk->temporaryUploadUrl($upload->key, $expiresAt, ['ContentType' => $upload->mime]);
+        }
         // The browser sets Host and Content-Length itself (it may not set them); every other signed header is the client's to send exactly.
         foreach ($signed['headers'] ?? [] as $name => $value) {
             if (! in_array(strtolower($name), ['host', 'content-length'], true)) {

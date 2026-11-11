@@ -10,6 +10,7 @@ use Lorisleiva\Actions\Concerns\AsAction;
 use RuntimeException;
 use Tey\Kit\Media\Models\MediaUpload;
 use Tey\Kit\Media\ObjectProbe;
+use Tey\Kit\Media\UploadSigning;
 
 /**
  * Step three: the object is checked against its declaration and the record marked ready. On a bucket that is a HEAD for the size and a read of only
@@ -17,6 +18,9 @@ use Tey\Kit\Media\ObjectProbe;
  * With `$file` (the multipart fallback) the body is checked first and written to the key. A mismatch deletes the object, unless a ready record shares
  * it, and leaves the record pending for the app's pruner. Confirming a ready record returns it unchanged. A record with an open S3 multipart upload is
  * refused (`media.upload.multipart_pending`): only CompleteMultipartUpload, after its re-hash, confirms it.
+ *
+ * A record whose key is not named after its SHA-256 (`kit.media.signing` `content_type`, UploadSigning) had no checksum signed, so its object is
+ * re-hashed as a stream on any disk, and a mismatch fails closed as above. That costs one full read of the object.
  */
 class ConfirmUpload
 {
@@ -48,7 +52,7 @@ class ConfirmUpload
         }
         $probe = ObjectProbe::probe($disk, $upload->key);
         $local = method_exists($disk, 'getAdapter') && $disk->getAdapter() instanceof LocalFilesystemAdapter;
-        if ($probe['bytes'] !== $upload->bytes || $probe['mime'] !== $upload->mime || ($local && $this->hash($disk, $upload->key) !== $upload->sha256)) {
+        if ($probe['bytes'] !== $upload->bytes || $probe['mime'] !== $upload->mime || (($local || UploadSigning::needsRehash($upload)) && $this->hash($disk, $upload->key) !== $upload->sha256)) {
             $this->discard($disk, $upload);
             throw new RuntimeException('media.upload.mismatch');
         }
