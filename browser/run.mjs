@@ -5257,7 +5257,7 @@ test('the dashboard\'s wide aside (main-aside-wide): main and aside about 58/42 
     }
 });
 
-// ── Deprecated until 0.16: an app's own `welcome` card (dashboard.html?legacy) renders on the dashboard Page as before 0.15.41 ─────────────────────────────
+// ── Deprecated until 0.17: an app's own `welcome` card (dashboard.html?legacy) renders on the dashboard Page as before 0.15.41 ─────────────────────────────
 test('the dashboard Page with an app\'s deprecated welcome card: the card, its checklist links and Dismiss render above the widgets, axe passes, light and dark', async () => {
     for (const [mode, dark] of [['light', ''], ['dark', '&dark']]) {
         const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });

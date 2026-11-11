@@ -9,7 +9,7 @@ use Tey\Kit\Features\Core\Data\Action;
 /**
  * The dashboard's welcome card: a greeting for a new member and the first-run checklist. `dismiss` is present only once every item is done or skipped.
  *
- * @deprecated since 0.15.44, removed in 0.16. The kit no longer builds it: personal steps are in the You card and workspace steps in the setup card. An app
+ * @deprecated since 0.15.44, removed in 0.17. The kit no longer builds it: personal steps are in the You card and workspace steps in the setup card. An app
  * that still passes one as the dashboard's `welcome` prop gets the old card rendered above the widgets.
  */
 #[TypeScript]

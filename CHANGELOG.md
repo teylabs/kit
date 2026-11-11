@@ -29,6 +29,7 @@ A minor release (v0.16.0): it renames two public components.
 ### Changed
 
 - **`KIT_BRAND_*` env values are now removed in 0.17, not 0.16.** They still work, deprecated, in this release. The deprecation log, `kit:status`, the `config/brand.php` that `kit:brand:migrate` writes, the published brand stub and the docs now say 0.17.
+- **The deprecated `welcome` card and `WelcomeCardData` are now removed in 0.17, not 0.16.** They still work in this release. The notes in the dashboard view model, the data class, the workspace-ui Dashboard page and docs/dashboard.md now say 0.17. Re-pins `workspace-ui` (comment only): `sha256:996b8585…04db` → `sha256:155ea22c…48f3`.
 - **A GET action with intent `panel` is a button, not a link.** `isNavigation` and `rendersAsLink` now treat `panel` like `dialog`: the action renders as a button that emits `@action` (or, with no listener, runs as an operation), even with a GET href. Before, it rendered as an anchor that navigated.
 
 ### Fixed
