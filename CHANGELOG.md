@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Opt-in S3 multipart for large direct uploads.** Off by default. With the flag off, uploads behave exactly as before: the same tickets, the same request body and the same keys. `kit.media.multipart` (`enabled`, env `KIT_UPLOADS_MULTIPART`, default false; `threshold_bytes`, default 100 MiB; `part_bytes`, default 16 MiB and never under 5 MiB; `part_checksums`, default true) is read with `config()` defaults, so a published config without it is unaffected. A file over the threshold uses multipart only when all of these hold: the disk is an `AwsS3V3Adapter`, the client offered it (`direct.complete`), and the uploads table has the new column. Otherwise it is the single PUT, and other disks ignore the flag.
+  - **New final operations:** `RequestMultipartUpload` (it runs `RequestUpload` unchanged, then turns an eligible PUT ticket into `MULTIPART`), `CompleteMultipartUpload` and `AbortMultipartUpload`. Supporting classes: `MultipartUploads`, the `MultipartStore` interface and `S3MultipartStore`. `UploadTicket` (final) gains optional `uploadId` and `parts`, serialised only on a `MULTIPART` ticket. `MediaUploads::addMultipart()` adds a nullable `multipart_upload_id`. `schema()` includes it, and an existing table needs one additive migration. `league/flysystem-aws-s3-v3` is suggested, not required.
+  - **Integrity, fail closed.** S3 has no whole-object SHA-256 for multipart, only a composite. So complete always re-hashes the joined object as a stream and compares its size and SHA-256 with the declaration before `ConfirmUpload` marks it ready. Per-part signed SHA-256 adds a transit check, and `part_checksums: false` turns it off for R2 or MinIO. Dedupe and content-addressed keys are unchanged. The cost is one full read of the object per completed upload. Failures:
+    - Bad or missing parts, ETags or checksums are refused before S3 is called (`media.upload.bad_parts`).
+    - If S3 refuses the complete, the upload is aborted (`media.upload.incomplete`).
+    - If the re-hash doesn't match, the object is deleted unless a ready record shares it (`media.upload.mismatch`).
+  - **Client.** `directUpload.ts`: `DirectRoutes` gains optional `complete` and `abort`, `DirectTransport` an optional `putPart`, and `directUpload()` an optional `signal`. The request body gains `multipart: true` and later `part_sha256`, and only when `complete` is given. Parts upload four at a time with up to three tries each. A missing ETag, a part that keeps failing, or a cancel aborts, and no complete is sent. New exports: `partSlices`, `PART_CONCURRENCY` and `PART_ATTEMPTS`. The bucket's CORS must expose `ETag`.
+  - **Docs.** docs/media.md › Large files: S3 multipart has the host's `store`, `complete` and `abort` routes and the migration.
+  - **Known gap:** the app's pruner should run `AbortMultipartUpload` for stale pending records. kit's own prune command doesn't do this yet.
+  - **Tests.** `test:media-multipart` (new, in CI) and `tests/js/direct-upload-multipart.test.mjs`. No real S3, R2 or MinIO is exercised.
+  - Additive: no public signature changed, and no method added to a non-final class. core re-pinned: `sha256:f93a66d9…ecb8` → `sha256:8302d255…cdab`. In `history.json` only the `current` block changed: `Kit/Form/directUpload.ts` re-hashed.
+
 ## v0.15.81
 
 ### Changed

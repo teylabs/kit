@@ -21,6 +21,7 @@ use Tey\Kit\Media\MediaUploads;
  * @property string $status
  * @property ?int $width
  * @property ?int $height
+ * @property ?string $multipart_upload_id
  */
 class MediaUpload extends Model
 {
