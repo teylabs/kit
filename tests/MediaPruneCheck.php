@@ -52,6 +52,9 @@ final class AbortRecorder implements MultipartStore
 
     public bool $refuse = false;
 
+    /** When set, only an abort at this key succeeds (S3 answers NoSuchUpload anywhere else). */
+    public ?string $onlyKey = null;
+
     public function create(string $key, string $mime, string $cacheControl, bool $checksums): string
     {
         throw new LogicException('create');
@@ -71,6 +74,9 @@ final class AbortRecorder implements MultipartStore
     {
         if ($this->refuse) {
             throw new RuntimeException('s3 refused the abort');
+        }
+        if ($this->onlyKey !== null && $key !== $this->onlyKey) {
+            throw new RuntimeException('NoSuchUpload');
         }
         $this->aborted[] = $key.'#'.$uploadId;
     }
@@ -216,8 +222,35 @@ try {
     check($code !== 0 && MediaUpload::query()->find($openStale->id)?->multipart_upload_id === 'mpu-stale' && str_contains($output, 'not pruned: bucket:app/nn/open-stale.png'), 'an abort S3 refuses keeps the row and its upload id, is reported and fails the run');
     $recorder->refuse = false;
     [$code, $output] = prune();
-    check($code === 0 && $recorder->aborted === ['app/nn/open-stale.png#mpu-stale'] && MediaUpload::query()->find($openStale->id) === null && str_contains($output, 'S3 multipart uploads aborted: 1.'), 'a stale open multipart upload is aborted, then its row is pruned');
+    check($code === 0 && $recorder->aborted === ['app/nn/.staging/'.$openStale->id.'#mpu-stale'] && MediaUpload::query()->find($openStale->id) === null && str_contains($output, 'S3 multipart uploads aborted: 1.'), 'a stale open multipart upload is aborted, then its row is pruned');
     check(MediaUpload::query()->find($openRecent->id)?->multipart_upload_id === 'mpu-recent', 'a recent multipart upload is left open');
+    // An upload started before staging keys is open at the final key: the abort falls back to it.
+    $legacy = upload('ws:1', 'app/rr/legacy.png', 'pending', 48, object: false);
+    MediaUpload::query()->whereKey($legacy->id)->toBase()->update(['multipart_upload_id' => 'mpu-legacy']);
+    $recorder->onlyKey = 'app/rr/legacy.png';
+    [$code] = prune();
+    $recorder->onlyKey = null;
+    check($code === 0 && in_array('app/rr/legacy.png#mpu-legacy', $recorder->aborted, true) && MediaUpload::query()->find($legacy->id) === null, 'an upload open at the final key (started before staging) is aborted there and its row pruned');
+    // A ready row still holding a multipart id (a replay's upload whose abort failed during complete): the prune aborts it and clears the id.
+    $strayRow = upload('ws:1', 'app/ss/stray.png', 'ready', 48);
+    MediaUpload::query()->whereKey($strayRow->id)->toBase()->update(['multipart_upload_id' => 'mpu-stray']);
+    $recorder->refuse = true;
+    [$code] = prune();
+    $recorder->refuse = false;
+    check($code !== 0 && MediaUpload::query()->find($strayRow->id)?->multipart_upload_id === 'mpu-stray', 'a stray upload on a ready row whose abort fails keeps its id and fails the run');
+    [$code] = prune();
+    $after = MediaUpload::query()->find($strayRow->id);
+    check($code === 0 && in_array(MultipartUploads::stagingKey('app/ss/stray.png', $strayRow->id).'#mpu-stray', $recorder->aborted, true) && $after?->status === 'ready' && $after->multipart_upload_id === null, 'a stray upload on a ready row is aborted at its staging key, the id cleared and the row kept');
+    // A staging object left by a complete that died goes with its stale row; a delete the disk refuses keeps the row.
+    $staged = upload('ws:1', 'app/qq/staged.png', 'pending', 48, object: false);
+    $stagingKey = MultipartUploads::stagingKey('app/qq/staged.png', $staged->id);
+    $disk->put($stagingKey, 'joined');
+    $recentStaged = upload('ws:1', 'app/qq/recent.png', 'pending', 2, object: false);
+    $disk->put(MultipartUploads::stagingKey('app/qq/recent.png', $recentStaged->id), 'joined');
+    [$code] = prune(['--dry-run' => true]);
+    check($code === 0 && $disk->exists($stagingKey), 'a dry run leaves staging objects');
+    [$code] = prune();
+    check($code === 0 && ! $disk->exists($stagingKey) && MediaUpload::query()->find($staged->id) === null && $disk->exists(MultipartUploads::stagingKey('app/qq/recent.png', $recentStaged->id)), 'a stale row\'s staging object is deleted with it; a recent one is kept');
     MultipartUploads::fake('bucket', null);
     $orphan = upload('ws:1', 'app/pp/no-store.png', 'pending', 48, object: false);
     MediaUpload::query()->whereKey($orphan->id)->toBase()->update(['multipart_upload_id' => 'mpu-orphan']);

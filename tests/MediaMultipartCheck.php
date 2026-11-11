@@ -26,6 +26,7 @@ use League\Flysystem\Local\LocalFilesystemAdapter;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 use Spatie\MediaLibrary\MediaLibraryServiceProvider;
+use Tey\Kit\Media\ConditionalCopyStore;
 use Tey\Kit\Media\KeptFileRemover;
 use Tey\Kit\Media\KeyPathGenerator;
 use Tey\Kit\Media\MediaRules;
@@ -113,6 +114,49 @@ final class FakeMultipartStore implements MultipartStore
     public function count(string $call): int
     {
         return count(array_filter($this->calls, fn (array $entry): bool => $entry[0] === $call));
+    }
+}
+
+/** A store that also copies conditionally, recording each copy; `$plant` puts an object at the target first, as a racing writer would. */
+final class ConditionalFakeStore implements ConditionalCopyStore, MultipartStore
+{
+    /** @var list<array{string, string}> */
+    public array $copies = [];
+
+    public ?string $plant = null;
+
+    public function __construct(public FakeMultipartStore $inner, private string $disk) {}
+
+    public function create(string $key, string $mime, string $cacheControl, bool $checksums): string
+    {
+        return $this->inner->create($key, $mime, $cacheControl, $checksums);
+    }
+
+    public function presignPart(string $key, string $uploadId, int $part, int $bytes, ?string $sha256, DateTimeInterface $expiresAt): array
+    {
+        return $this->inner->presignPart($key, $uploadId, $part, $bytes, $sha256, $expiresAt);
+    }
+
+    public function complete(string $key, string $uploadId, array $parts): void
+    {
+        $this->inner->complete($key, $uploadId, $parts);
+    }
+
+    public function abort(string $key, string $uploadId): void
+    {
+        $this->inner->abort($key, $uploadId);
+    }
+
+    public function copyIfAbsent(string $from, string $to, int $bytes): bool
+    {
+        $this->copies[] = [$from, $to];
+        $this->plant !== null && Storage::disk($this->disk)->put($to, $this->plant);
+        if (Storage::disk($this->disk)->exists($to)) {
+            return false;
+        }
+        Storage::disk($this->disk)->copy($from, $to);
+
+        return true;
     }
 }
 
@@ -240,7 +284,7 @@ try {
     $first = RequestMultipartUpload::run('ws:1', $rules, 'image/png', $bytes, strtoupper($sha), 'big-1', true);
     $array = $first->toArray();
     check($first->method === 'MULTIPART' && $array['upload_id'] === 'mpu-1' && count($array['parts']) === 2 && $array['parts'][0]['url'] === null && $store->count('presign') === 0, 'the first request starts the upload and lists the parts with no URLs until their SHA-256s are sent');
-    check($store->calls[0] === ['create', $first->upload->key, 'image/png', RequestUpload::CACHE_CONTROL, true] && $first->upload->fresh()->multipart_upload_id === 'mpu-1', 'the upload is created with the type, immutable Cache-Control and SHA-256 part checksums, and its id recorded');
+    check($store->calls[0] === ['create', MultipartUploads::stagingKey($first->upload->key, $first->upload->id), 'image/png', RequestUpload::CACHE_CONTROL, true] && $first->upload->fresh()->multipart_upload_id === 'mpu-1', 'the upload is created with the type, immutable Cache-Control and SHA-256 part checksums, and its id recorded');
     $pieces = [substr($body, 0, MultipartUploads::partLength($bytes, 1)), substr($body, MultipartUploads::partLength($bytes, 1))];
     $hashes = array_map(fn (string $piece): string => hash('sha256', $piece), $pieces);
     check(refusal(fn () => RequestMultipartUpload::run('ws:1', $rules, 'image/png', $bytes, $sha, 'big-1', true, [$hashes[0]])) === 'validation:part_sha256', 'part hashes that do not cover every part are refused');
@@ -310,6 +354,70 @@ try {
     $theirs = RequestMultipartUpload::run('ws:6', $lonely, 'image/png', $bytes, $sha, 'shared-id', true);
     check($mine->upload->id !== $theirs->upload->id && $mine->uploadId !== $theirs->uploadId, 'another scope with the same mutation id gets its own record and multipart upload');
 
+    // Staging: the parts are joined at a per-record staging key, never at the content key, so nothing a client sends can swap or overwrite a
+    // content-addressed object; only a verified object is copied there, never over an existing one.
+    $stagedRules = new MediaRules('bucket', 'app/staged', ['image/png' => 'png'], 50 * $mib);
+    $begin = function (string $scope, string $tag, string $bytesIn) use ($stagedRules, $store, $hashes, $sha, $bytes): array {
+        $ticket = RequestMultipartUpload::run($scope, $stagedRules, 'image/png', $bytes, $sha, $tag, true, $hashes);
+        $split = [substr($bytesIn, 0, MultipartUploads::partLength($bytes, 1)), substr($bytesIn, MultipartUploads::partLength($bytes, 1))];
+        $tags = [$store->put($ticket->uploadId, 1, $split[0]), $store->put($ticket->uploadId, 2, $split[1])];
+
+        return [$ticket->upload->fresh(), [['part' => 1, 'etag' => $tags[0]], ['part' => 2, 'etag' => $tags[1]]]];
+    };
+    config(['kit.media.multipart.part_checksums' => false]);
+    $conditional = new ConditionalFakeStore($store, 'bucket');
+    MultipartUploads::fake('bucket', $conditional);
+    [$a, $aParts] = $begin('ws:9', 'stage-a', $body);
+    $staging = MultipartUploads::stagingKey($a->key, $a->id);
+    check($staging === dirname($a->key).'/.staging/'.$a->id && end($store->calls)[0] === 'presign', 'the staging key is per record, beside the content key');
+    $racer = null;
+    $conditional->plant = null;
+    $aReady = (function () use ($a, $aParts, &$racer) {
+        // An ordinary confirm while complete runs is refused: the multipart id stays set until the object is in place.
+        $racer = refusal(fn () => ConfirmUpload::run($a->fresh()));
+
+        return CompleteMultipartUpload::run($a, $aParts);
+    })();
+    check($racer === 'media.upload.multipart_pending' && $aReady->ready() && $aReady->multipart_upload_id === null, 'a confirm before complete is refused; complete then confirms the record and clears its id');
+    check($conditional->copies === [[$staging, $a->key]] && Storage::disk('bucket')->get($a->key) === $body && ! Storage::disk('bucket')->exists($staging), 'the verified staged object is copied to the content key with a conditional copy, and the staging object deleted');
+
+    // Overwrite: another scope declares the same SHA-256 but sends other bytes of the same size and PNG header. They are refused at staging; the
+    // ready object at the content key is never written to.
+    [$b, $bParts] = $begin('ws:10', 'stage-b', $tampered);
+    $copies = count($conditional->copies);
+    check(refusal(fn () => CompleteMultipartUpload::run($b, $bParts)) === 'media.upload.mismatch' && Storage::disk('bucket')->get($a->key) === $body && count($conditional->copies) === $copies, 'other bytes for the same key are refused at staging, and the ready object is untouched');
+    check(! Storage::disk('bucket')->exists(MultipartUploads::stagingKey($b->key, $b->id)) && $b->fresh()->status === 'pending' && $b->fresh()->multipart_upload_id === null, 'the refused staging object is deleted and the record left pending with no id');
+
+    // The same bytes again while the key already holds them: the existing object is used (a HEAD for its size), not overwritten.
+    [$c, $cParts] = $begin('ws:11', 'stage-c', $body);
+    $cReady = CompleteMultipartUpload::run($c, $cParts);
+    check($cReady->ready() && $cReady->key === $a->key && Storage::disk('bucket')->get($a->key) === $body && ! Storage::disk('bucket')->exists(MultipartUploads::stagingKey($c->key, $c->id)), 'verified bytes for a key that already holds them reuse the object and drop the staging copy');
+
+    // An object that appears at the key just before the copy (here of another size) is never overwritten: it is re-hashed, refused, and, with no
+    // ready record over it, deleted so a retry can place the verified bytes.
+    $lonelyRules = new MediaRules('bucket', 'app/raced', ['image/png' => 'png'], 50 * $mib);
+    $ticket = RequestMultipartUpload::run('ws:12', $lonelyRules, 'image/png', $bytes, $sha, 'stage-d', true);
+    $dTags = [$store->put($ticket->uploadId, 1, $pieces[0]), $store->put($ticket->uploadId, 2, $pieces[1])];
+    $conditional->plant = 'planted';
+    check(refusal(fn () => CompleteMultipartUpload::run($ticket->upload->fresh(), [['part' => 1, 'etag' => $dTags[0]], ['part' => 2, 'etag' => $dTags[1]]])) === 'media.upload.mismatch' && count($conditional->copies) > 0 && ! Storage::disk('bucket')->exists($ticket->upload->key) && $ticket->upload->fresh()->status === 'pending', 'an object that appears at the key first is not overwritten but refused, and deleted when no ready record shares it');
+    $conditional->plant = null;
+
+    // Same-size wrong bytes already at the key (a multipart upload from before staging keys that died before its re-hash): re-hashed and refused.
+    $legacyRules = new MediaRules('bucket', 'app/legacy', ['image/png' => 'png'], 50 * $mib);
+    $ticket = RequestMultipartUpload::run('ws:14', $legacyRules, 'image/png', $bytes, $sha, 'stage-f', true);
+    Storage::disk('bucket')->put($ticket->upload->key, $tampered);
+    $fTags = [$store->put($ticket->uploadId, 1, $pieces[0]), $store->put($ticket->uploadId, 2, $pieces[1])];
+    check(refusal(fn () => CompleteMultipartUpload::run($ticket->upload->fresh(), [['part' => 1, 'etag' => $fTags[0]], ['part' => 2, 'etag' => $fTags[1]]])) === 'media.upload.mismatch' && ! Storage::disk('bucket')->exists($ticket->upload->key) && $ticket->upload->fresh()->status === 'pending', 'same-size wrong bytes already at the key are re-hashed and refused, never trusted on size');
+
+    // A store without a conditional copy: HEAD-then-copy through the disk.
+    MultipartUploads::fake('bucket', $store);
+    $plainRules = new MediaRules('bucket', 'app/plain-copy', ['image/png' => 'png'], 50 * $mib);
+    $ticket = RequestMultipartUpload::run('ws:13', $plainRules, 'image/png', $bytes, $sha, 'stage-e', true);
+    $eTags = [$store->put($ticket->uploadId, 1, $pieces[0]), $store->put($ticket->uploadId, 2, $pieces[1])];
+    $eReady = CompleteMultipartUpload::run($ticket->upload->fresh(), [['part' => 1, 'etag' => $eTags[0]], ['part' => 2, 'etag' => $eTags[1]]]);
+    check($eReady->ready() && Storage::disk('bucket')->get($eReady->key) === $body && ! Storage::disk('bucket')->exists(MultipartUploads::stagingKey($eReady->key, $eReady->id)), 'a store without a conditional copy copies after a HEAD, and drops the staging object');
+    config(['kit.media.multipart.part_checksums' => true]);
+
     // The real S3 store, over a mocked S3 client (the SDK is optional, so a recording stand-in is declared when it is absent): the eligible disk,
     // the bucket and prefixed key, the signed part checksum, and what complete and abort send.
     if (! class_exists(S3Client::class)) {
@@ -329,6 +437,7 @@ try {
     check(end($client->calls) === ['completeMultipartUpload', ['Bucket' => 'media-bucket', 'Key' => 'tenant-a/k/a.png', 'UploadId' => 's3-1', 'MultipartUpload' => ['Parts' => [['PartNumber' => 1, 'ETag' => '"e1"', 'ChecksumSHA256' => 'c2hh'], ['PartNumber' => 2, 'ETag' => '"e2"']]]]], 'complete sends each part number with its ETag and checksum');
     $real->abort('k/a.png', 's3-1');
     check(end($client->calls) === ['abortMultipartUpload', ['Bucket' => 'media-bucket', 'Key' => 'tenant-a/k/a.png', 'UploadId' => 's3-1']], 'abort sends the bucket, key and upload id');
+    check($real->copyIfAbsent('k/.staging/01', 'k/a.png', 10) && end($client->calls) === ['copyObject', ['Bucket' => 'media-bucket', 'Key' => 'tenant-a/k/a.png', 'CopySource' => 'media-bucket/tenant-a/k/.staging/01', 'IfNoneMatch' => '*']], 'the conditional copy is one CopyObject from the staging key with If-None-Match: *');
 
     echo "OK media multipart\n";
 } catch (Throwable $error) {

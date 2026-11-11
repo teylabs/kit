@@ -37,11 +37,11 @@ final class RequestMultipartUpload
         $checksums = MultipartUploads::partChecksums();
         $hashes = $checksums && $partSha256 !== [] ? $this->hashes($partSha256, $count) : null;
         if ($upload->multipart_upload_id === null) {
-            $id = $store->create($upload->key, $upload->mime, RequestUpload::CACHE_CONTROL, $checksums);
+            $id = $store->create(MultipartUploads::stagingKey($upload->key, $upload->id), $upload->mime, RequestUpload::CACHE_CONTROL, $checksums);
             // Two racing requests for one record: the first to record its id wins; the loser aborts its own and uses the winner's.
             $won = MediaUpload::query()->whereKey($upload->id)->whereNull('multipart_upload_id')->update(['multipart_upload_id' => $id]) === 1;
             if (! $won) {
-                $this->abortQuietly($store, $upload->key, $id);
+                $this->abortQuietly($store, MultipartUploads::stagingKey($upload->key, $upload->id), $id);
             }
             $upload->refresh();
         }
@@ -51,7 +51,7 @@ final class RequestMultipartUpload
         try {
             for ($part = 1; $part <= $count; $part++) {
                 $signed = $checksums && $hashes === null ? null
-                    : $store->presignPart($upload->key, $uploadId, $part, MultipartUploads::partLength($upload->bytes, $part), $hashes === null ? null : base64_encode((string) hex2bin($hashes[$part - 1])), $expiresAt);
+                    : $store->presignPart(MultipartUploads::stagingKey($upload->key, $upload->id), $uploadId, $part, MultipartUploads::partLength($upload->bytes, $part), $hashes === null ? null : base64_encode((string) hex2bin($hashes[$part - 1])), $expiresAt);
                 $parts[] = ['part' => $part, 'url' => $signed['url'] ?? null, 'headers' => $signed['headers'] ?? []];
             }
         } catch (Throwable $error) {
