@@ -20,8 +20,8 @@ A minor release (v0.16.0): it renames two public components.
 
 ### Added
 
-- **The panel (`ActionCard`) gains `tone="danger"`, `align` and a `description` prop.** `align="top"` pins the actions top-right, and `center` stays the default. On a phone the actions wrap under the text. `tone="danger"` gives a red edge and a red title and keeps the card background (no tint), so the description and the actions keep their contrast in light and dark. Slots that render nothing (an empty `#actions`, a false `v-if`) leave no wrapper.
-- **`CardHeader` gains `actionsAlign`** (`center`, the default and the old layout, or `start`).
+- **The panel (`ActionCard`) gains `tone="danger"`, `align` and a `description` prop.** `align="top"` pins the actions top-right, and `center` stays the default. On a phone the actions stack under the text. `tone="danger"` gives a red edge and a red title and keeps the card background (no tint), so the description and the actions keep their contrast in light and dark. Slots that render nothing (an empty `#actions`, a false `v-if`) leave no wrapper.
+- **`CardHeader` gains `actionsAlign`** (`center`, the default and the old layout, or `start`) **and `stackActions`** (actions on their own line below `sm`; off by default).
 - **ActionBar and ButtonGroup gain `itemClass?: string`.** It is added to every menu row after the row's own classes, so an adopter can set its own row height. Destructive and disabled rows keep their look. ActionBar passes it to its menus. ButtonGroup provides it to the rows in its `#menu` (ActionMenuItems, DropdownItem, DropdownLink and the components built on them). `ActionBarProps` and `ButtonGroupProps` gain the optional prop.
 
 - **ActionBar `fillAll`: one primary pill.** On a pill surface, `fill-all` makes the whole group the primary fill with the primary text, rounded-full. Every segment is `py-2`, the first `pl-3.5` and the rest `px-3`, and a disabled segment still dims. It is a new optional boolean, so `filled` keeps its type. Off a pill surface it does nothing, and the default pill padding is unchanged. `ActionBarProps` gains `fillAll?: boolean`.

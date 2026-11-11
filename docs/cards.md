@@ -43,7 +43,7 @@ A card is a `Surface` in parts. Use them instead of a hand-rolled bordered `div`
 ```
 
 - **Parts:** it is a `Card` with a `CardHeader` (no tone) and a `CardBody`.
-- **Layout:** the title (a heading at `level`, 3 by default) and description on the left, the description capped at `max-w-xl`; `#actions` on the right, centred on the text. `align="top"` pins them top-right instead. On a phone the actions wrap under the text.
+- **Layout:** the title (a heading at `level`, 3 by default) and description on the left, the description capped at `max-w-xl`; `#actions` on the right, centred on the text. `align="top"` pins them top-right instead. On a phone the actions stack under the text.
 - **Below:** the default slot renders under the text and actions. A slot that renders nothing (an empty `#actions`, a false `v-if`) leaves no wrapper or gap.
 - **`tone="danger"`:** a red edge and a red title (`text-destructive-text`). The card keeps its background, with no tint, so the description and the actions keep the contrast they have on any card, in light and dark. Put a quiet button with red text in `#actions` and keep the filled red for the confirm dialog.
 

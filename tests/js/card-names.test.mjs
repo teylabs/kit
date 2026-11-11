@@ -31,6 +31,8 @@ test('ActionCard: description capped at max-w-xl; actions centred by default, pi
     assert.match(header, /actionsAlign\?: 'center' \| 'start'[;}]/, 'CardHeader gains an optional actionsAlign');
     assert.match(header, /actionsAlign: 'center'/, 'defaulting to the old centred row');
     assert.match(header, /actionsAlign === 'start' \? 'items-start' : 'items-center'/);
+    assert.match(action, /stack-actions/, 'the panel stacks its actions on a phone');
+    assert.match(header, /stackActions && 'max-sm:basis-full max-sm:justify-start'/);
 });
 
 test('ActionCard: danger keeps the card background (no tint) and colours only the edge and the title', () => {
