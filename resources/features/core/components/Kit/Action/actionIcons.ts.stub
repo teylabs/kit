@@ -7,9 +7,11 @@ import {
     Eye,
     EyeOff,
     FileText,
+    History,
     ArrowDown,
     ArrowUp,
     Image,
+    Mail,
     MessageSquare,
     Pencil,
     Plus,
@@ -24,7 +26,7 @@ import {
 
 // The icons an action descriptor or a toolbar item may name (`icon`, kebab case), imported by name so a bundler keeps only these. An unknown name renders no icon
 // rather than an unrelated one. The editor set: align-left/center/right, arrow-up/down (move earlier or later), trash, image, eye/eye-off (a visibility toggle),
-// plus, copy, chart and poll.
+// plus, copy, chart and poll; history and mail.
 export const actionIcons: Record<string, LucideIcon> = {
     'align-center': TextAlignCenter,
     'align-left': TextAlignStart,
@@ -39,7 +41,9 @@ export const actionIcons: Record<string, LucideIcon> = {
     eye: Eye,
     'eye-off': EyeOff,
     'file-text': FileText,
+    history: History,
     image: Image,
+    mail: Mail,
     'message-square': MessageSquare,
     pencil: Pencil,
     plus: Plus,
