@@ -76,15 +76,16 @@ test('a selection fits only by type, size and count (one file by default); other
 test('each problem reads as one sentence naming the file and the reason', () => {
     const limits = { accept: ['application/pdf'], maxBytes: 100_000_000, maxFiles: 100 };
     assert.equal(describeProblem({ kind: 'type', name: 'setup.exe' }, limits), "setup.exe isn't an accepted type");
-    assert.equal(describeProblem({ kind: 'size', name: 'plan.pdf' }, limits), 'plan.pdf is over 100 MB');
-    assert.equal(describeProblem({ kind: 'size', name: 'a.pdf' }, { ...limits, maxBytes: 2_500_000 }), 'a.pdf is over 2.5 MB');
+    assert.equal(describeProblem({ kind: 'size', name: 'plan.pdf' }, limits), 'plan.pdf is over 95.3 MiB');
+    assert.equal(describeProblem({ kind: 'size', name: 'a.pdf' }, { ...limits, maxBytes: 1536 * 1024 }), 'a.pdf is over 1.5 MiB');
     assert.equal(describeProblem({ kind: 'count' }, limits), 'Only 100 files at once');
     assert.equal(describeProblem({ kind: 'count' }, { ...limits, maxFiles: undefined }), 'Only 1 file at once');
 });
 
-test('the fallback hint states the per-file limit', () => {
-    assert.equal(sizeHint(100_000_000), 'Up to 100 MB each');
-    assert.equal(sizeHint(2_500_000), 'Up to 2.5 MB each');
+test('the fallback hint states the per-file limit in MiB (1024² bytes), to one decimal place where needed, rounded down', () => {
+    assert.equal(sizeHint(10240 * 1024), 'Up to 10 MiB each');
+    assert.equal(sizeHint(1536 * 1024), 'Up to 1.5 MiB each');
+    assert.equal(sizeHint(100_000_000), 'Up to 95.3 MiB each');
 });
 
 test('the default sender goes through Inertia\'s HTTP client and falls back to local storage when it cannot send', async () => {

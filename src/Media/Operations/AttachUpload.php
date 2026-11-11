@@ -9,13 +9,15 @@ use RuntimeException;
 use Spatie\MediaLibrary\Conversions\FileManipulator;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
+use Tey\Kit\Media\ClientFileName;
 use Tey\Kit\Media\KeyPathGenerator;
 use Tey\Kit\Media\Models\MediaUpload;
 
 /**
  * Attaches a ready upload to a model as a Media item over the existing key: a metadata row only, with no byte copy. The item is marked as not owning
  * its object (KeptFileRemover never deletes it), so several owners may reference the same content. Its conversions are queued as it is created. Attaching the same upload to the same owner and
- * collection again returns the first item.
+ * collection again returns the first item. Run through ClientFileName::attach() it keeps the browser's
+ * file name, sanitised, in the `client_file_name` custom property and as the default `name`; `file_name` stays the key's last part (the object's path).
  */
 class AttachUpload
 {
@@ -31,14 +33,15 @@ class AttachUpload
         if ($existing !== null) {
             return $existing;
         }
+        $client = ClientFileName::current($upload);
         $class = config('media-library.media_model', Media::class);
         /** @var Media $media */
         $media = new $class;
         $media->forceFill([
             'model_type' => $owner->getMorphClass(), 'model_id' => $owner->getKey(), 'uuid' => (string) Str::uuid(), 'collection_name' => $collection,
-            'name' => $name ?? pathinfo($upload->key, PATHINFO_FILENAME), 'file_name' => basename($upload->key), 'mime_type' => $upload->mime,
+            'name' => $name ?? ($client !== null ? pathinfo($client, PATHINFO_FILENAME) : pathinfo($upload->key, PATHINFO_FILENAME)), 'file_name' => basename($upload->key), 'mime_type' => $upload->mime,
             'disk' => $upload->disk, 'conversions_disk' => $upload->disk, 'size' => $upload->bytes, 'manipulations' => [], 'generated_conversions' => [], 'responsive_images' => [],
-            'custom_properties' => array_filter([KeyPathGenerator::KEY => $upload->key, KeyPathGenerator::UPLOAD => $upload->id, 'sha256' => $upload->sha256, 'width' => $upload->width, 'height' => $upload->height], fn ($value) => $value !== null),
+            'custom_properties' => array_filter([KeyPathGenerator::KEY => $upload->key, ClientFileName::PROPERTY => $client, KeyPathGenerator::UPLOAD => $upload->id, 'sha256' => $upload->sha256, 'width' => $upload->width, 'height' => $upload->height], fn ($value) => $value !== null),
         ])->save();
         // The owner's conversions for the collection, queued (HasResponsiveImages), so attaching never waits for them.
         app(FileManipulator::class)->createDerivedFiles($media);

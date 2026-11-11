@@ -3,20 +3,34 @@
 // Media delivery: proxy (ETag and 304, immutable for public, private no-store, nosniff, a sandbox CSP and a download for non-images) and redirect (a
 // 302 to a signed bucket URL whose own max-age is at most half the signature's TTL); the app's resolver decides 404s; only generated conversions
 // are served; a disk that cannot sign is proxied. SQLite memory, a temporary local disk and a stubbed URL signer; no network.
+use Illuminate\Bus\BusServiceProvider;
+use Illuminate\Cache\CacheServiceProvider;
+use Illuminate\Config\Repository;
+use Illuminate\Database\DatabaseServiceProvider;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Http\Request;
-use Symfony\Component\HttpKernel\Exception\HttpException;
-use Tey\Kit\Media\MediaDelivery;
+use Illuminate\Events\EventServiceProvider;
+use Illuminate\Filesystem\FilesystemServiceProvider;
 use Illuminate\Foundation\Application;
+use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Queue\QueueServiceProvider;
+use Illuminate\Routing\RoutingServiceProvider;
+use Illuminate\Support\Facades\Facade;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Translation\TranslationServiceProvider;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Validation\ValidationServiceProvider;
+use Illuminate\View\ViewServiceProvider;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
+use Spatie\MediaLibrary\MediaLibraryServiceProvider;
+use Symfony\Component\HttpKernel\Exception\HttpException;
+use Tey\Kit\Media\ClientFileName;
 use Tey\Kit\Media\KeptFileRemover;
 use Tey\Kit\Media\KeyPathGenerator;
+use Tey\Kit\Media\MediaDelivery;
 use Tey\Kit\Media\MediaRules;
 use Tey\Kit\Media\MediaUploads;
 use Tey\Kit\Media\Models\MediaUpload;
@@ -87,7 +101,7 @@ try {
     $app = new Application($base);
     $app->useStoragePath($base.'/storage');
     $app->instance('env', 'testing');
-    $app->instance('config', new Illuminate\Config\Repository([
+    $app->instance('config', new Repository([
         'app' => ['name' => 'Kit', 'url' => 'https://kit.test', 'key' => 'base64:'.base64_encode(random_bytes(32)), 'cipher' => 'AES-256-CBC', 'env' => 'testing'],
         'cache' => ['default' => 'array', 'stores' => ['array' => ['driver' => 'array']], 'prefix' => ''],
         'view' => ['paths' => [], 'compiled' => $base.'/views'], 'database' => ['default' => 'testing', 'connections' => ['testing' => ['driver' => 'sqlite', 'database' => ':memory:', 'prefix' => '']]],
@@ -98,9 +112,9 @@ try {
         'queue' => ['default' => 'sync', 'connections' => ['sync' => ['driver' => 'sync']]],
     ]));
     $app->instance('request', Request::create('https://kit.test'));
-    Illuminate\Support\Facades\Facade::clearResolvedInstances();
-    Illuminate\Support\Facades\Facade::setFacadeApplication($app);
-    foreach ([Illuminate\Events\EventServiceProvider::class, Illuminate\Filesystem\FilesystemServiceProvider::class, Illuminate\Cache\CacheServiceProvider::class, Illuminate\Database\DatabaseServiceProvider::class, Illuminate\Validation\ValidationServiceProvider::class, Illuminate\Translation\TranslationServiceProvider::class, Illuminate\Bus\BusServiceProvider::class, Illuminate\Routing\RoutingServiceProvider::class, Illuminate\View\ViewServiceProvider::class, Illuminate\Queue\QueueServiceProvider::class, Spatie\MediaLibrary\MediaLibraryServiceProvider::class] as $provider) {
+    Facade::clearResolvedInstances();
+    Facade::setFacadeApplication($app);
+    foreach ([EventServiceProvider::class, FilesystemServiceProvider::class, CacheServiceProvider::class, DatabaseServiceProvider::class, ValidationServiceProvider::class, TranslationServiceProvider::class, BusServiceProvider::class, RoutingServiceProvider::class, ViewServiceProvider::class, QueueServiceProvider::class, MediaLibraryServiceProvider::class] as $provider) {
         $app->register($provider);
     }
     $app->boot();
@@ -166,6 +180,21 @@ try {
     [, , $options] = end($signed);
     check($short->headers->get('Cache-Control') === 'max-age=150, private' && str_starts_with($options['ResponseContentDisposition'], 'attachment') && $options['ResponseContentType'] === 'application/pdf', 'a private document redirects as a download, cached privately for at most half the TTL (kit.media.delivery)');
     check(! str_contains((string) $short->getContent(), 'app/slides'), 'the redirect body carries no key');
+
+    // The original downloads under the browser's file name (ClientFileName): RFC 6266 filename* with an ASCII fallback, in both modes.
+    $named = ClientFileName::attach(MediaUpload::query()->findOrFail($pdf->getCustomProperty('kit_upload')), Slide::query()->create(), 'slides', 'Résumé "final" 100%.pdf');
+    $expected = 'attachment; filename="Resume _final_ 100_.pdf"; filename*=utf-8\'\'R%C3%A9sum%C3%A9%20%22final%22%20100%25.pdf';
+    config(['kit.media.delivery' => MediaDelivery::PROXY]);
+    [$status, $download] = deliver(fn () => $named);
+    check($status === 200 && $download->headers->get('Content-Disposition') === $expected, 'a proxied original downloads under its client file name, RFC 6266-encoded with an ASCII fallback');
+    deliver(fn () => $named, mode: MediaDelivery::REDIRECT);
+    [, , $options] = end($signed);
+    check($options['ResponseContentDisposition'] === $expected, 'a redirected original is signed with the same Content-Disposition');
+    [, $unnamed] = deliver(fn () => $pdf);
+    check(! str_contains((string) $unnamed->headers->get('Content-Disposition'), 'filename*') && str_contains((string) $unnamed->headers->get('Content-Disposition'), basename($pdf->getCustomProperty('kit_key'))), 'an item with no client file name keeps the generated download name');
+    $named->setCustomProperty('client_file_name', "../evil\x00.exe")->save();
+    [, $tampered] = deliver(fn () => $named);
+    check($tampered->headers->get('Content-Disposition') === 'attachment; filename=evil.pdf', 'a stored name is sanitised again before use (path, control characters, extension)');
 
     $plain = new MediaRules('plain', 'app/slides', ['image/png' => 'png'], 1_000_000);
     $ticket = RequestUpload::run('ws:9', $plain, 'image/png', strlen(png(10, 10)), hash('sha256', png(10, 10)));

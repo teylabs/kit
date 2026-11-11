@@ -1,6 +1,7 @@
 /*
  * Direct-to-bucket upload (docs/media.md): declare the file (type, size, SHA-256), PUT it straight to the presigned URL with progress, then confirm.
  * A `POST` ticket (the disk cannot presign) sends the file as multipart to the confirm route instead; a `null` ticket (already stored) only confirms.
+ * Both the request and the confirm body carry `file_name` (the File's own name), for ClientFileName::attach() on the server; never trusted for type or key.
  * One mutation id per File, so a retry of the same file replays the same upload. Every step that is not a 2xx rejects with a DirectUploadError.
  */
 export type DirectRoutes = { request: string; confirm: string };
@@ -118,6 +119,7 @@ export async function directUpload(
         bytes: file.size,
         sha256,
         mutation_id: mutationFor(file),
+        file_name: file.name,
     });
     if (!ok(requested.status))
         throw new DirectUploadError(
@@ -135,14 +137,21 @@ export async function directUpload(
             (loaded) => progress(file.size ? loaded / file.size : 1),
         );
         if (!ok(status)) throw new DirectUploadError('upload', status);
-        confirmed = await transport.json(routes.confirm, { id: ticket.id });
+        confirmed = await transport.json(routes.confirm, {
+            id: ticket.id,
+            file_name: file.name,
+        });
     } else if (ticket.method === 'POST') {
         const body = new FormData();
         body.append('id', ticket.id);
+        body.append('file_name', file.name);
         body.append('file', file);
         confirmed = await transport.form(routes.confirm, body);
     } else {
-        confirmed = await transport.json(routes.confirm, { id: ticket.id });
+        confirmed = await transport.json(routes.confirm, {
+            id: ticket.id,
+            file_name: file.name,
+        });
     }
     if (!ok(confirmed.status))
         throw new DirectUploadError(
