@@ -113,7 +113,7 @@ Scope the confirm lookup to the same scope the request used, so one owner can't 
 
 ## Signing
 
-Opt-in. By default (`full`) the presigned PUT signs Content-Type, Content-Length, the immutable Cache-Control and the SHA-256 checksum, under a key named after the SHA-256. The bucket refuses any other body, so confirm only checks the size and reads the first bytes, and the same bytes in a scope dedupe to one object. Some buckets' CORS rules, and some clients, reject the extra signed headers. For those, sign only the type:
+Opt-in. By default (`full`) the presigned PUT signs Content-Type, Content-Length, the immutable Cache-Control and the SHA-256 checksum, under a key named after the SHA-256. The bucket refuses any other body, so confirm on a bucket only checks the size and reads the first bytes, and the same bytes in a scope dedupe to one object. Some buckets' CORS rules, and some clients, reject the extra signed headers. For those, sign only the type:
 
 ```php
 // config/kit.php (read with a default, so the key is optional)
@@ -129,7 +129,7 @@ With `content_type`:
 
 The record's key decides, not the setting: a key not named after its SHA-256 is always re-hashed, so a record requested in one mode and confirmed after the setting changed is still verified, and a replayed mutation keeps the signing it was made with. An unknown value is refused (`InvalidArgumentException`) rather than read as either mode.
 
-**With multipart.** The two settings are independent. `signing` decides the key, dedupe and the single PUT's headers; `multipart.part_checksums` alone decides whether each part URL signs its SHA-256. A multipart upload under `content_type` gets a random key and no dedupe, and `CompleteMultipartUpload` re-hashes it once, as it always does (confirm does not read it again). For a store that rejects both kinds of checksum header (R2, MinIO), set `signing` to `content_type` and `part_checksums` to false: integrity then rests entirely on the server's re-hash, which every path runs.
+**With multipart.** The two settings are independent. `signing` decides the key, dedupe and the single PUT's headers; `multipart.part_checksums` alone decides whether each part URL signs its SHA-256. A multipart upload under `content_type` gets a random key and no dedupe, and `CompleteMultipartUpload` re-hashes it, as it always does, and `ConfirmUpload` re-hashes it again at the ready transition, so an object replaced between the two is still caught. That is two full reads of a large file in this mode. For a store that rejects both kinds of checksum header (R2, MinIO), set `signing` to `content_type` and `part_checksums` to false: integrity then rests entirely on the server's re-hash, which every path runs.
 
 ## Large files: S3 multipart
 

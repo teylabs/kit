@@ -325,6 +325,7 @@ try {
     $disk->put($late->upload->key, $tampered);
     check(refusal(fn () => ConfirmUpload::run($late->upload->fresh())) === 'media.upload.mismatch', 'a content_type record confirmed after the setting changed is still re-hashed and refused');
     config(['kit.media.signing' => 'nope']);
+    check(refusal(fn () => RequestUpload::run('ws:1', $rules, 'image/png', $bytes, $sha, 'c-1')) === "kit.media.signing must be 'full' or 'content_type'.", 'an unknown signing mode is refused on a replay too');
     check(refusal(fn () => RequestUpload::run('ws:1', $rules, 'image/png', $bytes, $sha, 'c-4')) === "kit.media.signing must be 'full' or 'content_type'." && MediaUpload::query()->where('mutation_id', 'c-4')->doesntExist(), 'an unknown signing mode is refused, reserving nothing');
 
     // Scopes stay apart: another scope's ready upload of the same bytes is never reused, in either mode.
@@ -347,8 +348,7 @@ try {
     $tags = [$store->put('mpu-1', 1, $pieces[0]), $store->put('mpu-1', 2, $pieces[1])];
     $reads = $adapter->reads;
     $done = CompleteMultipartUpload::run($first->upload->fresh(), [['part' => 1, 'etag' => $tags[0], 'checksum' => base64_encode(hex2bin($hashes[0]))], ['part' => 2, 'etag' => $tags[1], 'checksum' => base64_encode(hex2bin($hashes[1]))]]);
-    check($done->ready() && $adapter->reads === $reads + 2, 'complete re-hashes once and confirm does not read the whole object again');
-    check(UploadSigning::needsRehash($first->upload->fresh()), 'the after-rehash mark is cleared once complete returns');
+    check($done->ready() && $adapter->reads === $reads + 3, 'complete re-hashes, and confirm re-hashes the random-key object again at the ready transition');
     $dupe = RequestMultipartUpload::run('ws:3', $rules, 'image/png', strlen($big), $bigSha, 'm-2', true);
     check($dupe->method === 'MULTIPART' && $dupe->upload->key !== $done->key, 'the same large content is not deduped in content_type mode');
     config(['kit.media.multipart.part_checksums' => false]);

@@ -52,7 +52,7 @@ class ConfirmUpload
         }
         $probe = ObjectProbe::probe($disk, $upload->key);
         $local = method_exists($disk, 'getAdapter') && $disk->getAdapter() instanceof LocalFilesystemAdapter;
-        if ($probe['bytes'] !== $upload->bytes || $probe['mime'] !== $upload->mime || (($local || ($file === null && UploadSigning::needsRehash($upload))) && $this->hash($disk, $upload->key) !== $upload->sha256)) {
+        if ($probe['bytes'] !== $upload->bytes || $probe['mime'] !== $upload->mime || (($local || UploadSigning::needsRehash($upload)) && $this->hash($disk, $upload->key) !== $upload->sha256)) {
             $this->discard($disk, $upload);
             throw new RuntimeException('media.upload.mismatch');
         }

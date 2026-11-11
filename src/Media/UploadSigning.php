@@ -2,7 +2,6 @@
 
 namespace Tey\Kit\Media;
 
-use Closure;
 use InvalidArgumentException;
 use Tey\Kit\Media\Models\MediaUpload;
 
@@ -21,9 +20,6 @@ final class UploadSigning
     public const FULL = 'full';
 
     public const CONTENT_TYPE = 'content_type';
-
-    /** @var array<string, true> uploads CompleteMultipartUpload has just re-hashed, so ConfirmUpload doesn't read them a second time */
-    private static array $rehashed = [];
 
     public static function mode(): string
     {
@@ -45,30 +41,9 @@ final class UploadSigning
         return pathinfo($upload->key, PATHINFO_FILENAME) === $upload->sha256;
     }
 
-    /** Whether ConfirmUpload must re-hash the object: its key does not prove the content and nothing has re-hashed it in this call. */
+    /** Whether ConfirmUpload must re-hash the object: its key does not prove the content. */
     public static function needsRehash(MediaUpload $upload): bool
     {
-        return ! self::contentAddressed($upload) && ! isset(self::$rehashed[$upload->id]);
-    }
-
-    /**
-     * Runs `$confirm` with the upload marked as already re-hashed (CompleteMultipartUpload, after its own re-hash). The mark is cleared in a finally.
-     *
-     * @template T
-     *
-     * @param  Closure(): T  $confirm
-     * @return T
-     */
-    public static function afterRehash(MediaUpload $upload, Closure $confirm): mixed
-    {
-        $had = isset(self::$rehashed[$upload->id]);
-        self::$rehashed[$upload->id] = true;
-        try {
-            return $confirm();
-        } finally {
-            if (! $had) {
-                unset(self::$rehashed[$upload->id]);
-            }
-        }
+        return ! self::contentAddressed($upload);
     }
 }

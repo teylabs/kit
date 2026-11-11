@@ -32,6 +32,8 @@ class RequestUpload
     public function handle(string $scope, MediaRules $rules, string $mime, int $bytes, string $sha256, ?string $mutationId = null): UploadTicket
     {
         $sha256 = strtolower($sha256);
+        // Read (and an unknown value refused) before anything else, replays included.
+        $full = UploadSigning::full();
         $errors = array_filter([
             'mime' => $rules->accepts($mime) ? null : 'That type of file is not accepted.',
             'bytes' => $bytes > 0 && $bytes <= $rules->maxBytes ? null : UploadLimit::message(intdiv($rules->maxBytes, 1024)).'.',
@@ -49,7 +51,6 @@ class RequestUpload
             return $this->ticket($replay, $rules);
         }
         // `content_type` signing: the SHA-256 is only the client's word, so it is never an identity: no reuse by it and a random key.
-        $full = UploadSigning::full();
         $existing = $full ? MediaUpload::query()->where('scope', $scope)->where('sha256', $sha256)->where('disk', $rules->disk)->where('status', 'ready')->first() : null;
         $upload = MediaUpload::query()->create([
             'scope' => $scope, 'mutation_id' => $mutationId, 'key' => $full ? $rules->key($sha256, $mime) : $rules->randomKey($mime), ...$declared,
