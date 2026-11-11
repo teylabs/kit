@@ -195,6 +195,18 @@ return [
         ],
     ],
 
+    // Laravel's image API (docs/images.md). With ext-imagick, the kit registers the `kit-imagick` driver and makes it `images.default` while that is
+    // still the framework's `gd`; set `default` false (env KIT_IMAGE_DEFAULT) to keep gd. `memory_limit`: Imagick pixel-cache bytes per image (null
+    // for Imagick's own). `strip_metadata`: drop EXIF and profiles from the output. `progressive`: JPEG interlace (null keeps the source's).
+    // `crop_to_ratio`: honour the CropToRatio transformation. Every key is read with a default, so this block is optional.
+    'images' => [
+        'default' => (bool) env('KIT_IMAGE_DEFAULT', true),
+        'memory_limit' => 256 * 1024 * 1024,
+        'strip_metadata' => true,
+        'progressive' => null,
+        'crop_to_ratio' => true,
+    ],
+
     // The host's user model. Null uses the `users` auth provider's model.
     'models' => ['user' => null],
 
