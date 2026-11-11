@@ -66,6 +66,10 @@ return [
             'host' => 'This can\'t be saved yet',
         ],
     ],
+    // An upload's size limit in binary units (UploadLimit::message()): `:size` is the limit in MiB (1024² bytes), to one decimal place where needed.
+    'upload' => [
+        'limit' => 'Files can be up to :size MiB',
+    ],
     // The answer to a reset-link request, the same whether or not the address has an account.
     'auth' => [
         'reset_link_sent' => 'If an account exists for that email, we\'ve sent a password reset link.',

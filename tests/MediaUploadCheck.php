@@ -3,15 +3,30 @@
 // Direct-to-bucket uploads: the declaration's checks, the presigned PUT and what it signs, mutation replay, dedupe within a scope, confirm by HEAD and
 // a header read (or a hash on a local disk), the multipart fallback, attaching over the existing key with no copy, and that deleting a Media item never
 // deletes the object. SQLite memory, a temporary local disk and a stubbed presigner; no network.
+use Illuminate\Bus\BusServiceProvider;
+use Illuminate\Cache\CacheServiceProvider;
+use Illuminate\Config\Repository;
+use Illuminate\Database\DatabaseServiceProvider;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Events\EventServiceProvider;
+use Illuminate\Filesystem\FilesystemServiceProvider;
 use Illuminate\Foundation\Application;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Queue\QueueServiceProvider;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Facade;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Translation\TranslationServiceProvider;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Validation\ValidationServiceProvider;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
+use Spatie\MediaLibrary\MediaLibraryServiceProvider;
+use Tey\Kit\Features\SessionUi\Avatars;
+use Tey\Kit\Features\SessionUi\Models\UserAvatar;
+use Tey\Kit\Media\ClientFileName;
 use Tey\Kit\Media\KeptFileRemover;
 use Tey\Kit\Media\KeyPathGenerator;
 use Tey\Kit\Media\MediaRules;
@@ -71,7 +86,7 @@ try {
     $app = new Application($base);
     $app->useStoragePath($base.'/storage');
     $app->instance('env', 'testing');
-    $app->instance('config', new Illuminate\Config\Repository([
+    $app->instance('config', new Repository([
         'app' => ['name' => 'Kit', 'url' => 'https://kit.test', 'key' => 'base64:'.base64_encode(random_bytes(32)), 'cipher' => 'AES-256-CBC', 'env' => 'testing'],
         'cache' => ['default' => 'array', 'stores' => ['array' => ['driver' => 'array']], 'prefix' => ''],
         'database' => ['default' => 'testing', 'connections' => ['testing' => ['driver' => 'sqlite', 'database' => ':memory:', 'prefix' => '']]],
@@ -81,9 +96,9 @@ try {
         ]],
         'queue' => ['default' => 'sync', 'connections' => ['sync' => ['driver' => 'sync']]],
     ]));
-    Illuminate\Support\Facades\Facade::clearResolvedInstances();
-    Illuminate\Support\Facades\Facade::setFacadeApplication($app);
-    foreach ([Illuminate\Events\EventServiceProvider::class, Illuminate\Filesystem\FilesystemServiceProvider::class, Illuminate\Cache\CacheServiceProvider::class, Illuminate\Database\DatabaseServiceProvider::class, Illuminate\Validation\ValidationServiceProvider::class, Illuminate\Translation\TranslationServiceProvider::class, Illuminate\Bus\BusServiceProvider::class, Illuminate\Queue\QueueServiceProvider::class, Spatie\MediaLibrary\MediaLibraryServiceProvider::class] as $provider) {
+    Facade::clearResolvedInstances();
+    Facade::setFacadeApplication($app);
+    foreach ([EventServiceProvider::class, FilesystemServiceProvider::class, CacheServiceProvider::class, DatabaseServiceProvider::class, ValidationServiceProvider::class, TranslationServiceProvider::class, BusServiceProvider::class, QueueServiceProvider::class, MediaLibraryServiceProvider::class] as $provider) {
         $app->register($provider);
     }
     $app->boot();
@@ -107,6 +122,12 @@ try {
     // The declaration.
     check(refusal(fn () => RequestUpload::run('ws:1', $rules, 'application/pdf', $bytes, $sha)) === 'validation:mime', 'a type the collection does not accept is refused');
     check(refusal(fn () => RequestUpload::run('ws:1', $rules, 'image/png', 2_000_000, $sha)) === 'validation:bytes', 'a size over the limit is refused');
+    try {
+        RequestUpload::run('ws:1', new MediaRules('bucket', 'app/slides', ['image/png' => 'png'], 1536 * 1024), 'image/png', 2_000_000, $sha);
+    } catch (ValidationException $exception) {
+        $sizeError = $exception->errors()['bytes'][0] ?? null;
+    }
+    check(($sizeError ?? null) === 'Files can be up to 1.5 MiB.', 'the size refusal states the limit in MiB');
     check(refusal(fn () => RequestUpload::run('ws:1', $rules, 'image/png', $bytes, 'abc')) === 'validation:sha256', 'a malformed checksum is refused');
     check(MediaUpload::query()->count() === 0, 'a refused declaration reserves nothing');
 
@@ -164,16 +185,38 @@ try {
     $own->delete();
     check(! file_exists($ownPath), 'an item that owns its file is still removed as usual');
 
+    // The browser's file name: kept, sanitised, as `client_file_name` and the default name; file_name, the key and the type stay the server's.
+    $named = ClientFileName::attach($ready, Slide::query()->create(), 'images', 'Quarterly plan.png');
+    check($named->getCustomProperty('client_file_name') === 'Quarterly plan.png' && $named->name === 'Quarterly plan', 'the client file name round-trips into client_file_name and the default name');
+    check($named->file_name === basename($ready->key) && $named->getCustomProperty('kit_key') === $ready->key && $named->mime_type === 'image/png' && file_exists($named->getPath()), 'file_name stays the key\'s last part, so the item still finds its object');
+    check(ClientFileName::attach($ready, Slide::query()->create(), 'images', 'Plan.png', 'Board pack')->name === 'Board pack', 'a name the host passes wins over the client file name');
+    check(ClientFileName::attach($ready, Slide::query()->create(), 'images', 'setup.exe')->getCustomProperty('client_file_name') === 'setup.png', 'the client\'s extension is never trusted: the key\'s is used');
+    check(ClientFileName::sanitise('../../x.pdf', 'app/k/abc.pdf') === 'x.pdf' && ClientFileName::sanitise('..\\..\\x.pdf', 'app/k/abc.pdf') === 'x.pdf' && ClientFileName::sanitise('/etc/passwd', 'app/k/abc.pdf') === 'passwd.pdf', 'a path (../../x.pdf, backslashes, absolute) keeps only its last segment');
+    $long = ClientFileName::sanitise(str_repeat('a', 500).'.pdf', 'app/k/abc.pdf');
+    check($long === str_repeat('a', ClientFileName::MAX_BYTES).'.pdf', 'a 500-character name is capped');
+    check(strlen((string) ClientFileName::sanitise(str_repeat('é', 300).'.pdf', 'k.pdf')) <= ClientFileName::MAX_BYTES + 4 && mb_check_encoding((string) ClientFileName::sanitise(str_repeat('é', 300).'.pdf', 'k.pdf'), 'UTF-8'), 'the cap never splits a multibyte character');
+    check(ClientFileName::sanitise("a\x00b\x1Fc\x7F\u{202E}d\r\n.pdf", 'k.pdf') === 'abcd.pdf', 'control and bidi format characters are removed');
+    foreach ([null, '', '..', '/', '   ', '.pdf', "\x00\x01", "\xff\xfe.pdf"] as $bad) {
+        check(ClientFileName::sanitise($bad, 'k.pdf') === null, 'nothing usable gives null: '.json_encode(mb_check_encoding((string) $bad, 'UTF-8') ? $bad : bin2hex((string) $bad)));
+    }
+    $fallback = ClientFileName::attach($ready, Slide::query()->create(), 'images', null);
+    check(! $fallback->hasCustomProperty('client_file_name') && $fallback->name === pathinfo($ready->key, PATHINFO_FILENAME) && $fallback->file_name === basename($ready->key), 'a missing name falls back to the generated one');
+    check(! ClientFileName::attach($ready, Slide::query()->create(), 'images', '../..')->hasCustomProperty('client_file_name'), 'an invalid name falls back to the generated one');
+    check(refusal(fn () => ClientFileName::attach($wrong->upload->fresh(), Slide::query()->create(), 'images', 'leak.png')) === 'media.upload.pending', 'a throwing attach still throws');
+    check(ClientFileName::current($wrong->upload) === null && ClientFileName::current($ready) === null, 'a throwing attach leaves no name set');
+    $plain = AttachUpload::run($ready, Slide::query()->create(), 'images');
+    check(! $plain->hasCustomProperty('client_file_name') && $plain->name === pathinfo($ready->key, PATHINFO_FILENAME), 'a later plain attach carries no earlier name');
+
     // Avatars bind `media.model_id` as a string: varchar on string or uuid morphs, which PostgreSQL will not compare with an integer.
     $bound = [];
-    Illuminate\Support\Facades\DB::listen(function ($query) use (&$bound): void {
+    DB::listen(function ($query) use (&$bound): void {
         if (str_contains($query->sql, 'model_id')) {
             $bound[] = $query->bindings;
         }
     });
-    Tey\Kit\Features\SessionUi\Avatars::urlsFor([7]);
-    Tey\Kit\Features\SessionUi\Avatars::urls(7);
-    (new Tey\Kit\Features\SessionUi\Models\UserAvatar)->forceFill(['id' => 7])->media()->get();
+    Avatars::urlsFor([7]);
+    Avatars::urls(7);
+    (new UserAvatar)->forceFill(['id' => 7])->media()->get();
     check(count($bound) === 3 && array_filter($bound, fn (array $bindings): bool => ! in_array('7', $bindings, true)) === [], 'avatar lookups and the avatar holder\'s media relation bind model_id as a string');
 
     echo "OK media uploads\n";

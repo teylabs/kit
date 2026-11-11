@@ -7,6 +7,10 @@ require $argv[1] ?? dirname(__DIR__).'/vendor/autoload.php';
 
 use Illuminate\Config\Repository;
 use Illuminate\Container\Container;
+use Illuminate\Filesystem\Filesystem;
+use Illuminate\Translation\ArrayLoader;
+use Illuminate\Translation\FileLoader;
+use Illuminate\Translation\Translator;
 use Tey\Kit\Features\Core\Deploy\PreflightCommand;
 use Tey\Kit\Features\Core\UploadLimit;
 
@@ -43,6 +47,22 @@ try {
     limitCheck(UploadLimit::bytes('100M') === 100 * 1024 ** 2 && UploadLimit::bytes('2G') === 2 * 1024 ** 3 && UploadLimit::bytes('512k') === 512 * 1024 && UploadLimit::bytes('4096') === 4096, 'ini sizes read as bytes (M, G, lower-case k, plain)');
     limitCheck(UploadLimit::bytes('0') === null && UploadLimit::bytes('') === null && UploadLimit::bytes('-1') === null, 'an ini size of 0, empty or -1 is no limit, never a zero cap');
     limitCheck(UploadLimit::media() === null, 'with no medialibrary config, medialibrary sets no limit');
+
+    // The size-limit sentence in binary units (MiB, 1024²), rounded down to one decimal place; worded by `kit::ui.upload.limit`, which an app overrides.
+    limitCheck(UploadLimit::message(10240) === 'Files can be up to 10 MiB', '10240 KB reads as 10 MiB, with no decimal');
+    limitCheck(UploadLimit::message(1536) === 'Files can be up to 1.5 MiB', '1536 KB reads as 1.5 MiB, to one decimal place');
+    limitCheck(UploadLimit::message(976) === 'Files can be up to 0.9 MiB' && UploadLimit::mebibytes(100_000_000) === '95.3', 'a size between tenths is rounded down, never promising more');
+    $container->instance('config', new Repository(['app' => ['locale' => 'en']]));
+    $lines = new FileLoader(new Filesystem, dirname(__DIR__).'/lang');
+    $lines->addNamespace('kit', dirname(__DIR__).'/lang');
+    $container->instance('translator', new Translator($lines, 'en'));
+    limitCheck(UploadLimit::message(10240) === 'Files can be up to 10 MiB', 'the kit\'s own lang/en/ui.php carries the sentence (kit::ui.upload.limit)');
+    $override = new ArrayLoader;
+    $override->addMessages('en', 'ui', ['upload' => ['limit' => 'Max :size MiB per file']], 'kit');
+    $container->instance('translator', new Translator($override, 'en'));
+    limitCheck(UploadLimit::message(1536) === 'Max 1.5 MiB per file', 'an app\'s lang override words it, with :size filled in');
+    $container->forgetInstance('translator');
+    $container->instance('config', new Repository([]));
 
     $mb = 1024 ** 2;
     limitCheck(underLimits('100M', '100M', null, 'return Tey\Kit\Features\Core\UploadLimit::cap(10 * 1024 ** 2);') === 10 * $mb, 'a kit cap under every stack limit is kept as it is');

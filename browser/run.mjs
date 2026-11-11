@@ -2009,7 +2009,7 @@ test('BulkDrop shows its size limit by default, none with showLimit false, and a
         await tab.goto(`${url}?bulk-drop`);
         await tab.waitForSelector('[data-state="no-limit"] [data-dropzone]');
         if (process.env.KIT_BULKDROP_SCREENSHOT) await tab.screenshot({ path: `${process.env.KIT_BULKDROP_SCREENSHOT}-show-limit.png`, fullPage: true });
-        assert.match((await tab.textContent('[data-state="idle"] [data-dropzone-hint]')).trim(), /^Up to .+ MB each$/, 'the default hint is the size limit');
+        assert.match((await tab.textContent('[data-state="idle"] [data-dropzone-hint]')).trim(), /^Up to .+ MiB each$/, 'the default hint is the size limit');
         assert.equal(await tab.locator('[data-state="no-limit"] [data-dropzone-hint]').count(), 0, 'no empty hint element');
         assert.equal(await tab.locator('[data-state="no-limit"] [aria-describedby]').count(), 0, 'no aria-describedby left behind');
         assert.equal((await tab.textContent('[data-state="own-hint"] [data-dropzone-hint]')).trim(), 'Square images work best');

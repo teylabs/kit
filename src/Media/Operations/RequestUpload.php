@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Lorisleiva\Actions\Concerns\AsAction;
 use RuntimeException;
+use Tey\Kit\Features\Core\UploadLimit;
 use Tey\Kit\Media\MediaRules;
 use Tey\Kit\Media\Models\MediaUpload;
 use Tey\Kit\Media\UploadTicket;
@@ -29,7 +30,7 @@ class RequestUpload
         $sha256 = strtolower($sha256);
         $errors = array_filter([
             'mime' => $rules->accepts($mime) ? null : 'That type of file is not accepted.',
-            'bytes' => $bytes > 0 && $bytes <= $rules->maxBytes ? null : 'The file may be at most '.intdiv($rules->maxBytes, 1024).' KB.',
+            'bytes' => $bytes > 0 && $bytes <= $rules->maxBytes ? null : UploadLimit::message(intdiv($rules->maxBytes, 1024)).'.',
             'sha256' => preg_match('/^[0-9a-f]{64}$/', $sha256) === 1 ? null : 'The checksum must be a hex SHA-256.',
         ]);
         if ($errors !== []) {

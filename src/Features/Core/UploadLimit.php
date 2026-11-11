@@ -71,6 +71,28 @@ final class UploadLimit
         return $found;
     }
 
+    /**
+     * The size-limit sentence for a cap of `$kilobytes`, in binary units: "Files can be up to 10 MiB" (10240 KB), "… 1.5 MiB" (1536 KB). The size is
+     * MiB (1024² bytes) rounded down to one decimal place, whole numbers without one. The copy is `kit::ui.upload.limit` (`:size`), so an app words it in
+     * lang/vendor/kit/{locale}/ui.php; with no translator, or the key missing, the kit's own English.
+     */
+    public static function message(int $kilobytes): string
+    {
+        $size = self::mebibytes(max(0, $kilobytes) * 1024);
+        // A translator with no locale (a bare container) can't look anything up; the kit's English is the answer there.
+        $copy = function_exists('app') && app()->bound('translator') && is_string(config('app.locale')) && config('app.locale') !== '' ? trans('kit::ui.upload.limit', ['size' => $size]) : null;
+
+        return is_string($copy) && $copy !== 'kit::ui.upload.limit' ? $copy : 'Files can be up to '.$size.' MiB';
+    }
+
+    /** Bytes as MiB (1024²), rounded down to one decimal place so it never promises more, without a trailing ".0": 10, 1.5. */
+    public static function mebibytes(int $bytes): string
+    {
+        $value = floor($bytes / 1048576 * 10 + 1e-9) / 10;
+
+        return $value == floor($value) ? (string) (int) $value : number_format($value, 1, '.', '');
+    }
+
     /** An ini size ("100M", "2G", "512K", "0") in bytes; null for none or unlimited. */
     public static function bytes(string $size): ?int
     {
