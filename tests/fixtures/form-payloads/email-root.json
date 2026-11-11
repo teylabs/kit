@@ -1,0 +1,9 @@
+{
+    "expected_version": "1",
+    "sender_name": "Northwind Support",
+    "from_mode": "root",
+    "domain": "northwind.example",
+    "from_local": "news",
+    "reply_to_mode": "custom",
+    "reply_to_address": "help@northwind.example"
+}

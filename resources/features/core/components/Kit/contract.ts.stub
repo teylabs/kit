@@ -68,6 +68,14 @@ export interface BadgeProps {
     tone?: 'neutral' | 'info' | 'success' | 'warning' | 'danger';
     size?: 'sm' | 'md';
 }
+/** A button that copies `value`: success is spoken only after the clipboard write resolves; a refusal shows the value read-only to copy by hand. `label` names it; `icon` is a small icon button named by `label`; `copiedLabel` replaces the label while copied. */
+export interface CopyButtonProps {
+    value: string;
+    label?: string;
+    copiedLabel?: string;
+    icon?: boolean;
+    variant?: 'secondary' | 'ghost';
+}
 export interface PlaceholderProps {
     description: string;
     milestone?: string | null;
