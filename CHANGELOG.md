@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.15.80
+## Unreleased
 
 ### Changed
 
@@ -18,6 +18,11 @@
 - **`CopyButton` and the Email sending helpers in `@/components/Kit`.** `CopyButton` (`Kit/Action/CopyButton.vue`, `CopyButtonProps` in `contract.ts`) copies `value` and claims success only after the clipboard write resolves, spoken through a polite status; a refused clipboard shows the value read-only to copy by hand. `fromLine`, `fromPreview`, `recordKind`, `fullRecordName` and `checkedAtLabel` (`Kit/Data/mailSending.ts`, with the `MailDnsRecord` type) are plain functions over strings and Intl, covered by `tests/js/mail-sending.test.mjs`. A host whose own `@kit/ui` does not `export * from '@/components/Kit'` must now also export `CopyButton`, `checkedAtLabel`, `fromLine`, `fromPreview`, `fullRecordName`, `recordKind` and `useTimezone` (the README's list). Additive: no prop, event, export or signature removed or changed, and no method added to a class hosts extend.
 
   Run `kit:update plan|apply` for `core` and `settings`. Covered by `test:mail-identity` (root stores the bare domain; an existing send. row is not migrated and a bare domain posted as `domain` still gets send.; root refuses a send. domain; `effective_from` is the platform address until verified, then `<local>@<domain>`; a member's or stale root save changes nothing; switching root, send. subdomain and platform), `test:form-payloads` (the recorded root payload saves as `domain` with no send.), and the browser checks (the summary updating live, the Advanced disclosure, the DNS list with its copy buttons and full names, Last checked in the viewer's timezone); the browser floor goes up by four (to 295 after the BulkDrop merge). Re-pinned: core `sha256:c347355a…de5a` → `sha256:f93a66d9…ecb8` (over the BulkDrop re-pin), settings `sha256:cf0b8c90…d271` → `sha256:3f397272…d5be`; in `history.json` only the `current` block changed (`Kit/Action/CopyButton.vue` and `Kit/Data/mailSending.ts` added; `Kit/index.ts`, `Kit/contract.ts` and `Workspace/Settings/Email/Page.vue` re-hashed).
+
+## v0.15.80
+
+### Added
+
 - **BulkDrop can leave out its size limit.** New optional `showLimit` prop (default `true`): with no `hint`, BulkDrop shows `sizeHint(maxBytes)` as before; with `:show-limit="false"` and no `hint`, no hint element is rendered at all. A given `hint` always shows. `BulkDropProps` in the contract gains `showLimit?: boolean`. Covered by `tests/js/bulk-drop-hint.test.mjs` and a new browser check (`?bulk-drop`, the `no-limit` and `own-hint` states: no hint element and no `aria-describedby`, or the given hint). The browser floor goes up by 1. core re-pinned: `sha256:76ab8d94…d482` → `sha256:c347355a…de5a`; in `history.json` only the `current` block changed.
 - **`KIT_NOTES_MAX_KB` sets the notes attachment cap.** `kit.notes.media.max_kb` is now `env('KIT_NOTES_MAX_KB', 10240)`, so an app raises it from `.env` instead of copying the whole `kit.notes` block (the config merge is shallow). Default unchanged. Covered by `test:upload-limits`.
 - **`UploadLimit::fake()` and `PreflightCommand::uploadShortfalls()`.** A seam for checks to read faked `upload_max_filesize` / `post_max_size` instead of PHP's (null restores the real ini), and the configured caps kit:preflight warns about, as a public method. kit:preflight's warning is unchanged: each configured cap above PHP's or medialibrary's limit, naming the setting and both values. `cap()`'s return value is unchanged. Covered by `test:upload-limits` (through the seam, with the real ini checked untouched).
