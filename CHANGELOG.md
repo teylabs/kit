@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Opt-in `kit.media.signing` for direct uploads.** `full` (the default, env `KIT_UPLOADS_SIGNING`) is today's behaviour, byte-identical: the same tickets, signed options, keys, dedupe query and confirm. `content_type`, for a bucket or client that rejects the extra signed headers, signs only Content-Type on the presigned PUT, uses a random key (`<prefix>/<ulid>.<ext>`, the extension from the collection's rules), keeps the declared SHA-256 as advisory metadata only, and never dedupes by it (no lookup, no reuse of rows or objects). Read with a `config()` default, so a published config without it is unaffected; an unknown value is refused.
+  - **Integrity, fail closed.** With no signed checksum, `ConfirmUpload` re-hashes the whole object as a stream before marking it ready, on any disk; a mismatch deletes the object and leaves the record pending (`media.upload.mismatch`). The record's key decides (a key not named after its SHA-256 is always re-hashed), so a setting changed between request and confirm can't skip it. Cost: one full read per confirmed upload in this mode.
+  - **With multipart.** Independent of `multipart.part_checksums`: a multipart upload under `content_type` gets a random key and no dedupe, part checksums follow their own setting, and `CompleteMultipartUpload` re-hashes once (confirm doesn't read it again). For R2 or MinIO, `content_type` plus `part_checksums: false` leaves integrity to the re-hash. docs/media.md › Signing.
+  - New final `Tey\Kit\Media\UploadSigning`; `MediaRules` (final) gains `randomKey()`. Additive: no public signature changed and no method added to a non-final class (`RequestUpload` and `ConfirmUpload` change only inside `handle()`/`ticket()`). No catalog stub changed, so no feature is re-pinned.
+  - **Tests.** `test:media-signing` (new, in CI).
+
 ## v0.15.84
 
 ### Added

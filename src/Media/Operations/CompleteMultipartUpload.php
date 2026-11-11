@@ -8,6 +8,7 @@ use Lorisleiva\Actions\Concerns\AsAction;
 use RuntimeException;
 use Tey\Kit\Media\Models\MediaUpload;
 use Tey\Kit\Media\MultipartUploads;
+use Tey\Kit\Media\UploadSigning;
 use Throwable;
 
 /**
@@ -57,7 +58,8 @@ final class CompleteMultipartUpload
             throw new RuntimeException('media.upload.mismatch');
         }
 
-        return ConfirmUpload::run($upload);
+        // Just re-hashed, so a random-key (`content_type` signing) record isn't read a second time by ConfirmUpload.
+        return UploadSigning::afterRehash($upload, fn () => ConfirmUpload::run($upload));
     }
 
     /**

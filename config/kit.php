@@ -182,7 +182,11 @@ return [
     // of about `part_bytes` (at least 5 MiB, the S3 minimum) when the host also gives the client a `complete` route; any other upload is a single PUT.
     // `part_checksums` signs each part's SHA-256; turn it off for a store that rejects per-part checksum headers (R2, MinIO). Either way the server
     // re-hashes the whole object after the parts are joined, before the record is ready. Every key is read with a default, so this block is optional.
+    // `signing` (docs/media.md › Signing): `full` (default) signs the PUT's type, length, Cache-Control and SHA-256 under a content-addressed key, and
+    // dedupes. `content_type`, for a bucket or client that rejects the extra signed headers, signs only Content-Type under a random key, never dedupes,
+    // and re-hashes every object on confirm. It applies to the single PUT; multipart parts follow `part_checksums` alone.
     'media' => [
+        'signing' => env('KIT_UPLOADS_SIGNING', 'full'),
         'multipart' => [
             'enabled' => (bool) env('KIT_UPLOADS_MULTIPART', false),
             'threshold_bytes' => 100 * 1024 * 1024,

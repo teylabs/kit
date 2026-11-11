@@ -2,6 +2,8 @@
 
 namespace Tey\Kit\Media;
 
+use Illuminate\Support\Str;
+
 /**
  * What a collection accepts and where its objects live: the disk, a key prefix under the app's own, the types (MIME => extension) and the largest size.
  * The app declares one per collection and passes it to every upload operation; nothing here reads a request.
@@ -26,5 +28,11 @@ final readonly class MediaRules
     public function key(string $sha256, string $mime): string
     {
         return trim($this->prefix, '/').'/'.substr($sha256, 0, 2).'/'.$sha256.'.'.$this->types[$mime];
+    }
+
+    /** A random key (a ULID with the server's extension for the type), for `kit.media.signing` `content_type`: the content is not its identity. */
+    public function randomKey(string $mime): string
+    {
+        return trim($this->prefix, '/').'/'.strtolower((string) Str::ulid()).'.'.$this->types[$mime];
     }
 }
