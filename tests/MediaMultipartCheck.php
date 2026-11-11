@@ -393,13 +393,21 @@ try {
     $cReady = CompleteMultipartUpload::run($c, $cParts);
     check($cReady->ready() && $cReady->key === $a->key && Storage::disk('bucket')->get($a->key) === $body && ! Storage::disk('bucket')->exists(MultipartUploads::stagingKey($c->key, $c->id)), 'verified bytes for a key that already holds them reuse the object and drop the staging copy');
 
-    // A writer that lands an object of another size on the key just before the copy: the conditional copy refuses to overwrite it and the record fails closed.
+    // An object that appears at the key just before the copy (here of another size) is never overwritten: it is re-hashed, refused, and, with no
+    // ready record over it, deleted so a retry can place the verified bytes.
     $lonelyRules = new MediaRules('bucket', 'app/raced', ['image/png' => 'png'], 50 * $mib);
     $ticket = RequestMultipartUpload::run('ws:12', $lonelyRules, 'image/png', $bytes, $sha, 'stage-d', true);
     $dTags = [$store->put($ticket->uploadId, 1, $pieces[0]), $store->put($ticket->uploadId, 2, $pieces[1])];
     $conditional->plant = 'planted';
-    check(refusal(fn () => CompleteMultipartUpload::run($ticket->upload->fresh(), [['part' => 1, 'etag' => $dTags[0]], ['part' => 2, 'etag' => $dTags[1]]])) === 'media.upload.mismatch' && Storage::disk('bucket')->get($ticket->upload->key) === 'planted' && $ticket->upload->fresh()->status === 'pending', 'an object that appears at the key first is never overwritten; a size mismatch fails closed');
+    check(refusal(fn () => CompleteMultipartUpload::run($ticket->upload->fresh(), [['part' => 1, 'etag' => $dTags[0]], ['part' => 2, 'etag' => $dTags[1]]])) === 'media.upload.mismatch' && count($conditional->copies) > 0 && ! Storage::disk('bucket')->exists($ticket->upload->key) && $ticket->upload->fresh()->status === 'pending', 'an object that appears at the key first is not overwritten but refused, and deleted when no ready record shares it');
     $conditional->plant = null;
+
+    // Same-size wrong bytes already at the key (a multipart upload from before staging keys that died before its re-hash): re-hashed and refused.
+    $legacyRules = new MediaRules('bucket', 'app/legacy', ['image/png' => 'png'], 50 * $mib);
+    $ticket = RequestMultipartUpload::run('ws:14', $legacyRules, 'image/png', $bytes, $sha, 'stage-f', true);
+    Storage::disk('bucket')->put($ticket->upload->key, $tampered);
+    $fTags = [$store->put($ticket->uploadId, 1, $pieces[0]), $store->put($ticket->uploadId, 2, $pieces[1])];
+    check(refusal(fn () => CompleteMultipartUpload::run($ticket->upload->fresh(), [['part' => 1, 'etag' => $fTags[0]], ['part' => 2, 'etag' => $fTags[1]]])) === 'media.upload.mismatch' && ! Storage::disk('bucket')->exists($ticket->upload->key) && $ticket->upload->fresh()->status === 'pending', 'same-size wrong bytes already at the key are re-hashed and refused, never trusted on size');
 
     // A store without a conditional copy: HEAD-then-copy through the disk.
     MultipartUploads::fake('bucket', $store);

@@ -19,8 +19,8 @@ use Throwable;
  * and ConfirmUpload marks the record ready. Nothing a client uploads ever lands on a content-addressed key, so another upload can't swap or
  * overwrite one. It reads the whole object once, which costs time and egress for a large file.
  *
- * Placing it: when the final key already holds an object (an earlier verified upload of the same bytes), its size is checked with a HEAD and it is
- * used as it is; otherwise the staged object is copied with a conditional write (ConditionalCopyStore: `If-None-Match: *`, so it never overwrites),
+ * Placing it: when the final key already holds an object, it is re-hashed (an upload from before staging keys may have left unverified bytes
+ * there) and used as it is when it matches; otherwise the staged object is copied with a conditional write (ConditionalCopyStore: `If-None-Match: *`, so it never overwrites),
  * or, on a store without one, HEAD-then-copy through the disk. The staged object is then deleted either way. A random key (`content_type`) takes the
  * same path; ConfirmUpload re-hashes it again as it does for any random key.
  *
@@ -51,22 +51,39 @@ final class CompleteMultipartUpload
             throw new RuntimeException('media.upload.incomplete');
         }
         $disk = Storage::disk($upload->disk);
+        $placed = false;
         try {
             if (! ($disk->exists($staging) && $disk->size($staging) === $upload->bytes && $this->hash($disk, $staging) === $upload->sha256)) {
                 throw new RuntimeException('media.upload.mismatch');
             }
             $this->place($store, $disk, $staging, $upload);
+            $placed = true;
         } finally {
-            // The staged object goes whatever happened (a leftover is the pruner's); then the id, so ConfirmUpload accepts the record.
-            rescue(fn () => $disk->delete($staging), report: true);
+            // The staged object goes whatever happened; then the id, so ConfirmUpload accepts the record. A staging delete that fails after the
+            // object is placed fails the complete: the record stays pending, so the pruner deletes the staging object with its row.
+            $cleaned = rescue(fn () => $disk->delete($staging), false, report: true) === true || ! rescue(fn () => $disk->exists($staging), true, report: true);
             MediaUpload::query()->whereKey($upload->id)->where('multipart_upload_id', $uploadId)->update(['multipart_upload_id' => null]);
             $upload->refresh();
         }
+        if ($placed && ! $cleaned) {
+            throw new RuntimeException('media.upload.incomplete');
+        }
+        $ready = ConfirmUpload::run($upload);
+        // A replay of the mutation between the id being cleared and the ready write could have started another multipart upload: abort it.
+        $fresh = MediaUpload::query()->find($upload->id);
+        if ($fresh !== null && ($stray = $fresh->multipart_upload_id) !== null) {
+            rescue(fn () => $store->abort($staging, $stray), report: true);
+            MediaUpload::query()->whereKey($upload->id)->where('multipart_upload_id', $stray)->update(['multipart_upload_id' => null]);
+            $ready->refresh();
+        }
 
-        return ConfirmUpload::run($upload);
+        return $ready;
     }
 
-    /** Copies the verified staged object to the final key without overwriting anything there; an object already there must be the declared size. */
+    /**
+     * Copies the verified staged object to the final key without overwriting anything there. An object already there is re-hashed (an upload
+     * from before staging keys may have joined unverified bytes there); one that doesn't match is refused, and deleted unless a ready record shares it.
+     */
     private function place(MultipartStore $store, Filesystem $disk, string $staging, MediaUpload $upload): void
     {
         $copied = $store instanceof ConditionalCopyStore
@@ -78,7 +95,11 @@ final class CompleteMultipartUpload
         if (! $disk->exists($upload->key)) {
             throw new RuntimeException('media.upload.incomplete');
         }
-        if ($disk->size($upload->key) !== $upload->bytes) {
+        if ($disk->size($upload->key) !== $upload->bytes || $this->hash($disk, $upload->key) !== $upload->sha256) {
+            if (! MediaUpload::query()->where('disk', $upload->disk)->where('key', $upload->key)->where('status', 'ready')->exists()) {
+                $disk->delete($upload->key);
+            }
+
             throw new RuntimeException('media.upload.mismatch');
         }
     }
