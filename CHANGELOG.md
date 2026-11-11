@@ -14,6 +14,12 @@
 - **Behaviour change: BulkDrop's limit is in MiB.** The fallback hint and the size refusal use 1024² bytes: "Up to 10 MiB each" and "plan.pdf is over 10 MiB", where the same limit read "Up to 10.5 MB each" before. Covered by `tests/js/split-drop.test.mjs`.
 - **Behaviour change: the default `name` from `ClientFileName::attach()`.** With no `$name`, the item's `name` is the client file name's stem, not the key's. `AttachUpload::run()` alone is unchanged.
 
+## v0.15.82
+
+### Added
+
+- **`kit:uploads:prune` clears abandoned direct uploads.** It deletes upload rows still `pending` after `--older-than` hours (default `kit.media.prune_older_than`, 24), and their objects only when no other upload row (any status or scope) and no Media item over the key remain; otherwise the object stays and only the stale rows go. Ready rows are never pruned. `--dry-run` reports the rows, objects, bytes and sample keys and changes nothing; `--chunk` (500) sets the read size. Fail closed: a key whose references can't be checked (a missing table, a disk error) keeps its rows and object, is reported and fails the run. References are matched across scopes because content-addressed keys aren't unique to a tenant; with separate tenant databases objects are always kept. Opt-in scheduling with `kit.media.prune_schedule` (`true` for daily, or a cron expression), off by default. Documented in `docs/media.md`. Additive: a new command and config keys, no signature changed. Covered by the new `test:media-prune`.
+
 ## v0.15.81
 
 ### Changed
