@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **ActionBar gains `triggerClass?: string`** (with `fillAll`). Its classes go last on the ⌄ menu-trigger segment, so they can set its padding, the chevron's size (`[&>svg]:size-5`) or a ring. `ActionBarProps` gains the optional prop.
+
+### Fixed
+
+- **`dividerClass` can drop the `fillAll` divider.** The default divider rule now has no specificity, so `dividerClass="border-r-0"` removes it (an adopter can draw the divider as the trigger's own inset ring instead). Unset, the divider is unchanged.
+
 ## v0.16.2
 
 ### Added

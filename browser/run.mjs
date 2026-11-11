@@ -8146,6 +8146,17 @@ const fillAll = async (theme) => {
             assert.deepEqual(await rgba(seg.divider.colour), sky, `dividerClass: segment ${i}'s divider takes the host's colour (${seg.divider.colour})`);
         }
         assert.equal(own.segments.at(-1).divider.width, '0px', 'dividerClass: the last segment draws no divider');
+        // triggerClass goes last on the ⌄ trigger: pl-3.5 pr-2 and a 20px chevron make it 42px; dividerClass="border-r-0" drops the default divider.
+        const ringed = await tab.$eval('[data-fill-all-trigger] [data-action-group]', group => {
+            const [lead, trigger] = group.children;
+            return { lead: getComputedStyle(lead).borderRightWidth, width: trigger.getBoundingClientRect().width, menu: trigger.hasAttribute('data-action-menu'), pl: getComputedStyle(trigger).paddingLeft, pr: getComputedStyle(trigger).paddingRight, svg: trigger.querySelector('svg').getBoundingClientRect().width, ring: getComputedStyle(trigger).boxShadow };
+        });
+        assert.ok(ringed.menu, 'the second segment is the ⌄ trigger');
+        assert.equal(ringed.width, 42, `triggerClass: the trigger is 42px (${ringed.pl} + ${ringed.svg}px + ${ringed.pr})`);
+        assert.equal(ringed.lead, '0px', 'dividerClass="border-r-0": the segment before the trigger has no right border');
+        assert.match(ringed.ring, /inset/, `triggerClass: the trigger has its inset ring (${ringed.ring})`);
+        const plainTrigger = all.segments.at(-1);
+        assert.deepEqual([plainTrigger.pl, plainTrigger.pr], ['12px', '12px'], 'without triggerClass the trigger keeps px-3');
         const dimmed = await read('[data-fill-all-disabled] [data-action-group]');
         assert.equal(dimmed.bg, probe.bg, 'the disabled pill is still filled');
         assert.ok(dimmed.segments.filter(seg => seg.action).every(seg => seg.opacity === '0.5'), `disabled segments dim on the filled pill (${dimmed.segments.map(seg => seg.opacity)})`);

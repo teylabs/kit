@@ -48,6 +48,7 @@ const props = withDefaults(
         filled?: boolean;
         fillAll?: boolean;
         dividerClass?: string;
+        triggerClass?: string;
         wrap?: boolean;
         itemClass?: string;
     }>(),
@@ -58,6 +59,7 @@ const props = withDefaults(
         filled: false,
         fillAll: false,
         dividerClass: undefined,
+        triggerClass: undefined,
         wrap: false,
         itemClass: undefined,
     },
@@ -172,7 +174,9 @@ onBeforeUnmount(() => {
 });
 // `fillAll` (opt-in, pill surface only): the whole group is one primary pill, every segment on it with the primary text, py-2, the first pl-3.5 and the rest
 // px-3; a disabled segment still dims. Its labels keep ButtonGroup's semibold, and its segments ButtonGroup's divider (a right border on all but the last), in
-// the primary text at a quarter so it reads on the fill; `dividerClass` (fillAll only) replaces that colour with the host's classes, put on each segment. Without a pill surface it does nothing; the default pill padding is unchanged.
+// the primary text at a quarter so it reads on the fill. The divider rule is under :where() (no specificity), so `dividerClass` (fillAll only, put on each
+// segment) overrides any of it: its colour, or `border-r-0` to drop it. `triggerClass` (fillAll only) goes last on the ⌄ trigger segment, so it can set the
+// trigger's padding, its chevron (`[&>svg]:size-5`) or a ring. Without a pill surface neither does anything; the default pill padding is unchanged.
 const fillAll = computed(() => pill.value && props.fillAll);
 const group = computed(() => [
     'inline-flex isolate min-w-0 [&>*+*]:-ml-px',
@@ -180,10 +184,7 @@ const group = computed(() => [
         ? '[&>*:first-child]:rounded-l-full [&>*:last-child]:rounded-r-full'
         : '[&>*:first-child]:rounded-l-md [&>*:last-child]:rounded-r-md',
     fillAll.value &&
-        'rounded-full bg-primary text-primary-foreground shadow-xs [&>*:not(:last-child)]:border-r [&>*:not(:last-child)]:border-solid',
-    fillAll.value &&
-        !props.dividerClass &&
-        '[&>*:not(:last-child)]:border-primary-foreground/25',
+        'rounded-full bg-primary text-primary-foreground shadow-xs [:where(&>*:not(:last-child))]:border-r [:where(&>*:not(:last-child))]:border-solid [:where(&>*:not(:last-child))]:border-primary-foreground/25',
 ]);
 function segment(filled: boolean, first = false): string[] {
     const base =
@@ -268,6 +269,7 @@ const holdFocus = (event: Event) => {
                                 :class="[
                                     segment(false, part.inline.length === 0),
                                     !fillAll && 'px-2.5',
+                                    fillAll && triggerClass,
                                 ]"
                                 :aria-label="
                                     part.inline.length
@@ -356,6 +358,7 @@ const holdFocus = (event: Event) => {
                             :class="[
                                 segment(false, compact.inline.length === 0),
                                 !fillAll && 'px-2.5',
+                                fillAll && triggerClass,
                             ]"
                             :aria-label="
                                 compact.inline.length

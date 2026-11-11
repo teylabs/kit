@@ -3,7 +3,7 @@ import { ref } from 'vue';
 import ActionBar from '@/components/Kit/Action/ActionBar.vue';
 import Surface from '@/components/Kit/Surface/Surface.vue';
 
-// ActionBar on a pill surface, for run.mjs (?fill-all, `&dark` for the dark tokens), invented labels: `fill-all` (one primary pill), `fill-all` with `divider-class`, `fill-all` with disabled
+// ActionBar on a pill surface, for run.mjs (?fill-all, `&dark` for the dark tokens), invented labels: `fill-all` (one primary pill), `fill-all` with `divider-class`, `fill-all` with `trigger-class` and `divider-class="border-r-0"`, `fill-all` with disabled
 // actions (still dimmed), the default pill (padding unchanged), and a GET action with intent `panel`, which is a button that emits, never a link.
 const post = (key: string, label: string, extra = {}) => ({ key, label, url: `/trips/3/${key}`, method: 'post', destructive: false, confirm: null, ...extra });
 const actions = [post('start', 'Start trip'), post('pause', 'Pause'), post('note', 'Add note')];
@@ -16,6 +16,7 @@ const emitted = ref<string[]>([]);
         <span data-primary-probe class="sr-only bg-primary text-primary-foreground" aria-hidden="true"></span>
         <Surface shape="pill" padding="sm" data-fill-all><ActionBar :actions="actions" fill-all /></Surface>
         <Surface shape="pill" padding="sm" data-fill-all-divider><ActionBar :actions="actions" fill-all divider-class="border-sky-300" /></Surface>
+        <Surface shape="pill" padding="sm" data-fill-all-trigger><ActionBar :actions="actions" fill-all divider-class="border-r-0" trigger-class="pl-3.5 pr-2 [&>svg]:size-5 ring-1 ring-inset ring-sky-300" /></Surface>
         <Surface shape="pill" padding="sm" data-fill-all-disabled><ActionBar :actions="disabled" fill-all /></Surface>
         <Surface shape="pill" padding="sm" data-default-pill><ActionBar :actions="actions" /></Surface>
         <section data-panel><ActionBar :actions="panel" @action="(action) => emitted.push(action.key)" /></section>
