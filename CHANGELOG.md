@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.16.0
 
 A minor release (v0.16.0): it renames two public components.
 
