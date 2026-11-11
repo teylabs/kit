@@ -44,6 +44,14 @@ test('icons and new-tab labels', () => {
     assert.equal(actionIconName(a('Rename', { icon: 'unknown' })), 'unknown');
     assert.equal(actionIconName(a('Rename', { key: 'edit' })), null);
     assert.equal(actionIconName(a('Rename', { key: 'edit' }), true), 'pencil');
+    // The key-based fallback an adopter's own header bar had: edit and payment in a menu, plus for an Add/New/Create label inline and in a menu.
+    assert.equal(actionIconName(a('Record payment', { key: 'payment' }), true), 'credit-card');
+    assert.equal(actionIconName(a('Record payment', { key: 'payment' })), null);
+    for (const label of ['Add', 'New appraisal', 'Create invoice']) {
+        assert.equal(actionIconName(a(label)), 'plus');
+        assert.equal(actionIconName(a(label), true), 'plus');
+    }
+    assert.equal(actionIconName(a('Add', { icon: 'mail' }), true), 'mail');
     assert.equal(opensNewTab(a('PDF', { intent: 'document' })), true);
     assert.equal(opensNewTab(a('PDF', { intent: 'document', newTab: false })), false);
     assert.equal(opensNewTab(a('Site', { newTab: true })), true);

@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **ActionBar `filled`: an opt-in filled primary segment on the outline path.** Before, the leading segment on the ButtonGroup (outline) path was only semibold; a host wanting the primary fill there styled it itself. With `filled` the leading segment of each group takes `bg-primary` with the primary foreground (and `bg-primary/90` on hover); it implies `primary`, so a pill surface fills it as before. Without it nothing changes: `primary` alone stays semibold on the outline. `ActionBarProps` gains the optional `filled`.
+- **Two more action icons, `history` and `mail`.** `actionIcons` (and so `actionIconName`'s names) now covers them; an unknown name still renders no icon. The key-based fallback (`edit` → pencil, `payment` → credit card, in a menu) and `plus` for an Add, New or Create label were already in `actionIconName` and are now pinned by tests.
+
+### Fixed
+
+- **A disabled ButtonGroup segment reads as disabled, hover included.** A segment with the `disabled` attribute (an ActionBar segment blocked while another action runs) had no dimming of its own, and a server-disabled one (`aria-disabled`) lost its dimming on hover, where the group's hover opacity outranked it. ButtonGroup now dims both (opacity 50%, not-allowed cursor) at rest and on hover, on either appearance, including a filled leading segment; the action in flight (`aria-busy`) is left undimmed.
+  - **API.** Additive only: one optional prop (`filled`) on ActionBar and `ActionBarProps`, two icon names. No public signature or prop type changed. `core` is re-pinned (`ActionBar.vue`, `ButtonGroup.vue`, `actionIcons.ts`, `contract.ts`).
+  - **Tests.** `tests/js/actionbar-filled.test.mjs` (the prop, its default and both ButtonGroup layouts; the disabled rule; the icon names) and new `actionIconName` cases in `tests/js/actions.test.mjs`. Browser: `?filled-bar`, light and dark, reads computed styles: `primary` alone unfilled, `filled` on the primary token, disabled segments at 50% at rest and on hover.
+
 ## v0.15.86
 
 ### Fixed

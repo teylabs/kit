@@ -828,7 +828,7 @@ export interface SearchBoxProps {
 /**
  * Server action descriptors as button groups: declared `group`/`menu` (layoutActions: menu-bearing groups last), else the placement rule (placeActions). Dialog intent opens the
  * route modal, document intent a new tab, ordinary GETs navigate; other actions are emitted (`@action`) for the host to run. `busy` blocks all but a standalone document link;
- * `dialogOpen` holds menu focus for the host's dialog; `primary` fills each group's leading segment. When the full layout does not fit
+ * `dialogOpen` holds menu focus for the host's dialog; `primary` fills each group's leading segment on a pill surface and makes it semibold on the outline; `filled` (opt-in) fills it there too. When the full layout does not fit
  * the bar's own width (a ResizeObserver on its root, never the viewport), it compacts to the main action and a ⌄ menu (fitActions).
  */
 export interface ActionBarProps {
@@ -836,6 +836,8 @@ export interface ActionBarProps {
     busy?: boolean;
     dialogOpen?: boolean;
     primary?: boolean;
+    /** Opt-in: the leading segment takes the primary fill on the outline (ButtonGroup) path too, not only semibold. Implies `primary`. */
+    filled?: boolean;
 }
 /** ButtonGroup (ButtonGroup.md): raw `button`/`a`/`Link` children in the default slot, styled by the group; menu entries in `menu`; `label` names the trigger; `offset` is [skid, gap]. */
 export interface ButtonGroupProps {

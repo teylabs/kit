@@ -4687,6 +4687,47 @@ test('Row variants: a label over 24 characters or 3 words is clamped with an ell
         await tab.screenshot({ path: `${process.env.SCREENSHOT_DIR ?? '/tmp'}/row-variants-clamp.png` });
     }));
 
+// ── ActionBar's leading segment on the outline path (?filled-bar, `&dark`): `primary` alone keeps it unfilled; `filled` gives it the primary fill; a disabled
+// segment (filled or not) reads as disabled at rest and on hover ─────────────────────────────────────────────────────────────────────────────────────────
+const leadSegments = (tab, section) => tab.$eval(`[${section}] [data-action-layout-full] [data-button-group] > div:first-child`, wrap => [...wrap.children].map(child => {
+    const style = getComputedStyle(child);
+    return { background: style.backgroundColor, colour: style.color, opacity: style.opacity, cursor: style.cursor };
+}));
+
+const filledBar = async (theme) => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 600 } });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        await tab.goto(`${url}?filled-bar${theme === 'dark' ? '&dark' : ''}`);
+        await tab.waitForSelector('[data-filled-disabled] [data-button-group]');
+        const probe = await tab.$eval('[data-primary-probe]', el => ({ background: getComputedStyle(el).backgroundColor, colour: getComputedStyle(el).color }));
+        const primary = await leadSegments(tab, 'data-primary');
+        assert.notEqual(primary[0].background, probe.background, 'primary alone: the outline path stays unfilled (the default is unchanged)');
+        const filled = await leadSegments(tab, 'data-filled');
+        assert.equal(filled[0].background, probe.background, 'filled: the leading segment takes the primary fill');
+        assert.equal(filled[0].colour, probe.colour, 'filled: its label is the primary foreground');
+        assert.notEqual(filled[1].background, probe.background, 'only the leading segment is filled');
+        assert.deepEqual(filled.map(s => s.opacity), ['1', '1'], 'enabled segments are not dimmed');
+        const disabled = await leadSegments(tab, 'data-filled-disabled');
+        assert.equal(disabled[0].background, probe.background, 'a disabled leading segment keeps its fill');
+        assert.deepEqual(disabled.map(s => s.opacity), ['0.5', '0.5'], 'disabled segments, the filled one included, are dimmed');
+        assert.deepEqual(disabled.map(s => s.cursor), ['not-allowed', 'not-allowed']);
+        for (const index of [0, 1]) {
+            await tab.locator('[data-filled-disabled] [data-action-layout-full] [data-button-group] > div:first-child > *').nth(index).hover();
+            assert.equal((await leadSegments(tab, 'data-filled-disabled'))[index].opacity, '0.5', `disabled segment ${index} stays dimmed on hover`);
+        }
+        await tab.mouse.move(0, 0);
+        await tab.screenshot({ path: `${process.env.SCREENSHOT_DIR ?? '/tmp'}/actionbar-filled${theme === 'dark' ? '-dark' : ''}.png` });
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+};
+test('ActionBar filled (light): primary alone is unfilled, filled takes the primary fill, disabled segments dim at rest and on hover', () => filledBar('light'));
+test('ActionBar filled (dark): the same under the dark tokens', () => filledBar('dark'));
+
 // ── ButtonGroup segments (?button-group, `&dark`): one outline, a 1px divider in the outline colour between segments and none after the last; the split menu
 // segment beside them keeps the group's height; `appearance="text"` has no dividers ─────────────────────────────────────────────────────────────────────
 const buttonGroupSegments = (tab, section) => tab.$eval(`[${section}] [data-button-group] > div:first-child`, wrap => {

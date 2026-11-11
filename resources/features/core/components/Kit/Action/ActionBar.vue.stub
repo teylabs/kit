@@ -32,7 +32,7 @@ import { useLocked } from '@/components/Kit/Form/useLocked';
  * the host to run (confirmation included). A host that does not listen to `action` lets the bar run it: its `confirm` first (a typed one when it has `typed`, sent
  * as `confirmation` for the server to re-check), then an Inertia visit. Nothing here checks a permission. `busy` blocks all but a standalone document link; `dialogOpen` holds menu focus for the
  * dialog the host opens (pill surface). On an inverse pill surface (FloatingToolbar) it keeps segments of its own instead of ButtonGroup: the pill's tokens do restyle a
- * ButtonGroup (tone), but ButtonGroup has no hook for the ⌄ trigger's name, the focus hold or the pill's radius and 36px height, and has no filled segment. When its full
+ * ButtonGroup (tone), but ButtonGroup has no hook for the ⌄ trigger's name, the focus hold or the pill's radius and 36px height, and has no filled segment of its own: `filled` fills the leading segment there (opt-in; `primary` alone keeps it semibold on the outline). When its full
  * layout does not fit its own width (a ResizeObserver on its root, never the viewport or a media query: a Workbench's actions bar is narrow at any viewport) the bar
  * keeps one row: the main action and a ⌄ menu with every other action, in order (fitActions). The full layout stays laid out, invisible and inert, so its natural
  * width is still measured and the bar returns to it when there is room. Inside a locked LockedForm (the LockedForm spec) an `intent: 'edit'` descriptor is hidden; the server should not send it, this covers one that slips through.
@@ -43,8 +43,9 @@ const props = withDefaults(
         busy?: boolean;
         dialogOpen?: boolean;
         primary?: boolean;
+        filled?: boolean;
     }>(),
-    { busy: false, dialogOpen: false, primary: false },
+    { busy: false, dialogOpen: false, primary: false, filled: false },
 );
 const emit = defineEmits<{ action: [action: ActionDescriptor] }>();
 const { pending, asking, run, visit, running, isRunning } =
@@ -155,7 +156,16 @@ function segment(filled: boolean): string[] {
               : 'border border-input bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:hover:bg-input/50',
     ];
 }
-const filled = (index: number) => props.primary && index === 0;
+const filled = (index: number) =>
+    (props.primary || props.filled) && index === 0;
+// The ButtonGroup path's leading segment: semibold with `primary`; `filled` also gives it the primary fill. Important, so it outranks the group's transparent
+// segment reset; a disabled segment still dims (ButtonGroup's disabled rule).
+const lead = (index: number) =>
+    filled(index) && [
+        'primary-action font-semibold!',
+        props.filled &&
+            'bg-primary! text-primary-foreground! hover:bg-primary/90!',
+    ];
 const holdFocus = (event: Event) => {
     if (props.dialogOpen) event.preventDefault();
 };
@@ -244,9 +254,7 @@ const holdFocus = (event: Event) => {
                             :action="action"
                             :pending="isRunning(action)"
                             :busy="blocked"
-                            :class="
-                                filled(index) && 'primary-action font-semibold!'
-                            "
+                            :class="lead(index)"
                             @action="run($event)"
                         />
                     </template>
@@ -322,9 +330,7 @@ const holdFocus = (event: Event) => {
                         :action="action"
                         :pending="isRunning(action)"
                         :busy="blocked"
-                        :class="
-                            filled(index) && 'primary-action font-semibold!'
-                        "
+                        :class="lead(index)"
                         @action="run($event)"
                     />
                 </template>
