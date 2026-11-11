@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **ActionBar gains `dividerClass?: string`** (with `fillAll`). Its classes colour the divider between the filled pill's segments in place of the default primary text at 25%; the divider stays 1px and the last segment draws none. Unset, nothing changes. `ActionBarProps` gains the optional prop.
+
 ## v0.16.1
 
 ### Fixed

@@ -8102,7 +8102,7 @@ test('ActionBar item-class: every menu row takes the host class; destructive and
 });
 
 // ── ActionBar `fill-all` on a pill surface (?fill-all, `&dark`): the whole group is the primary fill with the primary text and rounded-full, segments py-2, the
-// first pl-3.5 and the rest px-3, semibold, with a translucent primary-text divider between segments; disabled segments still dim; axe with contrast passes;
+// first pl-3.5 and the rest (the ⌄ trigger too) px-3, semibold, with a translucent primary-text divider between segments; disabled segments still dim; axe with contrast passes;
 // the default pill keeps its padding and medium labels. A GET action with intent `panel` is a button that emits ───
 const fillAll = async (theme) => {
     const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
@@ -8137,6 +8137,15 @@ const fillAll = async (theme) => {
             assert.ok(a > 0.1 && a < 0.5, `segment ${i}'s divider is translucent on the fill, so it reads without shouting (${seg.divider.colour})`);
         }
         assert.equal(all.segments.at(-1).divider.width, '0px', 'the last segment draws no divider');
+        assert.deepEqual([all.segments.at(-1).action, all.segments.at(-1).pl, all.segments.at(-1).pr], [false, '12px', '12px'], 'the menu trigger (⌄) segment is px-3, like the others');
+        // dividerClass replaces the default divider colour; the divider stays 1px solid between segments and the last draws none.
+        const own = await read('[data-fill-all-divider] [data-action-group]');
+        const sky = await rgba(await tab.evaluate(() => { const el = document.createElement('span'); el.className = 'border-sky-300'; document.body.append(el); const c = getComputedStyle(el).borderTopColor; el.remove(); return c; }));
+        for (const [i, seg] of own.segments.slice(0, -1).entries()) {
+            assert.deepEqual([seg.divider.width, seg.divider.style], ['1px', 'solid'], `dividerClass: segment ${i} keeps the 1px divider`);
+            assert.deepEqual(await rgba(seg.divider.colour), sky, `dividerClass: segment ${i}'s divider takes the host's colour (${seg.divider.colour})`);
+        }
+        assert.equal(own.segments.at(-1).divider.width, '0px', 'dividerClass: the last segment draws no divider');
         const dimmed = await read('[data-fill-all-disabled] [data-action-group]');
         assert.equal(dimmed.bg, probe.bg, 'the disabled pill is still filled');
         assert.ok(dimmed.segments.filter(seg => seg.action).every(seg => seg.opacity === '0.5'), `disabled segments dim on the filled pill (${dimmed.segments.map(seg => seg.opacity)})`);

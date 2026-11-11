@@ -47,6 +47,7 @@ const props = withDefaults(
         primary?: boolean;
         filled?: boolean;
         fillAll?: boolean;
+        dividerClass?: string;
         wrap?: boolean;
         itemClass?: string;
     }>(),
@@ -56,6 +57,7 @@ const props = withDefaults(
         primary: false,
         filled: false,
         fillAll: false,
+        dividerClass: undefined,
         wrap: false,
         itemClass: undefined,
     },
@@ -170,7 +172,7 @@ onBeforeUnmount(() => {
 });
 // `fillAll` (opt-in, pill surface only): the whole group is one primary pill, every segment on it with the primary text, py-2, the first pl-3.5 and the rest
 // px-3; a disabled segment still dims. Its labels keep ButtonGroup's semibold, and its segments ButtonGroup's divider (a right border on all but the last), in
-// the primary text at a quarter so it reads on the fill. Without a pill surface it does nothing; the default pill padding is unchanged.
+// the primary text at a quarter so it reads on the fill; `dividerClass` (fillAll only) replaces that colour with the host's classes, put on each segment. Without a pill surface it does nothing; the default pill padding is unchanged.
 const fillAll = computed(() => pill.value && props.fillAll);
 const group = computed(() => [
     'inline-flex isolate min-w-0 [&>*+*]:-ml-px',
@@ -178,7 +180,10 @@ const group = computed(() => [
         ? '[&>*:first-child]:rounded-l-full [&>*:last-child]:rounded-r-full'
         : '[&>*:first-child]:rounded-l-md [&>*:last-child]:rounded-r-md',
     fillAll.value &&
-        'rounded-full bg-primary text-primary-foreground shadow-xs [&>*:not(:last-child)]:border-r [&>*:not(:last-child)]:border-solid [&>*:not(:last-child)]:border-primary-foreground/25',
+        'rounded-full bg-primary text-primary-foreground shadow-xs [&>*:not(:last-child)]:border-r [&>*:not(:last-child)]:border-solid',
+    fillAll.value &&
+        !props.dividerClass &&
+        '[&>*:not(:last-child)]:border-primary-foreground/25',
 ]);
 function segment(filled: boolean, first = false): string[] {
     const base =
@@ -188,6 +193,7 @@ function segment(filled: boolean, first = false): string[] {
             base.replace('font-medium', 'font-semibold'),
             'bg-transparent py-2 text-primary-foreground hover:bg-primary-foreground/10',
             first ? 'pr-3 pl-3.5' : 'px-3',
+            props.dividerClass,
         ];
     return [
         base,
