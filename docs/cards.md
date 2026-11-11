@@ -10,8 +10,10 @@ A card is a `Surface` in parts. Use them instead of a hand-rolled bordered `div`
 | `CardFooter` | A compact footer; `sticky` keeps it at the bottom of a scrolling card. |
 | `CardBanner` | A short centred band at the top that draws the eye. Its words carry the meaning, never the colour alone. |
 | `RecordCard` | One record: a header with `#meta` and `#actions`, details in the body, a muted `#footer`. |
-| `SummaryCard` | A summary with a call to action: a title and `#description`, with `#actions` beside them. |
-| `ActionCard` | A panel of one thing: a muted header with an optional `#icon` and `#actions`, the content (or `#body`), a sticky `#footer`. |
+| `ActionCard` | A plain panel with one decision in it, no header band: a `title` and `description` (or `#description`, capped at `max-w-xl`) on the left, `#actions` on the right (centred, or top-right with `align="top"`), `tone="danger"`, more below in the default slot. |
+| `SummaryCard` | A card with a header band: a muted header with an optional `#icon` and `#actions`, the content (or `#body`), a sticky `#footer`. With an empty default slot and no `#body` it has no body. |
+
+> **v0.16 swapped these two names** to match the apps they came from. Before v0.16, `ActionCard` was the header-band card and `SummaryCard` the panel. See [Upgrading to 0.16](#upgrading-to-016).
 
 ```vue
 <RecordCard :title="comparable.address">
@@ -32,4 +34,34 @@ A card is a `Surface` in parts. Use them instead of a hand-rolled bordered `div`
 - **In a Repeater**, pass a `CardHeader` (`unstyled`) through the `row-header` slot; the Repeater keeps the grip.
 - `SectionHeader` stays the header for a section, widget or pane outside a card.
 
-Tests: the parts are typechecked with the other components. No rendered test yet.
+## ActionCard
+
+```vue
+<ActionCard title="Delete workspace" description="Removes every project and member. This cannot be undone." tone="danger">
+    <template #actions><Button variant="secondary" class="text-destructive-text" @click="confirmDelete">Delete workspace</Button></template>
+</ActionCard>
+```
+
+- **Parts:** it is a `Card` with a `CardHeader` (no tone) and a `CardBody`.
+- **Layout:** the title (a heading at `level`, 3 by default) and description on the left, the description capped at `max-w-xl`; `#actions` on the right, centred on the text. `align="top"` pins them top-right instead. On a phone the actions stack under the text.
+- **Below:** the default slot renders under the text and actions. A slot that renders nothing (an empty `#actions`, a false `v-if`) leaves no wrapper or gap.
+- **`tone="danger"`:** a red edge and a red title (`text-destructive-text`). The card keeps its background, with no tint, so the description and the actions keep the contrast they have on any card, in light and dark. Put a quiet button with red text in `#actions` and keep the filled red for the confirm dialog.
+
+## Upgrading to 0.16
+
+v0.16 swaps the two names. The props, slots and look of each card are unchanged; only the name you import changes.
+
+| Before v0.16 | From v0.16 | What it is |
+| --- | --- | --- |
+| `ActionCard` | `SummaryCard` | The header-band card: muted header, `#icon`, `#actions`, `#body`, sticky `#footer` |
+| `SummaryCard` | `ActionCard` | The plain panel: `title`, `#description`, `#actions`, default slot below |
+
+1. Run `kit:update plan|apply` for `core`.
+2. Run `php artisan kit:status`. It names each `.vue` file under `resources/js` that still uses an old name: an `<ActionCard>` with `#icon`, `#body`, `#footer` or an `editUrl`, or a `<SummaryCard>` with `#description`. These are attention items, not blocking.
+3. In each file it names, rename the tag and its import: old `ActionCard` becomes `SummaryCard`, and old `SummaryCard` becomes `ActionCard`. Do it in one pass, for example by renaming the old `ActionCard` to a placeholder first, so the two renames don't overwrite each other.
+4. Coming from an app where ActionCard already meant the panel, keep `ActionCard`. It is that panel now, with `tone="danger"` and `align` added.
+5. Run `kit:status` again until the card-names step is met.
+
+`kit:status` matches on slots and props, so it cannot catch a card that uses only `title` and the default slot. Check those by eye.
+
+Tests: the parts are typechecked with the other components. `tests/js/card-names.test.mjs` covers both cards' API and SummaryCard's empty body; the browser suite (`?card-names`, light and dark, 1280 and 390px) covers ActionCard's layout, its phone stack, SummaryCard's empty body and axe with colour contrast on the danger tone. `test:status` covers the old-name check. The other parts have no rendered test yet.

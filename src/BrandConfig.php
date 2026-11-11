@@ -9,7 +9,7 @@ use RuntimeException;
 
 /**
  * Where each `kit.brand` value comes from. The app's own config/brand.php (Laravel loads it, and `config:cache` caches it, as `brand`) wins for every key it
- * names, an explicit null included; a key it leaves out falls back to its KIT_BRAND_* env value (deprecated, removed in 0.16), then to the kit's default.
+ * names, an explicit null included; a key it leaves out falls back to its KIT_BRAND_* env value (deprecated, removed in 0.17), then to the kit's default.
  * The readers keep reading `config('kit.brand.*')`: the resolved values are written back there at register time.
  *
  * The colour keys are validated as they resolve: a #rgb or #rrggbb (a #rgb is widened to #rrggbb), or null for "use the theme" (or the kit default). An
@@ -141,7 +141,7 @@ final class BrandConfig
                 $value = Arr::get($brand, $key, $default);
                 $source = self::SOURCE_ENV;
                 if (self::once('env:'.$key)) {
-                    $logs[] = ['level' => 'warning', 'message' => 'Deprecated: kit.brand.'.$key.' comes from '.self::envName($key).', and env brand values are removed in tey/kit 0.16. Run `php artisan kit:brand:migrate` to move them into config/brand.php.'];
+                    $logs[] = ['level' => 'warning', 'message' => 'Deprecated: kit.brand.'.$key.' comes from '.self::envName($key).', and env brand values are removed in tey/kit 0.17. Run `php artisan kit:brand:migrate` to move them into config/brand.php.'];
                 }
             } else {
                 $value = Arr::has($brand, $key) ? Arr::get($brand, $key) : $default;

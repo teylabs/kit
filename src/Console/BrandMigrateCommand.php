@@ -143,7 +143,7 @@ final class BrandMigrateCommand extends Command
             }
         }
         $out = "<?php\n\n// The app's brand, read by tey/kit as `kit.brand`. Written by `php artisan kit:brand:migrate` from the KIT_BRAND_* values loaded at the time.\n"
-            ."// A key here wins over its KIT_BRAND_* env value; a key left out uses env (deprecated, removed in tey/kit 0.16), then the kit's default.\n"
+            ."// A key here wins over its KIT_BRAND_* env value; a key left out uses env (deprecated, removed in tey/kit 0.17), then the kit's default.\n"
             ."// Colours are a #rgb or #rrggbb; null means \"use the theme\" (or the kit's default); an empty string is refused. The keys and their defaults:\n"
             ."// vendor/tey/kit/resources/stubs/brand.php.\nreturn [\n";
 

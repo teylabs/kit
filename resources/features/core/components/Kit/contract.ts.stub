@@ -828,7 +828,7 @@ export interface SearchBoxProps {
 /**
  * Server action descriptors as button groups: declared `group`/`menu` (layoutActions: menu-bearing groups last), else the placement rule (placeActions). Dialog intent opens the
  * route modal, document intent a new tab, ordinary GETs navigate; other actions are emitted (`@action`) for the host to run. `busy` blocks all but a standalone document link;
- * `dialogOpen` holds menu focus for the host's dialog; `primary` fills each group's leading segment. When the full layout does not fit
+ * `dialogOpen` holds menu focus for the host's dialog; `primary` fills each group's leading segment on a pill surface and makes it semibold on the outline; `filled` (opt-in) fills it there too. When the full layout does not fit
  * the bar's own width (a ResizeObserver on its root, never the viewport), it compacts to the main action and a ⌄ menu (fitActions).
  */
 export interface ActionBarProps {
@@ -836,11 +836,21 @@ export interface ActionBarProps {
     busy?: boolean;
     dialogOpen?: boolean;
     primary?: boolean;
+    /** Opt-in: the leading segment takes the primary fill on the outline (ButtonGroup) path too, not only semibold. Implies `primary`. */
+    filled?: boolean;
+    /** Opt-in, for a phone header: never compacts into a More menu; every action stays visible and the bar wraps onto rows. */
+    wrap?: boolean;
+    /** Opt-in, on a pill surface: the whole group is one primary-filled pill (py-2, first segment pl-3.5, the rest px-3). No effect elsewhere. */
+    fillAll?: boolean;
+    /** The host's own classes for each menu row (its row height, say), added after the row's own; destructive and disabled still apply. */
+    itemClass?: string;
 }
 /** ButtonGroup (ButtonGroup.md): raw `button`/`a`/`Link` children in the default slot, styled by the group; menu entries in `menu`; `label` names the trigger; `offset` is [skid, gap]. */
 export interface ButtonGroupProps {
     label?: string | null;
     offset?: [number, number];
+    /** The host's own classes for each row in `menu`, added after the row's own; destructive and disabled still apply. */
+    itemClass?: string;
 }
 
 /**

@@ -350,6 +350,32 @@ try {
     [$attention, $state] = $lockupStep('/mail-lockup.png');
     check($attention === false && $state === 'met', 'with a PNG at the mail lockup path the step is met');
     check($lockupStep(null) === null && $lockupStep('') === null, 'no mail lockup is not checked');
+    // v0.16 swapped ActionCard and SummaryCard: a page still written for the old names is attention (never blocking), naming the file; the kit's own files are skipped.
+    $cards = $root.'/card-names/resources/js';
+    @mkdir($cards.'/pages/Settings', 0777, true);
+    @mkdir($cards.'/components/Kit/Card', 0777, true);
+    $cardStep = function () use ($command, $cards): array {
+        $requirements = (new ReflectionMethod($command, 'cardNames'))->invoke($command, ['core'], null, $cards);
+        $step = array_values(array_filter($requirements['steps'], fn (array $step): bool => $step['step'] === 'card names'))[0];
+
+        return [$requirements['attention'], $step['status'], $step['blocking'], $step['message']];
+    };
+    file_put_contents($cards.'/pages/Settings/Page.vue', '<template><ActionCard title="Plan" description="Pro"><template #actions><Button>Change</Button></template></ActionCard><SummaryCard title="Team"><template #icon><Users /></template>Body</SummaryCard></template>');
+    file_put_contents($cards.'/components/Kit/Card/SummaryCard.vue', '<template><SummaryCard><template #description>kit</template></SummaryCard></template>');
+    @mkdir($cards.'/pages/Settings/components/Kit', 0777, true);
+    file_put_contents($cards.'/pages/Settings/components/Kit/Nested.vue', '<template><SummaryCard title="Plan"><template #description>Pro</template></SummaryCard></template>');
+    [$attention, , , $message] = $cardStep();
+    check($attention === true && str_contains($message, 'pages/Settings/components/Kit/Nested.vue'), 'only the generated components/Kit under resources/js is skipped, not an app folder of the same name');
+    unlink($cards.'/pages/Settings/components/Kit/Nested.vue');
+    [$attention, $state] = $cardStep();
+    check($attention === false && $state === 'met', 'cards on the new names (and the kit\'s own files) are met');
+    file_put_contents($cards.'/pages/Settings/Old.vue', "<template>\n<ActionCard title=\"Team\">\n<template #icon><Users /></template>\n</ActionCard>\n<ActionCard title=\"Plan\" :edit-url=\"url\" />\n<SummaryCard title=\"Plan\">\n<template #description>Pro</template>\n</SummaryCard>\n</template>");
+    [$attention, $state, $blocking, $message] = $cardStep();
+    check($attention === true && $state === 'unmet' && $blocking === false && str_contains($message, 'resources/js/pages/Settings/Old.vue: ActionCard with #icon') && str_contains($message, 'rename it SummaryCard') && str_contains($message, 'Old.vue: SummaryCard with #description') && str_contains($message, 'rename it ActionCard') && ! str_contains($message, 'Page.vue') && ! str_contains($message, 'components/Kit'), 'old ActionCard (#icon) and SummaryCard (#description) usages are attention naming the file and the rename, not blocking');
+    file_put_contents($cards.'/pages/Settings/Old.vue', '<template><ActionCard title="Plan" :edit-url="url" /></template>');
+    [$attention] = $cardStep();
+    check($attention === true, 'an ActionCard with an editUrl is flagged too');
+    check((new ReflectionMethod($command, 'cardNames'))->invoke($command, ['foundation'], null, $cards) === null, 'without core, no card names step');
     echo "Status checks only; no consumer, product, browser or database acceptance.\n";
 } catch (Throwable $error) {
     fwrite(STDERR, (string) $error."\n");

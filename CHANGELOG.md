@@ -11,6 +11,70 @@
   - **Caveat.** A handler registered with `transformUsing()` for this driver receives the raw `Imagick` object, not an Intervention image, and returns it. Handlers match by `instanceof`.
   - New final classes in `Tey\Kit\Media\Images`: `SizedImagickDriver`, and `Transformations\DecodeAtLeast`, `KeepTransparency`, `Progressive`, `CropToRatio`. Additive: no public signature changed and no method added to a non-final class. No catalog stub changed, so no feature is re-pinned and `history.json` is unchanged.
   - **Tests.** `test:images` (new, in CI; CI now installs ext-imagick): the hint shrinks the decode, a single frame skips coalesce with the same bytes, an animated GIF is coalesced onto its canvas, transparency, every option, the refusal without intervention/image, and the default-driver rule. Small synthetic images only. It skips cleanly without ext-imagick or on a framework without the image API (the lowest-deps leg may).
+## v0.16.0
+
+A minor release (v0.16.0): it renames two public components.
+
+### Breaking
+
+- **`ActionCard` and `SummaryCard` swap names** to match the apps they came from. `ActionCard` is now the plain panel (title, `#description`, `#actions`, default slot below), which was `SummaryCard`. `SummaryCard` is now the header-band card (muted header, `#icon`, `#actions`, `#body`, sticky `#footer`), which was `ActionCard`. Each card keeps its props, slots and look under its new name.
+
+  | Before v0.16 | From v0.16 |
+  | --- | --- |
+  | `ActionCard` (header band) | `SummaryCard` |
+  | `SummaryCard` (panel) | `ActionCard` |
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core`, then `php artisan kit:status`. A new attention step, **card names**, lists each `.vue` file under `resources/js` that still uses an old name, with the rename to make. It flags an `<ActionCard>` with `#icon`, `#body`, `#footer` or an `editUrl`, and a `<SummaryCard>` with `#description`. It is never blocking. A card that uses only `title` and the default slot can't be told apart, so check those by eye. Steps: [docs/cards.md › Upgrading to 0.16](docs/cards.md#upgrading-to-016).
+- An app that already called the panel ActionCard keeps its markup.
+
+### Added
+
+- **The panel (`ActionCard`) gains `tone="danger"`, `align` and a `description` prop.** `align="top"` pins the actions top-right, and `center` stays the default. On a phone the actions stack under the text. `tone="danger"` gives a red edge and a red title and keeps the card background (no tint), so the description and the actions keep their contrast in light and dark. Slots that render nothing (an empty `#actions`, a false `v-if`) leave no wrapper.
+- **`CardHeader` gains `actionsAlign`** (`center`, the default and the old layout, or `start`) **and `stackActions`** (actions on their own line below `sm`; off by default).
+- **ActionBar and ButtonGroup gain `itemClass?: string`.** It is added to every menu row after the row's own classes, so an adopter can set its own row height. Destructive and disabled rows keep their look. ActionBar passes it to its menus. ButtonGroup provides it to the rows in its `#menu` (ActionMenuItems, DropdownItem, DropdownLink and the components built on them). `ActionBarProps` and `ButtonGroupProps` gain the optional prop.
+
+- **ActionBar `fillAll`: one primary pill.** On a pill surface, `fill-all` makes the whole group the primary fill with the primary text, rounded-full. Every segment is `py-2`, the first `pl-3.5` and the rest `px-3`, and a disabled segment still dims. It is a new optional boolean, so `filled` keeps its type. Off a pill surface it does nothing, and the default pill padding is unchanged. `ActionBarProps` gains `fillAll?: boolean`.
+
+### Changed
+
+- **`KIT_BRAND_*` env values are now removed in 0.17, not 0.16.** They still work, deprecated, in this release. The deprecation log, `kit:status`, the `config/brand.php` that `kit:brand:migrate` writes, the published brand stub and the docs now say 0.17.
+- **The deprecated `welcome` card and `WelcomeCardData` are now removed in 0.17, not 0.16.** They still work in this release. The notes in the dashboard view model, the data class, the workspace-ui Dashboard page and docs/dashboard.md now say 0.17. Re-pins `workspace-ui` (comment only): `sha256:996b8585…04db` → `sha256:155ea22c…48f3`.
+- **A GET action with intent `panel` is a button, not a link.** `isNavigation` and `rendersAsLink` now treat `panel` like `dialog`: the action renders as a button that emits `@action` (or, with no listener, runs as an operation), even with a GET href. Before, it rendered as an anchor that navigated.
+
+### Fixed
+
+- **The header-band card (now `SummaryCard`) no longer renders an empty body.** With no default slot, or one that renders nothing, and no `#body`, it leaves out its CardBody, so there is no empty band or rule under the header.
+
+New internal helpers: `Card/slotContent.ts` (`hasSlotContent`) and `Action/menuItemClass.ts`. Neither is exported from the barrel. Covered by `tests/js/card-names.test.mjs`, `tests/js/menu-item-class.test.mjs`, `tests/js/actionbar-fill-all.test.mjs` and new `test:status` cases (the old-name check). There are also five new browser checks. `?card-names`, light and dark, at 1280 and 390px, checks the panel's layout, the phone stack, empty slots and SummaryCard's empty body, and runs axe with colour contrast on the danger cards' title, description and buttons, quiet and filled. `?item-class` checks 48px rows with Cancel still red and the disabled row dimmed. `?fill-all`, light and dark, checks the filled pill's colour, radius and padding, disabled dimming on it, the unchanged default pill, and a panel-intent GET rendering as a button that emits. The browser floor goes from 299 to 304. core is re-pinned (see the PR body).
+
+## v0.15.88
+
+### Added
+
+- **ActionBar `wrap`: an opt-in wrapping mode for a phone header.** With `wrap`, the bar never compacts into a More menu: every action stays visible and the row wraps onto as many rows as it needs. Without declared groups each action is its own button (only the first takes `primary`/`filled`); declared groups and their `menu` actions are kept as declared. Nothing is measured and the compact copy is not rendered in wrap mode. The default (no `wrap`) is unchanged. `wrap?: boolean` is added to `ActionBarProps`.
+- **Menu icon defaults for common intents.** In a menu, an action with no `icon` now gets one by key, else by label: `reopen`/`re-open` → `lock-open`, `cancel`/`decline` → `x`, `merge` → `merge`, `delete`/`remove` → `trash`, `download` → `download`, and `edit` → `pencil` by label too (by key it already had it). An explicit `icon` always wins; inline segments keep only the `plus` default. `lock-open`, `x`, `merge` and `download` are new known icon names in `actionIcons`.
+- **A dev-only warning for menus that mix icons.** In a dev build (`import.meta.env.DEV`), an ActionBar menu or a ButtonGroup menu whose rows mix items with and without an icon logs one `console.warn` per menu. Production builds never warn.
+
+### Fixed
+
+- **ActionBar menu rows without an icon line up with rows that have one.** A row with no icon, in a menu where another row has one, now keeps an icon-sized spacer, so the labels share one left edge. The destructive (red) style of a Cancel-type row is unchanged and now pinned by a test.
+
+Covered by `tests/js/actionbar-wrap.test.mjs` and two new browser checks (`?wrap-bar`, light and dark, at 390px: all six actions visible on more than one row, no compact copy or More menu in wrap mode; in the default mode's More menu, Cancel is in the destructive colour and labels line up with and without an icon; no mixed-icons warning in the production build). The browser floor goes from 297 to 299. core re-pinned (see the PR body).
+
+## v0.15.87
+
+### Added
+
+- **ActionBar `filled`: an opt-in filled primary segment on the outline path.** Before, the leading segment on the ButtonGroup (outline) path was only semibold; a host wanting the primary fill there styled it itself. With `filled` the leading segment of each group takes `bg-primary` with the primary foreground (and `bg-primary/90` on hover); it implies `primary`, so a pill surface fills it as before. Without it nothing changes: `primary` alone stays semibold on the outline. `ActionBarProps` gains the optional `filled`.
+- **Two more action icons, `history` and `mail`.** `actionIcons` (and so `actionIconName`'s names) now covers them; an unknown name still renders no icon. The key-based fallback (`edit` → pencil, `payment` → credit card, in a menu) and `plus` for an Add, New or Create label were already in `actionIconName` and are now pinned by tests.
+
+### Fixed
+
+- **A disabled ButtonGroup segment reads as disabled, hover included.** A segment with the `disabled` attribute (an ActionBar segment blocked while another action runs) had no dimming of its own, and a server-disabled one (`aria-disabled`) lost its dimming on hover, where the group's hover opacity outranked it. ButtonGroup now dims both (opacity 50%, not-allowed cursor) at rest and on hover, on either appearance, including a filled leading segment; the action in flight (`aria-busy`) is left undimmed.
+  - **API.** Additive only: one optional prop (`filled`) on ActionBar and `ActionBarProps`, two icon names. No public signature or prop type changed. `core` is re-pinned (`ActionBar.vue`, `ButtonGroup.vue`, `actionIcons.ts`, `contract.ts`).
+  - **Tests.** `tests/js/actionbar-filled.test.mjs` (the prop, its default and both ButtonGroup layouts; the disabled rule; the icon names) and new `actionIconName` cases in `tests/js/actions.test.mjs`. Browser: `?filled-bar`, light and dark, reads computed styles: `primary` alone unfilled, `filled` on the primary token, disabled segments at 50% at rest and on hover.
 
 ## v0.15.86
 

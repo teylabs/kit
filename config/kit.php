@@ -138,7 +138,7 @@ return [
     ],
     // Which brand keys have a KIT_BRAND_* variable set, read as this file loads so `config:cache` keeps the answer. The app's own config/brand.php
     // (`vendor:publish --tag=kit-brand`, or `php artisan kit:brand:migrate`) wins over env for every key it names; env brand values are deprecated
-    // and removed in 0.16. See Tey\Kit\BrandConfig.
+    // and removed in 0.17. See Tey\Kit\BrandConfig.
     'brand_env' => BrandConfig::fromEnv(),
 
     // Outside production, a quiet sign of where you are: `[Label] ` before the document title and a 2px edge across the top of the shell, per environment name (`label`, up to
