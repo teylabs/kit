@@ -356,8 +356,9 @@ try {
     $remoteStore = new FakeMultipartStore('remote');
     MultipartUploads::fake('remote', $remoteStore);
     $remoteRules = new MediaRules('remote', 'app/remote', ['image/png' => 'png'], 50 * $mib);
-    $swap = function (string $tag) use ($remoteRules, $remoteStore, $pieces, $hashes): MediaUpload {
-        $ticket = RequestMultipartUpload::run('ws:7', $remoteRules, 'image/png', strlen(implode('', $pieces)), hash('sha256', implode('', $pieces)), $tag, true, $hashes);
+    // Each its own prefix, so no ready record shares its key and a refused object is deleted.
+    $swap = function (string $tag) use ($remoteStore, $pieces, $hashes, $mib): MediaUpload {
+        $ticket = RequestMultipartUpload::run('ws:7:'.$tag, new MediaRules('remote', 'app/'.$tag, ['image/png' => 'png'], 50 * $mib), 'image/png', strlen(implode('', $pieces)), hash('sha256', implode('', $pieces)), $tag, true, $hashes);
         $tags = [$remoteStore->put($ticket->uploadId, 1, $pieces[0]), $remoteStore->put($ticket->uploadId, 2, $pieces[1])];
         $GLOBALS['swapParts'] = [['part' => 1, 'etag' => $tags[0], 'checksum' => base64_encode(hex2bin($hashes[0]))], ['part' => 2, 'etag' => $tags[1], 'checksum' => base64_encode(hex2bin($hashes[1]))]];
 
@@ -376,6 +377,24 @@ try {
     $honest = $swap('swap-2');
     $done = CompleteMultipartUpload::run($honest, $GLOBALS['swapParts']);
     check($done->ready() && $done->multipart_upload_id === null && $remote->heads === 2 && Storage::disk('remote')->get($done->key) === $body, 'an object left alone completes and confirms ready, with the checksum read once by complete and once by the confirm');
+
+    // The multipart id stays set until the internal confirm: an ordinary confirm racing it (another request, after S3 joined the parts) is refused.
+    $remote->heads = 0;
+    $raced = $swap('swap-3');
+    $racer = null;
+    $remote->onHead = function (int $head) use (&$racer, $raced): void {
+        $head === 1 && $racer = refusal(fn () => ConfirmUpload::run($raced->fresh()));
+    };
+    $won = CompleteMultipartUpload::run($raced, $GLOBALS['swapParts']);
+    check($racer === 'media.upload.multipart_pending' && $won->ready() && $won->multipart_upload_id === null, 'an ordinary confirm during complete is refused, and complete then confirms the record and clears its id');
+    // A failed checksum read (a HEAD error) fails closed: the object is deleted and the id cleared, so nothing is left to trust.
+    $remote->heads = 0;
+    $broken = $swap('swap-4');
+    $remote->onHead = function (int $head): void {
+        throw new RuntimeException('head failed');
+    };
+    check(refusal(fn () => CompleteMultipartUpload::run($broken, $GLOBALS['swapParts'])) === 'head failed' && ! Storage::disk('remote')->exists($broken->key) && $broken->fresh()->multipart_upload_id === null && $broken->fresh()->status === 'pending', 'a checksum read that throws deletes the object, clears the id and leaves the record pending');
+    $remote->onHead = null;
 
     // The single PUT on the same bucket is unchanged: no checksum read, the content-addressed key trusted as before.
     $remote->heads = 0;

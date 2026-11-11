@@ -22,10 +22,10 @@ use Throwable;
  * (`media.upload.incomplete`); a re-hash mismatch deletes the object, unless a ready record shares it, and refuses (`media.upload.mismatch`). The
  * record then stays pending with no multipart id, so the client starts again. A ready record is returned unchanged.
  *
- * For a content-addressed key, the object's checksum (the ETag on S3, one HEAD) is read before the re-hash and ConfirmUpload compares it and the size again before marking the
- * record ready, so an object replaced at the key after the re-hash is refused (`media.upload.mismatch`) without a second full read. If the confirm
- * fails for any reason after the re-hash, the object is deleted (unless a ready record shares it), so no verified-then-unconfirmed record is left for
- * an ordinary confirm to trust.
+ * The multipart id stays set until the confirm run here clears it with the ready write, so no other confirm can mark the record ready meanwhile.
+ * For a content-addressed key, the object's checksum (the ETag on S3, one HEAD) is read before the re-hash and that confirm compares it again, so an
+ * object replaced at the key after the re-hash is refused (`media.upload.mismatch`) without a second full read. Any failure after the complete
+ * (checksum, re-hash or confirm) deletes the object unless a ready record shares it.
  */
 final class CompleteMultipartUpload
 {
@@ -47,33 +47,26 @@ final class CompleteMultipartUpload
 
             throw new RuntimeException('media.upload.incomplete');
         }
-        // The id is kept until the re-hash has run, so ConfirmUpload refuses the record meanwhile and a concurrent confirm can't mark the joined
-        // object ready unverified. It is cleared after: S3 has no open upload left, either way.
+        // The id is kept until the confirm has run, so every other confirm refuses the record meanwhile (`media.upload.multipart_pending`) and can't
+        // mark the joined object ready unverified; the confirm run here clears it as it marks the record ready, in one conditional write. A
+        // content-addressed key is trusted by ConfirmUpload, so the object's checksum (its ETag on S3: a HEAD) is read before the re-hash and handed
+        // to it; it reads it again and refuses the record if it changed. A random key (`content_type`) is re-hashed by ConfirmUpload itself. Any
+        // failure from here deletes the object (unless a ready record shares it) and clears the id, so the client starts again.
         $disk = Storage::disk($upload->disk);
-        // A content-addressed key is trusted by ConfirmUpload, so the object's checksum (its ETag on S3: a HEAD) is read before the re-hash and handed
-        // to it; it reads it again and refuses the record if it changed, so an object swapped at the key after the re-hash (by another upload's
-        // complete) is never marked ready. A random key (`content_type`) is re-hashed by ConfirmUpload itself, so it needs no checksum.
-        $verified = null;
         try {
             $verified = UploadSigning::contentAddressed($upload) && $disk->exists($upload->key) ? $this->checksum($disk, $upload->key) : null;
-            $matches = $disk->exists($upload->key) && $disk->size($upload->key) === $upload->bytes && $this->hash($disk, $upload->key) === $upload->sha256;
-        } finally {
-            MediaUpload::query()->whereKey($upload->id)->where('multipart_upload_id', $uploadId)->update(['multipart_upload_id' => null]);
-            $upload->refresh();
-        }
-        if (! $matches) {
-            $this->discard($disk, $upload);
+            if (! ($disk->exists($upload->key) && $disk->size($upload->key) === $upload->bytes && $this->hash($disk, $upload->key) === $upload->sha256)) {
+                throw new RuntimeException('media.upload.mismatch');
+            }
 
-            throw new RuntimeException('media.upload.mismatch');
-        }
-        try {
-            return $verified === null ? ConfirmUpload::run($upload) : VerifiedObjects::during($upload->id, $verified, fn (): MediaUpload => ConfirmUpload::run($upload));
+            return VerifiedObjects::during($upload->id, $uploadId, $verified, fn (): MediaUpload => ConfirmUpload::run($upload));
         } catch (Throwable $error) {
-            // The record is pending with no multipart id now, so a later ordinary confirm would trust its content-addressed key unverified: the
-            // object goes (unless a ready record shares it), and the client starts again.
             $upload->refresh()->ready() || $this->discard($disk, $upload);
 
             throw $error;
+        } finally {
+            MediaUpload::query()->whereKey($upload->id)->where('multipart_upload_id', $uploadId)->update(['multipart_upload_id' => null]);
+            $upload->refresh();
         }
     }
 

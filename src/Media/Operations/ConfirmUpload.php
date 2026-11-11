@@ -23,7 +23,7 @@ use Tey\Kit\Media\VerifiedObjects;
  * A record whose key is not named after its SHA-256 (`kit.media.signing` `content_type`, UploadSigning) had no checksum signed, so its object is
  * re-hashed as a stream on any disk, and a mismatch fails closed as above. That costs one full read of the object.
  *
- * Run by CompleteMultipartUpload for a content-addressed key, the object's current checksum (its ETag on S3, a HEAD) must still be the one complete
+ * Run by CompleteMultipartUpload (its multipart id still set, cleared by the ready write), for a content-addressed key the object's current checksum (its ETag on S3, a HEAD) must still be the one complete
  * read before its re-hash (VerifiedObjects), or the object is refused as a mismatch: a swap after the re-hash is caught without a second full read.
  */
 class ConfirmUpload
@@ -35,8 +35,11 @@ class ConfirmUpload
         if ($upload->ready()) {
             return $upload;
         }
-        // An S3 multipart upload is confirmed only through CompleteMultipartUpload, which re-hashes the object first (always null when off).
-        if ($upload->getAttribute('multipart_upload_id') !== null) {
+        // An S3 multipart upload is confirmed only through CompleteMultipartUpload, which re-hashes the object first (always null when off) and runs
+        // this with its upload id expected (VerifiedObjects).
+        $expected = VerifiedObjects::expected($upload->id);
+        $uploadId = $upload->getAttribute('multipart_upload_id');
+        if ($uploadId !== null && $uploadId !== ($expected['upload_id'] ?? null)) {
             throw new RuntimeException('media.upload.multipart_pending');
         }
         $disk = Storage::disk($upload->disk);
@@ -55,11 +58,18 @@ class ConfirmUpload
             throw new RuntimeException('media.upload.missing');
         }
         $probe = ObjectProbe::probe($disk, $upload->key);
-        $verified = VerifiedObjects::expected($upload->id);
+        $verified = $expected['checksum'] ?? null;
         $local = method_exists($disk, 'getAdapter') && $disk->getAdapter() instanceof LocalFilesystemAdapter;
         if ($probe['bytes'] !== $upload->bytes || $probe['mime'] !== $upload->mime || ($verified !== null && $disk->checksum($upload->key) !== $verified) || (($local || UploadSigning::needsRehash($upload)) && $this->hash($disk, $upload->key) !== $upload->sha256)) {
             $this->discard($disk, $upload);
             throw new RuntimeException('media.upload.mismatch');
+        }
+        if ($uploadId !== null) {
+            // One conditional write: ready only while the record still holds this multipart upload, and its id cleared with it.
+            $won = MediaUpload::query()->whereKey($upload->id)->where('multipart_upload_id', $uploadId)->where('status', 'pending')
+                ->update(['status' => 'ready', 'width' => $probe['width'], 'height' => $probe['height'], 'multipart_upload_id' => null]) === 1;
+
+            return $won ? $upload->refresh() : throw new RuntimeException('media.upload.multipart_pending');
         }
         $upload->forceFill(['status' => 'ready', 'width' => $probe['width'], 'height' => $probe['height']])->save();
 
