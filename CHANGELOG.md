@@ -11,6 +11,24 @@
   - **Caveat.** A handler registered with `transformUsing()` for this driver receives the raw `Imagick` object, not an Intervention image, and returns it. Handlers match by `instanceof`.
   - New final classes in `Tey\Kit\Media\Images`: `SizedImagickDriver`, and `Transformations\DecodeAtLeast`, `KeepTransparency`, `Progressive`, `CropToRatio`. Additive: no public signature changed and no method added to a non-final class. No catalog stub changed, so no feature is re-pinned and `history.json` is unchanged.
   - **Tests.** `test:images` (new, in CI; CI now installs ext-imagick): the hint shrinks the decode, a single frame skips coalesce with the same bytes, an animated GIF is coalesced onto its canvas, transparency, every option, the refusal without intervention/image, and the default-driver rule. Small synthetic images only. It skips cleanly without ext-imagick or on a framework without the image API (the lowest-deps leg may).
+## v0.16.8
+
+### Fixed
+
+- **Unset brand values are null, so `config()` defaults apply.** A brand key that resolves unset (null in config/brand.php, an empty `KIT_BRAND_*` value, or an empty string in a non-colour key of an older config/brand.php) is now left out of `kit.brand` instead of being written back as `""`: `config('kit.brand.accent')` is null and `config('kit.brand.accent', '#2f6b5e')` returns `'#2f6b5e'`. Before, a null accent resolved to `""`, so a fallback never applied and code drew black. This holds for every brand key (accent, the colours, the logos, wordmarks and the rest). kit:brand still draws a null accent in the theme's `--primary`, and the page head still uses the neutral default. `kit:brand:migrate --force` writes a kept `""` back as null. An empty colour in config/brand.php is still refused, as before. **Already-migrated apps need do nothing:** the normalising happens at boot, so a config/brand.php holding `''` or null works as is; re-run `php artisan config:cache` if you cache config. Code that tested `config('kit.brand.accent') === ''` for "use the theme" should test for null (or empty) instead. No feature resource changed, so nothing to re-pin.
+
+## v0.16.7
+
+### Fixed
+
+- **ButtonGroup's `itemClass` no longer pads DropdownItem and DropdownLink rows twice.** It now lands on each row's own control (button, anchor or Inertia link), merged last so its padding replaces the control's `px-4 py-2` instead of adding to it; `item-class="gap-2 px-4 py-2"` gives the same row height as none. DropdownModalLink puts it on its ModalLink the same way. A caller's own `wrapper` slot on DropdownItem still takes it on the row. Re-pins core.
+
+## v0.16.6
+
+### Fixed
+
+- **Date and time segments meet WCAG 2.2 target size.** Each typed segment of InputDate, InputDateRange, InputTime and InputTimeRange (reka-ui's `role="spinbutton"` parts) is now at least 24×24 CSS px (`min-h-6 min-w-6`, text centred), so axe's `target-size` passes in light and dark. The fields keep their `h-9` height and fit at 390px. Re-pins core.
+
 ## v0.16.5
 
 ### Added
