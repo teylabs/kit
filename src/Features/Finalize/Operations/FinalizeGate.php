@@ -18,6 +18,7 @@ use Tey\Kit\Features\Finalize\Data\GateState;
 use Tey\Kit\Features\Finalize\Data\GateStep;
 use Tey\Kit\Features\Finalize\Events\Finalized;
 use Tey\Kit\Features\Finalize\Events\Unfinalized;
+use Tey\Kit\Features\Finalize\FinalizesWithinTransaction;
 use Tey\Kit\Features\Finalize\Flow;
 use Tey\Kit\Features\Finalize\Flows;
 use Tey\Kit\Features\Finalize\Models\Confirmation;
@@ -164,6 +165,9 @@ final class FinalizeGate
                 'revision' => $computed['revision'], 'snapshot_hash' => $computed['snapshot'],
             ]);
             $this->bumpLock($definition, $subject);
+            if ($subject instanceof FinalizesWithinTransaction) {
+                $subject->onFinalizing($definition->name, $finalization, $principal, $extras);
+            }
             if ($definition->hasExtras()) {
                 $definition->applyExtras($subject, $finalization, $extras, $principal);
             }
@@ -196,6 +200,9 @@ final class FinalizeGate
             }
             $finalization->forceFill(['unfinalized_by' => $principal->actorId, 'unfinalized_at' => now(), 'unfinalized_channel' => $channel, 'unfinalize_reason' => $reason])->save();
             $this->bumpLock($definition, $subject);
+            if ($subject instanceof FinalizesWithinTransaction) {
+                $subject->onUnfinalizing($definition->name, $finalization, $principal);
+            }
 
             return [$subject, $finalization];
         });

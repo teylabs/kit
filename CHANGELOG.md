@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Finalize: an in-transaction hook on the subject, `FinalizesWithinTransaction`.** A subject model that implements `Tey\Kit\Features\Finalize\FinalizesWithinTransaction` gets `onFinalizing(string $flow, Finalization $finalization, Principal $principal, array $extras)` and `onUnfinalizing(string $flow, Finalization $finalization, Principal $principal)`, called inside the gate's finalize and un-finalize transactions, after the subject's row lock, the kit's own writes and the `lockColumn()` bump, and before the commit (on finalize, before the flow's extras `apply`). So an app can bump its own stale-write guard atomically with the finalization: before, `Finalized` and `Unfinalized` fire only after the commit, and a write carrying the old version could land in between. An exception in the hook rolls the whole operation back and neither event fires. A subject that does not implement it behaves exactly as before. Additive only: a new interface, no public signature changed and no method added to a non-final class. Documented in the `Flow` docblock.
+  - **Tests.** `test:finalize`: the hook runs inside the transaction (an extras `apply` failing after it rolls its write back, with no finalization and no event); an exception in it rolls finalize and un-finalize back with no event; a write carrying the lock_version from before finalize (and before un-finalize) is rejected once the hook bumps it; it receives the flow, finalization, actor and extras; subjects without it run no hook. The tenant, ownership, grant and stale-write checks are unchanged.
+  - No stub changed, so no feature is re-pinned and `history.json` is unchanged.
+
 ## v0.16.10
 
 ### Added
