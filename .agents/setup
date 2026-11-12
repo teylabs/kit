@@ -19,6 +19,9 @@ if ! php_ready; then
     sudo apt-get update
     sudo apt-get install -y php8.5-cli php8.5-mbstring php8.5-xml php8.5-curl php8.5-zip php8.5-pgsql php8.5-sqlite3 \
         php8.5-intl php8.5-gd php8.5-imagick unzip
+    # Another PHP may already own `php`: select 8.5 and check before going on.
+    sudo update-alternatives --set php /usr/bin/php8.5
+    php_ready || { echo "setup: php is not PHP 8.5 with the required extensions" >&2; exit 1; }
 fi
 
 composer_ready() {
@@ -50,14 +53,15 @@ sudo -u postgres psql -c "alter database kit_adopt_check owner to kit"
 (umask 077; printf 'DB_CONNECTION=pgsql\nDB_HOST=127.0.0.1\nDB_PORT=5432\nDB_DATABASE=kit_adopt_check\nDB_USERNAME=kit\nDB_PASSWORD=kit\n' > "$HOME/.kit-pgsql.env")
 chmod 600 "$HOME/.kit-pgsql.env"
 
-# The browser suite wants Node 24 (CI's version); the component type-check runs on it too.
+# Node 24 exactly, as CI runs the browser suite and the component type-check, with npm present.
 node_ready() {
-    command -v node >/dev/null || return 1
-    node -e 'process.exit(Number(process.versions.node.split(".")[0]) >= 24 ? 0 : 1)'
+    command -v node >/dev/null && command -v npm >/dev/null || return 1
+    node -e 'process.exit(Number(process.versions.node.split(".")[0]) === 24 ? 0 : 1)'
 }
 if ! node_ready; then
     curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
     sudo apt-get install -y nodejs
+    node_ready || { echo "setup: node is not Node 24 with npm" >&2; exit 1; }
 fi
 
 composer update --prefer-dist --no-interaction --no-progress
@@ -68,10 +72,19 @@ composer update --prefer-dist --no-interaction --no-progress
 # Co-authored-by Amp/Claude/Anthropic, Claude-Session, "Generated with <AI tool>") and keeps human co-authors.
 # Squash-merging stays the backstop. Repo-local only: never write into a global core.hooksPath (it may be the machine's
 # own hooks). A commit-msg hook the repo already had is kept as commit-msg.local and still runs first.
-# A repo-local core.hooksPath the repo already set is kept and used; otherwise $GIT_DIR/hooks.
+# A core.hooksPath the repo already set is used only when it resolves inside this checkout (or its git dir);
+# anything outside (a shared or machine-wide hooks folder) is left alone and $GIT_DIR/hooks is used instead.
+TOP="$(git rev-parse --show-toplevel)"; GIT_DIR_ABS="$(git rev-parse --absolute-git-dir)"
 HOOKS_DIR="$(git config --local --get core.hooksPath || true)"
-HOOKS_DIR="${HOOKS_DIR:-$(git rev-parse --absolute-git-dir)/hooks}"
-case "$HOOKS_DIR" in /*) ;; *) HOOKS_DIR="$(git rev-parse --show-toplevel)/$HOOKS_DIR" ;; esac
+case "$HOOKS_DIR" in ''|/*) ;; *) HOOKS_DIR="$TOP/$HOOKS_DIR" ;; esac
+if [ -n "$HOOKS_DIR" ]; then
+    mkdir -p "$HOOKS_DIR"
+    HOOKS_DIR="$(cd "$HOOKS_DIR" && pwd -P)"
+fi
+case "$HOOKS_DIR" in
+    "$(cd "$TOP" && pwd -P)"/*|"$(cd "$GIT_DIR_ABS" && pwd -P)"/*) ;;
+    *) HOOKS_DIR="$GIT_DIR_ABS/hooks" ;;
+esac
 mkdir -p "$HOOKS_DIR"
 git config --local core.hooksPath "$HOOKS_DIR"
 if [ -f "$HOOKS_DIR/commit-msg" ] && ! grep -q 'Installed by .agents/setup' "$HOOKS_DIR/commit-msg"; then
@@ -87,7 +100,8 @@ cat > "$HOOKS_DIR/commit-msg" <<'HOOK'
 set -e
 local_hook="$(dirname "$0")/commit-msg.local"
 [ -x "$local_hook" ] && "$local_hook" "$@"
-tmp="$1.strip.$$"
+tmp="$(mktemp "$(dirname "$1")/commit-msg.strip.XXXXXX")"
+trap 'rm -f "$tmp"' EXIT
 awk '{
     l = tolower($0)
     if (l ~ /^amp-thread(-id)?:/) next
