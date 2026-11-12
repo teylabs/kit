@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **Modal: the panel's opening focus is guarded against a late or closed modal.** ModalPanel's opening focus work ran on timers, frames and observers that could fire after the panel had started closing (its leave animation keeps it on the page), after content had mounted late, or with nothing tabbable in the modal. So a modal closed in the trap's own frames could pull focus back to a field of the leaving panel, a field that mounted after the trap had fired never got focus (it stayed on Close), and a modal with no field and no Close button left focus on the page. Every step now checks that the panel is still open and on the page first. Closing (Close, Cancel, Escape, Discard), unmounting, or any close Modal starts itself (a successful submit, `open` set to false, its exposed `close`) ends the opening window and removes its listeners. With no field yet, the panel waits up to five seconds for one and ends the wait on any key or pointer press. With nothing tabbable, the panel itself takes focus (`tabindex="-1"`, only then). No public prop, slot or default changed.
+  - **Tests.** Browser (`?modal-focus`): late content (`&late=900`, after the trap) ends on the first field; nothing tabbable (`&nofield&noclose`) puts focus on the panel; Close pressed in the trap's frame during a 500ms leave (`&leave&closeontrap`) leaves focus off the earlier field and leaves no listeners. All three fail on v0.16.13. Floor 312 → 315.
+  - Re-pins `core` (`sha256:f9792a2f…1403` → `sha256:231a22e3…da5a`: Kit/Overlay/ModalPanel, Kit/Overlay/Modal). Run `kit:update plan|apply` for `core`. `history.json`: only `current` changes.
+
 ## v0.16.13
 
 ### Fixed
