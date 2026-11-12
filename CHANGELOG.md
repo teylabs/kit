@@ -6,22 +6,39 @@ A minor release (v0.17.0): it removes the `KIT_BRAND_*` env brand fallback and t
 
 ### Removed
 
-- **The `KIT_BRAND_*` env fallback.** `config/brand.php` is the brand's only source: each key is its value there, else the kit's default. A `KIT_BRAND_*` variable still set is ignored, logged once at boot, and named by `kit:status` (`brand_env_ignored` in `--json`). `kit:brand:migrate` still writes `config/brand.php` from the values still set (run it before `config:cache`). `kit:status` lists sources as `config` or `default`; `env (deprecated)` and `empty in env (theme)` are gone.
+- **The `KIT_BRAND_*` env fallback.** `config/brand.php` is the brand's only source: each key is its value there, else the kit's default. A `KIT_BRAND_*` variable still set is ignored, logged once at boot, and named by `kit:status` (`brand_env_ignored` in `--json`). `kit:brand:migrate` still writes `config/brand.php` from the values still set (run it before `config:cache`). A `kit.brand` value set anywhere else (a published pre-0.17 `config/kit.php`, or a config cache built before the upgrade) is ignored too, and logged once naming the key, so it is moved rather than silently lost. `kit:status` lists sources as `config` or `default`; `env (deprecated)` and `empty in env (theme)` are gone.
+  - **Tests.** BrandConfigCheck: a stale `kit.brand` value takes the default and is logged once, while `config/brand.php` still wins. StatusCheck: `brand_env_ignored` appears in the no-adoption JSON too, and the 0.17 step finds `.env.production` and `phpunit.xml.ci`.
 - **The dashboard welcome card.** The `welcome` prop on the dashboard Page, `WelcomeCardData` (and its TypeScript type), `WelcomeCardController` and the `me.welcome.dismiss` route are removed. An app that still sends `welcome` gets nothing rendered for it. Onboarding stays: `/welcome`, its steps and the dashboard checklist are unchanged.
   - **Tests.** HostBootCheck asserts `me.welcome.dismiss` is gone in auth-only and full adoption while `/welcome` stays. Browser (`dashboard.html?legacy`): a Page sent a `welcome` prop renders no `[data-welcome-card]`, checklist or Dismiss, light and dark, axe clean (it replaces the old card test, so the count and its floor stay at 315).
 
 ### Added
 
-- **A 0.17 attention step (`HostRequirements::removedIn017`).** `kit:status` and `kit:update plan` name the host files that still use what 0.17 removed: `KIT_BRAND_` in `.env*`, `phpunit.xml*`, `.github`, `bin/` and `tests`; `WelcomeCardData`, `WelcomeCardController` or `me.welcome.dismiss` in `app`, `routes` and `tests` (with session-ui). It is never blocking, and appears only when something is found.
+- **A 0.17 attention step (`HostRequirements::removedIn017`).** `kit:status` and `kit:update plan` name the host files that still use what 0.17 removed: `KIT_BRAND_` in any root-level `.env*` or `phpunit.xml*` file, `.github`, `bin/` and `tests`; `WelcomeCardData`, `WelcomeCardController` or `me.welcome.dismiss` in `app`, `routes` and `tests` (with session-ui). It is never blocking, and appears only when something is found.
 
 ### Upgrading
 
 Both removals land together. Onboarding, `/welcome`, its steps and the checklist stay; only the standalone card goes.
 
-- **Brand.** Before updating, run `php artisan kit:brand:migrate` (it needs the old values still set) and commit `config/brand.php`. Then grep `.github`, `.env.example`, `bin/` and `tests` for `KIT_BRAND_`, and move anything that sets one into `config/brand.php` (or a generated one in CI): a CI job or test that sets `KIT_BRAND_*` now changes nothing. Remove the variables from `.env` and your platform's environment. See [docs/upgrading-brand-config.md](docs/upgrading-brand-config.md).
+- **Brand.** Before updating, run `php artisan kit:brand:migrate` (it needs the old values still set) and commit `config/brand.php`. Then grep `.github`, `.env.example`, `bin/` and `tests` for `KIT_BRAND_`, and move anything that sets one, and any `brand` key in a published `config/kit.php`, into `config/brand.php` (or a generated one in CI): a CI job or test that sets `KIT_BRAND_*` now changes nothing. Remove the variables from `.env` and your platform's environment. See [docs/upgrading-brand-config.md](docs/upgrading-brand-config.md).
 - **Welcome card.** Delete any `WelcomeCardData`, `welcome` prop or `me.welcome.dismiss` use in the app; the 0.17 attention step names the files.
 - Run `kit:update plan|apply` for `workspace-ui`, then `composer types:generate` so the app's generated types drop `WelcomeCardData`, then `php artisan kit:status`: no ignored `KIT_BRAND_*` variable and no 0.17 attention step should remain.
-- Re-pins `workspace-ui` (`sha256:155ea22c…48f3` → `sha256:8bb3c494…7364`: pages/Workspace/Dashboard/Page.vue). `shell`, `session-ui` and every other lineage are unchanged. `history.json`: only `current` changes.
+- Re-pins `workspace-ui` (`sha256:dd0ddbf0…24ae` → `sha256:74d1cd5e…863d`: pages/Workspace/Dashboard/Page.vue). `shell`, `session-ui` and every other lineage are unchanged by this release (after v0.16.16). `history.json`: only `current` changes.
+
+## v0.16.16
+
+### Fixed
+
+- **Error page: one h1 outside the app shell.** A guest's error page (a 404 for an invitation link that matches no token, say) drew no heading outside the app shell: in the app shell `<Page>` draws the layout's title as the h1, but outside it `<Page>` draws none, and the PublicShell has no title of its own. The error page now draws its title as the h1 itself when it is outside the app shell and its shell draws none. The GuestShell tells the page whether it was given a title (and so already draws the h1), so a host that passes the error's title to the GuestShell still gets one h1, not two. In the app shell nothing changes. No public prop, slot or default changed.
+  - **Tests.** Browser (`error.html?shell=public|guest|guest-titled|app`): exactly one h1, "Page not found", in the PublicShell, a GuestShell without and with the title, and the Workspace Layout. Fails on v0.16.15 (no h1 in the PublicShell). Floor 315 → 316.
+  - Re-pins `shell` (`sha256:bbca60c7…ee00f` → `sha256:c0588ed4…55a2`: Workspace/Partials/GuestShell) and `workspace-ui` (`sha256:155ea22c…48f3` → `sha256:dd0ddbf0…24ae`: Workspace/Error/Page). Run `kit:update plan|apply` for `shell` and `workspace-ui`. A host that drew the error title as an h1 in its own layout as a stopgap can drop it. `history.json`: only `current` changes.
+
+## v0.16.15
+
+### Fixed
+
+- **directUpload: a failed multipart `complete` aborts the upload.** A part that failed, or a cancel, sent the multipart upload to `abort`, but a `complete` request that was refused (a non-2xx answer) or threw on the network did not, so the incomplete multipart upload stayed on storage. Both now send `{ id }` to `abort` when the host gives one, then fail as before (`confirm` step for a refused answer, the original error for a thrown one). A successful complete never aborts. No public prop, signature or default changed.
+  - **Tests.** `tests/js/direct-upload-multipart.test.mjs`: a 422 complete and a throwing complete each end with the abort call; a successful one sends none. Fails on v0.16.14.
+  - Re-pins `core` (`sha256:231a22e3…da5a` → `sha256:c05cf9ee…3019`: Kit/Form/directUpload). Run `kit:update plan|apply` for `core`. `history.json`: only `current` changes.
 
 ## v0.16.14
 
