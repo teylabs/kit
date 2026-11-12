@@ -158,8 +158,12 @@ final class BrandConfig
             if ((in_array($key, self::COLOURS, true) || isset(self::CHOICES[$key])) && $source !== self::SOURCE_DEFAULT) {
                 $checked = isset(self::CHOICES[$key]) ? self::choice($key, $value) : self::colour($key, $value);
                 if ($checked === false) {
-                    $problem = 'kit.brand.'.$key.' (config/brand.php) is '.($value === '' ? 'empty' : var_export($value, true)).', which is not '
-                        .(isset(self::CHOICES[$key]) ? self::CHOICES[$key].'. Set one, or null for the kit default.' : 'a #rgb or #rrggbb colour. Set a colour, or null to use the theme.');
+                    $problem = 'kit.brand.'.$key.' (config/brand.php) is '.($value === '' ? 'empty' : var_export($value, true)).', which is not '.self::takes($key).'. '
+                        .match (true) {
+                            isset(self::CHOICES[$key]) => 'Set one, or null for the kit default.',
+                            $key === 'icon_background' => 'Set one, or null for the accent.',
+                            default => 'Set a colour, or null to use the theme.',
+                        };
                     if ($strict && in_array($environment, ['local', 'testing'], true)) {
                         throw new RuntimeException($problem);
                     }
@@ -223,6 +227,12 @@ final class BrandConfig
         }
 
         return preg_match('/\A#[0-9a-fA-F]{6}\z/', $value) === 1 ? strtolower($value) : false;
+    }
+
+    /** What a validated key takes, for its warnings: a colour key a #rgb or #rrggbb colour (`icon_background` also `none`), a CHOICES key what that names. */
+    public static function takes(string $key): string
+    {
+        return self::CHOICES[$key] ?? ($key === 'icon_background' ? "a #rgb or #rrggbb colour, or 'none'" : 'a #rgb or #rrggbb colour');
     }
 
     /** A CHOICES key's value as kit:brand reads it (`icon_padding` as a float), null (unset: the kit default), or false (invalid). */
