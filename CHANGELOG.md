@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed
+
+- **`.agents/setup` never creates a hooks folder outside the checkout.** A configured `core.hooksPath` is resolved (the nearest existing parent, realpath-ed) and checked before anything is created; one outside the checkout or git dir is left alone. Development tooling only.
+
 ### Added
 
 - **`.agents/setup` for cloud agents.** A fresh checkout gets PHP 8.5 with CI's extensions, Composer, PostgreSQL (the `kit` role and `kit_adopt_check` database the PostgreSQL checks use, a password-only superuser as in CI), Node 24, `composer update`, the browser and typecheck `npm ci`, and Playwright Chromium. It also installs a repo-local commit-msg hook that strips AI attribution trailers. Development tooling only; nothing a host installs changes.
