@@ -50,9 +50,10 @@ final class StatusCommand extends Command
             if (! $this->option('json') && $ignoredEnv !== []) {
                 $this->warn('Ignored KIT_BRAND_* variables (tey/kit 0.17 removed env brand values): '.implode(', ', $ignoredEnv).'. Run php artisan kit:brand:migrate to move them into config/brand.php, then remove them from .env, CI and deploy settings.');
             }
-            // A colour that resolved invalid and took the default; only kit:status and kit:brand:migrate boot past one in local and testing.
+            // A key that resolved invalid and took the default; only kit:status and kit:brand:migrate boot past one in local and testing. A plain colour reads as it always has.
             foreach ($this->option('json') ? [] : (array) config('kit.brand_invalid', []) as $key) {
-                $this->warn('kit.brand.'.$key.' is not a valid colour and is using the kit default: set a #rrggbb colour, or null, in config/brand.php.');
+                $this->warn('kit.brand.'.$key.(BrandConfig::takes($key) === BrandConfig::takes('accent') ? ' is not a valid colour and is using the kit default: set a #rrggbb colour'
+                    : ' is not valid and is using the kit default: set '.BrandConfig::takes($key)).', or null, in config/brand.php.');
             }
             if ($this->option('json')) {
                 $this->line(json_encode($status ?? ['message' => 'No kit features adopted.', 'blueprint_features' => [], 'lineages' => [], ...($ignoredEnv !== [] ? ['brand_env_ignored' => $ignoredEnv] : [])], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));

@@ -139,6 +139,75 @@ if ($renderer !== null) {
         rmdir($public);
     }
 }
+
+// kit.brand.icon_colours: mono (the default) repaints the mark in one colour, as always; full keeps a multi-colour mark's own colours in the favicons, the
+// touch icon, the mail mark and the social image. icon_padding and icon_background set the tile. A two-colour mark, one fill an attribute and one a style.
+$twoColour = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="12" height="24" fill="#dc2626"/><rect x="12" width="12" height="24" style="fill:#16a34a"/></svg>';
+// Every SVG the renderer is given, as tey/kit drew it before these keys: with the PNG, ICO and social-image code unchanged, the same sources are the same bytes.
+$mono = new BrandAssets($twoColour, '#2563eb', 'Example');
+$white = '<g><rect width="12" height="24" fill="#ffffff"/><rect x="12" width="12" height="24" style="fill:#ffffff"/></g>';
+check($svgOf($mono, 'tile', 14) === '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#2563eb"/><g transform="translate(14 14) scale(1.5) translate(-0 -0)">'.$white.'</g></svg>'
+    && $svgOf($mono, 'tile', 0, true) === '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="0" fill="#2563eb"/><g transform="translate(14 14) scale(1.5) translate(-0 -0)">'.$white.'</g></svg>'
+    && $svgOf($mono, 'mark', '#2563eb') === '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="96" height="96"><g><rect width="12" height="24" fill="#2563eb"/><rect x="12" width="12" height="24" style="fill:#2563eb"/></g></svg>'
+    && $svgOf($mono, 'inner', '#ffffff', $twoColour)[0] === $white, 'mono, the default: the favicon, touch icon, mail mark and social image sources are what they were, byte for byte');
+if ($renderer !== null && function_exists('imagecreatefromstring')) {
+    $public = sys_get_temp_dir().'/kit-brandcolours-'.getmypid();
+    @mkdir($public);
+    file_put_contents($public.'/logomark.svg', $twoColour);
+    $app = new Application(dirname(__DIR__));
+    $app->usePublicPath($public);
+    Container::setInstance($app);
+    Facade::setFacadeApplication($app);
+    $render = function (array $keys) use ($app): array {
+        $app->instance('config', new Repository(['app' => ['name' => 'Example'], 'kit' => ['brand' => ['accent' => '#2563eb', 'logomark' => '/logomark.svg', ...$keys]]]));
+
+        return BrandAssets::fromConfig()->render();
+    };
+    // A pixel is the colour when it is opaque and each channel is within 24 of it.
+    $is = function (string $png, int $x, int $y, string $hex): bool {
+        $pixel = imagecolorat(imagecreatefromstring($png), $x, $y);
+        $want = sscanf($hex, '#%02x%02x%02x');
+
+        return ($pixel >> 24) < 8 && abs(($pixel >> 16 & 255) - $want[0]) <= 24 && abs(($pixel >> 8 & 255) - $want[1]) <= 24 && abs(($pixel & 255) - $want[2]) <= 24;
+    };
+    $clear = fn (string $png, int $x, int $y): bool => (imagecolorat(imagecreatefromstring($png), $x, $y) >> 24) > 120;
+    // The 48px PNG in the ICO, its last entry.
+    $ico48 = function (string $ico): string {
+        $entry = unpack('Cwidth/x7/Vsize/Voffset', $ico, 6 + 16 * 2);
+
+        return substr($ico, $entry['offset'], $entry['size']);
+    };
+    try {
+        $default = $render([]);
+        check($default === $mono->render() && $default === $render(['icon_colours' => 'mono', 'icon_padding' => null, 'icon_background' => null]), 'mono, set or left out, renders the same bytes as the assets with none of the icon keys');
+        check(! str_contains($default['favicon.svg'], '#dc2626') && ! str_contains($default['favicon.svg'], '#16a34a'), 'mono: favicon.svg has the mark in one colour');
+        check($is($default['apple-touch-icon.png'], 64, 90, '#ffffff') && $is($default['apple-touch-icon.png'], 115, 90, '#ffffff') && $is($default['apple-touch-icon.png'], 4, 4, '#2563eb')
+            && $is($default['mail-mark.png'], 24, 48, '#2563eb') && $is($default['mail-mark.png'], 72, 48, '#2563eb') && $is($default['og-image.png'], 170, 315, '#ffffff') && $is($default['og-image.png'], 270, 315, '#ffffff'),
+            'mono: the touch icon and social image draw the mark white on the accent, the mail mark in the accent');
+
+        $full = $render(['icon_colours' => 'full']);
+        check(str_contains($full['favicon.svg'], 'fill="#dc2626"') && str_contains($full['favicon.svg'], 'fill:#16a34a') && str_contains($full['favicon.svg'], 'fill="#2563eb"'), 'full: both colours survive in favicon.svg, on the accent tile');
+        check($is($ico48($full['favicon.ico']), 17, 24, '#dc2626') && $is($ico48($full['favicon.ico']), 31, 24, '#16a34a') && $is($ico48($full['favicon.ico']), 1, 24, '#2563eb'), 'full: favicon.ico renders both colours on the accent');
+        check($is($full['apple-touch-icon.png'], 64, 90, '#dc2626') && $is($full['apple-touch-icon.png'], 115, 90, '#16a34a') && $is($full['apple-touch-icon.png'], 4, 4, '#2563eb'), 'full: the touch icon renders both colours on the accent');
+        check($is($full['mail-mark.png'], 24, 48, '#dc2626') && $is($full['mail-mark.png'], 72, 48, '#16a34a'), 'full: the mail mark renders both colours');
+        check($is($full['og-image.png'], 170, 315, '#dc2626') && $is($full['og-image.png'], 270, 315, '#16a34a') && $is($full['og-image.png'], 60, 60, '#2563eb'), 'full: the social image renders both colours on the accent');
+
+        // icon_padding 0: the mark fills the tile, so the touch icon's corner is the mark. icon_background sets the tile.
+        $tight = $render(['icon_colours' => 'full', 'icon_padding' => 0, 'icon_background' => '#fef3c7']);
+        check(str_contains($tight['favicon.svg'], '<rect width="64" height="64" rx="14" fill="#fef3c7"/><g transform="translate(0 0) scale(2.666667)'), 'icon_padding 0 and icon_background set the favicon tile');
+        check($is($tight['apple-touch-icon.png'], 4, 4, '#dc2626') && $is($tight['apple-touch-icon.png'], 175, 4, '#16a34a'), 'icon_padding 0: the touch icon is the mark edge to edge');
+        $padded = $render(['icon_padding' => 0.3, 'icon_background' => '#fef3c7']);
+        check($is($padded['apple-touch-icon.png'], 50, 90, '#fef3c7') && $is($padded['apple-touch-icon.png'], 64, 90, '#ffffff'), 'icon_padding and icon_background apply in mono too: a wider margin of the background, the mark white inside it');
+        $none = $render(['icon_colours' => 'full', 'icon_background' => 'none']);
+        check(! str_contains($none['favicon.svg'], '<rect width="64"') && $clear($ico48($none['favicon.ico']), 1, 24) && $is($ico48($none['favicon.ico']), 17, 24, '#dc2626'), 'icon_background none: the favicons have no tile, transparent around the mark');
+        check($is($none['apple-touch-icon.png'], 4, 4, '#2563eb') && $is($none['apple-touch-icon.png'], 64, 90, '#dc2626'), 'icon_background none: the touch icon keeps the accent, as iOS shows transparency as black');
+    } finally {
+        array_map('unlink', glob($public.'/*'));
+        rmdir($public);
+    }
+} else {
+    echo "SKIP full-colour pixels: no SVG renderer or no GD\n";
+}
 echo 'BrandAssets checks: renderer '.($renderer ?? 'none').', Imagick delegates "'.$delegates.'", rsvg-convert '.($rsvg ? 'present' : 'absent').".\n";
 
 // An empty kit.brand.accent: the assets take the accent the theme resolves to (the light --primary in the host's stylesheets), or kit:brand refuses;

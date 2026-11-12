@@ -161,6 +161,22 @@ KIT_BRAND_IDENTITY=
     check(config('kit.brand.accent_foreground') === '#ffffff' && config('kit.brand.mail.button') === null, 'production: an invalid colour takes the kit default');
     check(str_contains(logged($root), "kit.brand.accent_foreground (config/brand.php) is 'zzz'") && str_contains(logged($root), 'kit.brand.mail.button (config/brand.php) is empty') && str_contains(logged($root), 'Using the kit default'), 'production: each is logged as a warning');
 
+    // The icon keys kit:brand reads: icon_colours mono or full, icon_padding 0 up to 0.5, icon_background a colour or none. Validated like the colours.
+    $roots[] = $root = host("APP_ENV=local\n", "<?php return ['icon_colours' => 'full', 'icon_padding' => 0, 'icon_background' => '#FFF'];");
+    boot($root);
+    check(config('kit.brand.icon_colours') === 'full' && config('kit.brand.icon_padding') === 0.0 && config('kit.brand.icon_background') === '#ffffff', 'icon_colours full, a padding of 0 (as a float) and a #rgb background resolve');
+    $roots[] = $root = host("APP_ENV=local\n", "<?php return ['icon_background' => 'none', 'icon_padding' => 0.49];");
+    boot($root);
+    check(config('kit.brand.icon_background') === 'none' && config('kit.brand.icon_padding') === 0.49 && config('kit.brand.icon_colours') === 'mono', 'icon_background takes none; icon_colours left out is mono');
+    foreach (["'icon_colours' => 'colour'" => "kit.brand.icon_colours (config/brand.php) is 'colour', which is not 'mono' or 'full'", "'icon_padding' => 0.5" => 'kit.brand.icon_padding (config/brand.php) is 0.5, which is not a number from 0',
+        "'icon_padding' => '0.1'" => "is '0.1', which is not a number", "'icon_background' => 'transparent'" => "kit.brand.icon_background (config/brand.php) is 'transparent', which is not a #rgb or #rrggbb colour, or 'none'. Set one, or null for the accent."] as $line => $message) {
+        $roots[] = $root = host("APP_ENV=local\n", '<?php return ['.$line.'];');
+        check(refuses(fn () => boot($root), $message), 'local: '.$line.' throws, naming what the key takes');
+    }
+    $roots[] = $root = host("APP_ENV=production\n", "<?php return ['icon_colours' => 'all', 'icon_padding' => -0.1, 'header_rule' => 'none'];");
+    boot($root);
+    check(config('kit.brand.icon_colours') === 'mono' && config('kit.brand.icon_padding') === null && config('kit.brand.header_rule') === null && str_contains(logged($root), 'kit.brand.icon_padding (config/brand.php) is -0.1'), 'production: an invalid icon key takes the kit default, logged; none is only for icon_background');
+
     // kit:status: the source column has only config and default.
     $roots[] = $root = host("APP_ENV=testing\nKIT_BRAND_LEGAL_NAME=\"Env Co\"\n", "<?php return ['accent' => '#123456'];");
     file_put_contents($root.'/config/kit.php', "<?php return ['features' => ['core']];");
@@ -222,6 +238,15 @@ KIT_BRAND_IDENTITY=
     $kernel->call('kit:status');
     $out = $kernel->output();
     check(str_contains($out, 'kit.brand.card is not a valid colour') && str_contains($out, 'in config/brand.php') && ! str_contains($out, 'Ignored KIT_BRAND_'), 'kit:status: a bad config/brand.php colour is fixed in the file; no ignored-env line without a variable set');
+    $roots[] = $iconRoot = host("APP_ENV=local\n", "<?php return ['icon_padding' => 2, 'icon_background' => 'clear', 'icon_colours' => 'rainbow'];");
+    file_put_contents($iconRoot.'/config/kit.php', "<?php return ['features' => ['core']];");
+    $kernel = boot_as($iconRoot, ['artisan', 'kit:status']);
+    $kernel->call('kit:status');
+    $out = $kernel->output();
+    check(str_contains($out, 'kit.brand.icon_padding is not valid and is using the kit default: set a number from 0 up to (not including) 0.5, or null')
+        && str_contains($out, "kit.brand.icon_colours is not valid and is using the kit default: set 'mono' or 'full', or null")
+        && str_contains($out, "kit.brand.icon_background is not valid and is using the kit default: set a #rgb or #rrggbb colour, or 'none', or null")
+        && ! str_contains($out, 'kit.brand.icon_padding is not a valid colour'), 'kit:status: a bad icon key names what it takes, not a colour');
     foreach ([['artisan', 'kit:brand'], ['artisan', 'serve'], ['vendor/bin/pest']] as $argv) {
         boot_as($root, $argv);
         check(config('kit.brand.accent') === '#52525b', 'local, KIT_BRAND_ACCENT=red: '.implode(' ', $argv).' boots, with the kit default');

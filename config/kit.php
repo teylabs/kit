@@ -53,6 +53,14 @@ return [
         // Output files the app made by hand (names in `public/`, from favicon.svg, favicon.ico, apple-touch-icon.png, mail-mark.png, og-image.png): kit:brand
         // skips each one and says so, and never overwrites it. Empty by default: kit:brand writes every file.
         'own' => [],
+        // How kit:brand colours the mark. `mono` (default): one colour, white on the accent tile for the favicons and touch icon and on the social image, the accent
+        // for the mail mark. `full`: the mark keeps its own fills and strokes in all four (only `currentColor` still takes that colour), for a multi-colour mark.
+        // `icon_padding`: the space around the mark on the favicon and touch-icon tile, on each side, as a fraction of the tile (0 up to 0.5); null is today's 14/64.
+        // `icon_background`: the tile's colour, a #rgb or #rrggbb; null is the accent; `none` leaves the favicons transparent (the touch icon, which iOS shows on black
+        // when transparent, keeps the accent).
+        'icon_colours' => 'mono',
+        'icon_padding' => null,
+        'icon_background' => null,
         // The logomark for dark mode (a path in `public/`, shown instead of `logomark` under `.dark`), and the lockup: with `lockup` on, the header and guest pages show the mark
         // with the `wordmark` image (and its `wordmark_dark`) or, with none, the product's name, instead of the mark alone. All null or off by default.
         'logomark_dark' => null,
