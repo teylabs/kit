@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Schema;
 use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Tey\Kit\Catalog;
+use Tey\Kit\Features\DiscoveryCache;
 use Tey\Kit\Features\FeaturesServiceProvider;
 use Tey\Kit\Features\Workspaces\Adoptions;
 use Tey\Kit\KitServiceProvider;
@@ -28,6 +29,158 @@ $loader = require $argv[1];
 $loader->addPsr4('Tey\\Kit\\', dirname(__DIR__).'/src', true);
 
 const KIT = __DIR__.'/../resources/features';
+
+/** Delegates every file:// call and records the paths opened for reading, so a check can prove which files a step reads. */
+final class OpenedFiles
+{
+    /** @var list<string> */
+    public static array $opened = [];
+
+    /** @var resource|null */
+    public $context;
+
+    /** @var resource|false */
+    private $handle = false;
+
+    /** @return list<string> the paths `$run` opened */
+    public static function during(Closure $run): array
+    {
+        self::$opened = [];
+        stream_wrapper_unregister('file');
+        stream_wrapper_register('file', self::class);
+        try {
+            $run();
+        } finally {
+            stream_wrapper_restore('file');
+        }
+
+        return self::$opened;
+    }
+
+    private static function real(Closure $call): mixed
+    {
+        stream_wrapper_restore('file');
+        try {
+            return $call();
+        } finally {
+            stream_wrapper_unregister('file');
+            stream_wrapper_register('file', self::class);
+        }
+    }
+
+    public function stream_open(string $path, string $mode, int $options, ?string &$opened): bool
+    {
+        self::$opened[] = $path;
+        $this->handle = self::real(fn () => @fopen($path, $mode));
+
+        return $this->handle !== false;
+    }
+
+    public function stream_read(int $count): string|false
+    {
+        return self::real(fn () => fread($this->handle, $count));
+    }
+
+    public function stream_write(string $data): int|false
+    {
+        return self::real(fn () => fwrite($this->handle, $data));
+    }
+
+    public function stream_eof(): bool
+    {
+        return self::real(fn () => feof($this->handle));
+    }
+
+    public function stream_stat(): array|false
+    {
+        return self::real(fn () => fstat($this->handle));
+    }
+
+    public function stream_seek(int $offset, int $whence): bool
+    {
+        return self::real(fn () => fseek($this->handle, $offset, $whence) === 0);
+    }
+
+    public function stream_tell(): int|false
+    {
+        return self::real(fn () => ftell($this->handle));
+    }
+
+    public function stream_flush(): bool
+    {
+        return self::real(fn () => fflush($this->handle));
+    }
+
+    public function stream_lock(int $operation): bool
+    {
+        return self::real(fn () => flock($this->handle, $operation));
+    }
+
+    public function stream_set_option(int $option, int $arg1, ?int $arg2): bool
+    {
+        return false;
+    }
+
+    public function stream_close(): void
+    {
+        self::real(fn () => fclose($this->handle));
+    }
+
+    public function url_stat(string $path, int $flags): array|false
+    {
+        return self::real(fn () => ($flags & STREAM_URL_STAT_LINK) ? @lstat($path) : @stat($path));
+    }
+
+    /** @var list<string> */
+    private array $entries = [];
+
+    public function dir_opendir(string $path, int $options): bool
+    {
+        $entries = self::real(fn () => @scandir($path));
+        $this->entries = $entries === false ? [] : $entries;
+
+        return $entries !== false;
+    }
+
+    public function dir_readdir(): string|false
+    {
+        return array_shift($this->entries) ?? false;
+    }
+
+    public function dir_rewinddir(): bool
+    {
+        return true;
+    }
+
+    public function dir_closedir(): bool
+    {
+        return true;
+    }
+
+    public function stream_metadata(string $path, int $option, mixed $value): bool
+    {
+        return self::real(fn () => match ($option) {
+            STREAM_META_TOUCH => touch($path, ...array_filter((array) $value)),
+            STREAM_META_ACCESS => chmod($path, $value),
+            default => false,
+        });
+    }
+
+    public function unlink(string $path): bool
+    {
+        return self::real(fn () => @unlink($path));
+    }
+
+    public function rename(string $from, string $to): bool
+    {
+        return self::real(fn () => @rename($from, $to));
+    }
+
+    public function mkdir(string $path, int $mode, int $options): bool
+    {
+        return self::real(fn () => @mkdir($path, $mode, (bool) ($options & STREAM_MKDIR_RECURSIVE)));
+    }
+}
 
 function check(bool $ok, string $message): void
 {
@@ -293,6 +446,153 @@ try {
     $config->set('kit.access.adopt', null);
     $app->register(FeaturesServiceProvider::class, true);
     check($config->get('kit.workspaces.adopt') === false && $config->get('kit.access.adopt') === true, 'a value the app sets wins over the record');
+
+    // The discovery cache (#939): `optimize` (kit:cache) stores what register() reads from the record, so a request opens none of it.
+    $readsRecord = fn (array $opened): bool => preg_grep('#/\.mod-maintenance/#', $opened) !== [];
+    $registerFresh = function () use ($app, $config): void {
+        $config->set('kit.workspaces.adopt', null);
+        $config->set('kit.access.adopt', null);
+        $app->register(FeaturesServiceProvider::class, true);
+    };
+    $discovered = FeaturesServiceProvider::discover($root, 'host');
+    check($discovered === ['lineages' => ['core', 'workspaces', 'access'], 'carry' => false, 'tables' => ['permission', 'workspaces']], 'discover() reads the adopted lineages and tables from the record');
+    DiscoveryCache::clear($app);
+    check($readsRecord(OpenedFiles::during($registerFresh)) && $config->get('kit.workspaces.adopt') === true, 'without the cache, register() reads the installed record (the recorder sees it)');
+    check($app->make(Kernel::class)->call('kit:cache') === 0 && is_file(DiscoveryCache::path($app)), 'kit:cache writes bootstrap/cache/kit-features.php');
+    DiscoveryCache::forget();
+    $opened = OpenedFiles::during($registerFresh);
+    check(! $readsRecord($opened) && $config->get('kit.workspaces.adopt') === true && $config->get('kit.access.adopt') === true, 'with the cache, register() opens no file of the installed record and sets the same flags');
+    $config->set('kit.features', null);
+    $features = fn (FeaturesServiceProvider $provider): array => (fn (): array => $this->features())->call($provider);
+    DiscoveryCache::clear($app);
+    $live = $features(new FeaturesServiceProvider($app));
+    $app->make(Kernel::class)->call('kit:cache');
+    DiscoveryCache::forget();
+    $cachedOpened = OpenedFiles::during(function () use ($app, $features, &$cached): void {
+        $cached = $features(new FeaturesServiceProvider($app));
+    });
+    check($live === ['core', 'workspaces', 'access'] && $cached === $live && ! $readsRecord($cachedOpened), 'with the lineages as the features, the cached read gives the live answer ('.implode(', ', $live).') and opens no record file');
+    $config->set('kit.features', []);
+    // Any change to the record is a miss, so a request reads it live, with the live read's verification.
+    $records = glob($root.'/.mod-maintenance/installed/*.json');
+    $bytes = file_get_contents($records[0]);
+    file_put_contents($records[0], '{"not": "a record"}');
+    DiscoveryCache::forget();
+    check(DiscoveryCache::entry($app, 'host') === null, 'a changed record misses the cache');
+    $registerFresh();
+    check($config->get('kit.workspaces.adopt') === null && $config->get('kit.access.adopt') === null, 'and an unreadable record leaves the flags null, as without a cache (fail closed)');
+    file_put_contents($records[0], $bytes);
+    check(DiscoveryCache::entry($app, 'host') === null, 'restoring the bytes still misses (the fingerprint holds ctime), until kit:cache runs again');
+    check($app->make(Kernel::class)->call('kit:cache') === 0 && DiscoveryCache::entry($app, 'host') !== null, 'kit:cache re-caches the restored record');
+    // Copilot's review of #940, one check each.
+    $cacheFile = DiscoveryCache::path($app);
+    $rewriteEntry = function (Closure $change) use ($cacheFile): void {
+        $data = require $cacheFile;
+        $data['entries']['host'] = $change($data['entries']['host']);
+        file_put_contents($cacheFile, '<?php return '.var_export($data, true).';');
+        DiscoveryCache::forget();
+    };
+    // 1. A record changed while kit:cache reads it: the read is repeated, so the cache never pairs a new fingerprint with old answers.
+    $reads = 0;
+    DiscoveryCache::write($app, 'host', function () use (&$reads, $records, $root): array {
+        if (++$reads === 1) {
+            file_put_contents($records[0], file_get_contents($records[0]));
+            clearstatcache();
+
+            return ['lineages' => ['core'], 'carry' => false, 'tables' => []];
+        }
+
+        return FeaturesServiceProvider::discover($root, 'host');
+    });
+    check($reads === 2 && DiscoveryCache::entry($app, 'host') === $discovered, 'a record changed during kit:cache\'s read is read again, and the cache holds the second read\'s answers');
+    // 1b. A same-second, same-size rewrite between the before and after states keeps the lstat fingerprint (inode, size, mtime and ctime
+    // unchanged), so only the contents hash taken at build time catches it: the first read's answers are never published.
+    @mkdir($root.'/vendor/composer', 0700, true);
+    $installedJson = $root.'/vendor/composer/installed.json';
+    while (fmod(microtime(true), 1.0) > 0.3) {
+        usleep(20_000);
+    }
+    file_put_contents($installedJson, '{"packages": [], "x": "A"}');
+    clearstatcache();
+    $statBefore = lstat($installedJson);
+    $reads = 0;
+    $published = [];
+    DiscoveryCache::write($app, 'host', function () use (&$reads, &$statAfter, $installedJson, $root): array {
+        if (++$reads === 1) {
+            file_put_contents($installedJson, '{"packages": [], "x": "B"}');
+            clearstatcache();
+            $statAfter = lstat($installedJson);
+
+            return ['lineages' => ['core'], 'carry' => false, 'tables' => []];
+        }
+
+        return FeaturesServiceProvider::discover($root, 'host');
+    });
+    $sameStat = [$statBefore['ino'], $statBefore['size'], $statBefore['mtime'], $statBefore['ctime']] === [$statAfter['ino'], $statAfter['size'], $statAfter['mtime'], $statAfter['ctime']];
+    check($sameStat, 'the rewrite kept the lstat fingerprint (same inode, size, mtime and ctime), so the check below rests on the contents hash');
+    check($reads === 2 && DiscoveryCache::entry($app, 'host') === $discovered, 'a same-second, same-size rewrite during the read is caught by the contents hash: the read is repeated and the first read\'s answers are never published');
+    unlink($installedJson);
+    $app->make(Kernel::class)->call('kit:cache');
+    // 2. A record that does not verify fails kit:cache (so optimize fails), and nothing is cached.
+    file_put_contents($records[0], '{"not": "a record"}');
+    check($app->make(Kernel::class)->call('kit:cache') === 1 && ! is_file($cacheFile), 'kit:cache fails (exit 1) on a record that does not verify, and writes nothing');
+    file_put_contents($records[0], $bytes);
+    check($app->make(Kernel::class)->call('kit:cache') === 0, 'and succeeds again once the record verifies');
+    // 3. An entry not in the exact shape is a miss.
+    foreach (['lineages holding an array' => ['lineages' => [['core']]], 'lineages keyed, not a list' => ['lineages' => ['a' => 'core']], 'a table that is not a string' => ['tables' => [1]], 'carry not a bool' => ['carry' => 1], 'tables missing' => ['tables' => '(drop)']] as $label => $change) {
+        $app->make(Kernel::class)->call('kit:cache');
+        $rewriteEntry(function (array $entry) use ($change): array {
+            foreach ($change as $key => $value) {
+                if ($value === '(drop)') {
+                    unset($entry[$key]);
+                } else {
+                    $entry[$key] = $value;
+                }
+            }
+
+            return $entry;
+        });
+        check(DiscoveryCache::entry($app, 'host') === null, 'an entry with '.$label.' is a miss');
+    }
+    // 4. The kit's sources of the answers are fingerprinted: session-ui's feature.json, and the host's vendor/composer/installed.json.
+    $app->make(Kernel::class)->call('kit:cache');
+    $manifest = dirname(__DIR__).'/resources/features/session-ui/feature.json';
+    touch($manifest, filemtime($manifest));
+    DiscoveryCache::forget();
+    check(DiscoveryCache::entry($app, 'host') === null, 'a changed session-ui feature.json (any kit update) is a miss');
+    @mkdir($root.'/vendor/composer', 0700, true);
+    file_put_contents($root.'/vendor/composer/installed.json', '{"packages": []}');
+    $app->make(Kernel::class)->call('kit:cache');
+    file_put_contents($root.'/vendor/composer/installed.json', '{"packages": [], "dev": true}');
+    DiscoveryCache::forget();
+    check(DiscoveryCache::entry($app, 'host') === null, 'a changed vendor/composer/installed.json (any composer install or update) is a miss');
+    // 4b. The rest of what the live read checks: owner.json, and any entry anywhere in the .mod-maintenance tree.
+    $owner = $root.'/.mod-maintenance/owner.json';
+    $ownerBytes = is_file($owner) ? file_get_contents($owner) : null;
+    $app->make(Kernel::class)->call('kit:cache');
+    file_put_contents($owner, $ownerBytes ?? '{"format": 1}');
+    DiscoveryCache::forget();
+    check(DiscoveryCache::entry($app, 'host') === null, 'a changed .mod-maintenance/owner.json is a miss'.($ownerBytes === null ? ' (created, as the fixture has none)' : ''));
+    $ownerBytes === null ? unlink($owner) : file_put_contents($owner, $ownerBytes);
+    $app->make(Kernel::class)->call('kit:cache');
+    @mkdir($root.'/.mod-maintenance/stage', 0700);
+    file_put_contents($root.'/.mod-maintenance/stage/entry', 'x');
+    DiscoveryCache::forget();
+    check(DiscoveryCache::entry($app, 'host') === null, 'a new entry deeper in the .mod-maintenance tree is a miss');
+    unlink($root.'/.mod-maintenance/stage/entry');
+    rmdir($root.'/.mod-maintenance/stage');
+    // 5. A cached `tables: null` (the workspaces artifact unreadable) is kept: register() opens no record file and leaves the flags null.
+    $app->make(Kernel::class)->call('kit:cache');
+    $rewriteEntry(fn (array $entry): array => ['tables' => null] + $entry);
+    $hit = DiscoveryCache::entry($app, 'host');
+    check($hit !== null && $hit['tables'] === null, 'a cached null tables is a hit');
+    $opened = OpenedFiles::during($registerFresh);
+    check(! $readsRecord($opened) && $config->get('kit.workspaces.adopt') === null && $config->get('kit.access.adopt') === null, 'and register() keeps it: no record file opened, the flags stay null');
+    $app->make(Kernel::class)->call('kit:cache');
+    check((Illuminate\Support\ServiceProvider::$optimizeCommands['kit'] ?? null) === 'kit:cache' && (Illuminate\Support\ServiceProvider::$optimizeClearCommands['kit'] ?? null) === 'kit:clear', 'optimize runs kit:cache and optimize:clear runs kit:clear');
+    check($app->make(Kernel::class)->call('kit:clear') === 0 && ! is_file(DiscoveryCache::path($app)) && DiscoveryCache::entry($app, 'host') === null, 'kit:clear removes the cache');
+    $config->set('kit.workspaces.adopt', false);
+    $config->set('kit.access.adopt', null);
     $config->set('kit.workspaces.adopt', true);
 
     // 2. Fresh database: the host's migrations and the kit's stamped ones, in one migrate.
