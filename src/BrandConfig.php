@@ -17,6 +17,7 @@ use RuntimeException;
  * empty string in config/brand.php and any other value are invalid: in local and testing that throws, naming the key (except under the lenient commands, see
  * LENIENT_COMMANDS); anywhere else it is logged and the key takes the kit's default, never an empty value. A key that resolves unset (null, or an empty
  * string) is left out of `kit.brand`, so `config('kit.brand.<key>')` is null and `config('kit.brand.<key>', $fallback)` returns the fallback.
+ * `icon_colours` (`mono` or `full`) and `icon_padding` (0 up to 0.5) are validated the same way (CHOICES).
  */
 final class BrandConfig
 {
@@ -26,6 +27,9 @@ final class BrandConfig
         'logomark' => '/logomark.svg',
         'icon' => null,
         'own' => [],
+        'icon_colours' => 'mono',
+        'icon_padding' => null,
+        'icon_background' => null,
         'logomark_dark' => null,
         'logomark_bar' => null,
         'wordmark' => null,
@@ -78,11 +82,14 @@ final class BrandConfig
     ];
 
     /** The keys that never had an env variable (set only in config). */
-    public const CONFIG_ONLY = ['own'];
+    public const CONFIG_ONLY = ['own', 'icon_colours', 'icon_padding', 'icon_background'];
 
-    /** The colour keys, validated as they resolve. `header_rule` also takes `accent`. */
+    /** The colour keys, validated as they resolve. `header_rule` also takes `accent`, `icon_background` also takes `none`. */
     public const COLOURS = ['mail.button', 'mail.button_dark', 'accent', 'accent_foreground', 'accent_strong', 'accent_dark', 'accent_dark_foreground', 'ink', 'header_rule',
-        'background', 'card', 'border', 'muted', 'input', 'background_dark', 'card_dark', 'border_dark', 'muted_dark', 'input_dark', 'link', 'link_dark'];
+        'background', 'card', 'border', 'muted', 'input', 'background_dark', 'card_dark', 'border_dark', 'muted_dark', 'input_dark', 'link', 'link_dark', 'icon_background'];
+
+    /** The other keys validated as they resolve, as the colours are: each => what it takes. */
+    private const CHOICES = ['icon_colours' => "'mono' or 'full'", 'icon_padding' => 'a number from 0 up to (not including) 0.5'];
 
     public const SOURCE_CONFIG = 'config';
 
@@ -148,11 +155,11 @@ final class BrandConfig
             if (in_array($key, $fromEnv, true) && self::once('env:'.$key)) {
                 $logs[] = ['level' => 'warning', 'message' => self::envName($key).' is set but ignored: tey/kit 0.17 removed env brand values. Run `php artisan kit:brand:migrate` to move it into config/brand.php, then remove it from .env, CI and deploy settings.'];
             }
-            if (in_array($key, self::COLOURS, true) && $source !== self::SOURCE_DEFAULT) {
-                $checked = self::colour($key, $value);
+            if ((in_array($key, self::COLOURS, true) || isset(self::CHOICES[$key])) && $source !== self::SOURCE_DEFAULT) {
+                $checked = isset(self::CHOICES[$key]) ? self::choice($key, $value) : self::colour($key, $value);
                 if ($checked === false) {
-                    $problem = 'kit.brand.'.$key.' (config/brand.php) is '.($value === '' ? 'empty' : var_export($value, true)).', which is not a #rgb or #rrggbb colour'
-                        .'. Set a colour, or null to use the theme.';
+                    $problem = 'kit.brand.'.$key.' (config/brand.php) is '.($value === '' ? 'empty' : var_export($value, true)).', which is not '
+                        .(isset(self::CHOICES[$key]) ? self::CHOICES[$key].'. Set one, or null for the kit default.' : 'a #rgb or #rrggbb colour. Set a colour, or null to use the theme.');
                     if ($strict && in_array($environment, ['local', 'testing'], true)) {
                         throw new RuntimeException($problem);
                     }
@@ -208,14 +215,27 @@ final class BrandConfig
             return false;
         }
         $value = trim($value);
-        if ($key === 'header_rule' && $value === 'accent') {
-            return 'accent';
+        if (($key === 'header_rule' && $value === 'accent') || ($key === 'icon_background' && $value === 'none')) {
+            return $value;
         }
         if (preg_match('/\A#([0-9a-fA-F])([0-9a-fA-F])([0-9a-fA-F])\z/', $value, $m) === 1) {
             return strtolower('#'.$m[1].$m[1].$m[2].$m[2].$m[3].$m[3]);
         }
 
         return preg_match('/\A#[0-9a-fA-F]{6}\z/', $value) === 1 ? strtolower($value) : false;
+    }
+
+    /** A CHOICES key's value as kit:brand reads it (`icon_padding` as a float), null (unset: the kit default), or false (invalid). */
+    private static function choice(string $key, mixed $value): string|float|null|false
+    {
+        if ($value === null) {
+            return null;
+        }
+        if ($key === 'icon_colours') {
+            return in_array($value, ['mono', 'full'], true) ? $value : false;
+        }
+
+        return (is_int($value) || is_float($value)) && $value >= 0 && $value < 0.5 ? (float) $value : false;
     }
 
     /**
