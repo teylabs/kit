@@ -68,6 +68,8 @@ cpSync(path.join(here, '../resources/features/notes/pages'), path.join(kit, 'Pag
 cpSync(path.join(here, '../resources/features/workspace-ui/pages/Workspace/Dashboard'), path.join(kit, 'Pages/Workspace/Dashboard'), { recursive: true });
 // The workspace list (workspaces.html).
 cpSync(path.join(here, '../resources/features/workspace-ui/pages/Workspace/Index'), path.join(kit, 'Pages/Workspace/Index'), { recursive: true });
+// The error page in each shell (error.html).
+cpSync(path.join(here, '../resources/features/workspace-ui/pages/Workspace/Error'), path.join(kit, 'Pages/Workspace/Error'), { recursive: true });
 // The Account pages (auth.html?auth=Workspace/Account/Security).
 cpSync(path.join(here, '../resources/features/workspace-ui/pages/Workspace/Account'), path.join(kit, 'Pages/Workspace/Account'), { recursive: true });
 // settings' General and Email sending pages (forms.html).
@@ -5638,6 +5640,29 @@ test('the bar slot drops its search floor below lg in the same frame, and Primar
         } finally {
             await context.close();
         }
+    }
+});
+
+// The error page names itself once: one h1, its title, in every shell. A guest's error outside the app shell (the PublicShell, a GuestShell with no title)
+// had none, since only the app shell's <Page> draws the layout's title; inside the app shell, or a GuestShell given the title, the page draws no second.
+test('the error page has exactly one h1, its title, in the public, guest and app shells', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    try {
+        for (const shell of ['public', 'guest', 'guest-titled', 'app']) {
+            const tab = await context.newPage();
+            const errors = [];
+            tab.on('pageerror', error => errors.push(error.message));
+            await tab.goto(`${authUrl}error.html?shell=${shell}`);
+            await tab.getByRole('alert').waitFor();
+            const headings = await tab.locator('h1').allTextContents();
+            assert.deepEqual(headings.map(text => text.trim()), ['Page not found'], `${shell}: one h1, the error's title`);
+            assert.equal(await tab.getByRole('heading', { level: 1, name: 'Page not found' }).count(), 1, `${shell}: the h1 is exposed as a level-one heading`);
+            if (process.env.KIT_ERROR_SCREENSHOT) await tab.screenshot({ path: `${process.env.KIT_ERROR_SCREENSHOT}-${shell}.png`, fullPage: true });
+            assert.deepEqual(errors, [], shell);
+            await tab.close();
+        }
+    } finally {
+        await context.close();
     }
 });
 

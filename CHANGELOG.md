@@ -7,6 +7,14 @@
 - **Release notes name the lineages to update.** `php bin/release-lineages.php [<from-ref> [<to-ref>]]` compares the feature pins in `src/Catalog.php` between two refs (by default the newest `vX.Y.Z` tag before HEAD, and HEAD) and prints the line for the release notes: ``Run `php artisan kit:update` for: core, shell``, or that no pin changed (`composer update` is enough). A feature new at the later ref gets a `kit:add` line instead. docs/releasing.md makes it part of the release step (#918). Release tooling only: no stub, pin or public API changed.
   - **Tests.** `test:release-lineages` (`tests/ReleaseLineagesCheck.php`): unchanged, one changed and several changed pins (named in catalog order, unchanged ones left out), a new feature, a catalog with no pins refused, and the command on a made-up repository (default base, a tag on HEAD itself skipped, two named refs, an unknown ref failing).
 
+## v0.16.16
+
+### Fixed
+
+- **Error page: one h1 outside the app shell.** A guest's error page (a 404 for an invitation link that matches no token, say) drew no heading outside the app shell: in the app shell `<Page>` draws the layout's title as the h1, but outside it `<Page>` draws none, and the PublicShell has no title of its own. The error page now draws its title as the h1 itself when it is outside the app shell and its shell draws none. The GuestShell tells the page whether it was given a title (and so already draws the h1), so a host that passes the error's title to the GuestShell still gets one h1, not two. In the app shell nothing changes. No public prop, slot or default changed.
+  - **Tests.** Browser (`error.html?shell=public|guest|guest-titled|app`): exactly one h1, "Page not found", in the PublicShell, a GuestShell without and with the title, and the Workspace Layout. Fails on v0.16.15 (no h1 in the PublicShell). Floor 315 → 316.
+  - Re-pins `shell` (`sha256:bbca60c7…ee00f` → `sha256:c0588ed4…55a2`: Workspace/Partials/GuestShell) and `workspace-ui` (`sha256:155ea22c…48f3` → `sha256:dd0ddbf0…24ae`: Workspace/Error/Page). Run `kit:update plan|apply` for `shell` and `workspace-ui`. A host that drew the error title as an h1 in its own layout as a stopgap can drop it. `history.json`: only `current` changes.
+
 ## v0.16.15
 
 ### Fixed
