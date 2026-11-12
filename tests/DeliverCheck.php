@@ -77,6 +77,10 @@ use Tey\Kit\Features\Deliver\DeliveryAttachment;
 use Tey\Kit\Features\Deliver\DeliveryMail;
 use Tey\Kit\Features\Deliver\Events\DeliveryBounced;
 use Tey\Kit\Features\Deliver\Events\DeliveryCancelled;
+use Tey\Kit\Features\Deliver\Events\DeliveryDelivered;
+use Tey\Kit\Features\Deliver\Events\DeliveryLinkRevoked;
+use Tey\Kit\Features\Deliver\Events\DeliveryOpened;
+use Tey\Kit\Features\Deliver\Events\DeliverySent;
 use Tey\Kit\Features\Deliver\Http\CustomerLinkController;
 use Tey\Kit\Features\Deliver\Integrations\Mcp\SendDelivery;
 use Tey\Kit\Features\Deliver\Models\DeliveryRecipient;
@@ -396,6 +400,10 @@ try {
     check(refusal(fn () => $in($workspace, fn () => $desk->send($as('owner'), 'report.deliver', $key, 'old', $draft, $k()))) === 'deliver_stale' && $rows() === 0, 'a stale revision is refused and writes nothing');
 
     // Send now.
+    $sends = [];
+    Event::listen(DeliverySent::class, function (DeliverySent $e) use (&$sends): void {
+        $sends[] = [$e->delivery->id, $e->delivery->resent_from_id, $e->resent()];
+    });
     $claim = $k();
     $s = $in($workspace, fn () => $desk->send($as('owner'), 'report.deliver', $key, $s->revision, $draft, $claim));
     $messages = $sent();
@@ -444,12 +452,18 @@ try {
 
         return [$response->getStatusCode(), $response];
     };
+    // Each new event is dispatched after commit: its listener records the transaction level it ran at.
+    $opens = [];
+    Event::listen(DeliveryOpened::class, function (DeliveryOpened $e) use (&$opens): void {
+        $opens[] = [$e->definition, $e->delivery->id, $e->delivery->subject_key, $e->delivery->first_opened_at !== null, $e->recipient, DB::transactionLevel()];
+    });
     [$status, $response] = $guest($link);
     check($status === 200 && str_contains((string) $response->getContent(), '%PDF report for Robin Vale') && str_contains((string) $response->headers->get('Cache-Control'), 'no-store') && $response->headers->get('X-Robots-Tag') === 'noindex, nofollow' && $response->headers->get('Referrer-Policy') === 'no-referrer', 'the signed link shows the document, never cached, not indexed, sending no referrer');
     check($in($workspace, fn () => DeliveryRecord::query()->value('first_opened_at')) !== null, 'the first open is recorded (no tracking pixel: the email itself is not tracked)');
     DB::table('contacts')->where('email', 'robin@client.test')->update(['name' => 'Robin Vale-Okafor']);
     [, $response] = $guest($link);
     check(str_contains((string) $response->getContent(), 'Robin Vale') && ! str_contains((string) $response->getContent(), 'Okafor'), 'after the contact is renamed, the document still prints the finalized name');
+    check($opens === [['report.deliver', $record->id, $key, true, null, 0]], 'the first open dispatches DeliveryOpened once, after commit, with the delivery and its subject key and no recipient; a second open dispatches nothing');
     // A wrong token behind a valid signature, and the right token with its signature stripped.
     $tampered = $refused(URL::temporarySignedRoute('kit.deliver.view', now()->addDay(), ['delivery' => $record->id, 'token' => str_repeat('a', 64)]));
     $unsigned = $refused(preg_replace('/\?.*/', '', $link));
@@ -460,20 +474,34 @@ try {
     Event::listen(DeliveryBounced::class, function (DeliveryBounced $e) use (&$bounces): void {
         $bounces[] = $e->recipient->address;
     });
+    $delivered = [];
+    Event::listen(DeliveryDelivered::class, function (DeliveryDelivered $e) use (&$delivered): void {
+        $delivered[] = [$e->definition, $e->delivery->id, $e->delivery->subject_key, $e->recipient->address, $e->recipient->status, DB::transactionLevel()];
+    });
+    $held = DB::transaction(fn (): array => [$desk->recordEvent($record->provider_message_id, 'Robin@client.test', 'delivered', 'ev-d1'), $delivered]);
+    check($held === [true, []] && $delivered === [['report.deliver', $record->id, $key, 'robin@client.test', 'delivered', 0]], 'a first "delivered" dispatches DeliveryDelivered for that address with the delivery and its subject key, held until the caller\'s transaction commits');
+    check(! $desk->recordEvent($record->provider_message_id, 'robin@client.test', 'delivered', 'ev-d1') && count($delivered) === 1, 'a replayed "delivered" webhook dispatches nothing');
+    check($desk->recordEvent($record->provider_message_id, 'robin@client.test', 'delivered', 'ev-d2', CarbonImmutable::now()->addMinute()) && count($delivered) === 1 && $in($workspace, fn () => DeliveryRecipient::query()->where('address', 'robin@client.test')->value('last_event_at'))->greaterThan(now()), 'a second "delivered" for the same address is recorded but dispatches nothing');
     check($desk->recordEvent($record->provider_message_id, 'SAM@client.test', 'bounced', 'ev-1') && $in($workspace, fn () => DeliveryRecipient::query()->where('address', 'sam@client.test')->value('status')) === 'bounced' && $bounces === ['sam@client.test'], 'a bounce is recorded for that address and dispatches DeliveryBounced, so the app can tell the sender');
     check(! $desk->recordEvent($record->provider_message_id, 'sam@client.test', 'bounced', 'ev-1') && count($bounces) === 1, 'the same webhook twice is recorded once');
-    check($desk->recordEvent($record->provider_message_id, 'sam@client.test', 'delivered', 'ev-2') && $in($workspace, fn () => DeliveryRecipient::query()->where('address', 'sam@client.test')->value('status')) === 'bounced', 'a late "delivered" does not undo a bounce');
+    check($desk->recordEvent($record->provider_message_id, 'sam@client.test', 'delivered', 'ev-2') && $in($workspace, fn () => DeliveryRecipient::query()->where('address', 'sam@client.test')->value('status')) === 'bounced' && count($delivered) === 1, 'a late "delivered" does not undo a bounce, and dispatches no DeliveryDelivered');
     check(! $desk->recordEvent('<nobody@kit>', 'sam@client.test', 'delivered', 'ev-3') && ! $desk->recordEvent($record->provider_message_id, 'stranger@client.test', 'delivered', 'ev-4'), 'an unknown message or an address not on it changes nothing');
 
     // Revoke, and resend.
+    $revokes = [];
+    Event::listen(DeliveryLinkRevoked::class, function (DeliveryLinkRevoked $e) use (&$revokes): void {
+        $revokes[] = [$e->definition, $e->delivery->id, $e->delivery->subject_key, $e->delivery->token_revoked_at !== null, $e->actorId, $e->resent, DB::transactionLevel()];
+    });
     $s = $state();
     $in($workspace, fn () => $desk->revoke($as('owner'), 'report.deliver', $key, $record->id, $s->revision));
+    check($revokes === [['report.deliver', $record->id, $key, true, $people['owner']->id, false, 0]], 'Revoke link dispatches DeliveryLinkRevoked once, after commit, with who did it and not as a resend');
     [$revokedStatus, $revokedResponse] = $guest($link);
     check($revokedStatus === 410 && str_contains((string) $revokedResponse->getContent(), 'no longer available') && str_contains((string) $revokedResponse->headers->get('Cache-Control'), 'no-store'), 'a revoked link is a 410, never cached');
     $s = $state();
     $s = $in($workspace, fn () => $desk->resend($as('admin'), 'report.deliver', $key, $record->id, $s->revision, $draft, $k(), channel: 'mcp'));
     $second = $in($workspace, fn () => DeliveryRecord::query()->latest('id')->first());
     check($second->resent_from_id === $record->id && $second->state === 'sent' && $second->channel === 'mcp' && count($sent()) === 2, 'resend is a new delivery pointing at the original, here through an assistant (mcp channel)');
+    check($sends === [[$record->id, null, false], [$second->id, $record->id, true]] && count($revokes) === 1, 'DeliverySent says it is a resend (resent(), resent_from_id); a resend of an already revoked link dispatches no DeliveryLinkRevoked');
 
     // A test send.
     $s = $state();
@@ -768,6 +796,13 @@ try {
     check(refusal(fn () => $in($beta, fn () => $desk->state($as('outsider'), 'report.deliver', $key))) === 'deliver_subject_not_found' && $in($beta, fn () => DeliveryRecord::query()->count() + DeliveryRecipient::query()->count()) === 0, 'another workspace reads neither the subject nor its deliveries');
     check(refusal(fn () => $in($beta, fn () => (new DeliveryRecord)->forceFill(['workspace_id' => $workspace->id, 'definition' => 'x', 'subject_key' => '1', 'state' => 'sent', 'claim_key' => 'z', 'created_by' => 1, 'channel' => 'web', 'created_at' => now(), 'subject_line' => 's', 'message' => 'm'])->save())) === 'workspace_mismatch', 'a delivery cannot be written into another workspace');
     check(refusal(fn () => $in($workspace, fn () => $record->delete())) === 'deliver_history_is_kept', 'a delivery row cannot be deleted');
+
+    // A resend that revokes the original's link.
+    $revoked = count($revokes);
+    $in($workspace, fn () => $desk->resend($as('admin'), 'report.deliver', $key, $second->id, $state()->revision, $draft, $k(), revokePrevious: true));
+    check(array_slice($revokes, $revoked) === [['report.deliver', $second->id, $key, true, $people['admin']->id, true, 0]], 'a resend with revokePrevious dispatches DeliveryLinkRevoked once for the original, after the resend\'s transaction commits, as a resend by its sender');
+    $in($workspace, fn () => $desk->resend($as('admin'), 'report.deliver', $key, $second->id, $state()->revision, $draft, $k(), revokePrevious: true));
+    check(count($revokes) === $revoked + 1 && refusal(fn () => $in($workspace, fn () => $desk->revoke($as('owner'), 'report.deliver', $key, $second->id, $state()->revision))) === 'deliver_link_inactive' && count($revokes) === $revoked + 1, 'revoking it again, by a resend or by Revoke link, dispatches nothing');
 
     // HTTP and MCP.
     $base = '/@acme/deliver/report.deliver/'.$key;

@@ -26,6 +26,9 @@ use Tey\Kit\Features\Deliver\DeliveryMail;
 use Tey\Kit\Features\Deliver\DeliveryNotification;
 use Tey\Kit\Features\Deliver\Events\DeliveryBounced;
 use Tey\Kit\Features\Deliver\Events\DeliveryCancelled;
+use Tey\Kit\Features\Deliver\Events\DeliveryDelivered;
+use Tey\Kit\Features\Deliver\Events\DeliveryLinkRevoked;
+use Tey\Kit\Features\Deliver\Events\DeliveryOpened;
 use Tey\Kit\Features\Deliver\Events\DeliverySent;
 use Tey\Kit\Features\Deliver\Models\DeliveryEvent;
 use Tey\Kit\Features\Deliver\Models\DeliveryRecipient;
@@ -151,6 +154,7 @@ final class DeliveryDesk
             }
             if ($original !== null && $revokePrevious && $original->token_hash !== null && $original->token_revoked_at === null) {
                 $original->forceFill(['token_revoked_at' => now()])->save();
+                DB::afterCommit(fn () => event(new DeliveryLinkRevoked($delivery->name, $original, $principal->actorId, true)));
             }
 
             return [$subject, $record, $draft['sendAt'] === null];
@@ -205,6 +209,7 @@ final class DeliveryDesk
                 throw new RuntimeException('deliver_link_inactive');
             }
             $record->forceFill(['token_revoked_at' => now()])->save();
+            DB::afterCommit(fn () => event(new DeliveryLinkRevoked($delivery->name, $record, $principal->actorId, false)));
 
             return $subject;
         });
@@ -240,7 +245,8 @@ final class DeliveryDesk
 
     /**
      * A provider webhook's event for one address of one message: `delivered`, `bounced` or `complained`. Answers false for a message the kit did not
-     * send, an address not on it, or an event already recorded (a webhook sent twice); a bounce dispatches DeliveryBounced.
+     * send, an address not on it, or an event already recorded (a webhook sent twice); a bounce dispatches DeliveryBounced, and an address's first
+     * "delivered" dispatches DeliveryDelivered after commit.
      */
     public function recordEvent(string $messageId, string $address, string $event, string $providerEventId, ?CarbonImmutable $at = null): bool
     {
@@ -263,11 +269,18 @@ final class DeliveryDesk
             } catch (QueryException) {
                 return false;
             }
-            // A bounce or complaint is final for that address; a late "delivered" does not undo it.
-            if ($event !== 'delivered' || ! in_array($recipient->status, ['bounced', 'complained'], true)) {
+            // A bounce or complaint is final for that address; a late "delivered" does not undo it. Only the first "delivered" moves the status, by a
+            // conditional update, so two at once dispatch one DeliveryDelivered.
+            if ($event === 'delivered') {
+                $first = DeliveryRecipient::query()->whereKey($recipient->getKey())->whereNotIn('status', ['delivered', 'bounced', 'complained'])->update(['status' => 'delivered', 'last_event_at' => $at]) === 1;
+                if ($first) {
+                    [$record, $recipient] = [DeliveryRecord::query()->findOrFail($row->id), $recipient->refresh()];
+                    DB::afterCommit(fn () => event(new DeliveryDelivered((string) $row->definition, $record, $recipient)));
+                } else {
+                    DeliveryRecipient::query()->whereKey($recipient->getKey())->where('status', 'delivered')->update(['last_event_at' => $at]);
+                }
+            } else {
                 $recipient->forceFill(['status' => $event, 'last_event_at' => $at])->save();
-            }
-            if ($event !== 'delivered') {
                 event(new DeliveryBounced((string) $row->definition, DeliveryRecord::query()->findOrFail($row->id), $recipient));
             }
 
@@ -317,8 +330,10 @@ final class DeliveryDesk
             if ($why !== null) {
                 $response = $this->memberRedirect($delivery, $subject, $user) ?? $delivery->expiredResponse($subject, $record, $why);
             } else {
-                if ($record->first_opened_at === null) {
-                    DeliveryRecord::query()->whereKey($deliveryId)->whereNull('first_opened_at')->update(['first_opened_at' => now()]);
+                // The link is per delivery, so an open names no recipient. Only the update that sets first_opened_at dispatches DeliveryOpened.
+                if ($record->first_opened_at === null && DeliveryRecord::query()->whereKey($deliveryId)->whereNull('first_opened_at')->update(['first_opened_at' => now()]) === 1) {
+                    $opened = $record->fresh();
+                    DB::afterCommit(fn () => event(new DeliveryOpened($record->definition, $opened)));
                 }
                 $response = $delivery->customerResponse($subject, $record);
             }

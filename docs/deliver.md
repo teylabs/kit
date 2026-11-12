@@ -1,6 +1,6 @@
 # Deliver
 
-`deliver` emails a subject (a report, an invoice) to its customer, with a signed customer link. A definition is registered in a provider with `app(Deliveries::class)->register(Delivery::define('report.deliver')->…)`; the full list of its options is in the docblock of `Tey\Kit\Features\Deliver\Delivery`. This page covers the customer link's refusals, the preview's document and copying every send.
+`deliver` emails a subject (a report, an invoice) to its customer, with a signed customer link. A definition is registered in a provider with `app(Deliveries::class)->register(Delivery::define('report.deliver')->…)`; the full list of its options is in the docblock of `Tey\Kit\Features\Deliver\Delivery`. This page covers the customer link's refusals, the preview's document, copying every send and the events.
 
 ## The customer link
 
@@ -119,3 +119,22 @@ DB::table('kit_deliveries')
 ```
 
 Build the ref exactly as `finalizationRef()` does, or a backfilled row reads as no longer final.
+
+## Events
+
+Deliver dispatches these Laravel events from `Tey\Kit\Features\Deliver\Events`, for an app to tell people or mirror delivery activity into its own feed. Each carries `definition` (the definition's name) and `delivery`, the `DeliveryRecord`, whose `subject_key` is the subject's key.
+
+| Event | When | Also carries |
+| --- | --- | --- |
+| `DeliverySent` | A delivery left, once the provider took it. A resend is a new delivery: `resent()` is true and `$delivery->resent_from_id` is the original's id. | |
+| `DeliveryCancelled` | A scheduled delivery was cancelled, by a person or by the kit. | `reason`, and `automatic` (true when the kit did it) |
+| `DeliveryBounced` | The provider reported a bounce or complaint for one address. | `recipient` |
+| `DeliveryDelivered` | The first `delivered` the provider reported for one address. | `recipient` |
+| `DeliveryOpened` | The customer link's first open. | `recipient`, null: the link is per delivery, so an open names no address |
+| `DeliveryLinkRevoked` | The customer link was revoked, by Revoke link or by a resend that revokes the original (then `delivery` is the original). | `actorId` (null for a revoke by the kit), and `resent` (true when a resend revoked it) |
+
+`DeliveryDelivered`, `DeliveryOpened` and `DeliveryLinkRevoked` are dispatched after commit (`DB::afterCommit`), so a listener never sees a change that rolled back. Each fires exactly once:
+
+- `DeliveryDelivered` fires once per address. A replayed webhook (the same provider event id), a second `delivered`, or a `delivered` after a bounce or complaint dispatches nothing. Two webhooks at once dispatch one: the status moves by a conditional update.
+- `DeliveryOpened` fires once per delivery, from the conditional update that sets `first_opened_at`, so a second open, or two at once, dispatches nothing more.
+- `DeliveryLinkRevoked` fires once per link: a link already revoked cannot be revoked again, by Revoke link (`deliver_link_inactive`) or by a resend.
