@@ -55,7 +55,7 @@ final class StatusCommand extends Command
                 $this->warn('kit.brand.'.$key.' is not a valid colour and is using the kit default: set a #rrggbb colour, or null, in config/brand.php.');
             }
             if ($this->option('json')) {
-                $this->line(json_encode($status ?? ['message' => 'No kit features adopted.', 'blueprint_features' => [], 'lineages' => []], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
+                $this->line(json_encode($status ?? ['message' => 'No kit features adopted.', 'blueprint_features' => [], 'lineages' => [], ...($ignoredEnv !== [] ? ['brand_env_ignored' => $ignoredEnv] : [])], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
             } elseif ($status === null) {
                 $this->line('No kit features adopted.');
             } else {

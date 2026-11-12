@@ -137,7 +137,12 @@ final class BrandConfig
                 $value = Arr::get($file, $key);
                 $source = self::SOURCE_CONFIG;
             } else {
-                $value = Arr::has($brand, $key) ? Arr::get($brand, $key) : $default;
+                // Never the incoming kit.brand: a host's published pre-0.17 config/kit.php, or a config cache built before the upgrade, may hold env values there.
+                // A value there that differs from the default is named once, so a brand kept in config/kit.php is moved rather than silently lost.
+                if (Arr::has($brand, $key) && Arr::get($brand, $key) !== $default && ! in_array($key, $fromEnv, true) && self::once('kit:'.$key)) {
+                    $logs[] = ['level' => 'warning', 'message' => 'kit.brand.'.$key.' is set outside config/brand.php (config/kit.php, or a config cache from before tey/kit 0.17) and is ignored: move it into config/brand.php, then run `php artisan config:cache` again if you cache config.'];
+                }
+                $value = $default;
                 $source = self::SOURCE_DEFAULT;
             }
             if (in_array($key, $fromEnv, true) && self::once('env:'.$key)) {

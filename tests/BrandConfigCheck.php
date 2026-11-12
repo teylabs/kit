@@ -95,6 +95,12 @@ try {
         $defaults[$key] = data_get(config('kit.brand'), $key);
     }
     check($defaults === BrandConfig::DEFAULTS, 'BrandConfig::DEFAULTS matches config/kit.php with no env set');
+    // A stale kit.brand (a host's published pre-0.17 config/kit.php, or a config cache built before the upgrade) is never a source: an unset key takes the default.
+    $stale = new \Illuminate\Config\Repository(['kit' => ['brand' => ['accent' => '#112233', 'legal_name' => 'From env']], 'brand' => ['ink' => '#222222']]);
+    $staleLogs = BrandConfig::resolve($stale, 'testing');
+    check(count(array_filter($staleLogs, fn (array $log): bool => str_contains($log['message'], 'kit.brand.accent is set outside config/brand.php'))) === 1, 'a stale kit.brand value is named once as ignored');
+    check($stale->get('kit.brand.accent') === BrandConfig::DEFAULTS['accent'] && $stale->get('kit.brand.legal_name') === BrandConfig::DEFAULTS['legal_name'] && $stale->get('kit.brand.ink') === '#222222'
+        && $stale->get('kit.brand_sources.accent') === 'default' && $stale->get('kit.brand_sources.ink') === 'config', 'a stale kit.brand value is replaced by the default; config/brand.php still wins');
     check(! str_contains(logged($root), 'Deprecated: kit.brand'), 'no deprecation when nothing comes from env');
 
     // Since 0.17 KIT_BRAND_* env values are ignored: config/brand.php wins, an explicit null too, and a key it leaves out takes the kit default, never env.

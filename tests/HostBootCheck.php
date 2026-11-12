@@ -39,6 +39,11 @@ function host(array $features, array $config = [], array $providers = [], ?strin
     foreach (['bootstrap/cache', 'storage/framework/views', 'storage/logs', 'config'] as $dir) {
         mkdir($root.'/'.$dir, 0700, true);
     }
+    // The brand goes in the app's own config/brand.php, its only source since 0.17.
+    if (isset($config['brand'])) {
+        file_put_contents($root.'/config/brand.php', '<?php return '.var_export($config['brand'], true).';');
+        unset($config['brand']);
+    }
     file_put_contents($root.'/config/kit.php', '<?php return '.var_export(['features' => $features, 'models' => ['user' => User::class]] + $config, true).';');
     file_put_contents($root.'/config/database.php', "<?php return ['default' => 'sqlite', 'connections' => ['sqlite' => ['driver' => 'sqlite', 'database' => ':memory:', 'prefix' => '']]];");
     file_put_contents($root.'/config/cache.php', "<?php return ['default' => 'array', 'stores' => ['array' => ['driver' => 'array']]];");

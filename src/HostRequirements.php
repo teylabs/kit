@@ -219,7 +219,7 @@ final class HostRequirements
     }
 
     /** Where a host keeps what kit 0.17 removed: KIT_BRAND_* in env examples, CI, scripts and tests; the welcome card in its PHP. Paths under the host root. */
-    public const REMOVED_017_PLACES = ['brand' => ['.env', '.env.example', '.env.testing', '.env.ci', 'phpunit.xml', 'phpunit.xml.dist', '.github', 'bin', 'tests'], 'welcome' => ['app', 'routes', 'tests']];
+    public const REMOVED_017_PLACES = ['brand' => ['.env*', 'phpunit.xml*', '.github', 'bin', 'tests'], 'welcome' => ['app', 'routes', 'tests']];
 
     /**
      * What tey/kit 0.17 removed and the host still uses, each a non-blocking attention step naming the files: a KIT_BRAND_* variable in an env file, CI,
@@ -234,8 +234,12 @@ final class HostRequirements
     {
         $scan = function (array $places, string $pattern, callable $accept) use ($root): array {
             $found = [];
+            // A place with `*` is a root-level filename pattern (`.env*` takes .env.production, `phpunit.xml*` takes phpunit.xml.ci).
+            $paths = [];
             foreach ($places as $place) {
-                $path = $root.'/'.$place;
+                array_push($paths, ...(str_contains($place, '*') ? array_filter(glob($root.'/'.$place, GLOB_NOSORT) ?: [], 'is_file') : [$root.'/'.$place]));
+            }
+            foreach ($paths as $path) {
                 $files = is_file($path) ? [$path] : (is_dir($path) ? iterator_to_array(new \RecursiveIteratorIterator(new \RecursiveCallbackFilterIterator(
                     new \RecursiveDirectoryIterator($path, \FilesystemIterator::SKIP_DOTS),
                     fn (\SplFileInfo $file): bool => ! in_array($file->getFilename(), ['vendor', 'node_modules', '.git'], true),

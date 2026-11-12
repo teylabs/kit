@@ -55,6 +55,9 @@ try {
     check($kernel->call('kit:status') === 0 && trim($kernel->output()) === 'No kit features adopted.', 'no record succeeds without a host binding');
     check($kernel->call('kit:status', ['--json' => true]) === 0, 'no record JSON succeeds');
     check(json_decode($kernel->output(), true, flags: JSON_THROW_ON_ERROR) === ['message' => 'No kit features adopted.', 'blueprint_features' => [], 'lineages' => []], 'no record JSON contains the empty status');
+    config(['kit.brand_env' => ['accent']]);
+    check($kernel->call('kit:status', ['--json' => true]) === 0 && (json_decode($kernel->output(), true, flags: JSON_THROW_ON_ERROR)['brand_env_ignored'] ?? null) === ['KIT_BRAND_ACCENT'], 'no record JSON still names an ignored KIT_BRAND_* variable');
+    config(['kit.brand_env' => []]);
     check(snapshot($root) === $before, 'empty status creates no files or directories');
 
     $paths = [];
@@ -388,6 +391,8 @@ try {
     $none = $removedSteps(['core', 'session-ui']);
     check($none['env brand keys']['status'] === 'met' && $none['welcome card']['status'] === 'met', 'a host with nothing left over: both steps met');
     file_put_contents($removed.'/.env.example', "APP_NAME=Example\nKIT_BRAND_ACCENT=\"#112233\"\n");
+    file_put_contents($removed.'/.env.production', "KIT_BRAND_ICON=icon.svg\n");
+    file_put_contents($removed.'/phpunit.xml.ci', "<env name=\"KIT_BRAND_STYLE\" value=\"mono\"/>\n");
     file_put_contents($removed.'/.github/workflows/ci.yml', "env:\n  KIT_BRAND_LEGAL_NAME: Example\n");
     file_put_contents($removed.'/bin/rehearse.sh', "export KIT_BRAND_INK='#111111'\n");
     file_put_contents($removed.'/tests/Feature/BrandTest.php', "<?php putenv('KIT_BRAND_PRIVATE=true');\n");
@@ -400,7 +405,8 @@ try {
     check($brand['status'] === 'unmet' && $brand['blocking'] === false && $brand['feature'] === 'core'
         && str_contains($brand['message'], '.env.example (KIT_BRAND_ACCENT)') && str_contains($brand['message'], '.github/workflows/ci.yml (KIT_BRAND_LEGAL_NAME)')
         && str_contains($brand['message'], 'bin/rehearse.sh (KIT_BRAND_INK)') && str_contains($brand['message'], 'tests/Feature/BrandTest.php (KIT_BRAND_PRIVATE)')
-        && str_contains($brand['message'], 'kit:brand:migrate') && ! str_contains($brand['message'], 'KIT_BRAND_IGNORED'), 'KIT_BRAND_* in .env.example, CI, bin and tests is attention naming each file and variable; vendor and node_modules are skipped');
+        && str_contains($brand['message'], '.env.production (KIT_BRAND_ICON)') && str_contains($brand['message'], 'phpunit.xml.ci (KIT_BRAND_STYLE)')
+        && str_contains($brand['message'], 'kit:brand:migrate') && ! str_contains($brand['message'], 'KIT_BRAND_IGNORED'), 'KIT_BRAND_* in any root .env* or phpunit.xml*, CI, bin and tests is attention naming each file and variable; vendor and node_modules are skipped');
     $welcome = $steps['welcome card'];
     check($welcome['status'] === 'unmet' && $welcome['blocking'] === false && str_contains($welcome['message'], 'app/Http/Dash.php (WelcomeCardData)') && str_contains($welcome['message'], 'routes/web.php (me.welcome.dismiss)')
         && str_contains($welcome['message'], '/welcome onboarding stays') && ! str_contains($welcome['message'], 'focus.welcome'), 'the removed welcome card in app code is attention naming the file; the /welcome onboarding routes are not flagged');
