@@ -566,6 +566,21 @@ try {
     file_put_contents($root.'/vendor/composer/installed.json', '{"packages": [], "dev": true}');
     DiscoveryCache::forget();
     check(DiscoveryCache::entry($app, 'host') === null, 'a changed vendor/composer/installed.json (any composer install or update) is a miss');
+    // 4b. The rest of what the live read checks: owner.json, and any entry anywhere in the .mod-maintenance tree.
+    $owner = $root.'/.mod-maintenance/owner.json';
+    $ownerBytes = is_file($owner) ? file_get_contents($owner) : null;
+    $app->make(Kernel::class)->call('kit:cache');
+    file_put_contents($owner, $ownerBytes ?? '{"format": 1}');
+    DiscoveryCache::forget();
+    check(DiscoveryCache::entry($app, 'host') === null, 'a changed .mod-maintenance/owner.json is a miss'.($ownerBytes === null ? ' (created, as the fixture has none)' : ''));
+    $ownerBytes === null ? unlink($owner) : file_put_contents($owner, $ownerBytes);
+    $app->make(Kernel::class)->call('kit:cache');
+    @mkdir($root.'/.mod-maintenance/stage', 0700);
+    file_put_contents($root.'/.mod-maintenance/stage/entry', 'x');
+    DiscoveryCache::forget();
+    check(DiscoveryCache::entry($app, 'host') === null, 'a new entry deeper in the .mod-maintenance tree is a miss');
+    unlink($root.'/.mod-maintenance/stage/entry');
+    rmdir($root.'/.mod-maintenance/stage');
     // 5. A cached `tables: null` (the workspaces artifact unreadable) is kept: register() opens no record file and leaves the flags null.
     $app->make(Kernel::class)->call('kit:cache');
     $rewriteEntry(fn (array $entry): array => ['tables' => null] + $entry);

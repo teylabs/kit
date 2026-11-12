@@ -20,7 +20,7 @@ use Tey\Mod\Maintenance\InstalledRecord;
 final class DiscoveryCache
 {
     /** Bumped when an entry's shape changes, so an older file is a miss. */
-    private const VERSION = 2;
+    private const VERSION = 3;
 
     /** The kit's files the cached answers depend on, relative to the package root. */
     private const SOURCES = [
@@ -150,10 +150,7 @@ final class DiscoveryCache
     }
 
     /**
-     * The installed record's files and everything else the cached answers were computed from, as they stand: lstat of the metadata
-     * directory, the record directory, each entry in it and the 0.8 record; the kit's own files that compute or feed the answers (its
-     * composer.json, the catalog and its pins, session-ui's feature.json, Lineages and the composition root); and the host's
-     * vendor/composer/installed.json, which any composer install or update rewrites. No file is opened.
+     * Everything the cached answers were computed from, as it stands (see paths()): lstat of each path. No file is opened.
      */
     public static function fingerprint(string $root): string
     {
@@ -195,8 +192,11 @@ final class DiscoveryCache
     }
 
     /**
-     * Every fingerprinted path, by a stable key: the kit's sources of the answers, the host's installed.json, the metadata and record
-     * directories, each entry in the record directory and the 0.8 record.
+     * Every fingerprinted path, by a stable key: what the live read (`Checkout::installed()`) checks or reads, and the kit's sources of the
+     * answers. That is the checkout root and each of its parents (the live read refuses a linked root or parent), the whole
+     * `.mod-maintenance` tree, walked recursively (the live read refuses a linked, special or case-colliding entry anywhere in it, and reads
+     * owner.json, the record directory, each record and the 0.8 record from it), the kit's files that compute the answers, and the host's
+     * vendor/composer/installed.json.
      *
      * @return array<string, string>
      */
@@ -208,18 +208,40 @@ final class DiscoveryCache
             $paths['kit/'.$source] = $kit.'/'.$source;
         }
         $paths['host/installed.json'] = $root.'/vendor/composer/installed.json';
-        $directory = $root.'/'.InstalledRecord::DIRECTORY;
-        foreach ([dirname($directory), $directory, $root.'/'.InstalledRecord::LEGACY] as $path) {
-            $paths[$path] = $path;
+        $cursor = '';
+        foreach (explode('/', ltrim($root, '/')) as $segment) {
+            $cursor .= '/'.$segment;
+            $paths['root:'.$cursor] = $cursor;
         }
-        $entries = is_dir($directory) ? scandir($directory) : [];
-        foreach ($entries === false ? ['(unreadable)'] : $entries as $entry) {
-            if ($entry !== '.' && $entry !== '..') {
-                $paths['installed/'.$entry] = $directory.'/'.$entry;
-            }
-        }
+        self::walk($root.'/'.dirname(InstalledRecord::DIRECTORY), dirname(InstalledRecord::DIRECTORY), $paths);
+        // Named even when absent, so one appearing is a change.
+        $paths += [InstalledRecord::DIRECTORY => $root.'/'.InstalledRecord::DIRECTORY, InstalledRecord::LEGACY => $root.'/'.InstalledRecord::LEGACY, '.mod-maintenance/owner.json' => $root.'/.mod-maintenance/owner.json'];
 
         return $paths;
+    }
+
+    /**
+     * Adds `$path` and, when it is an unlinked directory, everything under it, keyed by the path relative to the checkout.
+     *
+     * @param  array<string, string>  $paths
+     */
+    private static function walk(string $path, string $key, array &$paths): void
+    {
+        $paths[$key] = $path;
+        if (is_link($path) || ! is_dir($path)) {
+            return;
+        }
+        $entries = scandir($path);
+        if ($entries === false) {
+            $paths[$key.'/(unreadable)'] = $path.'/(unreadable)';
+
+            return;
+        }
+        foreach ($entries as $entry) {
+            if ($entry !== '.' && $entry !== '..') {
+                self::walk($path.'/'.$entry, $key.'/'.$entry, $paths);
+            }
+        }
     }
 
     /** @return list<int|bool>|null */
