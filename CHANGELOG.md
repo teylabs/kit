@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.17.0
 
 A minor release (v0.17.0): it removes the `KIT_BRAND_*` env brand fallback and the dashboard welcome card, both deprecated since 0.15.
 
