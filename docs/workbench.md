@@ -206,6 +206,7 @@ One store per key, shared by the page, the stage, the inspectors and the Workben
 **Save state**
 - `dirty` and `saveState` (`idle`, `saving`, `saved`, `unsaved`, `conflict` or `error`).
 - `markDirty()`, `markSaving()`, `markSaved()`, `markConflict()` and `markFailed()`.
+- `keepMine(form)` resolves a conflict in favour of the person's edits ([The stale-write flow](#the-stale-write-flow)).
 - The actions bar announces the state politely, and a conflict as an alert.
 - `savedAt` is when the last save landed; the bar reads "Saved · 2 min ago" (refreshed each half minute, in the reader's locale).
 - `syncSave(state)` follows a rolled-up state. With row autosave ([Row autosave](row-autosave.md)): `watchEffect(() => wb.syncSave(rollupRowSaves(rows.map(r => autosave.status[r.id]?.state ?? 'idle'))))`. A stale row is a conflict, a failed one an error.
@@ -270,6 +271,22 @@ Give the Workbench `:form` and it becomes the form's frame: one `<form novalidat
 - **Leaving** while unsaved (dirty, or with pending work such as an upload in flight) asks first: an Inertia visit to another page, Back and Forward, and closing the tab; the save's own follow-up visit goes through ([docs/submit-form.md › Leaving the page](submit-form.md#leaving-the-page)). It's the same guard as `FormActions` (one, never two: a `FormActions` inside the Workbench registers none of its own). `warn-on-leave="false"`, or `warnOnLeave: false` on a `useSubmitForm`, turns it off.
 - **`@submit`** replaces the kit's submit with the app's own handler (the button, Enter and ⌘S still go through the form). The kit then neither submits nor sets the outcome; drive `wb.markSaved()` and the rest yourself.
 - `save-status="none"` still works: no kit status region, no conflict alert and no summary render; the app's own status in `#actions` speaks for it.
+- `conflict-alert` false drops only the kit's conflict alert, for a page that renders its own (a Compare / Keep my edits flow). The status still says "Changed elsewhere", and Save stays blocked until the conflict is resolved.
+
+### The stale-write flow
+
+1. **The conflict arrives.** A save is refused with 409 (a `useSubmitForm`'s `conflict`, or `errors.stale_write` or another conflict code on a `useForm()`). The edits are kept, the bar says "Changed elsewhere" and Save is disabled.
+2. **The person compares.** The page shows its version beside the server's, in its own alert (`conflict-alert` false) or under the kit's.
+3. **They keep theirs** with `useWorkbench(key).keepMine(form)`. It clears the conflict (a `useSubmitForm`'s `conflict` and its `_form` line through `form.keepMine()`, or each conflict-coded error of a `useForm()`: `stale_write`, `stale_*`, `*conflict*`), keeps the values and puts the bar back to Unsaved changes. Save is enabled, and the re-save sends their values. The app's Keep button doesn't need to know the error code.
+4. **Or they take the server's version:** reload the page (or the record), as before.
+
+```vue
+<Workbench workbench-key="deck" :form="form" :save="save" :conflict-alert="false">
+    <template #status>
+        <DeckConflict v-if="wb.saveState === 'conflict'" @keep="wb.keepMine(form)" />
+    </template>
+</Workbench>
+```
 
 Without `:form` nothing of this renders: no `<form>`, no Save, no ⌘S, no leave guard, exactly as before.
 
@@ -525,7 +542,7 @@ A refused reorder has no page visit to flash a toast. Instead, the Workbench sen
   - the null store;
   - the read tool's normalization and refusals.
 - **`node --test tests/js/workbench-form.test.mjs`** covers the form frame: ⌘S in the keymap (never with Shift or Alt, only with `:form`), and by source the `<form>`, Save, the two transports, the 409 through `onHttpException`, the summary's reveal and the single leave guard; `editedSaveState` (a failed save is unsaved changes again after an edit) and the Save gate's wiring.
-- **The browser job** (`?workbench-form=submit` and `=inertia`, the latter a stand-in `useForm()` with `save`) checks each transport. Ctrl+S saves once, not while pending, and not from a contenteditable that binds it. A 422 focuses the title field in the collapsed inspector. A 409 shows the conflict with the edits kept. A dirty leave is held, by one guard. Enter in the filter doesn't submit. axe passes, colour contrast included. On `submit`, Save is disabled with its reason and Ctrl+S and Enter save nothing while an upload is pending, while `can-submit` is false and over an open 409. On both, an edit after a failed save is "Unsaved changes" again.
+- **The browser job** (`?workbench-form=submit` and `=inertia`, the latter a stand-in `useForm()` with `save`) checks each transport. Ctrl+S saves once, not while pending, and not from a contenteditable that binds it. A 422 focuses the title field in the collapsed inspector. A 409 shows the conflict with the edits kept. A dirty leave is held, by one guard. Enter in the filter doesn't submit. axe passes, colour contrast included. On `submit`, Save is disabled with its reason and Ctrl+S and Enter save nothing while an upload is pending, while `can-submit` is false and over an open 409. On both, an edit after a failed save is "Unsaved changes" again. With `&own-alert` (`conflict-alert` false and the page's own alert), only the page's alert shows, and its Keep my edits (`keepMine(form)`) enables Save again and the re-save sends the kept values.
 - **`composer test:workbench-item-parity`** pins the item's shape across the stack: the PHP `WorkbenchItem` serializes exactly the TS `WorkbenchItem`'s fields,
   `types/kit.d.ts` types `actions` as `Action[]` with ActionDescriptor's fields, the read tool gives exactly `{ id, label, type, description }`, and an item with
   Move up, Duplicate and Delete reaches the Inertia props with every ActionDescriptor key.

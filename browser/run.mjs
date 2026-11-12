@@ -2877,6 +2877,35 @@ test('a Workbench with :form (inertia): a visit refused with 409 (errors.stale_w
         assert.equal(await tab.evaluate(() => window.kitSave.calls.length), 1, 'no save over an open conflict');
     });
 });
+// #703: a page with its own Compare / Keep my edits flow turns the kit's conflict alert off (`conflict-alert` false) and calls useWorkbench(key).keepMine(form).
+const workbenchFormKeepMine = (transport) => async () => {
+    await onPage(`workbench-form=${transport}&own-alert`, async (tab) => {
+        await tab.click('[data-workbench-collapsed] button');
+        await tab.fill('input[name="title"]', 'Mine');
+        await tab.keyboard.press('Control+s');
+        await tab.waitForFunction(() => window.kitSave.calls.length === 1);
+        await tab.evaluate(() => window.kitSave.respond('409'));
+        await tab.waitForSelector('[data-test-own-conflict]');
+        await tab.waitForSelector('[data-workbench-save][data-blocked="conflict"]');
+        assert.equal(await tab.locator('[data-workbench-conflict]').count(), 0, 'the page shows its own alert, so the kit alert is off');
+        assert.equal(await tab.locator('[role="alert"]').count(), 1, 'one conflict alert, not two');
+        assert.equal(await tab.getAttribute('[data-save-state]', 'data-save-state'), 'conflict', 'the status still says the work changed elsewhere');
+        if (process.env.KIT_KEEPMINE_SCREENSHOT) await tab.screenshot({ path: `${process.env.KIT_KEEPMINE_SCREENSHOT}-${transport}-${tab.viewportSize().width}.png` });
+        await tab.click('[data-test-keep-mine]');
+        await tab.waitForFunction(() => !document.querySelector('[data-workbench-save]').disabled);
+        assert.equal(await tab.getAttribute('[data-workbench-save]', 'data-blocked'), null);
+        assert.equal(await tab.getAttribute('[data-save-state]', 'data-save-state'), 'unsaved');
+        assert.equal(await tab.inputValue('input[name="title"]'), 'Mine', 'keepMine keeps the edits');
+        assert.equal(await tab.locator('[data-workbench-form-summary]').count(), 0, 'no errors summary left over from the conflict');
+        await tab.keyboard.press('Control+s');
+        await tab.waitForFunction(() => window.kitSave.calls.length === 2);
+        assert.equal((await tab.evaluate(() => window.kitSave.calls[1].data)).title, 'Mine', 'the re-save sends my values');
+        await tab.evaluate(() => window.kitSave.respond('ok'));
+        await tab.waitForSelector('[data-save-state="saved"]');
+    });
+};
+test('a Workbench with :form (submit): conflict-alert false leaves the page\'s own alert alone; keepMine clears the conflict and the re-save sends my edits', workbenchFormKeepMine('submit'));
+test('a Workbench with :form (inertia): conflict-alert false leaves the page\'s own alert alone; keepMine clears errors.stale_write and the re-save sends my edits', workbenchFormKeepMine('inertia'));
 const workbenchFormFailThenEdit = (transport) => async () => {
     await onPage(`workbench-form=${transport}`, async (tab) => {
         await tab.click('[data-workbench-collapsed] button');

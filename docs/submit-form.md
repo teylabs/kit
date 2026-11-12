@@ -34,6 +34,7 @@ What `FormActions` reads from a `useForm()`: `processing`, `isDirty`, `hasErrors
 - `submit()`: resolves `true` on success and `false` on a failure. It never rejects. A submit while one is processing is ignored and resolves `false` at once.
 - `setDefaults(values?)`: with no argument the current data becomes the defaults; with values, only those fields' defaults change.
 - `conflict`: the last submit was refused as a stale write.
+- `keepMine()`: keep the edits after a conflict. Clears `conflict` and its `_form` line and leaves the data and other errors alone, so Save is enabled again. In a Workbench, call `useWorkbench(key).keepMine(form)`, which calls it and resets the bar ([docs/workbench.md › The stale-write flow](workbench.md#the-stale-write-flow)).
 - `warnOnLeave`: whether the leave-page guard applies to this form.
 - `canSubmit`: the `canSubmit` option, read now.
 

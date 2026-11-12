@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Workbench: keep my edits after a conflict, and turn off the kit's conflict alert** (#703). An app with its own Compare / Keep my edits flow no longer needs to know the conflict's error code. Additive only.
+  - **`useWorkbench(key).keepMine(form)`** clears the form's conflict, keeps its values and puts the bar back to Unsaved changes, so Save is enabled and the re-save sends the kept values. On a `useForm()` it clears each conflict-coded error (`stale_write`, `stale_*`, `*conflict*`). On a `useSubmitForm()` it calls the form's new **`keepMine()`**, which clears `conflict` and its `_form` line and leaves other errors alone. Without a conflict both do nothing. Before, calling `form.clearErrors(<code>)` alone left Save blocked, because the Workbench's save state stayed `conflict`.
+  - **`conflict-alert`** (`true` by default) on Workbench and WorkbenchActions: `false` drops only the kit's conflict alert, for a page that shows its own. The status still says "Changed elsewhere" and Save stays blocked until the conflict is resolved.
+  - docs/workbench.md documents the stale-write flow: the conflict arrives, the person compares, then keeps theirs and re-saves, or reloads for the server's version.
+  - **Tests.** `tests/js/submit-form.test.mjs`: `keepMine()` clears the conflict and its `_form` line, keeps the edits and other errors, unblocks Save and re-saves the kept values; it does nothing without a conflict. Browser (`?workbench-form=submit|inertia&own-alert`): with `conflict-alert` false only the page's alert shows, and `keepMine(form)` enables Save and the re-save sends the kept values, on both transports. The stale-write regression tests are unchanged.
+  - Re-pins `core` (`sha256:9e719c61…c610a` → `sha256:f9792a2f…71403`). `history.json`: only `current` changes.
+
 ## v0.16.9
 
 ### Added
