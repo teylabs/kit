@@ -1,5 +1,5 @@
 import { createInertiaApp } from '@inertiajs/vue3';
-import { createApp, h } from 'vue';
+import { createApp, h, ref } from 'vue';
 import './app.css';
 import Toaster from '@/components/Kit/Feedback/Toaster.vue';
 import General from '@/pages/Workspace/Settings/General/Page.vue';
@@ -44,7 +44,10 @@ const shell = {
     subNavigation: null,
     search: null,
 };
-const Shell = { render() { return h(WorkspaceLayout, { shell }, this.$slots); } };
+// window.kitShellTitle(false) turns the Layout's `documentTitle` off, handing the title back to the pages.
+const shellTitle = ref(true);
+(window as unknown as { kitShellTitle: (on: boolean) => void }).kitShellTitle = (on) => { shellTitle.value = on; };
+const Shell = { render() { return h(WorkspaceLayout, { shell, documentTitle: shellTitle.value }, this.$slots); } };
 const layout = new URLSearchParams(window.location.search).has('shell')
     ? (name: string) => (name.startsWith('Workspace/Account/') ? [Shell, AccountLayout] : Shell)
     : undefined;

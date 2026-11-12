@@ -6748,6 +6748,11 @@ test('Account sections in the shell: Back and Forward restore the document title
         assert.deepEqual(await move('forward', 'Profile'), ['kept', 'Profile', 'Profile', 'Profile', 'Profile · Example Product'], 'Forward restores the title with the page');
         await tab.waitForTimeout(50);
         assert.equal(await tab.title(), 'Profile · Example Product', 'a moment later the title still names the page');
+        // documentTitle false: the shell's own <title> goes, so a page's <Head> title is not left behind it.
+        await tab.evaluate(() => window.kitShellTitle(false));
+        await tab.waitForFunction(() => !document.head.querySelector('title[data-kit-title]'));
+        await tab.evaluate(() => window.kitShellTitle(true));
+        await tab.waitForFunction(() => document.title === 'Profile · Example Product');
     });
 });
 
