@@ -56,7 +56,7 @@ return [
         // How kit:brand colours the mark. `mono` (default): one colour, white on the accent tile for the favicons and touch icon and on the social image, the accent
         // for the mail mark. `full`: the mark keeps its own fills and strokes in all four (only `currentColor` still takes that colour), for a multi-colour mark.
         // `icon_padding`: the space around the mark on the favicon and touch-icon tile, on each side, as a fraction of the tile (0 up to 0.5); null is today's 14/64.
-        // `icon_background`: the tile's colour, a #rrggbb; null is the accent; `none` leaves the favicons transparent (the touch icon, which iOS shows on black
+        // `icon_background`: the tile's colour, a #rgb or #rrggbb; null is the accent; `none` leaves the favicons transparent (the touch icon, which iOS shows on black
         // when transparent, keeps the accent).
         'icon_colours' => 'mono',
         'icon_padding' => null,
