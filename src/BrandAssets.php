@@ -13,6 +13,8 @@ use RuntimeException;
  * Rendering is Imagick with SVG support, else `rsvg-convert`; with neither it refuses, naming what to install. ImageMagick's own SVG
  * renderer (no librsvg delegate) draws no strokes, so a stroked logomark goes to `rsvg-convert` instead, or is refused with how to
  * outline the strokes; it is never rasterised to a dot. The output is deterministic, so a second run changes nothing.
+ * By default (`kit.brand.icon_colours` `mono`) the mark is drawn in one colour; `full` keeps a multi-colour mark's own colours in all four images, and
+ * `icon_padding` and `icon_background` set the favicon and touch-icon tile. Left unset, every output is byte for byte what it was before them.
  */
 final class BrandAssets
 {
@@ -25,6 +27,15 @@ final class BrandAssets
 
     /** The square source for the favicons, the touch icon and the mail mark; the logomark when null. */
     private string $icon;
+
+    /** `kit.brand.icon_colours`: `mono` repaints the mark in one colour; `full` keeps its own fills and strokes (only `currentColor` takes that colour). */
+    private string $colours = 'mono';
+
+    /** `kit.brand.icon_padding`: the tile's padding on each side, as a fraction of it; null is 14/64, as always. */
+    private ?float $padding = null;
+
+    /** `kit.brand.icon_background`: the tile's colour; null is the accent; `none` is no tile on the favicons (the touch icon keeps the accent). */
+    private ?string $background = null;
 
     public function __construct(private string $logomark, private string $accent, private string $name, private ?string $font = null, ?string $icon = null)
     {
@@ -42,7 +53,13 @@ final class BrandAssets
             throw new RuntimeException('kit.brand.icon (config/brand.php) is set but is not an SVG file this app can read.');
         }
 
-        return new self((string) file_get_contents($logomark), self::configuredAccent(), Brand::name(), Brand::get('font'), $icon === null ? null : (string) file_get_contents($icon));
+        $assets = new self((string) file_get_contents($logomark), self::configuredAccent(), Brand::name(), Brand::get('font'), $icon === null ? null : (string) file_get_contents($icon));
+        // BrandConfig validated these as they resolved; anything else reads as the default.
+        $assets->colours = Brand::get('icon_colours') === 'full' ? 'full' : 'mono';
+        $assets->padding = is_numeric($padding = Brand::get('icon_padding')) ? (float) $padding : null;
+        $assets->background = is_string($background = Brand::get('icon_background')) && $background !== '' ? $background : null;
+
+        return $assets;
     }
 
     /**
@@ -147,7 +164,7 @@ final class BrandAssets
         return [
             'favicon.svg' => $tile."\n",
             'favicon.ico' => $this->ico([[16, $png16], [32, $png32], [48, $png48]]),
-            'apple-touch-icon.png' => $this->png($this->tile(rx: 0), 180),
+            'apple-touch-icon.png' => $this->png($this->tile(rx: 0, opaque: true), 180),
             'mail-mark.png' => $this->png($this->mark($this->accent), 96),
             'og-image.png' => $this->og(),
         ];
@@ -181,7 +198,7 @@ final class BrandAssets
         return $result;
     }
 
-    /** The mark's markup and viewBox (padded to a centred square), its `currentColor` set to `$color`. The icon unless `$svg` is given. */
+    /** The mark's markup and viewBox (padded to a centred square), its `currentColor` set to `$color` (in mono, every paint). The icon unless `$svg` is given. */
     private function inner(string $color, ?string $svg = null): array
     {
         $svg = trim(preg_replace('/<\?xml[^>]*\?>|<!--.*?-->/s', '', $svg ?? $this->icon));
@@ -197,9 +214,12 @@ final class BrandAssets
             }
         }
 
-        $markup = '<g'.$paint.'>'.preg_replace('/<title>.*?<\/title>/s', '', $parts[2]).'</g>';
+        $markup = str_replace('currentColor', $color, '<g'.$paint.'>'.preg_replace('/<title>.*?<\/title>/s', '', $parts[2]).'</g>');
+        if ($this->colours === 'full') {
+            return [$markup, $viewBox];
+        }
         // One colour for the whole mark: currentColor and every painted fill or stroke take `$color`; `none` stays none.
-        $markup = preg_replace('/\b(fill|stroke)="(?!none")[^"]*"/', '$1="'.$color.'"', str_replace('currentColor', $color, $markup));
+        $markup = preg_replace('/\b(fill|stroke)="(?!none")[^"]*"/', '$1="'.$color.'"', $markup);
         $markup = preg_replace('/(?<![\w-])(fill|stroke)\s*:\s*(?!none\b)[^;"\'}]+/i', '$1:'.$color, $markup);
 
         return [$markup, $viewBox];
@@ -226,12 +246,15 @@ final class BrandAssets
         return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="'.$viewBox.'" width="96" height="96">'.$inner.'</svg>';
     }
 
-    /** The mark in white on an accent tile. */
-    private function tile(int $rx): string
+    /** The mark in white (or its own colours) on an accent tile (or `icon_background`'s); an opaque tile (the touch icon) is never `none`. */
+    private function tile(int $rx, bool $opaque = false): string
     {
         [$inner, $viewBox] = $this->inner('#ffffff');
+        $fill = $this->background === null || ($opaque && $this->background === 'none') ? $this->accent : $this->background;
+        $padding = $this->padding === null ? 14 : round(64 * $this->padding, 6);
 
-        return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="'.$rx.'" fill="'.$this->accent.'"/>'.$this->place($inner, $viewBox, 14, 14, 36).'</svg>';
+        return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">'.($fill === 'none' ? '' : '<rect width="64" height="64" rx="'.$rx.'" fill="'.$fill.'"/>')
+            .$this->place($inner, $viewBox, $padding, $padding, 64 - 2 * $padding).'</svg>';
     }
 
     /** The mark's markup scaled into a square at x, y with the given size: a transform, as nested SVG is not rendered everywhere. */
