@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **ButtonGroup's `itemClass` no longer pads DropdownItem and DropdownLink rows twice.** It now lands on each row's own control (button, anchor or Inertia link), merged last so its padding replaces the control's `px-4 py-2` instead of adding to it; `item-class="gap-2 px-4 py-2"` gives the same row height as none. DropdownModalLink puts it on its ModalLink the same way. A caller's own `wrapper` slot on DropdownItem still takes it on the row. Re-pins core.
+
 ## v0.16.6
 
 ### Fixed

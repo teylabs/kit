@@ -8102,6 +8102,40 @@ test('ActionBar item-class: every menu row takes the host class; destructive and
     }
 });
 
+// ── ButtonGroup `item-class` on DropdownItem / DropdownLink rows (?item-class): the host's "gap-2 px-4 py-2" lands on each row's own control, so a button, anchor
+// and Inertia-link row is the same height and padding as without it, not padded twice ──────────────────────────────────────────────────────────────────────
+test('ButtonGroup item-class="gap-2 px-4 py-2": DropdownItem and DropdownLink rows keep a single padding (button, anchor, Inertia link), and DropdownModalLink', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?item-class`);
+        const rows = async (which) => {
+            await tab.locator(`[data-group-item-class="${which}"] [data-button-group-menu]`).click();
+            const menu = tab.getByRole('menu');
+            await menu.waitFor();
+            const found = await menu.locator('[role="menuitem"]').evaluateAll(els => els.map(el => {
+                const control = el.querySelector('button, a');
+                const style = getComputedStyle(el);
+                return { height: el.getBoundingClientRect().height, rowPadding: [style.paddingTop, style.paddingLeft], controlPadding: [getComputedStyle(control).paddingTop, getComputedStyle(control).paddingLeft], gap: getComputedStyle(control).columnGap };
+            }));
+            await tab.keyboard.press('Escape');
+            await menu.waitFor({ state: 'detached' });
+            return found;
+        };
+        const plain = await rows('unset');
+        const styled = await rows('set');
+        assert.equal(styled.length, 7, `seven rows: DropdownItem and DropdownLink as button, anchor and Inertia link, and a DropdownModalLink (${styled.length})`);
+        styled.forEach((row, i) => {
+            assert.equal(row.height, plain[i].height, `row ${i} is as tall as without itemClass (${row.height} vs ${plain[i].height})`);
+            assert.deepEqual(row.rowPadding, ['0px', '0px'], `row ${i}: the menu row itself is not padded`);
+            assert.deepEqual(row.controlPadding, ['8px', '16px'], `row ${i}: the control has one py-2 px-4`);
+            assert.equal(row.gap, '8px', `row ${i}: the host's gap-2 reaches the control`);
+        });
+    } finally {
+        await context.close();
+    }
+});
+
 // ── ActionBar `fill-all` on a pill surface (?fill-all, `&dark`): the whole group is the primary fill with the primary text and rounded-full, segments py-2, the
 // first pl-3.5 and the rest (the ⌄ trigger too) px-3, semibold, with a translucent primary-text divider between segments; disabled segments still dim; axe with contrast passes;
 // the default pill keeps its padding and medium labels. A GET action with intent `panel` is a button that emits ───
