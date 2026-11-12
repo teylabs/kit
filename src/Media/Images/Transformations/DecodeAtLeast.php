@@ -3,6 +3,7 @@
 namespace Tey\Kit\Media\Images\Transformations;
 
 use Illuminate\Contracts\Image\Transformation;
+use InvalidArgumentException;
 
 /**
  * A read hint for the `kit-imagick` driver: libjpeg may decode a JPEG at a reduced scale (shrink-on-load, `jpeg:size`: 1/2, 1/4 or 1/8)
@@ -11,5 +12,10 @@ use Illuminate\Contracts\Image\Transformation;
  */
 final class DecodeAtLeast implements Transformation
 {
-    public function __construct(public readonly int $width, public readonly int $height) {}
+    public function __construct(public readonly int $width, public readonly int $height)
+    {
+        if ($width < 1 || $height < 1) {
+            throw new InvalidArgumentException('DecodeAtLeast needs a width and height of at least 1.');
+        }
+    }
 }

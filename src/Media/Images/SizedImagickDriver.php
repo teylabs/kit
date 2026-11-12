@@ -74,10 +74,36 @@ final class SizedImagickDriver implements Driver
         if (! in_array($format, ['jpg', 'jpeg', 'png'], true) || ! $this->handlesAll($pipeline)) {
             return $this->delegate($contents, $pipeline);
         }
-        $image = new Imagick;
-        if ($this->memoryLimit !== null) {
-            $image->setResourceLimit(Imagick::RESOURCETYPE_MEMORY, $this->memoryLimit);
+
+        return $this->limited(fn (): string => $this->encode($contents, $pipeline, $format));
+    }
+
+    /**
+     * Runs the work under `memoryLimit`. ImageMagick's resource limits are process-wide, not per image, so the previous limit is put back
+     * afterwards and nothing else in the worker (another driver, the host's own Imagick calls) keeps this one.
+     *
+     * @template T
+     *
+     * @param  callable(): T  $work
+     * @return T
+     */
+    private function limited(callable $work): mixed
+    {
+        if ($this->memoryLimit === null) {
+            return $work();
         }
+        $previous = Imagick::getResourceLimit(Imagick::RESOURCETYPE_MEMORY);
+        Imagick::setResourceLimit(Imagick::RESOURCETYPE_MEMORY, $this->memoryLimit);
+        try {
+            return $work();
+        } finally {
+            Imagick::setResourceLimit(Imagick::RESOURCETYPE_MEMORY, (int) $previous);
+        }
+    }
+
+    private function encode(string $contents, ImagePipeline $pipeline, string $format): string
+    {
+        $image = new Imagick;
         $keepTransparency = false;
         $progressive = $this->progressive;
         foreach ($pipeline->transformations as $transformation) {
@@ -250,6 +276,11 @@ final class SizedImagickDriver implements Driver
     }
 
     public function dominantColor(string $contents): string
+    {
+        return $this->limited(fn (): string => $this->averageColor($contents));
+    }
+
+    private function averageColor(string $contents): string
     {
         $image = new Imagick;
         try {

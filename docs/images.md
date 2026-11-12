@@ -48,7 +48,7 @@ Put `DecodeAtLeast` first and hint at least the size you scale to (twice it keep
 | Key | Default | Meaning |
 | --- | --- | --- |
 | `default` | `true` | Take `images.default` while it is `gd`. |
-| `memory_limit` | 256 MiB | Imagick pixel-cache bytes per image; beyond it Imagick pages to disk. Null leaves Imagick's own. |
+| `memory_limit` | 256 MiB | Imagick pixel-cache bytes; beyond it Imagick pages to disk. ImageMagick's limit is process-wide, so it is set for each `process()` and `dominantColor()` call and the previous limit is restored after. Null leaves Imagick's own. |
 | `strip_metadata` | `true` | Drop EXIF, comments and profiles from the output. |
 | `progressive` | `null` | JPEG interlace: true progressive, false baseline, null keeps the source's. A `Progressive` step overrides it. |
 | `crop_to_ratio` | `true` | Honour `CropToRatio`; false refuses it. |

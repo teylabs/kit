@@ -169,6 +169,34 @@ $app['config']->set('kit.images', []);
 $defaults = (fn () => [$this->memoryLimit, $this->stripMetadata, $this->progressive, $this->cropToRatio])->call(SizedImagickDriver::fromConfig());
 check($defaults === [256 * 1024 * 1024, true, null, true], 'every option has a default when kit.images is absent');
 
+// The memory limit is process-wide in ImageMagick, so it applies during the work and the previous one is put back after.
+Imagick::setResourceLimit(Imagick::RESOURCETYPE_MEMORY, 512 * 1024 * 1024);
+$during = [];
+$limited = (new SizedImagickDriver(memoryLimit: 64 * 1024 * 1024))->transformUsing(Probe::class, function (Imagick $image) use (&$during): Imagick {
+    $during[] = (int) Imagick::getResourceLimit(Imagick::RESOURCETYPE_MEMORY);
+
+    return $image;
+});
+$limited->process(jpeg(60, 40), pipeline('jpeg', new Probe));
+check($during === [64 * 1024 * 1024], 'memory_limit applies while the image is processed');
+check((int) Imagick::getResourceLimit(Imagick::RESOURCETYPE_MEMORY) === 512 * 1024 * 1024, 'the previous process-wide limit is restored after process()');
+$limited->dominantColor(jpeg(60, 40));
+check((int) Imagick::getResourceLimit(Imagick::RESOURCETYPE_MEMORY) === 512 * 1024 * 1024, 'and after dominantColor(), which also decodes under the limit');
+try {
+    $limited->process('not an image', pipeline('jpeg'));
+} catch (Throwable) {
+}
+check((int) Imagick::getResourceLimit(Imagick::RESOURCETYPE_MEMORY) === 512 * 1024 * 1024, 'and after a read that fails');
+foreach ([[300, 0.0], [300, -1.5], [0, 1.5], [300, INF]] as [$w, $r]) {
+    $bad = false;
+    try {
+        new CropToRatio($w, $r);
+    } catch (InvalidArgumentException) {
+        $bad = true;
+    }
+    check($bad, "CropToRatio($w, $r) is refused in its constructor");
+}
+
 // Anything else goes to the framework Imagick driver, which needs intervention/image.
 if (! class_exists(Intervention\Image\ImageManager::class)) {
     $message = '';
