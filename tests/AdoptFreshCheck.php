@@ -505,6 +505,34 @@ try {
         return FeaturesServiceProvider::discover($root, 'host');
     });
     check($reads === 2 && DiscoveryCache::entry($app, 'host') === $discovered, 'a record changed during kit:cache\'s read is read again, and the cache holds the second read\'s answers');
+    // 1b. A same-second, same-size rewrite between the before and after states keeps the lstat fingerprint (inode, size, mtime and ctime
+    // unchanged), so only the contents hash taken at build time catches it: the first read's answers are never published.
+    @mkdir($root.'/vendor/composer', 0700, true);
+    $installedJson = $root.'/vendor/composer/installed.json';
+    while (fmod(microtime(true), 1.0) > 0.3) {
+        usleep(20_000);
+    }
+    file_put_contents($installedJson, '{"packages": [], "x": "A"}');
+    clearstatcache();
+    $statBefore = lstat($installedJson);
+    $reads = 0;
+    $published = [];
+    DiscoveryCache::write($app, 'host', function () use (&$reads, &$statAfter, $installedJson, $root): array {
+        if (++$reads === 1) {
+            file_put_contents($installedJson, '{"packages": [], "x": "B"}');
+            clearstatcache();
+            $statAfter = lstat($installedJson);
+
+            return ['lineages' => ['core'], 'carry' => false, 'tables' => []];
+        }
+
+        return FeaturesServiceProvider::discover($root, 'host');
+    });
+    $sameStat = [$statBefore['ino'], $statBefore['size'], $statBefore['mtime'], $statBefore['ctime']] === [$statAfter['ino'], $statAfter['size'], $statAfter['mtime'], $statAfter['ctime']];
+    check($sameStat, 'the rewrite kept the lstat fingerprint (same inode, size, mtime and ctime), so the check below rests on the contents hash');
+    check($reads === 2 && DiscoveryCache::entry($app, 'host') === $discovered, 'a same-second, same-size rewrite during the read is caught by the contents hash: the read is repeated and the first read\'s answers are never published');
+    unlink($installedJson);
+    $app->make(Kernel::class)->call('kit:cache');
     // 2. A record that does not verify fails kit:cache (so optimize fails), and nothing is cached.
     file_put_contents($records[0], '{"not": "a record"}');
     check($app->make(Kernel::class)->call('kit:cache') === 1 && ! is_file($cacheFile), 'kit:cache fails (exit 1) on a record that does not verify, and writes nothing');
