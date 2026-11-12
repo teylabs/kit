@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Release notes name the lineages to update.** `php bin/release-lineages.php [<from-ref> [<to-ref>]]` compares the feature pins in `src/Catalog.php` between two refs (by default the newest `vX.Y.Z` tag before HEAD, and HEAD) and prints the line for the release notes: ``Run `php artisan kit:update` for: core, shell``, or that no pin changed (`composer update` is enough). A feature new at the later ref gets a `kit:add` line instead. docs/releasing.md makes it part of the release step (#918). Release tooling only: no stub, pin or public API changed.
+  - **Tests.** `test:release-lineages` (`tests/ReleaseLineagesCheck.php`): unchanged, one changed and several changed pins (named in catalog order, unchanged ones left out), a new feature, a catalog with no pins refused, and the command on a made-up repository (default base, a tag on HEAD itself skipped, two named refs, an unknown ref failing).
+
 ## v0.16.15
 
 ### Fixed
