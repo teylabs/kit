@@ -63,7 +63,6 @@ const SESSION_UI_WORKSPACE_FILES = [
     'SessionUi/Http/PlaceholderController.php',
     'SessionUi/Http/SearchController.php',
     'SessionUi/Http/TransferOwnershipModalController.php',
-    'SessionUi/Http/WelcomeCardController.php',
     'SessionUi/Http/WidgetSortController.php',
     'SessionUi/Http/WorkspaceDeletionController.php',
     'SessionUi/Http/WorkspaceSectionsController.php',

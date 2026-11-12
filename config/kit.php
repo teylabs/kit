@@ -21,7 +21,7 @@ return [
     // False: never. Null (default): on with session-ui only once the brand is filled in (no placeholders), and /up never fails on placeholders.
     'brand_mail' => null,
 
-    // The brand: one place for the platform's identity. Its values belong in the app's own config/brand.php (same keys), which wins over the KIT_BRAND_* env values below (deprecated). The shell's mark is the
+    // The brand: one place for the platform's identity. Its values belong in the app's own config/brand.php (same keys), which wins over the defaults below. KIT_BRAND_* env values are not read (removed in 0.17). The shell's mark is the
     // product's logomark beside its name (never a workspace's); `php artisan kit:brand` makes the favicons, touch icon, mail mark
     // and social image from `logomark` and `accent`; mail and the footers read the rest. Values left at these placeholders are
     // listed by `Tey\Kit\Brand::placeholders()`, which a production preflight can refuse.
@@ -45,100 +45,100 @@ return [
     ],
 
     'brand' => [
-        'identity' => env('KIT_BRAND_IDENTITY'),
-        'logomark' => env('KIT_BRAND_LOGOMARK', '/logomark.svg'),
+        'identity' => null,
+        'logomark' => '/logomark.svg',
         // The square mark kit:brand draws the favicons, touch icon and mail mark from (a path in `public/`, or an absolute path), for when `logomark` is cropped
         // tight or wide for the lockup. Unset, kit:brand uses `logomark`. Either way a mark that isn't square is padded to a centred square, never stretched.
-        'icon' => env('KIT_BRAND_ICON'),
+        'icon' => null,
         // Output files the app made by hand (names in `public/`, from favicon.svg, favicon.ico, apple-touch-icon.png, mail-mark.png, og-image.png): kit:brand
         // skips each one and says so, and never overwrites it. Empty by default: kit:brand writes every file.
         'own' => [],
         // The logomark for dark mode (a path in `public/`, shown instead of `logomark` under `.dark`), and the lockup: with `lockup` on, the header and guest pages show the mark
         // with the `wordmark` image (and its `wordmark_dark`) or, with none, the product's name, instead of the mark alone. All null or off by default.
-        'logomark_dark' => env('KIT_BRAND_LOGOMARK_DARK'),
+        'logomark_dark' => null,
         // The logomark for the signed-in bar (a path in `public/`): a mark drawn for the bar's colour, shown there unfiltered in both modes. Unset, the bar paints
         // `logomark` (or `logomark_dark`) to its mark colour with brightness/invert filters, as before.
-        'logomark_bar' => env('KIT_BRAND_LOGOMARK_BAR'),
-        'wordmark' => env('KIT_BRAND_WORDMARK'),
-        'wordmark_dark' => env('KIT_BRAND_WORDMARK_DARK'),
+        'logomark_bar' => null,
+        'wordmark' => null,
+        'wordmark_dark' => null,
         // `lockup` also takes a path (in `public/`, or a URL) to a full lockup image: shown as it is, named for the product, in place of the mark and the wordmark.
-        'lockup' => is_string($lockup = env('KIT_BRAND_LOCKUP', false)) && str_contains($lockup, '/') ? $lockup : filter_var($lockup, FILTER_VALIDATE_BOOL),
+        'lockup' => false,
         // Where the lockup shows: `guest` (guest and focus pages only; the signed-in bar keeps the mark, so the workspace switcher always has room) or
         // `everywhere` (the signed-in bar too, capped in width so the switcher still shrinks).
-        'lockup_scope' => env('KIT_BRAND_LOCKUP_SCOPE', 'guest'),
+        'lockup_scope' => 'guest',
         // The mail header's image: a PNG of the full lockup (the mark with the wordmark) for a light background, as a path in `public/` or an absolute file path. It is embedded
         // in every kit mail (an inline CID attachment, never a remote image), centred above the message at 220px wide, so give it 2x that or more. Null, or a missing or
         // non-PNG file, shows the product's name instead. SVG is not used: mail clients do not show it reliably.
-        'mail_lockup' => env('KIT_BRAND_MAIL_LOCKUP'),
+        'mail_lockup' => null,
         // The mail button's fill, each a #rrggbb: `button` in light mode and `button_dark` under prefers-color-scheme: dark. Null (or not a #rrggbb): the brand's own light button
         // (`ink` when the button role is ink, else the accent, the theme's when the accent is empty), and in dark mode the dark accent when set, else the light fill.
         // The dark fill is lightened until it holds 3:1 on the dark mail card, and each label is white or near-black, whichever holds 4.5:1.
         'mail' => [
-            'button' => env('KIT_BRAND_MAIL_BUTTON'),
-            'button_dark' => env('KIT_BRAND_MAIL_BUTTON_DARK'),
+            'button' => null,
+            'button_dark' => null,
         ],
-        // The default is a neutral zinc with no hue, so an unbranded build is plainly unbranded; the brand's accent overrides it. Set empty, kit:brand draws in the
+        // The default is a neutral zinc with no hue, so an unbranded build is plainly unbranded; the brand's accent overrides it. Set null, kit:brand draws in the
         // accent the theme resolves to (the light --primary in resources/css/app.css or its imports), and refuses when there is none.
-        'accent' => env('KIT_BRAND_ACCENT', '#52525b'),
+        'accent' => '#52525b',
         // The accent's companions, each a #rrggbb: the text on the accent, the accent as links and focus on white (it must pass 4.5:1 there),
         // the accent as fills in dark mode and the text on it. `style`: `fill` (the accent fills primary buttons) or `mono` (the header and primary
         // buttons are `ink`, and the accent is only a highlight: the active marker and focus).
-        'accent_foreground' => env('KIT_BRAND_ACCENT_FOREGROUND', '#ffffff'),
-        'accent_strong' => env('KIT_BRAND_ACCENT_STRONG'),
-        'accent_dark' => env('KIT_BRAND_ACCENT_DARK'),
-        'accent_dark_foreground' => env('KIT_BRAND_ACCENT_DARK_FOREGROUND', '#09090b'),
-        'style' => env('KIT_BRAND_STYLE', 'fill'),
-        'ink' => env('KIT_BRAND_INK', '#09090b'),
+        'accent_foreground' => '#ffffff',
+        'accent_strong' => null,
+        'accent_dark' => null,
+        'accent_dark_foreground' => '#09090b',
+        'style' => 'fill',
+        'ink' => '#09090b',
         // The roles `style` picks, each settable alone (null follows `style`): `button` (`accent` or `ink`: the primary button in light mode), `button_dark` (`accent` or `theme`: the
         // accent or the theme's own in dark mode), `header` (`theme` or `ink`: ink forces the dark header), `marker` (`strong` or `accent`: the colour of the active nav marker). So ink
         // buttons in light mode and accent buttons in dark mode, on the theme's own header, is `button=ink`, `button_dark=accent`, `header=theme`.
-        'button' => env('KIT_BRAND_BUTTON'),
-        'button_dark' => env('KIT_BRAND_BUTTON_DARK'),
-        'header' => env('KIT_BRAND_HEADER'),
-        'marker' => env('KIT_BRAND_MARKER'),
+        'button' => null,
+        'button_dark' => null,
+        'header' => null,
+        'marker' => null,
         // A thin line under the header: `accent` (the accent, and `accent_dark` in dark mode) or a #rrggbb. Null for none.
-        'header_rule' => env('KIT_BRAND_HEADER_RULE'),
+        'header_rule' => null,
         // Surfaces, each a #rrggbb, null leaves the theme's neutral (page `background`, `card`, `border`, `muted`, and `input` for a control's edge, 3:1 against the card; the `_dark` twin for dark mode). `link` and `link_dark` set `--brand-link`,
         // for links (`text-(--brand-link)`); null leaves links as plain text. `contrastProblems()` reads the accent and the links against these.
-        'background' => env('KIT_BRAND_BACKGROUND'),
-        'card' => env('KIT_BRAND_CARD'),
-        'border' => env('KIT_BRAND_BORDER'),
-        'muted' => env('KIT_BRAND_MUTED'),
-        'input' => env('KIT_BRAND_INPUT'),
-        'background_dark' => env('KIT_BRAND_BACKGROUND_DARK'),
-        'card_dark' => env('KIT_BRAND_CARD_DARK'),
-        'border_dark' => env('KIT_BRAND_BORDER_DARK'),
-        'muted_dark' => env('KIT_BRAND_MUTED_DARK'),
-        'input_dark' => env('KIT_BRAND_INPUT_DARK'),
-        'link' => env('KIT_BRAND_LINK'),
-        'link_dark' => env('KIT_BRAND_LINK_DARK'),
+        'background' => null,
+        'card' => null,
+        'border' => null,
+        'muted' => null,
+        'input' => null,
+        'background_dark' => null,
+        'card_dark' => null,
+        'border_dark' => null,
+        'muted_dark' => null,
+        'input_dark' => null,
+        'link' => null,
+        'link_dark' => null,
         // Named variants to compare side by side: a JSON object of name => the keys above (any colour or role key above). Only in a local environment, `?brand=<name>` previews one for the session (`?brand=` clears it);
         // elsewhere the switch does nothing and these are never read. A brand's own values belong in its own environment, not in the template.
-        'presets' => json_decode((string) env('KIT_BRAND_PRESETS', '{}'), true) ?: [],
-        'hello_email' => env('KIT_BRAND_HELLO_EMAIL', 'hello@example.com'),
-        'support_email' => env('KIT_BRAND_SUPPORT_EMAIL', 'support@example.com'),
+        'presets' => [],
+        'hello_email' => 'hello@example.com',
+        'support_email' => 'support@example.com',
         // The four address roles: updates@ is the From of system mail, support@ its Reply-To and the help link, hello@ general contact, privacy@ data requests (omitted in a private app).
-        'privacy_email' => env('KIT_BRAND_PRIVACY_EMAIL', 'privacy@example.com'),
-        'mail_from_address' => env('KIT_BRAND_MAIL_FROM_ADDRESS', 'updates@example.com'),
-        'legal_name' => env('KIT_BRAND_LEGAL_NAME', 'Example Company'),
-        'postal_address' => env('KIT_BRAND_POSTAL_ADDRESS', '1 Example Street, Example City'),
-        'credit_verb' => env('KIT_BRAND_CREDIT_VERB', 'Built'),
-        'credit_org' => env('KIT_BRAND_CREDIT_ORG', 'Tey Labs Inc.'),
+        'privacy_email' => 'privacy@example.com',
+        'mail_from_address' => 'updates@example.com',
+        'legal_name' => 'Example Company',
+        'postal_address' => '1 Example Street, Example City',
+        'credit_verb' => 'Built',
+        'credit_org' => 'Tey Labs Inc.',
         // The footers' identity line starts `© {year}` ("© 2026 Product · Built by Tey Labs Inc."); false leaves the © and year out. The mail header never has it.
-        'copyright' => filter_var(env('KIT_BRAND_COPYRIGHT', true), FILTER_VALIDATE_BOOL),
-        'credit_for' => env('KIT_BRAND_CREDIT_FOR'),
+        'copyright' => true,
+        'credit_for' => null,
         // A private app (an internal tool, a client's own workspace) has no public legal entity to name: with this on, the legal name, postal address, Terms and
         // Privacy are left out of both footers and `Brand::placeholders()` does not ask for them. Anything left empty is omitted either way.
-        'private' => filter_var(env('KIT_BRAND_PRIVATE', false), FILTER_VALIDATE_BOOL),
-        'terms_url' => env('KIT_BRAND_TERMS_URL', '/terms'),
-        'privacy_url' => env('KIT_BRAND_PRIVACY_URL', '/privacy'),
-        'manage_url' => env('KIT_BRAND_MANAGE_URL', '/me'),
+        'private' => false,
+        'terms_url' => '/terms',
+        'privacy_url' => '/privacy',
+        'manage_url' => '/me',
         // A TrueType font for the social image's product name; null searches the usual system locations.
-        'font' => env('KIT_BRAND_FONT'),
+        'font' => null,
     ],
-    // Which brand keys have a KIT_BRAND_* variable set, read as this file loads so `config:cache` keeps the answer. The app's own config/brand.php
-    // (`vendor:publish --tag=kit-brand`, or `php artisan kit:brand:migrate`) wins over env for every key it names; env brand values are deprecated
-    // and removed in 0.17. See Tey\Kit\BrandConfig.
+    // Which brand keys still have a KIT_BRAND_* variable set, read as this file loads so `config:cache` keeps the answer. Since 0.17 env brand values are
+    // ignored: the boot logs a warning and kit:status names each one, so a leftover in .env, CI or a deploy is found. `php artisan kit:brand:migrate`
+    // moves them into config/brand.php. See Tey\Kit\BrandConfig.
     'brand_env' => BrandConfig::fromEnv(),
 
     // Outside production, a quiet sign of where you are: `[Label] ` before the document title and a 2px edge across the top of the shell, per environment name (`label`, up to

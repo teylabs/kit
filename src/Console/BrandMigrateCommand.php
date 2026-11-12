@@ -9,7 +9,8 @@ use Tey\Kit\BrandConfig;
 use Throwable;
 
 /**
- * Moves the brand out of env: writes config/brand.php with every key that resolves from KIT_BRAND_* today, at the value as loaded. A key whose variable is in .env
+ * Moves the brand out of env: writes config/brand.php with every KIT_BRAND_* value still set, cast as config/kit.php cast it before 0.17 (tey/kit no longer
+ * reads them: config/brand.php is the only source). It reads the process environment and the .env file, so run it before `config:cache`. A key whose variable is in .env
  * but loaded empty (an unquoted `#` read as a comment) or invalid is written as null with a comment, never a guessed value. It never edits .env: it prints the lines to delete.
  */
 final class BrandMigrateCommand extends Command
@@ -53,12 +54,6 @@ final class BrandMigrateCommand extends Command
             }
             $raw = env($name);
             $raw ??= isset($lines[$name]) ? $lines[$name]['value'] : null;
-            // From a cached config with no .env to read: the cached resolved value, unless it loaded empty (the theme) or resolved invalid and took the default.
-            if ($raw === null && in_array($key, $fromEnv, true) && ! in_array($key, [...(array) config('kit.brand_invalid', []), ...(array) config('kit.brand_env_empty', [])], true)) {
-                $values[$key] = config('kit.brand.'.$key) === '' ? null : config('kit.brand.'.$key);
-
-                continue;
-            }
             if ($raw === '' || $raw === null) {
                 $flagged[$key] = $name.' loaded empty'.(isset($lines[$name]) && str_starts_with(ltrim(substr($lines[$name]['line'], strpos($lines[$name]['line'], '=') + 1)), '#') ? ' (unquoted #?)' : '').'. null = use theme; set a value to override.';
 
@@ -69,8 +64,8 @@ final class BrandMigrateCommand extends Command
 
                 continue;
             }
-            // As loaded: the resolved value when env is its source now, else the raw value cast the way config/kit.php casts it.
-            $values[$key] = (BrandConfig::sources()[$key] ?? null) === BrandConfig::SOURCE_ENV ? (config('kit.brand.'.$key) === '' ? null : config('kit.brand.'.$key)) : match ($key) {
+            // The raw value cast the way config/kit.php cast it before 0.17.
+            $values[$key] = match ($key) {
                 'lockup' => str_contains($raw, '/') ? $raw : filter_var($raw, FILTER_VALIDATE_BOOL),
                 'copyright', 'private' => filter_var($raw, FILTER_VALIDATE_BOOL),
                 'presets' => json_decode($raw, true) ?: [],
@@ -94,7 +89,7 @@ final class BrandMigrateCommand extends Command
             $this->warn('FLAGGED kit.brand.'.$key.': '.$why);
         }
         $this->line('');
-        $this->line('config/brand.php now wins over these. Delete them from '.basename($envFile).' (kit:brand:migrate never edits it):');
+        $this->line('tey/kit ignores these. Delete them from '.basename($envFile).' (kit:brand:migrate never edits it):');
         $outside = [];
         foreach ([...array_keys($values), ...array_keys($flagged)] as $key) {
             $name = (string) BrandConfig::envName($key);
@@ -105,7 +100,7 @@ final class BrandMigrateCommand extends Command
             }
         }
         if ($outside !== []) {
-            $this->line('Set in the environment, not .env (remove them where they are set): '.implode(', ', $outside));
+            $this->line('Set in the environment, not .env (remove them where they are set: CI, deploy settings, scripts): '.implode(', ', $outside));
         }
         $this->line('Then run php artisan config:clear (or config:cache) and check php artisan kit:status.');
 
@@ -149,8 +144,8 @@ final class BrandMigrateCommand extends Command
                 $notes[$key] = $flagged[$key];
             }
         }
-        $out = "<?php\n\n// The app's brand, read by tey/kit as `kit.brand`. Written by `php artisan kit:brand:migrate` from the KIT_BRAND_* values loaded at the time.\n"
-            ."// A key here wins over its KIT_BRAND_* env value; a key left out uses env (deprecated, removed in tey/kit 0.17), then the kit's default.\n"
+        $out = "<?php\n\n// The app's brand, read by tey/kit as `kit.brand`. Written by `php artisan kit:brand:migrate` from the KIT_BRAND_* values set at the time.\n"
+            ."// A key left out takes the kit's default. tey/kit does not read KIT_BRAND_* env values (removed in 0.17).\n"
             ."// Colours are a #rgb or #rrggbb; null means \"use the theme\" (or the kit's default); an empty string is refused. The keys and their defaults:\n"
             ."// vendor/tey/kit/resources/stubs/brand.php.\nreturn [\n";
 

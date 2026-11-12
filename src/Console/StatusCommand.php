@@ -38,16 +38,21 @@ final class StatusCommand extends Command
             if ($requirements !== null) {
                 $status['requirements'] = $requirements;
             }
-            // Where each brand key comes from: config (config/brand.php), env (deprecated) or default.
+            // Where each brand key comes from: config (config/brand.php) or default.
             if ($status !== null && BrandConfig::sources() !== []) {
                 $status['brand_sources'] = BrandConfig::sources();
             }
+            // KIT_BRAND_* variables still set: ignored since 0.17, named so a leftover in .env, CI or a deploy is found. Reported with or without adopted features.
+            $ignoredEnv = array_values(array_filter(array_map(BrandConfig::envName(...), (array) config('kit.brand_env', []))));
+            if ($status !== null && $ignoredEnv !== []) {
+                $status['brand_env_ignored'] = $ignoredEnv;
+            }
+            if (! $this->option('json') && $ignoredEnv !== []) {
+                $this->warn('Ignored KIT_BRAND_* variables (tey/kit 0.17 removed env brand values): '.implode(', ', $ignoredEnv).'. Run php artisan kit:brand:migrate to move them into config/brand.php, then remove them from .env, CI and deploy settings.');
+            }
             // A colour that resolved invalid and took the default; only kit:status and kit:brand:migrate boot past one in local and testing.
             foreach ($this->option('json') ? [] : (array) config('kit.brand_invalid', []) as $key) {
-                // kit:brand:migrate only moves env values; it keeps a key config/brand.php already sets, so a bad config value is fixed in the file.
-                $this->warn('kit.brand.'.$key.' is not a valid colour and is using the kit default: '.((BrandConfig::sources()[$key] ?? null) === BrandConfig::SOURCE_ENV
-                    ? 'run php artisan kit:brand:migrate, or set it in config/brand.php.'
-                    : 'set a #rrggbb colour, or null, in config/brand.php.'));
+                $this->warn('kit.brand.'.$key.' is not a valid colour and is using the kit default: set a #rrggbb colour, or null, in config/brand.php.');
             }
             if ($this->option('json')) {
                 $this->line(json_encode($status ?? ['message' => 'No kit features adopted.', 'blueprint_features' => [], 'lineages' => []], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
@@ -71,10 +76,7 @@ final class StatusCommand extends Command
                     $width = max(array_map('strlen', array_keys($sources)));
                     $this->line('Brand (key, source):');
                     foreach ($sources as $key => $source) {
-                        $this->line('  '.str_pad($key, $width).'  '.$source.(in_array($key, (array) config('kit.brand_env_empty', []), true) ? ', empty in env (theme)' : ''));
-                    }
-                    if (in_array(BrandConfig::SOURCE_ENV, $sources, true)) {
-                        $this->line('Env brand values are deprecated and removed in 0.17: run php artisan kit:brand:migrate to move them into config/brand.php.');
+                        $this->line('  '.str_pad($key, $width).'  '.$source);
                     }
                 }
                 foreach ($requirements === null ? [] : [...HostRequirements::attention($requirements), ...HostRequirements::lines($requirements)] as $line) {
@@ -191,7 +193,7 @@ final class StatusCommand extends Command
         $present = Brand::mailLockupFile() !== null;
         $requirements ??= ['steps' => [], 'npm' => [], 'optional' => [], 'attention' => false, 'warnings' => []];
         $message = $present ? $lockup.' is a PNG'
-            : 'kit.brand.mail_lockup is '.$lockup.' but no PNG file is there (a path in public/ or an absolute file path), so mail shows the product\'s name instead of the lockup. Add the PNG, or fix KIT_BRAND_MAIL_LOCKUP.';
+            : 'kit.brand.mail_lockup is '.$lockup.' but no PNG file is there (a path in public/ or an absolute file path), so mail shows the product\'s name instead of the lockup. Add the PNG, or fix mail_lockup in config/brand.php.';
         $requirements['steps'][] = ['feature' => 'core', 'kind' => 'file', 'step' => 'kit.brand.mail_lockup', 'why' => 'the mail header shows the lockup', 'status' => $present ? 'met' : 'unmet', 'blocking' => false, 'message' => $message];
         if (! $present) {
             $requirements['warnings'][] = $message;

@@ -64,7 +64,6 @@ use Tey\Kit\Features\SessionUi\Http\ReinstateMemberController;
 use Tey\Kit\Features\SessionUi\Http\SearchController;
 use Tey\Kit\Features\SessionUi\Http\SuspendMemberController;
 use Tey\Kit\Features\SessionUi\Http\TransferOwnershipModalController;
-use Tey\Kit\Features\SessionUi\Http\WelcomeCardController;
 use Tey\Kit\Features\SessionUi\Http\WidgetSortController;
 use Tey\Kit\Features\SessionUi\Http\WorkspaceDeletionController;
 use Tey\Kit\Features\SessionUi\Http\WorkspaceSectionsController;
@@ -131,7 +130,6 @@ const UNSWITCHED_CONTROLLERS = [
 const OUTSIDE_WORKSPACE = [
     MovedWorkspacePageController::class => 'a permanent redirect from an old /workspaces/{id or slug}/... address; it resolves the new address among the person\'s own workspaces, so a non-member gets a 404 and never learns it',
     MembershipController::class => 'leaving a workspace from /me: it ends the person\'s own membership row through Concierge, which refuses a non-member (a 404)',
-    WelcomeCardController::class => 'dismissing the welcome card from /me: a per-person flag, written only after the controller checks the person is a member (else a 404)',
 ];
 
 function scopeController(Route $route): ?string

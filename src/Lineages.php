@@ -392,6 +392,15 @@ final readonly class Lineages
         }
 
         $requirements = HostRequirements::of($root, $features);
+        // What tey/kit 0.17 removed and the host still uses: attention naming the files, never blocking.
+        // Listed only when unmet, so an app with nothing left over sees no new step.
+        foreach (HostRequirements::removedIn017($root, array_keys($features)) as $step) {
+            if ($step['status'] === 'unmet') {
+                $requirements['steps'][] = $step;
+                $requirements['warnings'][] = $step['message'];
+                $requirements['attention'] = true;
+            }
+        }
         // Workspaces replaces Concierge's platform_owners Gate with operators: an empty operators table is attention, never blocking.
         if (isset($features['workspaces']) && ($warning = Operators::warning()) !== null) {
             $requirements['steps'][] = ['feature' => 'workspaces', 'kind' => 'operators', 'step' => Operators::SEED, 'why' => 'Workspaces gates tenant admin on operators, not platform_owners.', 'status' => 'unmet', 'blocking' => false, 'message' => $warning];

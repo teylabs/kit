@@ -9,12 +9,12 @@ use RuntimeException;
 
 /**
  * Where each `kit.brand` value comes from. The app's own config/brand.php (Laravel loads it, and `config:cache` caches it, as `brand`) wins for every key it
- * names, an explicit null included; a key it leaves out falls back to its KIT_BRAND_* env value (deprecated, removed in 0.17), then to the kit's default.
+ * names, an explicit null included; a key it leaves out takes the kit's default. KIT_BRAND_* env values are not read since 0.17: one still set is
+ * logged once at boot as ignored, and kit:status names it, so a leftover in .env, CI or a deploy is found (kit:brand:migrate moves it into config/brand.php).
  * The readers keep reading `config('kit.brand.*')`: the resolved values are written back there at register time.
  *
  * The colour keys are validated as they resolve: a #rgb or #rrggbb (a #rgb is widened to #rrggbb), or null for "use the theme" (or the kit default). An
- * empty KIT_BRAND_* colour reads as null, as it always has (it may be an unquoted `#hex` read as a comment, so it logs a hint once). An empty string in
- * config/brand.php and any other value are invalid: in local and testing that throws, naming the key (except under the lenient commands, see
+ * empty string in config/brand.php and any other value are invalid: in local and testing that throws, naming the key (except under the lenient commands, see
  * LENIENT_COMMANDS); anywhere else it is logged and the key takes the kit's default, never an empty value. A key that resolves unset (null, or an empty
  * string) is left out of `kit.brand`, so `config('kit.brand.<key>')` is null and `config('kit.brand.<key>', $fallback)` returns the fallback.
  */
@@ -77,7 +77,7 @@ final class BrandConfig
         'font' => null,
     ];
 
-    /** The keys with no env variable (set only in config). */
+    /** The keys that never had an env variable (set only in config). */
     public const CONFIG_ONLY = ['own'];
 
     /** The colour keys, validated as they resolve. `header_rule` also takes `accent`. */
@@ -86,21 +86,20 @@ final class BrandConfig
 
     public const SOURCE_CONFIG = 'config';
 
-    public const SOURCE_ENV = 'env (deprecated)';
-
     public const SOURCE_DEFAULT = 'default';
 
     /** @var array<string, true> Keys already logged in this process, so each is logged once, never per request. */
     private static array $logged = [];
 
-    /** The env variable for a brand key: `mail.button` is KIT_BRAND_MAIL_BUTTON. Null for a config-only key. */
+    /** The env variable a brand key used to read (removed in 0.17): `mail.button` is KIT_BRAND_MAIL_BUTTON. Null for a config-only key. */
     public static function envName(string $key): ?string
     {
         return in_array($key, self::CONFIG_ONLY, true) ? null : 'KIT_BRAND_'.strtoupper(str_replace('.', '_', $key));
     }
 
     /**
-     * The brand keys whose KIT_BRAND_* variable is set (even to an empty string), read by config/kit.php as it loads, so `config:cache` keeps the answer.
+     * The brand keys whose KIT_BRAND_* variable is still set (even to an empty string), read by config/kit.php as it loads, so `config:cache` keeps the
+     * answer. The values are ignored; only the names are reported.
      *
      * @return list<string>
      */
@@ -118,8 +117,8 @@ final class BrandConfig
     }
 
     /**
-     * Resolves `kit.brand` in place: config/brand.php, then env, then the default; validates the colours; records each key's source in `kit.brand_sources`.
-     * Returns the log lines due (deprecations and production fallbacks), each once per key per process.
+     * Resolves `kit.brand` in place: config/brand.php, then the default; validates the colours; records each key's source in `kit.brand_sources`.
+     * Returns the log lines due (ignored KIT_BRAND_* variables and production fallbacks), each once per key per process.
      *
      * @return list<array{level: string, message: string}>
      */
@@ -132,37 +131,22 @@ final class BrandConfig
         $sources = [];
         // Kept from a cached config, whose kit.brand is already resolved: a key that took the default there still counts as invalid.
         $invalid = array_values((array) $config->get('kit.brand_invalid', []));
-        $envEmpty = array_values((array) $config->get('kit.brand_env_empty', []));
         $logs = [];
         foreach (self::DEFAULTS as $key => $default) {
             if (Arr::has($file, $key)) {
                 $value = Arr::get($file, $key);
                 $source = self::SOURCE_CONFIG;
-            } elseif (in_array($key, $fromEnv, true)) {
-                // No default: config/kit.php always reads an env-backed key, so a missing one was left out as unset (a cached empty value), not never set.
-                $value = Arr::get($brand, $key);
-                $source = self::SOURCE_ENV;
-                if (self::once('env:'.$key)) {
-                    $logs[] = ['level' => 'warning', 'message' => 'Deprecated: kit.brand.'.$key.' comes from '.self::envName($key).', and env brand values are removed in tey/kit 0.17. Run `php artisan kit:brand:migrate` to move them into config/brand.php.'];
-                }
             } else {
                 $value = Arr::has($brand, $key) ? Arr::get($brand, $key) : $default;
                 $source = self::SOURCE_DEFAULT;
             }
-            if (in_array($key, self::COLOURS, true) && $source === self::SOURCE_ENV && is_string($value) && trim($value) === '') {
-                // Empty in env has always meant "use the theme": null, never a throw. It may be an unquoted #hex read as a comment, so say so once.
-                $value = null;
-                $envEmpty = array_values(array_unique([...$envEmpty, $key]));
-                $invalid = array_values(array_diff($invalid, [$key]));
-                if (self::once('env-empty:'.$key)) {
-                    $logs[] = ['level' => 'warning', 'message' => 'kit.brand.'.$key.' ('.self::envName($key).') is empty in env, so it uses the theme. If you meant a colour, an unquoted #hex in .env is read as a comment: run `php artisan kit:brand:migrate`, which writes it to config/brand.php as null with a comment, then set the colour there.'];
-                }
+            if (in_array($key, $fromEnv, true) && self::once('env:'.$key)) {
+                $logs[] = ['level' => 'warning', 'message' => self::envName($key).' is set but ignored: tey/kit 0.17 removed env brand values. Run `php artisan kit:brand:migrate` to move it into config/brand.php, then remove it from .env, CI and deploy settings.'];
             }
             if (in_array($key, self::COLOURS, true) && $source !== self::SOURCE_DEFAULT) {
                 $checked = self::colour($key, $value);
                 if ($checked === false) {
-                    $where = $source === self::SOURCE_CONFIG ? 'config/brand.php' : self::envName($key);
-                    $problem = 'kit.brand.'.$key.' ('.$where.') is '.($value === '' ? 'empty' : var_export($value, true)).', which is not a #rgb or #rrggbb colour'
+                    $problem = 'kit.brand.'.$key.' (config/brand.php) is '.($value === '' ? 'empty' : var_export($value, true)).', which is not a #rgb or #rrggbb colour'
                         .'. Set a colour, or null to use the theme.';
                     if ($strict && in_array($environment, ['local', 'testing'], true)) {
                         throw new RuntimeException($problem);
@@ -178,7 +162,7 @@ final class BrandConfig
                     $value = $checked;
                 }
             }
-            // An empty string is unset, so a `config('kit.brand.*', $fallback)` default applies. This covers an empty KIT_BRAND_* value and a ''
+            // An empty string is unset, so a `config('kit.brand.*', $fallback)` default applies. This covers a ''
             // an older config/brand.php or kit release left in a non-colour key (an empty colour in config/brand.php is still refused above).
             // An unset key is left out of kit.brand rather than set to null: Laravel's config() returns a present null as is, and only a missing key takes the default.
             if (is_string($value) && trim($value) === '') {
@@ -195,8 +179,6 @@ final class BrandConfig
         $config->set('kit.brand_sources', $sources);
         // The keys that resolved invalid and took the default, so kit:brand:migrate can flag them even from a cached config with no .env to read.
         $config->set('kit.brand_invalid', $invalid);
-        // The colour keys that loaded empty from env and use the theme: kit:status notes them, and kit:brand:migrate flags them from a cached config too.
-        $config->set('kit.brand_env_empty', $envEmpty);
 
         return $logs;
     }
@@ -249,7 +231,7 @@ final class BrandConfig
         return false;
     }
 
-    /** @return array<string, string> Each brand key => config, env (deprecated) or default, as resolved at boot. */
+    /** @return array<string, string> Each brand key => config or default, as resolved at boot. */
     public static function sources(): array
     {
         return (array) config('kit.brand_sources', []);
