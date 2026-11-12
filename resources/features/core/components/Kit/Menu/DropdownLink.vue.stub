@@ -31,7 +31,11 @@ const control = (own: string) => cn(own, itemClass());
     >
         <button
             v-if="as === 'button'"
-            :class="control('text-popover-foreground block w-full px-4 py-2 text-left text-sm/5 outline-hidden')"
+            :class="
+                control(
+                    'text-popover-foreground block w-full px-4 py-2 text-left text-sm/5 outline-hidden',
+                )
+            "
             tabindex="-1"
             type="submit"
         >
@@ -39,14 +43,22 @@ const control = (own: string) => cn(own, itemClass());
         </button>
         <a
             v-else-if="as === 'a'"
-            :class="control('text-popover-foreground block px-4 py-2 text-sm/5 outline-hidden')"
+            :class="
+                control(
+                    'text-popover-foreground block px-4 py-2 text-sm/5 outline-hidden',
+                )
+            "
             :href="href"
             tabindex="-1"
             ><slot
         /></a>
         <Link
             v-else
-            :class="control('text-popover-foreground block px-4 py-2 text-sm/5 outline-hidden')"
+            :class="
+                control(
+                    'text-popover-foreground block px-4 py-2 text-sm/5 outline-hidden',
+                )
+            "
             :href="href"
             tabindex="-1"
             ><slot
