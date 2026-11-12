@@ -18,7 +18,7 @@ const bytes = new Uint8Array(6 * 7 + 3).map((_, index) => index);
 const file = () => new File([bytes], 'big.png', { type: 'image/png' });
 const signed = part => ({ part, url: `https://bucket.test/k?partNumber=${part}`, headers: { 'x-amz-checksum-sha256': `c${part}` } });
 
-function fake({ fail = {}, noEtag = 0, unsignedFirst = true } = {}) {
+function fake({ fail = {}, noEtag = 0, unsignedFirst = true, complete = null } = {}) {
     const calls = [];
     let inFlight = 0;
     const state = { peak: 0, attempts: {}, received: {} };
@@ -30,6 +30,8 @@ function fake({ fail = {}, noEtag = 0, unsignedFirst = true } = {}) {
                 const unsigned = unsignedFirst && !body.part_sha256;
                 return { status: 200, body: { id: 'u1', status: 'pending', method: 'MULTIPART', url: null, headers: {}, expires_at: null, upload_id: 'mpu-1', parts: Array.from({ length: PARTS }, (_, i) => unsigned ? { part: i + 1, url: null, headers: {} } : signed(i + 1)) } };
             }
+            if (url === routes.complete && complete === 'throw') throw new TypeError('network');
+            if (url === routes.complete && complete) return { status: complete, body: { message: 'refused' } };
             return { status: 200, body: { id: body.id, ready: true } };
         },
         form: async () => assert.fail('no form post'),
@@ -99,6 +101,21 @@ test('a part that keeps failing, or answers without an ETag, fails closed: no co
     await assert.rejects(directUpload(file(), routes, undefined, noEtag), error => error.step === 'upload');
     assert.equal(noEtag.state.attempts[4], 1);
     assert.deepEqual(noEtag.calls.at(-1), ['json', routes.abort, { id: 'u1' }]);
+});
+
+test('a complete that is refused, or fails on the network, aborts the upload', async () => {
+    const refused = fake({ complete: 422 });
+    await assert.rejects(directUpload(file(), routes, undefined, refused), error => error instanceof DirectUploadError && error.step === 'confirm' && error.status === 422);
+    assert.deepEqual(refused.calls.at(-2)[1], routes.complete);
+    assert.deepEqual(refused.calls.at(-1), ['json', routes.abort, { id: 'u1' }]);
+
+    const network = fake({ complete: 'throw' });
+    await assert.rejects(directUpload(file(), routes, undefined, network), TypeError);
+    assert.deepEqual(network.calls.at(-1), ['json', routes.abort, { id: 'u1' }]);
+
+    const done = fake();
+    await directUpload(file(), routes, undefined, done);
+    assert.ok(!done.calls.some(call => call[1] === routes.abort));
 });
 
 test('after a part fails, the abort waits for the parts still in flight', async () => {
