@@ -572,6 +572,9 @@ jobs:
       - name: Catalog history (ancestor releases only)
         timeout-minutes: 4
         run: composer test:catalog-history
+      - name: Release lineages (changed pins name the lineages to kit:update)
+        timeout-minutes: 4
+        run: composer test:release-lineages
       - name: Form payload check (removed or renamed fields fail, added pass)
         timeout-minutes: 4
         run: composer test:form-payload-check
