@@ -8102,7 +8102,8 @@ test('ActionBar item-class: every menu row takes the host class; destructive and
 });
 
 // ── ActionBar `fill-all` on a pill surface (?fill-all, `&dark`): the whole group is the primary fill with the primary text and rounded-full, segments py-2, the
-// first pl-3.5 and the rest px-3; disabled segments still dim; the default pill keeps its padding. A GET action with intent `panel` is a button that emits ───
+// first pl-3.5 and the rest (the ⌄ trigger too) px-3, semibold, with a translucent primary-text divider between segments; disabled segments still dim; axe with contrast passes;
+// the default pill keeps its padding and medium labels. A GET action with intent `panel` is a button that emits ───
 const fillAll = async (theme) => {
     const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
     try {
@@ -8114,7 +8115,7 @@ const fillAll = async (theme) => {
         const probe = await tab.$eval('[data-primary-probe]', el => ({ bg: getComputedStyle(el).backgroundColor, fg: getComputedStyle(el).color }));
         const read = (selector) => tab.$eval(selector, group => {
             const style = getComputedStyle(group);
-            const segments = [...group.children].map(el => { const s = getComputedStyle(el); return { action: el.hasAttribute('data-action'), pl: s.paddingLeft, pr: s.paddingRight, pt: s.paddingTop, pb: s.paddingBottom, colour: s.color, opacity: s.opacity }; });
+            const segments = [...group.children].map(el => { const s = getComputedStyle(el); return { action: el.hasAttribute('data-action'), pl: s.paddingLeft, pr: s.paddingRight, pt: s.paddingTop, pb: s.paddingBottom, colour: s.color, opacity: s.opacity, weight: s.fontWeight, divider: { width: s.borderRightWidth, style: s.borderRightStyle, colour: s.borderRightColor } }; });
             return { bg: style.backgroundColor, colour: style.color, radius: parseFloat(style.borderTopLeftRadius), height: group.getBoundingClientRect().height, segments };
         });
         const all = await read('[data-fill-all] [data-action-group]');
@@ -8125,17 +8126,68 @@ const fillAll = async (theme) => {
         assert.ok(all.segments.every(seg => seg.pt === '8px' && seg.pb === '8px'), 'every segment is py-2');
         assert.deepEqual([all.segments[0].pl, all.segments[0].pr], ['14px', '12px'], 'the first segment is pl-3.5');
         assert.ok(all.segments.slice(1).every(seg => seg.pl === '12px' && seg.pr === '12px'), 'the rest are px-3');
+        assert.ok(all.segments.every(seg => seg.weight === '600'), `every segment keeps ButtonGroup's semibold label (${all.segments.map(seg => seg.weight)})`);
+        // Computed colours come back in oklab; a canvas pixel puts both in 8-bit RGBA so they compare.
+        const rgba = colour => tab.evaluate(c => { const ctx = document.createElement('canvas').getContext('2d', { willReadFrequently: true }); ctx.clearRect(0, 0, 1, 1); ctx.fillStyle = c; ctx.fillRect(0, 0, 1, 1); const [r, g, b, a] = ctx.getImageData(0, 0, 1, 1).data; return [r, g, b, a / 255]; }, colour);
+        const fg = await rgba(probe.fg);
+        for (const [i, seg] of all.segments.slice(0, -1).entries()) {
+            assert.deepEqual([seg.divider.width, seg.divider.style], ['1px', 'solid'], `segment ${i} draws ButtonGroup's 1px divider`);
+            const [r, g, b, a] = await rgba(seg.divider.colour);
+            assert.ok(Math.max(Math.abs(r - fg[0]), Math.abs(g - fg[1]), Math.abs(b - fg[2])) <= 2, `segment ${i}'s divider is the primary text colour (${seg.divider.colour})`);
+            assert.ok(Math.abs(a - 0.2) < 0.03, `segment ${i}'s divider is the outline token: the primary text at 20%, as the inverse toolbar's outline (${seg.divider.colour})`);
+        }
+        assert.equal(all.segments.at(-1).divider.width, '0px', 'the last segment draws no divider');
+        assert.deepEqual([all.segments.at(-1).action, all.segments.at(-1).pl, all.segments.at(-1).pr], [false, '12px', '12px'], 'the menu trigger (⌄) segment is px-3, like the others');
+        // dividerClass replaces the default divider colour; the divider stays 1px solid between segments and the last draws none.
+        const own = await read('[data-fill-all-divider] [data-action-group]');
+        const sky = await rgba(await tab.evaluate(() => { const el = document.createElement('span'); el.className = 'border-sky-300'; document.body.append(el); const c = getComputedStyle(el).borderTopColor; el.remove(); return c; }));
+        for (const [i, seg] of own.segments.slice(0, -1).entries()) {
+            assert.deepEqual([seg.divider.width, seg.divider.style], ['1px', 'solid'], `dividerClass: segment ${i} keeps the 1px divider`);
+            assert.deepEqual(await rgba(seg.divider.colour), sky, `dividerClass: segment ${i}'s divider takes the host's colour (${seg.divider.colour})`);
+        }
+        assert.equal(own.segments.at(-1).divider.width, '0px', 'dividerClass: the last segment draws no divider');
+        // triggerClass goes last on the ⌄ trigger: pl-3.5 pr-2 and a 20px chevron make it 42px; dividerClass="border-r-0" drops the default divider.
+        // The same held to 170px, where the bar compacts: the compact layout's trigger takes triggerClass too.
+        const trigger = (selector) => tab.$eval(selector, group => {
+            const [lead, trigger] = group.children;
+            return { lead: getComputedStyle(lead).borderRightWidth, width: trigger.getBoundingClientRect().width, menu: trigger.hasAttribute('data-action-menu'), pl: getComputedStyle(trigger).paddingLeft, pr: getComputedStyle(trigger).paddingRight, svg: trigger.querySelector('svg').getBoundingClientRect().width, ring: getComputedStyle(trigger).boxShadow };
+        });
+        await tab.waitForSelector('[data-fill-all-trigger-compact] [data-action-layout="compact"]');
+        for (const [name, selector] of [['full', '[data-fill-all-trigger] [data-action-layout-full] [data-action-group]'], ['compact', '[data-fill-all-trigger-compact] [data-action-layout="compact"]']]) {
+            const ringed = await trigger(selector);
+            assert.ok(ringed.menu, `${name}: the second segment is the ⌄ trigger`);
+            assert.equal(ringed.width, 42, `${name}: triggerClass makes the trigger 42px (${ringed.pl} + ${ringed.svg}px + ${ringed.pr})`);
+            assert.equal(ringed.svg, 20, `${name}: [&>svg]:size-5 sizes the chevron`);
+            assert.equal(ringed.lead, '0px', `${name}: dividerClass="border-r-0" leaves the segment before the trigger no right border`);
+            assert.match(ringed.ring, /inset/, `${name}: the trigger has its inset ring (${ringed.ring})`);
+        }
+        assert.equal(await tab.locator('[data-fill-all-trigger] [data-action-layout="compact"]').count(), 0, 'the roomy pill stays in its full layout');
+        const plainTrigger = all.segments.at(-1);
+        assert.deepEqual([plainTrigger.pl, plainTrigger.pr], ['12px', '12px'], 'without triggerClass the trigger keeps px-3');
         const dimmed = await read('[data-fill-all-disabled] [data-action-group]');
         assert.equal(dimmed.bg, probe.bg, 'the disabled pill is still filled');
         assert.ok(dimmed.segments.filter(seg => seg.action).every(seg => seg.opacity === '0.5'), `disabled segments dim on the filled pill (${dimmed.segments.map(seg => seg.opacity)})`);
         const plain = await read('[data-default-pill] [data-action-group]');
         assert.notEqual(plain.bg, probe.bg, 'the default pill is not filled');
         assert.ok(plain.segments.filter(seg => seg.action).every(seg => seg.pl === '14px' && seg.pr === '14px'), 'the default pill keeps px-3.5');
+        assert.ok(plain.segments.every(seg => seg.weight === '500'), `the default pill keeps its medium labels (${plain.segments.map(seg => seg.weight)})`);
         const panel = tab.locator('[data-panel] [data-action="details"]');
         assert.equal(await panel.evaluate(el => el.tagName), 'BUTTON', 'a panel-intent GET is a button, not a link');
         assert.equal(await panel.getAttribute('href'), null);
         await panel.click();
         assert.equal(await tab.textContent('[data-emitted]'), 'details', 'clicking it emits @action');
+        // Axe with contrast, run on the two filled pills only (the fixture page has no h1, and its panel row is not under test): no violation, and the
+        // filled pill's label is checked for contrast, not skipped.
+        await tab.addScriptTag({ path: axeSource });
+        const audit = await tab.evaluate(async () => {
+            const run = await window.axe.run({ include: [['[data-fill-all]'], ['[data-fill-all-disabled]']] }, { elementRef: true, rules: { 'color-contrast': { enabled: true } } });
+            return {
+                violations: run.violations.flatMap(v => v.nodes.map(n => `${v.id}: ${n.target.join(' ')}`)),
+                contrast: run.passes.filter(p => p.id === 'color-contrast').flatMap(p => p.nodes).filter(n => n.element.closest('[data-fill-all]')).length,
+            };
+        });
+        assert.deepEqual(audit.violations, [], 'the filled pills pass axe with contrast');
+        assert.ok(audit.contrast >= 1, `axe checked the filled label's contrast (${audit.contrast})`);
         await tab.screenshot({ path: `${process.env.SCREENSHOT_DIR ?? '/tmp'}/fill-all${theme === 'dark' ? '-dark' : ''}.png` });
         assert.deepEqual(errors, []);
     } finally {
@@ -8144,3 +8196,33 @@ const fillAll = async (theme) => {
 };
 test('ActionBar fill-all (light): one primary pill with py-2, pl-3.5 then px-3, disabled dims; default pill unchanged; a panel-intent GET is a button that emits', () => fillAll('light'));
 test('ActionBar fill-all (dark): the same under the dark tokens', () => fillAll('dark'));
+// A menu-only ActionBar at phone width (?fill-all, 390px): its ⌄ trigger reads "Actions" unset, the host's text with menuTriggerLabel, and with null is
+// icon-only and named "More actions" (ButtonGroup's default). triggerClass reaches ButtonGroup's trigger, full and compact.
+test('ActionBar menuTriggerLabel at 390px: unset "Actions", a string replaces it, null is icon-only and named "More actions"; triggerClass on ButtonGroup\'s trigger', async () => {
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        await tab.goto(`${url}?fill-all`);
+        await tab.waitForSelector('[data-menu-label-null] [data-button-group-menu]');
+        const trigger = (name) => tab.$eval(`[data-menu-label-${name}] [data-button-group-menu]`, el => ({ text: el.textContent.trim(), svg: Boolean(el.querySelector('svg[aria-hidden="true"]')) }));
+        assert.deepEqual(await trigger('unset'), { text: 'Actions', svg: true }, 'unset keeps "Actions ⌄"');
+        assert.deepEqual(await trigger('text'), { text: 'Trip', svg: true }, 'a string replaces it');
+        assert.deepEqual(await trigger('null'), { text: '', svg: true }, 'null leaves the chevron alone');
+        const named = tab.locator('[data-menu-label-null]').getByRole('button', { name: 'More actions', exact: true });
+        assert.equal(await named.count(), 1, 'the icon-only trigger is named "More actions"');
+        assert.equal(await tab.locator('[data-menu-label-unset]').getByRole('button', { name: 'Actions', exact: true }).count(), 1, 'unset is still named by its "Actions" text');
+        await tab.waitForSelector('[data-menu-trigger-class-compact] [data-action-layout="compact"]');
+        for (const [name, selector] of [['full', '[data-menu-trigger-class] [data-button-group-menu]'], ['compact', '[data-menu-trigger-class-compact] [data-action-layout="compact"] [data-button-group-menu]']]) {
+            const box = await tab.$eval(selector, el => ({ ml: getComputedStyle(el).marginLeft, tl: getComputedStyle(el).borderTopLeftRadius, bl: getComputedStyle(el).borderBottomLeftRadius }));
+            assert.deepEqual(box, { ml: '-1px', tl: '0px', bl: '0px' }, `${name}: triggerClass="-ml-px rounded-l-none" reaches ButtonGroup's trigger`);
+        }
+        const fillTrigger = await tab.$eval('[data-fill-all-trigger-compact] [data-action-layout="compact"] [data-action-menu]', el => { const r = el.getBoundingClientRect(); const s = el.closest('[data-surface]').getBoundingClientRect(); return r.right <= s.right && r.left >= s.left; });
+        assert.ok(fillTrigger, 'the compacted fill-all pill keeps its trigger inside the surface');
+        await tab.screenshot({ path: `${process.env.SCREENSHOT_DIR ?? '/tmp'}/menu-trigger-label-390.png` });
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+});

@@ -47,6 +47,9 @@ const props = withDefaults(
         primary?: boolean;
         filled?: boolean;
         fillAll?: boolean;
+        dividerClass?: string;
+        triggerClass?: string;
+        menuTriggerLabel?: string | null;
         wrap?: boolean;
         itemClass?: string;
     }>(),
@@ -56,6 +59,9 @@ const props = withDefaults(
         primary: false,
         filled: false,
         fillAll: false,
+        dividerClass: undefined,
+        triggerClass: undefined,
+        menuTriggerLabel: undefined,
         wrap: false,
         itemClass: undefined,
     },
@@ -169,7 +175,12 @@ onBeforeUnmount(() => {
     frame = 0;
 });
 // `fillAll` (opt-in, pill surface only): the whole group is one primary pill, every segment on it with the primary text, py-2, the first pl-3.5 and the rest
-// px-3; a disabled segment still dims. Without a pill surface it does nothing; the default pill padding is unchanged.
+// px-3; a disabled segment still dims. Its labels keep ButtonGroup's semibold, and its segments ButtonGroup's divider (a right border on all but the last) in
+// the outline token, `border-outline`, with `--kit-outline` set on the group the way the inverse FloatingToolbar sets it (the current colour, here the primary
+// text, at 20%), so it reads on the fill. The divider rule is under :where() (no specificity), so `dividerClass` (fillAll only, put on each
+// segment) overrides any of it: its colour, or `border-r-0` to drop it. `triggerClass` goes last on the ⌄ trigger (the fillAll segment here; on the ButtonGroup path, ButtonGroup's trigger), so it can set the
+// trigger's padding, its chevron (`[&>svg]:size-5`) or a ring; only a plain (non-fillAll) pill's trigger ignores it. fillAll and `dividerClass` need a pill
+// surface and do nothing without one; the default pill padding is unchanged.
 const fillAll = computed(() => pill.value && props.fillAll);
 const group = computed(() => [
     'inline-flex isolate min-w-0 [&>*+*]:-ml-px',
@@ -177,16 +188,17 @@ const group = computed(() => [
         ? '[&>*:first-child]:rounded-l-full [&>*:last-child]:rounded-r-full'
         : '[&>*:first-child]:rounded-l-md [&>*:last-child]:rounded-r-md',
     fillAll.value &&
-        'rounded-full bg-primary text-primary-foreground shadow-xs',
+        'rounded-full bg-primary text-primary-foreground shadow-xs [--kit-outline:color-mix(in_oklab,currentColor_20%,transparent)] [:where(&>*:not(:last-child))]:border-r [:where(&>*:not(:last-child))]:border-solid [:where(&>*:not(:last-child))]:border-outline',
 ]);
 function segment(filled: boolean, first = false): string[] {
     const base =
         'inline-flex min-w-0 shrink items-center justify-center rounded-none text-sm font-medium whitespace-nowrap no-underline transition-colors focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-50';
     if (fillAll.value)
         return [
-            base,
+            base.replace('font-medium', 'font-semibold'),
             'bg-transparent py-2 text-primary-foreground hover:bg-primary-foreground/10',
             first ? 'pr-3 pl-3.5' : 'px-3',
+            props.dividerClass ?? '',
         ];
     return [
         base,
@@ -210,6 +222,11 @@ const lead = (index: number) =>
         props.filled &&
             'bg-primary! text-primary-foreground! hover:bg-primary/90!',
     ];
+// A menu-only group's trigger (no inline segment) on the ButtonGroup path: 'Actions' beside the ⌄ unless the host gives `menuTriggerLabel`; null leaves the ⌄
+// alone, named "More actions" for assistive tech (ButtonGroup's menuLabel default).
+const menuOnlyLabel = computed(() =>
+    props.menuTriggerLabel === undefined ? 'Actions' : props.menuTriggerLabel,
+);
 const holdFocus = (event: Event) => {
     if (props.dialogOpen) event.preventDefault();
 };
@@ -261,6 +278,7 @@ const holdFocus = (event: Event) => {
                                 :class="[
                                     segment(false, part.inline.length === 0),
                                     !fillAll && 'px-2.5',
+                                    fillAll && triggerClass,
                                 ]"
                                 :aria-label="
                                     part.inline.length
@@ -295,7 +313,8 @@ const holdFocus = (event: Event) => {
                     v-for="part in parts"
                     weight="semibold"
                     :key="part.key"
-                    :label="part.inline.length ? undefined : 'Actions'"
+                    :label="part.inline.length ? undefined : menuOnlyLabel"
+                    :trigger-class="triggerClass"
                     data-action-group
                     :data-action-layout="part.key"
                 >
@@ -349,6 +368,7 @@ const holdFocus = (event: Event) => {
                             :class="[
                                 segment(false, compact.inline.length === 0),
                                 !fillAll && 'px-2.5',
+                                fillAll && triggerClass,
                             ]"
                             :aria-label="
                                 compact.inline.length
@@ -375,6 +395,7 @@ const holdFocus = (event: Event) => {
             </div>
             <ButtonGroup
                 :item-class="itemClass"
+                :trigger-class="triggerClass"
                 v-else
                 weight="semibold"
                 class="shrink-0"

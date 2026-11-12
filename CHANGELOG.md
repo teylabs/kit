@@ -11,6 +11,48 @@
   - **Caveat.** A handler registered with `transformUsing()` for this driver receives the raw `Imagick` object, not an Intervention image, and returns it. Handlers match by `instanceof`.
   - New final classes in `Tey\Kit\Media\Images`: `SizedImagickDriver`, and `Transformations\DecodeAtLeast`, `KeepTransparency`, `Progressive`, `CropToRatio`. Additive: no public signature changed and no method added to a non-final class. No catalog stub changed, so no feature is re-pinned and `history.json` is unchanged.
   - **Tests.** `test:images` (new, in CI; CI now installs ext-imagick): the hint shrinks the decode, a single frame skips coalesce with the same bytes, an animated GIF is coalesced onto its canvas, transparency, every option, the refusal without intervention/image, and the default-driver rule. Small synthetic images only. It skips cleanly without ext-imagick or on a framework without the image API (the lowest-deps leg may).
+## v0.16.5
+
+### Added
+
+- **`triggerClass` reaches ButtonGroup's menu trigger.** ActionBar now passes it to its ButtonGroups too (full and compact layouts), not only to the `fillAll` trigger, and ButtonGroup gains `triggerClass?: string`, added last to its trigger's classes (for example `-ml-px rounded-l-none`). `ButtonGroupProps` gains the optional prop.
+
+### Changed
+
+- **`menuTriggerLabel={null}` names the icon-only trigger "More actions"**, ButtonGroup's default, instead of "Actions". Unset and a string are unchanged.
+
+## v0.16.4
+
+### Added
+
+- **ActionBar gains `menuTriggerLabel?: string | null`.** A menu-only group (no inline segment) shows "Actions ⌄"; unset keeps that, a string replaces the text, and `null` leaves the ⌄ alone, still named "Actions" for assistive tech. `ActionBarProps` gains the optional prop.
+
+### Changed
+
+- **The `fillAll` divider follows the outline token.** It is `border-outline`, with the pill setting `--kit-outline` the way the inverse FloatingToolbar does (the current colour, here the primary text, at 20%; it was a fixed 25%). `dividerClass` still overrides it.
+
+## v0.16.3
+
+### Added
+
+- **ActionBar gains `triggerClass?: string`** (with `fillAll`). Its classes go last on the ⌄ menu-trigger segment, so they can set its padding, the chevron's size (`[&>svg]:size-5`) or a ring. `ActionBarProps` gains the optional prop.
+
+### Fixed
+
+- **`dividerClass` can drop the `fillAll` divider.** The default divider rule now has no specificity, so `dividerClass="border-r-0"` removes it (an adopter can draw the divider as the trigger's own inset ring instead). Unset, the divider is unchanged.
+
+## v0.16.2
+
+### Added
+
+- **ActionBar gains `dividerClass?: string`** (with `fillAll`). Its classes colour the divider between the filled pill's segments in place of the default primary text at 25%; the divider stays 1px and the last segment draws none. Unset, nothing changes. `ActionBarProps` gains the optional prop.
+
+## v0.16.1
+
+### Fixed
+
+- **ActionBar `fillAll` keeps ButtonGroup's segment labels and divider.** Its segments are semibold again (they were medium, so the pill was 4px narrower than a ButtonGroup), and a 1px divider sits between segments in the primary text colour at 25%, so it reads on the primary fill in light and dark. Disabled segments still dim. The default and `filled` paths are unchanged.
+
 ## v0.16.0
 
 A minor release (v0.16.0): it renames two public components.
