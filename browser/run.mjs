@@ -19,6 +19,7 @@
 // save's onSuccess visit through.
 // A SwatchPicker (?swatch, light and dark) must pick by keyboard, post an empty value for its default swatch and pass axe.
 // A SegmentedToggle and a PaneTabs (?segmented, light and dark) must move the selection by keyboard, keep a neutral selected surface and pass axe with contrast.
+// Every kit date and time input (?date-targets, light and dark, at 1280 and 390px) must pass axe target-size: each typed segment at least 24×24, the fields h-9.
 // A FormCard showing 'Saved' and the pale Alerts (?form-saved, light and dark) must pass axe with contrast, checked on the status text and the alerts' text.
 // BulkDrop in each state (?bulk-drop, light and dark) must pass axe with contrast; disabled keeps its text at full contrast and carries aria-disabled.
 // A ScriptForm (?script-form) must submit by Enter and its button without a browser post, keep required checks, and ignore a submit while busy.
@@ -8226,3 +8227,40 @@ test('ActionBar menuTriggerLabel at 390px: unset "Actions", a string replaces it
         await context.close();
     }
 });
+
+// ── Date and time segments: axe target-size (WCAG 2.2 AA) on every kit date/time input, light and dark, at 1280 and 390px ─────────────────────────────────
+// Each typed segment (role=spinbutton) is at least 24×24 CSS px, the inputs keep the kit's h-9 height, and nothing scrolls sideways at phone width.
+async function dateTargets(scheme) {
+    for (const width of [1280, 390]) {
+        const context = await browser.newContext({ locale: 'en-US', viewport: { width, height: 1100 } });
+        try {
+            const tab = await context.newPage();
+            const errors = [];
+            tab.on('pageerror', error => errors.push(error.message));
+            await tab.goto(`${url}?date-targets${scheme === 'dark' ? '=dark' : ''}`);
+            await tab.waitForSelector('[data-slot="input-time-range"], [data-slot="input-date-range"]');
+            assert.equal(await tab.evaluate(() => document.documentElement.classList.contains('dark')), scheme === 'dark');
+            await tab.addScriptTag({ path: axeSource });
+            const run = await tab.evaluate(async () => {
+                const result = await window.axe.run(document, { runOnly: ['target-size'] });
+                const count = (list) => list.reduce((sum, rule) => sum + rule.nodes.length, 0);
+                return { violations: result.violations.map(v => ({ id: v.id, targets: v.nodes.map(n => n.target.join(' ')) })), passes: count(result.passes) };
+            });
+            assert.deepEqual(run.violations, [], `target-size at ${width}px`);
+            const boxes = await tab.$$eval('[role="spinbutton"]', els => els.map(el => { const r = el.getBoundingClientRect(); return { label: el.getAttribute('aria-label'), w: r.width, h: r.height }; }));
+            assert.ok(boxes.length >= 30, `every date and time segment is on the page (${boxes.length})`);
+            assert.ok(run.passes >= boxes.length, `axe measured the segments (${run.passes} passes for ${boxes.length} segments)`);
+            for (const box of boxes) assert.ok(box.w >= 24 && box.h >= 24, `${box.label} is ${box.w}×${box.h} at ${width}px`);
+            const heights = await tab.$$eval('[data-slot^="input-date"] [aria-labelledby], [data-slot^="input-time"] [aria-labelledby]', els => [...new Set(els.filter(el => el.classList.contains('h-9')).map(el => el.getBoundingClientRect().height))]);
+            assert.deepEqual(heights, [36], 'the segmented fields keep the h-9 height');
+            assert.ok(await tab.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), `no sideways scroll at ${width}px`);
+            const shot = process.env.KIT_DATE_TARGETS_SCREENSHOT;
+            if (shot) await tab.screenshot({ path: `${shot}-${scheme}-${width}.png`, fullPage: true });
+            assert.deepEqual(errors, []);
+        } finally {
+            await context.close();
+        }
+    }
+}
+test('date and time inputs (light): every segment passes axe target-size, is at least 24×24, keeps h-9 and fits at 390px', () => dateTargets('light'));
+test('date and time inputs (dark): every segment passes axe target-size, is at least 24×24, keeps h-9 and fits at 390px', () => dateTargets('dark'));

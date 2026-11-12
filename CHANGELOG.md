@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **Date and time segments meet WCAG 2.2 target size.** Each typed segment of InputDate, InputDateRange, InputTime and InputTimeRange (reka-ui's `role="spinbutton"` parts) is now at least 24×24 CSS px (`min-h-6 min-w-6`, text centred), so axe's `target-size` passes in light and dark. The fields keep their `h-9` height and fit at 390px. Re-pins core.
+
 ## v0.16.5
 
 ### Added
