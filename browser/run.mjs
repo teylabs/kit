@@ -254,6 +254,45 @@ test('a viewer who tabs before the enter animation ends keeps their focus after 
     assert.equal(focused, 'second');
 });
 
+test('a modal whose field mounts after the trap has fired (late content) ends with focus on that field', async () => {
+    assert.equal(await openFocusModal('modal-focus=300&late=900', {
+        beforeTrap: (tab) => tab.waitForSelector('[data-first-field]'),
+    }), 'first');
+});
+
+test('a modal with nothing tabbable (no field, no Close) puts focus on the panel itself, inside the modal', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?modal-focus=300&nofield&noclose`);
+        await tab.click('[data-open]');
+        await tab.waitForFunction(() => window.trapFocused === true);
+        await tab.waitForTimeout(150);
+        assert.equal(await tab.evaluate(() => document.activeElement?.parentElement?.getAttribute('role')), 'dialog');
+    } finally {
+        await context.close();
+    }
+});
+
+test('a modal closed in the trap\'s own frame, while it leaves, does not pull focus back to the viewer\'s earlier field', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?modal-focus=1000&leave&closeontrap`);
+        const before = await tab.evaluate(() => window.openingListeners());
+        await tab.click('[data-open]');
+        await tab.waitForFunction(() => document.activeElement?.hasAttribute('data-first-field'));
+        await tab.keyboard.press('Tab');
+        await tab.waitForFunction(() => window.trapFocused === true);
+        await tab.waitForSelector('[data-leaving]');
+        await tab.waitForTimeout(150);
+        assert.equal(await tab.evaluate(() => document.activeElement?.hasAttribute('data-second-field')), false, 'focus stays off the leaving panel\'s field');
+        assert.equal(await tab.evaluate(() => window.openingListeners()), before);
+    } finally {
+        await context.close();
+    }
+});
+
 test('a kit Select opens over the modal, its option takes the click, and Escape closes only the select', async () => {
     await openModal();
     await page.click('#status');
