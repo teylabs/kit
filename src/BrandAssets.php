@@ -59,7 +59,9 @@ final class BrandAssets
         }
 
         return ThemeAdvisory::primary(HostRequirements::themeStylesheets($root ?? base_path()))
-            ?? throw new RuntimeException('kit.brand.accent (KIT_BRAND_ACCENT) is empty and the theme resolves to no accent (no readable --primary in :root of resources/css/app.css or its imports). Set KIT_BRAND_ACCENT to a #rrggbb colour, then run kit:brand again.');
+            ?? throw new RuntimeException((BrandConfig::sources()['accent'] ?? null) === BrandConfig::SOURCE_CONFIG
+                ? 'kit.brand.accent (config/brand.php) is null and the theme resolves to no accent (no readable --primary in :root of resources/css/app.css or its imports). Set \'accent\' in config/brand.php to a #rrggbb colour, then run kit:brand again.'
+                : 'kit.brand.accent (KIT_BRAND_ACCENT) is empty and the theme resolves to no accent (no readable --primary in :root of resources/css/app.css or its imports). Set KIT_BRAND_ACCENT to a #rrggbb colour, then run kit:brand again.');
     }
 
     /**

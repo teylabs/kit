@@ -205,11 +205,18 @@ KIT_BRAND_IDENTITY=
     check(config('kit.brand.accent') === null && BrandConfig::sources()['accent'] === 'config' && config('kit.brand.mail.button') === '#0e7490', 'the migrated app boots in local, from config/brand.php');
     check(config('kit.brand.accent', 'x') === 'x', "a fresh migrate's unset accent is null, so config('kit.brand.accent', 'x') returns 'x'");
 
-    // --force rewrites a '' an older config/brand.php kept as null.
-    $roots[] = $root = host("APP_ENV=local
-KIT_BRAND_INK=\"#111111\"\n", "<?php return ['wordmark' => ''];");
+    // --force rewrites a '' an older config/brand.php kept in a non-colour key as null, even with no env to migrate; an empty colour is left as it is.
+    $roots[] = $root = host("APP_ENV=local\n", "<?php return ['wordmark' => '', 'card' => ''];");
     $kernel = boot_migrate($root);
-    check($kernel->call('kit:brand:migrate', ['--force' => true]) === 0 && (require $root.'/config/brand.php') === ['wordmark' => null, 'ink' => '#111111'], "--force writes a kept '' back as null");
+    check($kernel->call('kit:brand:migrate', ['--force' => true]) === 0 && (require $root.'/config/brand.php') === ['wordmark' => null, 'card' => ''], "--force writes a kept non-colour '' back as null, alone, and leaves an empty colour to be refused");
+
+    // config:cache with an empty env accent: the cached boot, with no .env, still uses the theme (null), not the kit default.
+    $roots[] = $root = host("APP_ENV=production\nKIT_BRAND_ACCENT=\n");
+    $kernel = boot($root);
+    check($kernel->call('config:cache') === 0, 'config:cache with an empty env accent');
+    unlink($root.'/.env');
+    boot($root);
+    check(config('kit.brand.accent') === null && config('kit.brand.accent', 'x') === 'x' && BrandConfig::sources()['accent'] === 'env (deprecated)', 'from the cached config, an empty env accent stays unset, not the kit default');
 
     // --force keeps a key config/brand.php already sets; it is never replaced by its env value.
     $roots[] = $root = host("APP_ENV=local\nKIT_BRAND_INK=\"#111111\"\nKIT_BRAND_LEGAL_NAME=\"Env Co\"\n", "<?php return ['ink' => '#222222'];");

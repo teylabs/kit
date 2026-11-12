@@ -32,15 +32,18 @@ final class BrandMigrateCommand extends Command
         $values = [];
         $flagged = [];
         $kept = [];
+        $normalised = false;
         $existing = is_array(config('brand')) ? config('brand') : [];
         foreach (array_keys(BrandConfig::DEFAULTS) as $key) {
             $name = (string) BrandConfig::envName($key);
             // A key config/brand.php already sets resolves from config: with --force it is carried over as it is, never replaced by its env value.
             if (Arr::has($existing, $key)) {
                 $kept[$key] = Arr::get($existing, $key);
-                // An empty string an older file left is written back as null (unset), so config() defaults apply.
-                if (is_string($kept[$key]) && trim($kept[$key]) === '') {
+                // An empty string an older file left in a non-colour key is written back as null (unset), so config() defaults apply. An empty colour stays
+                // as it is: boots refuse it, and turning it into "use the theme" here would hide that.
+                if (! in_array($key, BrandConfig::COLOURS, true) && is_string($kept[$key]) && trim($kept[$key]) === '') {
                     $kept[$key] = null;
+                    $normalised = true;
                 }
 
                 continue;
@@ -77,7 +80,7 @@ final class BrandMigrateCommand extends Command
         if ($kept !== []) {
             $this->line('Kept from the existing config/brand.php: '.implode(', ', array_keys($kept)).'.');
         }
-        if ($values === [] && $flagged === []) {
+        if ($values === [] && $flagged === [] && ! $normalised) {
             $this->info('No KIT_BRAND_* values are set. Nothing written. Publish the commented stub with: php artisan vendor:publish --tag=kit-brand');
 
             return self::SUCCESS;

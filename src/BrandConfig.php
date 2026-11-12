@@ -139,7 +139,8 @@ final class BrandConfig
                 $value = Arr::get($file, $key);
                 $source = self::SOURCE_CONFIG;
             } elseif (in_array($key, $fromEnv, true)) {
-                $value = Arr::get($brand, $key, $default);
+                // No default: config/kit.php always reads an env-backed key, so a missing one was left out as unset (a cached empty value), not never set.
+                $value = Arr::get($brand, $key);
                 $source = self::SOURCE_ENV;
                 if (self::once('env:'.$key)) {
                     $logs[] = ['level' => 'warning', 'message' => 'Deprecated: kit.brand.'.$key.' comes from '.self::envName($key).', and env brand values are removed in tey/kit 0.17. Run `php artisan kit:brand:migrate` to move them into config/brand.php.'];
