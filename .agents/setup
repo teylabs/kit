@@ -5,8 +5,9 @@
 set -euo pipefail
 
 PHP_EXTENSIONS=(mbstring xml curl zip pgsql pdo_pgsql sqlite3 pdo_sqlite intl gd imagick)
+# PHP 8.5 exactly: composer.json allows ~8.4.0 || ~8.5.0, and 8.5 is what the house uses.
 php_ready() {
-    command -v php >/dev/null && php -r 'exit(PHP_VERSION_ID >= 80500 ? 0 : 1);' || return 1
+    command -v php >/dev/null && php -r 'exit(PHP_VERSION_ID >= 80500 && PHP_VERSION_ID < 80600 ? 0 : 1);' || return 1
     local loaded
     loaded=$(php -m | tr '[:upper:]' '[:lower:]')
     for extension in "${PHP_EXTENSIONS[@]}"; do
@@ -36,12 +37,16 @@ if ! compgen -G '/usr/lib/postgresql/*/bin/postgres' >/dev/null; then
 fi
 sudo service postgresql start
 # What CI's PostgreSQL job uses: role kit, password kit, database kit_adopt_check. Reconciled, never superuser.
+# CREATEROLE because the row-level-security check creates its kit_rls_check_* roles through this connection.
 sudo -u postgres psql -tc "select 1 from pg_roles where rolname = 'kit'" | grep -q 1 \
     || sudo -u postgres psql -c "create role kit"
-sudo -u postgres psql -c "alter role kit login createdb password 'kit' nosuperuser nocreaterole noreplication nobypassrls"
+sudo -u postgres psql -c "alter role kit login createdb createrole password 'kit' nosuperuser noreplication nobypassrls"
 sudo -u postgres psql -tc "select 1 from pg_database where datname = 'kit_adopt_check'" | grep -q 1 \
     || sudo -u postgres createdb -O kit kit_adopt_check
 sudo -u postgres psql -c "alter database kit_adopt_check owner to kit"
+# The PostgreSQL checks only use PostgreSQL when DB_CONNECTION=pgsql; the rest run on SQLite. Their connection, to source:
+#   set -a; . ~/.kit-pgsql.env; set +a; composer test:workspace-adopt
+printf 'DB_CONNECTION=pgsql\nDB_HOST=127.0.0.1\nDB_PORT=5432\nDB_DATABASE=kit_adopt_check\nDB_USERNAME=kit\nDB_PASSWORD=kit\n' > "$HOME/.kit-pgsql.env"
 
 # The browser suite wants Node 24 (CI's version); the component type-check runs on it too.
 node_ready() {
@@ -58,21 +63,29 @@ composer update --prefer-dist --no-interaction --no-progress
 (cd typecheck && npm ci)
 
 # House rule: no AI attribution in commits. A repo-local commit-msg hook strips the trailers agents add (Amp-Thread-ID,
-# Co-authored-by Amp/Claude/Anthropic, Claude-Session, "Generated with ...") and keeps human co-authors. Squash-merging
-# stays the backstop. Repo-local only: never write into a global core.hooksPath (it may be the machine's own hooks).
+# Co-authored-by Amp/Claude/Anthropic, Claude-Session, "Generated with <AI tool>") and keeps human co-authors.
+# Squash-merging stays the backstop. Repo-local only: never write into a global core.hooksPath (it may be the machine's
+# own hooks). A commit-msg hook the repo already had is kept as commit-msg.local and still runs first.
 HOOKS_DIR="$(git rev-parse --absolute-git-dir)/hooks"
 mkdir -p "$HOOKS_DIR"
 git config --local core.hooksPath "$HOOKS_DIR"
+if [ -f "$HOOKS_DIR/commit-msg" ] && ! grep -q 'Installed by .agents/setup' "$HOOKS_DIR/commit-msg"; then
+    mv "$HOOKS_DIR/commit-msg" "$HOOKS_DIR/commit-msg.local"
+fi
 cat > "$HOOKS_DIR/commit-msg" <<'HOOK'
+#!/bin/sh
 # Installed by .agents/setup: strip AI attribution trailers, keep human co-authors. Portable (POSIX awk).
+set -e
+local_hook="$(dirname "$0")/commit-msg.local"
+[ -x "$local_hook" ] && "$local_hook" "$@"
 tmp="$1.strip.$$"
 awk '{
     l = tolower($0)
     if (l ~ /^amp-thread(-id)?:/) next
     if (l ~ /^claude-session:/) next
     if (l ~ /^co-authored-by:[ \t]*amp[ \t]*</) next
-    if (l ~ /^co-authored-by:/ && (l ~ /ampcode/ || l ~ /claude/ || l ~ /anthropic/)) next
-    if (l ~ /(generated|created) (with|by) \[?(claude|amp)/) next
+    if (l ~ /^co-authored-by:/ && (l ~ /ampcode/ || l ~ /claude/ || l ~ /anthropic/ || l ~ /openai/ || l ~ /copilot/)) next
+    if (l ~ /(generated|created) (with|by) / && l ~ /(claude|ampcode|(^|[^a-z])amp([^a-z]|$)|codex|openai|chatgpt|copilot|gemini|cursor|(^|[^a-z])ai([^a-z]|$))/) next
     if (l ~ /claude\.ai\/code\/session/) next
     print
 }' "$1" > "$tmp" && mv "$tmp" "$1"
