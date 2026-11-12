@@ -384,7 +384,7 @@ try {
     foreach (['.github/workflows', 'bin', 'tests/Feature', 'app/Http', 'routes', 'vendor/acme', 'node_modules/x'] as $dir) {
         @mkdir($removed.'/'.$dir, 0777, true);
     }
-    $removedSteps = fn (array $ids): array => array_column(Tey\Kit\HostRequirements::removedIn017($removed, $ids), null, 'step');
+    $removedSteps = fn (array $ids): array => array_column(HostRequirements::removedIn017($removed, $ids), null, 'step');
     $none = $removedSteps(['core', 'session-ui']);
     check($none['env brand keys']['status'] === 'met' && $none['welcome card']['status'] === 'met', 'a host with nothing left over: both steps met');
     file_put_contents($removed.'/.env.example', "APP_NAME=Example\nKIT_BRAND_ACCENT=\"#112233\"\n");

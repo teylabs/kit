@@ -2,7 +2,6 @@
 
 // The brand's sources (config/brand.php, the kit default; KIT_BRAND_* env is ignored since 0.17 and named), colour validation at boot, kit:brand:migrate
 // and kit:status's source column and ignored-env warning, on synthetic apps in temp directories. No network, browser, database or consumer app.
-use Illuminate\Config\Repository;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Foundation\Application;
 use Tey\Kit\Brand;
