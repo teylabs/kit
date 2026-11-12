@@ -1,0 +1,117 @@
+#!/usr/bin/env bash
+# Prepares a fresh checkout for a cloud agent: PHP 8.5 with the extensions CI uses, Composer, a PostgreSQL server
+# (the `kit` role and kit_adopt_check database the PostgreSQL checks expect), Node 24, then the PHP and Node dependencies
+# and Playwright Chromium for the browser suite. A package, so `composer update` (there is no lock file).
+set -euo pipefail
+
+PHP_EXTENSIONS=(mbstring xml curl zip pgsql pdo_pgsql sqlite3 pdo_sqlite intl gd imagick)
+# PHP 8.5 exactly: composer.json allows ~8.4.0 || ~8.5.0, and 8.5 is what the house uses.
+php_ready() {
+    command -v php >/dev/null && php -r 'exit(PHP_VERSION_ID >= 80500 && PHP_VERSION_ID < 80600 ? 0 : 1);' || return 1
+    local loaded
+    loaded=$(php -m | tr '[:upper:]' '[:lower:]')
+    for extension in "${PHP_EXTENSIONS[@]}"; do
+        grep -qx "$extension" <<<"$loaded" || return 1
+    done
+}
+if ! php_ready; then
+    sudo add-apt-repository -y ppa:ondrej/php
+    sudo apt-get update
+    sudo apt-get install -y php8.5-cli php8.5-mbstring php8.5-xml php8.5-curl php8.5-zip php8.5-pgsql php8.5-sqlite3 \
+        php8.5-intl php8.5-gd php8.5-imagick unzip
+    # Another PHP may already own `php`: select 8.5 and check before going on.
+    sudo update-alternatives --set php /usr/bin/php8.5
+    php_ready || { echo "setup: php is not PHP 8.5 with the required extensions" >&2; exit 1; }
+fi
+
+composer_ready() {
+    command -v composer >/dev/null || return 1
+    composer --version 2>/dev/null | grep -Eq 'Composer (version )?(2\.([2-9]|[1-9][0-9])|[3-9])\.'
+}
+if ! composer_ready; then
+    curl -sS https://getcomposer.org/installer | php -- --install-dir=/tmp
+    sudo mv /tmp/composer.phar /usr/local/bin/composer
+fi
+
+# Probe for the server, not the client: an image can ship psql without a server.
+if ! compgen -G '/usr/lib/postgresql/*/bin/postgres' >/dev/null; then
+    sudo apt-get update
+    sudo apt-get install -y postgresql
+fi
+sudo service postgresql start
+# What CI's PostgreSQL job uses: role kit, password kit, database kit_adopt_check. As in CI (POSTGRES_USER is a
+# superuser), kit is a superuser: tests/RlsCheck.php asserts its admin connection is one and creates a BYPASSRLS role.
+# It authenticates by password over localhost only (no trust rule), on a disposable single-user agent VM.
+sudo -u postgres psql -tc "select 1 from pg_roles where rolname = 'kit'" | grep -q 1 \
+    || sudo -u postgres psql -c "create role kit"
+sudo -u postgres psql -c "alter role kit login superuser password 'kit'"
+sudo -u postgres psql -tc "select 1 from pg_database where datname = 'kit_adopt_check'" | grep -q 1 \
+    || sudo -u postgres createdb -O kit kit_adopt_check
+sudo -u postgres psql -c "alter database kit_adopt_check owner to kit"
+# The PostgreSQL checks only use PostgreSQL when DB_CONNECTION=pgsql; the rest run on SQLite. Their connection, to source:
+#   set -a; . ~/.kit-pgsql.env; set +a; composer test:workspace-adopt
+(umask 077; printf 'DB_CONNECTION=pgsql\nDB_HOST=127.0.0.1\nDB_PORT=5432\nDB_DATABASE=kit_adopt_check\nDB_USERNAME=kit\nDB_PASSWORD=kit\n' > "$HOME/.kit-pgsql.env")
+chmod 600 "$HOME/.kit-pgsql.env"
+
+# Node 24 exactly, as CI runs the browser suite and the component type-check, with npm present.
+node_ready() {
+    command -v node >/dev/null && command -v npm >/dev/null || return 1
+    node -e 'process.exit(Number(process.versions.node.split(".")[0]) === 24 ? 0 : 1)'
+}
+if ! node_ready; then
+    curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
+    sudo apt-get install -y nodejs
+    node_ready || { echo "setup: node is not Node 24 with npm" >&2; exit 1; }
+fi
+
+composer update --prefer-dist --no-interaction --no-progress
+(cd browser && npm ci && npx playwright install --with-deps chromium)
+(cd typecheck && npm ci)
+
+# House rule: no AI attribution in commits. A repo-local commit-msg hook strips the trailers agents add (Amp-Thread-ID,
+# Co-authored-by Amp/Claude/Anthropic, Claude-Session, "Generated with <AI tool>") and keeps human co-authors.
+# Squash-merging stays the backstop. Repo-local only: never write into a global core.hooksPath (it may be the machine's
+# own hooks). A commit-msg hook the repo already had is kept as commit-msg.local and still runs first.
+# A core.hooksPath the repo already set is used only when it resolves inside this checkout (or its git dir);
+# anything outside (a shared or machine-wide hooks folder) is left alone and $GIT_DIR/hooks is used instead.
+TOP="$(git rev-parse --show-toplevel)"; GIT_DIR_ABS="$(git rev-parse --absolute-git-dir)"
+HOOKS_DIR="$(git config --local --get core.hooksPath || true)"
+case "$HOOKS_DIR" in ''|/*) ;; *) HOOKS_DIR="$TOP/$HOOKS_DIR" ;; esac
+if [ -n "$HOOKS_DIR" ]; then
+    mkdir -p "$HOOKS_DIR"
+    HOOKS_DIR="$(cd "$HOOKS_DIR" && pwd -P)"
+fi
+case "$HOOKS_DIR" in
+    "$(cd "$TOP" && pwd -P)"|"$(cd "$TOP" && pwd -P)"/*|"$(cd "$GIT_DIR_ABS" && pwd -P)"|"$(cd "$GIT_DIR_ABS" && pwd -P)"/*) ;;
+    *) HOOKS_DIR="$GIT_DIR_ABS/hooks" ;;
+esac
+mkdir -p "$HOOKS_DIR"
+git config --local core.hooksPath "$HOOKS_DIR"
+if [ -f "$HOOKS_DIR/commit-msg" ] && ! grep -q 'Installed by .agents/setup' "$HOOKS_DIR/commit-msg"; then
+    if [ -e "$HOOKS_DIR/commit-msg.local" ]; then
+        echo "setup: $HOOKS_DIR has both commit-msg and commit-msg.local; chain them by hand, then rerun." >&2
+        exit 1
+    fi
+    mv "$HOOKS_DIR/commit-msg" "$HOOKS_DIR/commit-msg.local"
+fi
+cat > "$HOOKS_DIR/commit-msg" <<'HOOK'
+#!/bin/sh
+# Installed by .agents/setup: strip AI attribution trailers, keep human co-authors. Portable (POSIX awk).
+set -e
+local_hook="$(dirname "$0")/commit-msg.local"
+[ -x "$local_hook" ] && "$local_hook" "$@"
+tmp="$(mktemp "$(dirname "$1")/commit-msg.strip.XXXXXX")"
+trap 'rm -f "$tmp"' EXIT
+awk '{
+    l = tolower($0)
+    if (l ~ /^amp-thread(-id)?:/) next
+    if (l ~ /^claude-session:/) next
+    # Co-authors: only known bot identities (by address domain or exact bot name); human co-authors are kept.
+    if (l ~ /^co-authored-by:/ && l ~ /@(ampcode\.com|anthropic\.com|openai\.com)>/) next
+    if (l ~ /^co-authored-by:[ \t]*(amp|claude|claude code|copilot|github copilot|codex)[ \t]*</) next
+    if (l ~ /(generated|created) (with|by) / && l ~ /(claude|ampcode|(^|[^a-z])amp([^a-z]|$)|codex|openai|chatgpt|copilot|gemini|cursor|(^|[^a-z])ai([^a-z]|$))/) next
+    if (l ~ /claude\.ai\/code\/session/) next
+    print
+}' "$1" > "$tmp" && mv "$tmp" "$1"
+HOOK
+chmod +x "$HOOKS_DIR/commit-msg"
