@@ -11,6 +11,8 @@ import DeleteAccount from '@/pages/Workspace/Account/Delete/Page.vue';
 import WelcomeTimezone from '@/pages/Welcome/Timezone/Page.vue';
 import WelcomePhoto from '@/pages/Welcome/Photo/Page.vue';
 import Notes from '@/pages/Workspace/Notes/Index/Page.vue';
+import WorkspaceLayout from '@/pages/Workspace/Layout.vue';
+import AccountLayout from '@/pages/Workspace/Account/Layout.vue';
 
 // The settings forms (forms.html, built with the auth pages by vite.auth.config.js) on the real @inertiajs/vue3, with the shell's Toaster, so run.mjs fills
 // each form as a person would, presses Save and reads what comes back. The page object is the server's: the first load asks for it with X-Inertia, as a
@@ -27,11 +29,31 @@ Object.assign(pages, {
     'Welcome/Photo/Page': WelcomePhoto,
     'Workspace/Notes/Index/Page': Notes,
 });
+// `&shell`: the Account pages sit in the app's persistent layouts, as a host's resolver nests them: the Workspace Layout (which owns the document title,
+// from the page's `layout.documentTitle`) around the Account folder's Layout.vue (the SettingsFrame sidebar), so moving between sections keeps both mounted.
+const shell = {
+    kind: 'app',
+    account: { label: 'Account', url: '/account', current: true },
+    product: { name: 'Example Product', url: '/', logomark: null, logomark_dark: null, wordmark: null, wordmark_dark: null, lockup: false },
+    workspace: null,
+    switcher: null,
+    navigation: [],
+    user: { name: 'Robin Vale', email: 'robin@example.test', initials: 'RV', avatar_url: null, avatar_url_2x: null, items: [] },
+    links: { home: '/', switcher: '/workspaces', sign_in: '/login', sign_out: '/logout' },
+    footer: { identity: 'Example Product', credit: '', links: [] },
+    subNavigation: null,
+    search: null,
+};
+const Shell = { render() { return h(WorkspaceLayout, { shell }, this.$slots); } };
+const layout = new URLSearchParams(window.location.search).has('shell')
+    ? (name: string) => (name.startsWith('Workspace/Account/') ? [Shell, AccountLayout] : Shell)
+    : undefined;
 const response = await fetch(window.location.href, { headers: { 'X-Inertia': 'true', Accept: 'text/html, application/xhtml+xml' } });
 const initial = await response.json();
 createInertiaApp({
     page: initial,
     resolve: (component: string) => pages[component],
+    ...(layout ? { layout } : {}),
     setup: ({ el, App, props, plugin }) => createApp({ render: () => [h(App, props), h(Toaster)] }).use(plugin).provide('kit.shell', true).mount(el),
     progress: false,
 });

@@ -34,6 +34,16 @@ const app = computed(() => props.shell as Tey.Kit.Features.Shell.Data.ShellData)
 const drawer = computed(() => !focus.value && Boolean(app.value.user) && (Boolean(slots.nav) || Boolean(slots['drawer-nav']) || (app.value.navigation?.length ?? 0) > 0));
 // The document title comes from the page's `layout` (composed on the server), never set per page.
 const page = usePage<{ layout?: { documentTitle: string; navigationHeader?: { label: string; url: string } | null; breadcrumbs?: unknown[] }; environment?: { label: string; colour: string } | null }>();
+// Inertia's <Head> writes the <title> on a timer after the page has rendered, so after Back (a history restore, no request) the heading and the current item
+// showed the restored page while document.title still named the one left. The title is set in the same flush as the page (and on the first render);
+// <Head> then finds it equal. On the server there is no document and <Head> alone renders the title.
+watch(
+    () => (props.documentTitle ? page.props.layout?.documentTitle : undefined),
+    (title) => {
+        if (title && typeof document !== 'undefined') document.title = title;
+    },
+    { flush: 'post', immediate: true },
+);
 // Pages in this shell render their heading (the layout's `title`) and actions inside their <Page>, so it aligns with the content column.
 provide('kit.shell', true);
 // Where the trail is drawn: by each <Page> above its heading (`page`), or here as a full-width bar under the header (`bar`), the current page included.

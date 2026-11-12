@@ -59,3 +59,5 @@ export { browserTimezone } from '@/components/Kit/timezone';
 export { passkeyName, passkeysSupported, registerPasskey } from '@/components/Kit/Feedback/passkeyOffer';
 // Settings › Security's (auth.html?auth=Workspace/Account/Security): Add a passkey with the password.
 export { confirmPasskeyPassword } from '@/components/Kit/Feedback/passkeyOffer';
+// The Account folder's persistent layout (forms.html?shell).
+export { default as SettingsFrame } from '@/components/Kit/Layout/SettingsFrame.vue';

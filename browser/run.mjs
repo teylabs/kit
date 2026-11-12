@@ -6467,7 +6467,7 @@ async function sentBody(request) {
 // `pages` maps a form name (forms.html?form=<name>) to its component and props; `routes` are the writes: [method, path or RegExp, handle(body, match)].
 // A handle returns { errors, flash, to } (the page the redirect lands on, else the same one), { location } (Inertia::location, or a redirect off Inertia),
 // or { json, status } (a JSON endpoint, as Fortify's passkey registration).
-async function accountPage({ start, pages, routes, seed = 0 }, run) {
+async function accountPage({ start, pages, routes, seed = 0, query = '' }, run) {
     const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
     try {
         // Stable intent keys, distinct per test (`seed`), so no two fixtures replay each other's key in the PHP check.
@@ -6506,7 +6506,7 @@ async function accountPage({ start, pages, routes, seed = 0 }, run) {
                 await route.fulfill({ status: 200, headers: formsInertia, body: JSON.stringify(answer(result)) });
             });
         }
-        await tab.goto(`${authUrl}forms.html?form=${start}`);
+        await tab.goto(`${authUrl}forms.html?form=${start}${query}`);
         await tab.waitForSelector('#app > *');
         await tab.waitForLoadState('networkidle');
         const toast = async (message) => {
@@ -6714,6 +6714,40 @@ test('Password: a wrong current password is refused inline on that field, and th
         assert.equal(posts.length, 1);
         assert.equal(await tab.textContent('#current-password-error'), 'That is not your current password.');
         assert.equal(account.store.password, PASSWORD, 'nothing saved');
+    });
+});
+
+// Account › Profile and Password inside the persistent layouts (`&shell`): the Workspace Layout's <Head> owns the document title, from `layout.documentTitle`.
+// Back and Forward restore the page from Inertia's history entry; the title must follow the heading and the current sidebar item every time.
+test('Account sections in the shell: Back and Forward restore the document title in the same render as the heading and the current section', async () => {
+    const profile = profileAccount();
+    const password = passwordAccount();
+    const sections = ['Profile', 'Password'];
+    const framed = (name, page) => () => {
+        const shown = page();
+        const navigation = [{ label: null, items: sections.map((label) => ({ label, url: `/forms.html?form=${label}`, current: label === name, icon: null, badge: null })) }];
+        return { ...shown, props: { ...shown.props, layout: { ...shown.props.layout, documentTitle: `${name} · Example Product`, breadcrumbs: [], navigation, navigationHeader: null } } };
+    };
+    const fixture = { start: 'Password', query: '&shell', routes: [], pages: { Profile: framed('Profile', profile.pages.Profile), Password: framed('Password', password.pages.Password) } };
+    await accountPage(fixture, async ({ tab }) => {
+        // Moves (a click, Back or Forward) and reads the page the moment the sidebar first marks `name` current, from a MutationObserver: the sentinel on the
+        // persistent frame, the current item, the heading, the address and document.title. A reader that polls the heading (a browser test) can land there.
+        const move = (how, name) => tab.evaluate(([how, name]) => new Promise((done) => {
+            const read = () => [document.querySelector('[data-settings-frame]')?.dataset.sentinel ?? null, document.querySelector('[data-settings-sidebar] [aria-current=page]')?.textContent.trim(), document.querySelector('[data-slot=page-heading]')?.textContent.trim(), new URL(location.href).searchParams.get('form'), document.title];
+            const observer = new MutationObserver(() => { const state = read(); if (state[1] === name) { observer.disconnect(); done(state); } });
+            observer.observe(document.body, { subtree: true, childList: true, attributes: true, characterData: true });
+            if (how === 'back') history.back();
+            else if (how === 'forward') history.forward();
+            else document.querySelector(`[data-settings-sidebar] a[href$="form=${name}"]`).click();
+        }), [how, name]);
+        await tab.waitForSelector('[data-settings-sidebar] [aria-current=page]');
+        await tab.evaluate(() => { document.querySelector('[data-settings-frame]').dataset.sentinel = 'kept'; });
+        assert.equal(await tab.title(), 'Password · Example Product');
+        assert.deepEqual(await move('click', 'Profile'), ['kept', 'Profile', 'Profile', 'Profile', 'Profile · Example Product']);
+        assert.deepEqual(await move('back', 'Password'), ['kept', 'Password', 'Password', 'Password', 'Password · Example Product'], 'Back restores the title with the page');
+        assert.deepEqual(await move('forward', 'Profile'), ['kept', 'Profile', 'Profile', 'Profile', 'Profile · Example Product'], 'Forward restores the title with the page');
+        await tab.waitForTimeout(50);
+        assert.equal(await tab.title(), 'Profile · Example Product', "Inertia's own <Head> update afterwards keeps the same title");
     });
 });
 
