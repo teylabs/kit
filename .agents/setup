@@ -36,17 +36,19 @@ if ! compgen -G '/usr/lib/postgresql/*/bin/postgres' >/dev/null; then
     sudo apt-get install -y postgresql
 fi
 sudo service postgresql start
-# What CI's PostgreSQL job uses: role kit, password kit, database kit_adopt_check. Reconciled, never superuser.
-# CREATEROLE because the row-level-security check creates its kit_rls_check_* roles through this connection.
+# What CI's PostgreSQL job uses: role kit, password kit, database kit_adopt_check. As in CI (POSTGRES_USER is a
+# superuser), kit is a superuser: tests/RlsCheck.php asserts its admin connection is one and creates a BYPASSRLS role.
+# It authenticates by password over localhost only (no trust rule), on a disposable single-user agent VM.
 sudo -u postgres psql -tc "select 1 from pg_roles where rolname = 'kit'" | grep -q 1 \
     || sudo -u postgres psql -c "create role kit"
-sudo -u postgres psql -c "alter role kit login createdb createrole password 'kit' nosuperuser noreplication nobypassrls"
+sudo -u postgres psql -c "alter role kit login superuser password 'kit'"
 sudo -u postgres psql -tc "select 1 from pg_database where datname = 'kit_adopt_check'" | grep -q 1 \
     || sudo -u postgres createdb -O kit kit_adopt_check
 sudo -u postgres psql -c "alter database kit_adopt_check owner to kit"
 # The PostgreSQL checks only use PostgreSQL when DB_CONNECTION=pgsql; the rest run on SQLite. Their connection, to source:
 #   set -a; . ~/.kit-pgsql.env; set +a; composer test:workspace-adopt
-printf 'DB_CONNECTION=pgsql\nDB_HOST=127.0.0.1\nDB_PORT=5432\nDB_DATABASE=kit_adopt_check\nDB_USERNAME=kit\nDB_PASSWORD=kit\n' > "$HOME/.kit-pgsql.env"
+(umask 077; printf 'DB_CONNECTION=pgsql\nDB_HOST=127.0.0.1\nDB_PORT=5432\nDB_DATABASE=kit_adopt_check\nDB_USERNAME=kit\nDB_PASSWORD=kit\n' > "$HOME/.kit-pgsql.env")
+chmod 600 "$HOME/.kit-pgsql.env"
 
 # The browser suite wants Node 24 (CI's version); the component type-check runs on it too.
 node_ready() {
@@ -66,10 +68,17 @@ composer update --prefer-dist --no-interaction --no-progress
 # Co-authored-by Amp/Claude/Anthropic, Claude-Session, "Generated with <AI tool>") and keeps human co-authors.
 # Squash-merging stays the backstop. Repo-local only: never write into a global core.hooksPath (it may be the machine's
 # own hooks). A commit-msg hook the repo already had is kept as commit-msg.local and still runs first.
-HOOKS_DIR="$(git rev-parse --absolute-git-dir)/hooks"
+# A repo-local core.hooksPath the repo already set is kept and used; otherwise $GIT_DIR/hooks.
+HOOKS_DIR="$(git config --local --get core.hooksPath || true)"
+HOOKS_DIR="${HOOKS_DIR:-$(git rev-parse --absolute-git-dir)/hooks}"
+case "$HOOKS_DIR" in /*) ;; *) HOOKS_DIR="$(git rev-parse --show-toplevel)/$HOOKS_DIR" ;; esac
 mkdir -p "$HOOKS_DIR"
 git config --local core.hooksPath "$HOOKS_DIR"
 if [ -f "$HOOKS_DIR/commit-msg" ] && ! grep -q 'Installed by .agents/setup' "$HOOKS_DIR/commit-msg"; then
+    if [ -e "$HOOKS_DIR/commit-msg.local" ]; then
+        echo "setup: $HOOKS_DIR has both commit-msg and commit-msg.local; chain them by hand, then rerun." >&2
+        exit 1
+    fi
     mv "$HOOKS_DIR/commit-msg" "$HOOKS_DIR/commit-msg.local"
 fi
 cat > "$HOOKS_DIR/commit-msg" <<'HOOK'
@@ -83,8 +92,9 @@ awk '{
     l = tolower($0)
     if (l ~ /^amp-thread(-id)?:/) next
     if (l ~ /^claude-session:/) next
-    if (l ~ /^co-authored-by:[ \t]*amp[ \t]*</) next
-    if (l ~ /^co-authored-by:/ && (l ~ /ampcode/ || l ~ /claude/ || l ~ /anthropic/ || l ~ /openai/ || l ~ /copilot/)) next
+    # Co-authors: only known bot identities (by address domain or exact bot name); human co-authors are kept.
+    if (l ~ /^co-authored-by:/ && l ~ /@(ampcode\.com|anthropic\.com|openai\.com)>/) next
+    if (l ~ /^co-authored-by:[ \t]*(amp|claude|claude code|copilot|github copilot|codex)[ \t]*</) next
     if (l ~ /(generated|created) (with|by) / && l ~ /(claude|ampcode|(^|[^a-z])amp([^a-z]|$)|codex|openai|chatgpt|copilot|gemini|cursor|(^|[^a-z])ai([^a-z]|$))/) next
     if (l ~ /claude\.ai\/code\/session/) next
     print
