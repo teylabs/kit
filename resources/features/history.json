@@ -79140,7 +79140,7 @@
             },
             "shell": {
                 "resources/js/pages/Public/Markdown/Page.vue": "e69233e2e68896afeed58ce40bdac4f1ac838482d53cab088b01334978677529",
-                "resources/js/pages/Workspace/Layout.vue": "426e91c90252bbd65dd17028b35e616b38c8febbb97da3aa11e78c43fb0d9544",
+                "resources/js/pages/Workspace/Layout.vue": "7247fae375360b4c0e5cce601ba463f7bec9d06d815beb8dad8d346aad34122c",
                 "resources/js/pages/Workspace/Partials/Breadcrumbs.vue": "260cebb033875998fefca59e11860f14447e31e01a8005e67df663b6eb9440d1",
                 "resources/js/pages/Workspace/Partials/FocusShell.vue": "90c3d180adec9fc84dcd38c3d74113f8f148cad8b005285d383a9e6d12ec9167",
                 "resources/js/pages/Workspace/Partials/GlobalSearch.vue": "ebf08e2b04af463b9a45afaaea1efe87dae0b7746cac559a8b164e4b19242149",
@@ -79154,6 +79154,7 @@
                 "resources/js/pages/Workspace/Partials/UserMenu.vue": "3394bca327bae9f2cbb587850d1ba91f58818135d26e389a9dfe05c460cc8c59",
                 "resources/js/pages/Workspace/Partials/Wordmark.vue": "0f70b0decf2e484d6629ae55b72286ae0183aa2a530bc2e5758fffac33dae999",
                 "resources/js/pages/Workspace/Partials/WorkspaceSwitcher.vue": "ba7193c3df7d0fdadcd712aab98f726c7c260b0ac4269280372c7b5ad16586f7",
+                "resources/js/pages/Workspace/Partials/documentTitle.ts": "69f0520d41bce6d10d69afec05f71c1c6a124b367dac0ac18bdf1ef426d90480",
                 "resources/js/pages/Workspace/Partials/focusShell.ts": "922a46b5bcfd5f78c6115897da98499318a986396b4f06417e315467a96f44d0",
                 "resources/js/pages/Workspace/Partials/index.ts": "69136c5256230317a086626808fe21ddd08d47f977710ce0222524b22b31b826",
                 "resources/js/types/kit-shell.d.ts": "fbd6937356d02d074cf2eaef33e4ab4f9e63d423f4241556896eff0ed5d534ab"

@@ -6717,7 +6717,7 @@ test('Password: a wrong current password is refused inline on that field, and th
     });
 });
 
-// Account › Profile and Password inside the persistent layouts (`&shell`): the Workspace Layout's <Head> owns the document title, from `layout.documentTitle`.
+// Account › Profile and Password inside the persistent layouts (`&shell`): the Workspace Layout owns the document title, from `layout.documentTitle`.
 // Back and Forward restore the page from Inertia's history entry; the title must follow the heading and the current sidebar item every time.
 test('Account sections in the shell: Back and Forward restore the document title in the same render as the heading and the current section', async () => {
     const profile = profileAccount();
@@ -6747,7 +6747,65 @@ test('Account sections in the shell: Back and Forward restore the document title
         assert.deepEqual(await move('back', 'Password'), ['kept', 'Password', 'Password', 'Password', 'Password · Example Product'], 'Back restores the title with the page');
         assert.deepEqual(await move('forward', 'Profile'), ['kept', 'Profile', 'Profile', 'Profile', 'Profile · Example Product'], 'Forward restores the title with the page');
         await tab.waitForTimeout(50);
-        assert.equal(await tab.title(), 'Profile · Example Product', "Inertia's own <Head> update afterwards keeps the same title");
+        assert.equal(await tab.title(), 'Profile · Example Product', 'a moment later the title still names the page');
+        // documentTitle false: the shell's own <title> goes, so a page's <Head> title is not left behind it.
+        await tab.evaluate(() => window.kitShellTitle(false));
+        await tab.waitForFunction(() => !document.head.querySelector('title[data-kit-title]'));
+        await tab.evaluate(() => window.kitShellTitle(true));
+        await tab.waitForFunction(() => document.title === 'Profile · Example Product');
+    });
+});
+
+// Under load (`&lazy`: each page resolves a task later, as a code-split import() does; the CPU throttled 6x; the main thread kept busy after each move), ten
+// rounds (`KIT_TITLE_ROUNDS`) of a click, Back, Forward and Back. Every write to the head's <title> elements is recorded: once the sidebar marks a section current, the title
+// names it and nothing writes another, and Inertia renders no <title> of its own in the shell (the shell owns it, so a queued <Head> write cannot land late).
+test('Account sections in the shell under load: ten rounds of click, Back and Forward, and no write ever leaves an older page\'s title', async () => {
+    const profile = profileAccount();
+    const password = passwordAccount();
+    const sections = ['Profile', 'Password'];
+    const framed = (name, page) => () => {
+        const shown = page();
+        const navigation = [{ label: null, items: sections.map((label) => ({ label, url: `/forms.html?form=${label}`, current: label === name, icon: null, badge: null })) }];
+        return { ...shown, props: { ...shown.props, layout: { ...shown.props.layout, documentTitle: `${name} · Example Product`, breadcrumbs: [], navigation, navigationHeader: null } } };
+    };
+    const fixture = { start: 'Password', query: '&shell&lazy', routes: [], pages: { Profile: framed('Profile', profile.pages.Profile), Password: framed('Password', password.pages.Password) } };
+    await accountPage(fixture, async ({ tab }) => {
+        const cdp = await tab.context().newCDPSession(tab);
+        await cdp.send('Emulation.setCPUThrottlingRate', { rate: 6 });
+        try {
+            await tab.waitForSelector('[data-settings-sidebar] [aria-current=page]');
+            await tab.evaluate(() => {
+                window.kitTitles = [];
+                new MutationObserver(() => window.kitTitles.push(document.title)).observe(document.head, { subtree: true, childList: true, characterData: true });
+            });
+            const stale = [];
+            for (let round = 0; round < Number(process.env.KIT_TITLE_ROUNDS ?? 10); round++) {
+                for (const [how, name] of [['click', 'Profile'], ['back', 'Password'], ['forward', 'Profile'], ['back', 'Password']]) {
+                    const first = await tab.evaluate(([how, name]) => new Promise((done) => {
+                        window.kitTitles = [];
+                        const observer = new MutationObserver(() => {
+                            if (document.querySelector('[data-settings-sidebar] [aria-current=page]')?.textContent.trim() !== name) return;
+                            observer.disconnect();
+                            done(document.title);
+                        });
+                        observer.observe(document.body, { subtree: true, childList: true, attributes: true, characterData: true });
+                        if (how === 'back') history.back();
+                        else if (how === 'forward') history.forward();
+                        else document.querySelector(`[data-settings-sidebar] a[href$="form=${name}"]`).click();
+                        // A busy main thread right after the move, as a loaded runner has.
+                        setTimeout(() => { const end = performance.now() + 8; while (performance.now() < end); });
+                    }), [how, name]);
+                    // Past Inertia's debounced head write (1ms, throttled), so a late write would be recorded.
+                    await tab.waitForTimeout(40);
+                    const after = await tab.evaluate(() => ({ title: document.title, writes: window.kitTitles, inertia: document.head.querySelectorAll('title[data-inertia]').length }));
+                    const want = `${name} · Example Product`;
+                    if (first !== want || after.title !== want || after.writes.some((written) => written !== want) || after.inertia) stale.push({ round, how, first, ...after });
+                }
+            }
+            assert.deepEqual(stale, [], 'every move names the shown section, first and last');
+        } finally {
+            await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
+        }
     });
 });
 

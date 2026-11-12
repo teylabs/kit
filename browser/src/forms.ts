@@ -1,5 +1,5 @@
 import { createInertiaApp } from '@inertiajs/vue3';
-import { createApp, h } from 'vue';
+import { createApp, h, ref } from 'vue';
 import './app.css';
 import Toaster from '@/components/Kit/Feedback/Toaster.vue';
 import General from '@/pages/Workspace/Settings/General/Page.vue';
@@ -44,15 +44,20 @@ const shell = {
     subNavigation: null,
     search: null,
 };
-const Shell = { render() { return h(WorkspaceLayout, { shell }, this.$slots); } };
+// window.kitShellTitle(false) turns the Layout's `documentTitle` off, handing the title back to the pages.
+const shellTitle = ref(true);
+(window as unknown as { kitShellTitle: (on: boolean) => void }).kitShellTitle = (on) => { shellTitle.value = on; };
+const Shell = { render() { return h(WorkspaceLayout, { shell, documentTitle: shellTitle.value }, this.$slots); } };
 const layout = new URLSearchParams(window.location.search).has('shell')
     ? (name: string) => (name.startsWith('Workspace/Account/') ? [Shell, AccountLayout] : Shell)
     : undefined;
+const lazy = new URLSearchParams(window.location.search).has('lazy');
 const response = await fetch(window.location.href, { headers: { 'X-Inertia': 'true', Accept: 'text/html, application/xhtml+xml' } });
 const initial = await response.json();
 createInertiaApp({
     page: initial,
-    resolve: (component: string) => pages[component],
+    // `&lazy`: each page resolves a task later, as a host's code-split import() does.
+    resolve: (component: string) => (lazy ? new Promise((done) => setTimeout(() => done(pages[component]))) : pages[component]),
     ...(layout ? { layout } : {}),
     setup: ({ el, App, props, plugin }) => createApp({ render: () => [h(App, props), h(Toaster)] }).use(plugin).provide('kit.shell', true).mount(el),
     progress: false,

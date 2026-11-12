@@ -132,7 +132,9 @@ try {
 
     // A host using the Layout whole: toaster, documentTitle and fill, each defaulting to today's behaviour.
     shellCheck(str_contains($layout, 'toaster: true, documentTitle: true, fill: false') && str_contains($layout, '<Toaster v-if="props.toaster" />'), 'toaster defaults on; false leaves the host\'s own Toaster the only one');
-    shellCheck(str_contains($layout, '<Head v-if="props.documentTitle" :title="page.props.layout?.documentTitle" />'), 'documentTitle false leaves the <title> to the page\'s own <Head>');
+    shellCheck(str_contains($layout, '<Head v-if="ssr && props.documentTitle" :title="page.props.layout?.documentTitle" />') && str_contains($layout, 'useDocumentTitle(() => (props.documentTitle ? page.props.layout?.documentTitle : undefined));'), 'documentTitle false leaves the <title> to the page\'s own <Head>; on, the shell writes it on the client and <Head> carries it only on the server');
+    $title = file_get_contents(dirname(__DIR__).'/resources/features/shell/pages/Workspace/Partials/documentTitle.ts.stub');
+    shellCheck(str_contains($title, "title[data-kit-title]") && str_contains($title, "typeof document === 'undefined'") && str_contains($title, "{ flush: 'post', immediate: true }"), 'the shell\'s title is its own <title data-kit-title>, written in the page\'s flush from the first render, never on the server');
     shellCheck(str_contains($layout, "props.fill ? 'h-svh overflow-hidden' : 'min-h-svh'") && str_contains($layout, "props.fill ? 'flex min-h-0 flex-1 flex-col overflow-hidden' : 'flex-1'") && str_contains($layout, "props.fill ? ['mx-auto flex min-h-0 w-full flex-1 flex-col gap-6', props.widthClass] : ['mx-auto flex w-full flex-col gap-6 px-4 pt-4 pb-8"), 'fill: the viewport\'s height, no page scroll, an unpadded content area that fills what the header leaves and keeps the host\'s widthClass measure; off by default');
 
     // A focus shell (FocusShellData: no navigation, workspace or footer) renders as FocusShell inside the same Layout, never reading the app shell's fields.
