@@ -5,6 +5,7 @@ import Input from '@/components/Kit/Form/Input.vue';
 import { usePendingWork } from '@/components/Kit/Form/pendingWork';
 import { useSubmitForm } from '@/components/Kit/Form/submitForm';
 import Workbench from '@/components/Kit/Workbench/Workbench.vue';
+import { useWorkbench } from '@/components/Kit/Workbench/useWorkbench';
 import type { ActionDescriptor } from '@/components/Kit/Action/actionPlacement';
 import type { WorkbenchItem } from '@/components/Kit/Workbench/workbench';
 
@@ -14,6 +15,7 @@ import type { WorkbenchItem } from '@/components/Kit/Workbench/workbench';
 // - inertia: a stand-in for Inertia v3's useForm (this harness has no Inertia): submit(method, url, options) sets processing, then answers through options'
 //   onSuccess or onError (after setting errors, as useForm does): a 422's field errors, or a 409 the server answers as errors.stale_write (no JSON on a visit).
 // window.kitGate holds the Workbench's `can-submit` (a Ref the test flips) and the page's pending-work registry (begin() stands in for an upload in flight).
+// &own-alert: the page renders its own conflict alert with a Keep my edits button (`conflict-alert` false), which calls useWorkbench(key).keepMine(form).
 // The stage holds a contenteditable that binds Mod+S itself (preventDefault, counted in window.kitSave.editorSaves), as an editor with its own save would.
 const transport = new URLSearchParams(window.location.search).get('workbench-form') === 'inertia' ? 'inertia' : 'submit';
 type Answer = 'ok' | '422' | '409';
@@ -48,7 +50,12 @@ const fake = reactive({
     get hasErrors() { return Object.values(fake.errors).some(Boolean); },
     progress: null,
     reset() { fake.data.title = defaults.title; },
-    clearErrors() { fake.errors = {}; },
+    clearErrors(...fields: string[]) {
+        if (!fields.length) { fake.errors = {}; return; }
+        const next = { ...fake.errors };
+        for (const field of fields) delete next[field];
+        fake.errors = next;
+    },
     submit(method: string, url: string, options: Options) {
         fake.processing = true;
         fake.errors = {};
@@ -62,6 +69,9 @@ const fake = reactive({
     },
 });
 const form = transport === 'inertia' ? fake : submitForm;
+const ownAlert = new URLSearchParams(window.location.search).has('own-alert');
+const wb = useWorkbench(`form-${transport}`);
+const keepMine = () => wb.keepMine(form);
 const title = computed({ get: () => (transport === 'inertia' ? fake.data.title : submitForm.data.title), set: (value: string) => { if (transport === 'inertia') fake.data.title = value; else submitForm.data.title = value; } });
 const titleError = computed(() => form.errors.title);
 const saveAction: ActionDescriptor = { key: 'save', label: 'Save', url: '/decks/1', method: 'put' };
@@ -77,7 +87,12 @@ function editorKeydown(event: KeyboardEvent) {
 <template>
     <main class="p-4">
         <h1 class="text-xl font-semibold">Deck</h1>
-        <Workbench :workbench-key="`form-${transport}`" label="Deck" :items="items" current="s1" :actions="actions" :form="form" :save="transport === 'inertia' ? saveAction : null" :default-collapsed="{ inspector: true }" :can-submit="canSubmit">
+        <Workbench :workbench-key="`form-${transport}`" label="Deck" :items="items" current="s1" :actions="actions" :form="form" :save="transport === 'inertia' ? saveAction : null" :default-collapsed="{ inspector: true }" :can-submit="canSubmit" :conflict-alert="!ownAlert">
+            <template v-if="ownAlert" #status>
+                <p v-if="wb.saveState === 'conflict'" role="alert" class="text-sm" data-test-own-conflict>
+                    Changed by someone else. <button type="button" class="underline" data-test-keep-mine @click="keepMine">Keep my edits</button>
+                </p>
+            </template>
             <template #stage>
                 <div class="grid gap-4 p-4">
                     <p>Slide content</p>

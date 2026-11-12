@@ -80,6 +80,36 @@ test('a thrown fetch Response: 409 stale_write (the PHP-checked body) is a confl
     assert.ok(form.errors._form);
 });
 
+test('keepMine after a 409: the conflict and its _form line clear, the edits stay, submitBlock no longer blocks, and the re-save sends my values (#703)', async () => {
+    const sent = [];
+    let refuse = true;
+    const form = useSubmitForm({ title: 'Old', body: '' }, async (data) => {
+        sent.push(data);
+        if (refuse) throw json(staleWrite.status, staleWrite.body);
+    });
+    form.data.title = 'Mine';
+    assert.equal(await form.submit(), false);
+    assert.equal(submitBlock({ pending: false, conflict: form.conflict, canSubmit: form.canSubmit }), 'conflict');
+    form.setError('body', 'Too short');
+    form.keepMine();
+    assert.equal(form.conflict, false);
+    assert.equal(form.errors._form, undefined, 'the conflict line is gone');
+    assert.equal(form.errors.body, 'Too short', 'other errors stay');
+    assert.equal(form.data.title, 'Mine');
+    assert.equal(form.isDirty, true);
+    assert.equal(submitBlock({ pending: false, conflict: form.conflict, canSubmit: form.canSubmit }), null, 'Save can succeed again');
+    refuse = false;
+    assert.equal(await form.submit(), true);
+    assert.equal(sent[1].title, 'Mine');
+});
+
+test('keepMine without a conflict does nothing: a non-conflict _form message stays', async () => {
+    const form = useSubmitForm({ title: '' }, reject(json(500, '')));
+    assert.equal(await form.submit(), false);
+    form.keepMine();
+    assert.deepEqual({ ...form.errors }, { _form: SUBMIT_GENERIC_MESSAGE });
+});
+
 test('a thrown fetch Response with any other status, or a 409 that is not stale_write, is the generic _form message', async () => {
     for (const response of [json(500, '<html>boom</html>', 'text/html'), json(403, { message: 'This action is unauthorized.' }), json(409, { error: 'locked' }), json(404, '')]) {
         const form = useSubmitForm({ title: '' }, reject(response));
