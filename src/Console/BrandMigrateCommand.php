@@ -38,6 +38,10 @@ final class BrandMigrateCommand extends Command
             // A key config/brand.php already sets resolves from config: with --force it is carried over as it is, never replaced by its env value.
             if (Arr::has($existing, $key)) {
                 $kept[$key] = Arr::get($existing, $key);
+                // An empty string an older file left is written back as null (unset), so config() defaults apply.
+                if (is_string($kept[$key]) && trim($kept[$key]) === '') {
+                    $kept[$key] = null;
+                }
 
                 continue;
             }
@@ -48,7 +52,7 @@ final class BrandMigrateCommand extends Command
             $raw ??= isset($lines[$name]) ? $lines[$name]['value'] : null;
             // From a cached config with no .env to read: the cached resolved value, unless it loaded empty (the theme) or resolved invalid and took the default.
             if ($raw === null && in_array($key, $fromEnv, true) && ! in_array($key, [...(array) config('kit.brand_invalid', []), ...(array) config('kit.brand_env_empty', [])], true)) {
-                $values[$key] = config('kit.brand.'.$key);
+                $values[$key] = config('kit.brand.'.$key) === '' ? null : config('kit.brand.'.$key);
 
                 continue;
             }
@@ -63,7 +67,7 @@ final class BrandMigrateCommand extends Command
                 continue;
             }
             // As loaded: the resolved value when env is its source now, else the raw value cast the way config/kit.php casts it.
-            $values[$key] = (BrandConfig::sources()[$key] ?? null) === BrandConfig::SOURCE_ENV ? config('kit.brand.'.$key) : match ($key) {
+            $values[$key] = (BrandConfig::sources()[$key] ?? null) === BrandConfig::SOURCE_ENV ? (config('kit.brand.'.$key) === '' ? null : config('kit.brand.'.$key)) : match ($key) {
                 'lockup' => str_contains($raw, '/') ? $raw : filter_var($raw, FILTER_VALIDATE_BOOL),
                 'copyright', 'private' => filter_var($raw, FILTER_VALIDATE_BOOL),
                 'presets' => json_decode($raw, true) ?: [],

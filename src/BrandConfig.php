@@ -15,7 +15,8 @@ use RuntimeException;
  * The colour keys are validated as they resolve: a #rgb or #rrggbb (a #rgb is widened to #rrggbb), or null for "use the theme" (or the kit default). An
  * empty KIT_BRAND_* colour reads as null, as it always has (it may be an unquoted `#hex` read as a comment, so it logs a hint once). An empty string in
  * config/brand.php and any other value are invalid: in local and testing that throws, naming the key (except under the lenient commands, see
- * LENIENT_COMMANDS); anywhere else it is logged and the key takes the kit's default, never an empty value.
+ * LENIENT_COMMANDS); anywhere else it is logged and the key takes the kit's default, never an empty value. A key that resolves unset (null, or an empty
+ * string) is left out of `kit.brand`, so `config('kit.brand.<key>')` is null and `config('kit.brand.<key>', $fallback)` returns the fallback.
  */
 final class BrandConfig
 {
@@ -170,14 +171,23 @@ final class BrandConfig
                     }
                     $invalid = array_values(array_unique([...$invalid, $key]));
                     $value = $default;
-                } elseif ($key === 'accent' && $checked === null) {
-                    // null: use the theme. kit:brand reads the theme's --primary for an empty accent, and the page head the neutral default, exactly as an empty accent did.
-                    $value = '';
                 } else {
+                    // null stays null ("use the theme"), so `config('kit.brand.accent', $fallback)` sees it as unset. kit:brand reads the theme's --primary for a
+                    // null accent, and the page head the neutral default, exactly as an empty accent did.
                     $value = $checked;
                 }
             }
-            Arr::set($brand, $key, $value);
+            // An empty string is unset, so a `config('kit.brand.*', $fallback)` default applies. This covers an empty KIT_BRAND_* value and a ''
+            // an older config/brand.php or kit release left in a non-colour key (an empty colour in config/brand.php is still refused above).
+            // An unset key is left out of kit.brand rather than set to null: Laravel's config() returns a present null as is, and only a missing key takes the default.
+            if (is_string($value) && trim($value) === '') {
+                $value = null;
+            }
+            if ($value === null) {
+                Arr::forget($brand, $key);
+            } else {
+                Arr::set($brand, $key, $value);
+            }
             $sources[$key] = $source;
         }
         $config->set('kit.brand', $brand);
