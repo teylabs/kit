@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **ActionBar gains `menuTriggerLabel?: string | null`.** A menu-only group (no inline segment) shows "Actions ⌄"; unset keeps that, a string replaces the text, and `null` leaves the ⌄ alone, still named "Actions" for assistive tech. `ActionBarProps` gains the optional prop.
+
+### Changed
+
+- **The `fillAll` divider follows the outline token.** It is `border-outline`, with the pill setting `--kit-outline` the way the inverse FloatingToolbar does (the current colour, here the primary text, at 20%; it was a fixed 25%). `dividerClass` still overrides it.
+
 ## v0.16.3
 
 ### Added

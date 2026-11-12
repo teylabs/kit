@@ -49,6 +49,7 @@ const props = withDefaults(
         fillAll?: boolean;
         dividerClass?: string;
         triggerClass?: string;
+        menuTriggerLabel?: string | null;
         wrap?: boolean;
         itemClass?: string;
     }>(),
@@ -60,6 +61,7 @@ const props = withDefaults(
         fillAll: false,
         dividerClass: undefined,
         triggerClass: undefined,
+        menuTriggerLabel: undefined,
         wrap: false,
         itemClass: undefined,
     },
@@ -173,7 +175,8 @@ onBeforeUnmount(() => {
     frame = 0;
 });
 // `fillAll` (opt-in, pill surface only): the whole group is one primary pill, every segment on it with the primary text, py-2, the first pl-3.5 and the rest
-// px-3; a disabled segment still dims. Its labels keep ButtonGroup's semibold, and its segments ButtonGroup's divider (a right border on all but the last), in
+// px-3; a disabled segment still dims. The divider is the pill's outline token, `border-outline`, with `--kit-outline` set on the group the way the inverse
+// FloatingToolbar sets it (the current colour, here the primary text, at 20%), so it follows the same token. Its labels keep ButtonGroup's semibold, and its segments ButtonGroup's divider (a right border on all but the last), in
 // the primary text at a quarter so it reads on the fill. The divider rule is under :where() (no specificity), so `dividerClass` (fillAll only, put on each
 // segment) overrides any of it: its colour, or `border-r-0` to drop it. `triggerClass` (fillAll only) goes last on the ⌄ trigger segment, so it can set the
 // trigger's padding, its chevron (`[&>svg]:size-5`) or a ring. Without a pill surface neither does anything; the default pill padding is unchanged.
@@ -184,7 +187,7 @@ const group = computed(() => [
         ? '[&>*:first-child]:rounded-l-full [&>*:last-child]:rounded-r-full'
         : '[&>*:first-child]:rounded-l-md [&>*:last-child]:rounded-r-md',
     fillAll.value &&
-        'rounded-full bg-primary text-primary-foreground shadow-xs [:where(&>*:not(:last-child))]:border-r [:where(&>*:not(:last-child))]:border-solid [:where(&>*:not(:last-child))]:border-primary-foreground/25',
+        'rounded-full bg-primary text-primary-foreground shadow-xs [--kit-outline:color-mix(in_oklab,currentColor_20%,transparent)] [:where(&>*:not(:last-child))]:border-r [:where(&>*:not(:last-child))]:border-solid [:where(&>*:not(:last-child))]:border-outline',
 ]);
 function segment(filled: boolean, first = false): string[] {
     const base =
@@ -218,6 +221,11 @@ const lead = (index: number) =>
         props.filled &&
             'bg-primary! text-primary-foreground! hover:bg-primary/90!',
     ];
+// A menu-only group's trigger (no inline segment) on the ButtonGroup path: 'Actions' beside the ⌄ unless the host gives `menuTriggerLabel`; null leaves the ⌄
+// alone, named "Actions" for assistive tech (ButtonGroup's menuLabel).
+const menuOnlyLabel = computed(() =>
+    props.menuTriggerLabel === undefined ? 'Actions' : props.menuTriggerLabel,
+);
 const holdFocus = (event: Event) => {
     if (props.dialogOpen) event.preventDefault();
 };
@@ -304,7 +312,8 @@ const holdFocus = (event: Event) => {
                     v-for="part in parts"
                     weight="semibold"
                     :key="part.key"
-                    :label="part.inline.length ? undefined : 'Actions'"
+                    :label="part.inline.length ? undefined : menuOnlyLabel"
+                    :menu-label="part.inline.length ? undefined : 'Actions'"
                     data-action-group
                     :data-action-layout="part.key"
                 >

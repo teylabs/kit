@@ -846,6 +846,8 @@ export interface ActionBarProps {
     dividerClass?: string;
     /** With `fillAll`: the host's classes, added last to the ⌄ menu-trigger segment (its padding, `[&>svg]:size-5` for the chevron, a ring). No effect elsewhere. */
     triggerClass?: string;
+    /** A menu-only group's trigger text (no inline segment, ButtonGroup path): unset is 'Actions', a string replaces it, null leaves the ⌄ alone, still named "Actions". */
+    menuTriggerLabel?: string | null;
     /** The host's own classes for each menu row (its row height, say), added after the row's own; destructive and disabled still apply. */
     itemClass?: string;
 }

@@ -8134,7 +8134,7 @@ const fillAll = async (theme) => {
             assert.deepEqual([seg.divider.width, seg.divider.style], ['1px', 'solid'], `segment ${i} draws ButtonGroup's 1px divider`);
             const [r, g, b, a] = await rgba(seg.divider.colour);
             assert.ok(Math.max(Math.abs(r - fg[0]), Math.abs(g - fg[1]), Math.abs(b - fg[2])) <= 2, `segment ${i}'s divider is the primary text colour (${seg.divider.colour})`);
-            assert.ok(a > 0.1 && a < 0.5, `segment ${i}'s divider is translucent on the fill, so it reads without shouting (${seg.divider.colour})`);
+            assert.ok(Math.abs(a - 0.2) < 0.03, `segment ${i}'s divider is the outline token: the primary text at 20%, as the inverse toolbar's outline (${seg.divider.colour})`);
         }
         assert.equal(all.segments.at(-1).divider.width, '0px', 'the last segment draws no divider');
         assert.deepEqual([all.segments.at(-1).action, all.segments.at(-1).pl, all.segments.at(-1).pr], [false, '12px', '12px'], 'the menu trigger (⌄) segment is px-3, like the others');
@@ -8196,3 +8196,25 @@ const fillAll = async (theme) => {
 };
 test('ActionBar fill-all (light): one primary pill with py-2, pl-3.5 then px-3, disabled dims; default pill unchanged; a panel-intent GET is a button that emits', () => fillAll('light'));
 test('ActionBar fill-all (dark): the same under the dark tokens', () => fillAll('dark'));
+// A menu-only ActionBar at phone width (?fill-all, 390px): its ⌄ trigger reads "Actions" unset, the host's text with menuTriggerLabel, and with null is
+// icon-only and still named "Actions".
+test('ActionBar menuTriggerLabel at 390px: unset "Actions", a string replaces it, null is icon-only and still named', async () => {
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        await tab.goto(`${url}?fill-all`);
+        await tab.waitForSelector('[data-menu-label-null] [data-button-group-menu]');
+        const trigger = (name) => tab.$eval(`[data-menu-label-${name}] [data-button-group-menu]`, el => ({ text: el.textContent.trim(), svg: Boolean(el.querySelector('svg[aria-hidden="true"]')) }));
+        assert.deepEqual(await trigger('unset'), { text: 'Actions', svg: true }, 'unset keeps "Actions ⌄"');
+        assert.deepEqual(await trigger('text'), { text: 'Trip', svg: true }, 'a string replaces it');
+        assert.deepEqual(await trigger('null'), { text: '', svg: true }, 'null leaves the chevron alone');
+        const named = tab.locator('[data-menu-label-null]').getByRole('button', { name: 'Actions', exact: true });
+        assert.equal(await named.count(), 1, 'the icon-only trigger keeps its accessible name');
+        await tab.screenshot({ path: `${process.env.SCREENSHOT_DIR ?? '/tmp'}/menu-trigger-label-390.png` });
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+});

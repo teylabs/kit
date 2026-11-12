@@ -31,13 +31,23 @@ test('fillAll is a new optional boolean defaulting off; filled keeps its boolean
 
 test('fillAll applies on a pill only: the group is the primary pill with ButtonGroup\'s divider, semibold segments py-2, the first pl-3.5 and the rest px-3, disabled still dims', () => {
     assert.match(bar, /const fillAll = computed\(\(\) => pill\.value && props\.fillAll\);/);
-    assert.match(bar, /fillAll\.value && 'rounded-full bg-primary text-primary-foreground shadow-xs \[:where\(&>\*:not\(:last-child\)\)\]:border-r \[:where\(&>\*:not\(:last-child\)\)\]:border-solid \[:where\(&>\*:not\(:last-child\)\)\]:border-primary-foreground\/25'\]\)/, 'ButtonGroup\'s divider, in a colour that reads on the fill, under :where() so dividerClass overrides it');
+    assert.match(bar, /fillAll\.value && 'rounded-full bg-primary text-primary-foreground shadow-xs \[--kit-outline:color-mix\(in_oklab,currentColor_20%,transparent\)\] \[:where\(&>\*:not\(:last-child\)\)\]:border-r \[:where\(&>\*:not\(:last-child\)\)\]:border-solid \[:where\(&>\*:not\(:last-child\)\)\]:border-outline'\]\)/, 'ButtonGroup\'s divider in the outline token, set as the inverse FloatingToolbar sets it, under :where() so dividerClass overrides it');
+    assert.match(read('Layout/FloatingToolbar.vue.stub'), /\[--kit-outline:color-mix\(in_oklab,currentColor_20%,transparent\)\]/, 'the same outline the inverse toolbar defines');
     assert.match(bar, /if \(fillAll\.value\) return \[base\.replace\('font-medium', 'font-semibold'\), 'bg-transparent py-2 text-primary-foreground hover:bg-primary-foreground\/10', first \? 'pr-3 pl-3\.5' : 'px-3', props\.dividerClass \?\? ''\];/);
     assert.match(bar, /const base = '[^']*disabled:opacity-50';/, 'the shared base keeps the disabled dimming');
     assert.match(bar, /pill\.value \? 'h-9 px-3\.5' : 'h-9 px-3'/, 'the default pill padding is unchanged');
     assert.equal((bar.match(/segment\(filled\([^)]*\)\)?, index === 0\)/g) ?? []).length, 2, 'both pill paths mark the first segment');
     assert.match(bar, /segment\(false, part\.inline\.length === 0\)/, 'a menu-only group\'s trigger is its first segment');
     assert.match(bar, /segment\(false, compact\.inline\.length === 0\)/);
+});
+
+test('menuTriggerLabel: unset keeps "Actions" on a menu-only trigger, a string replaces it, null leaves the chevron named "Actions"', () => {
+    assert.match(bar, /triggerClass\?: string; menuTriggerLabel\?: string \| null;/);
+    assert.match(bar, /menuTriggerLabel: undefined,/);
+    assert.match(read('contract.ts.stub'), /interface ActionBarProps \{[^}]*menuTriggerLabel\?: string \| null;/);
+    assert.match(bar, /:label="part\.inline\.length \? undefined : menuOnlyLabel" :menu-label="part\.inline\.length \? undefined : 'Actions'"/);
+    assert.match(bar, /const menuOnlyLabel = computed\(\(\) => props\.menuTriggerLabel === undefined \? 'Actions' : props\.menuTriggerLabel,?\s*\);/);
+    assert.doesNotMatch(bar, /:label="part\.inline\.length \? undefined : 'Actions'"/, 'no hard-coded trigger text');
 });
 
 test('a GET with intent panel is an operation (a button), like a dialog; a plain GET stays a link', () => {
