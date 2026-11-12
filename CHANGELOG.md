@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **Shell: the document title follows Back and Forward in the same render as the page.** The Workspace Layout's `<Head>` gives Inertia the page's `layout.documentTitle`, and Inertia writes the `<title>` on a timer after the page has rendered. So after every visit, and most visibly after Back (a history restore with no request), the heading, the current sidebar item and the address showed the new page while `document.title` still named the one left, for a moment. A browser test that reads the title as soon as the heading shows could land there, and failed either intermittently or every time, depending on timing. The kit's stubs did not change between v0.16.9 and v0.16.11 in this path: the race was there before. The Layout now also sets `document.title` in the same flush as the page (only while `documentTitle` is on), and `<Head>` then finds the title already equal. No public prop or slot changed.
+  - **Tests.** Browser (`forms.html?form=Password&shell`, Account › Profile and Password inside the Workspace Layout and the Account `SettingsFrame` on the real `@inertiajs/vue3`): a click, Back and Forward, each read from a MutationObserver the moment the sidebar marks the section current, with the frame kept mounted and the title already the section's. It fails without the fix on the first visit. Floor 310 → 311.
+  - Re-pins `shell` (`sha256:4a3a03a3…af9513` → `sha256:1b6c9a83…73c3`). `history.json`: only `current` changes.
+
 ## v0.16.11
 
 ### Added
