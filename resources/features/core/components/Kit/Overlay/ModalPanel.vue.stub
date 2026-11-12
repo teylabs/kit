@@ -188,9 +188,13 @@ onBeforeUnmount(() => {
     closing = true;
     stopOpening();
 });
-function close() {
+// Modal calls `settle` before any close it starts itself (a successful submit, `open` set to false, its exposed `close`), so the opening window ends as the leave begins.
+function settle() {
     closing = true;
     stopOpening();
+}
+function close() {
+    settle();
     emit('close');
 }
 // The package renders the dialog element (a native <dialog> by default, or a role=dialog one) and gives it no name, so the panel names it by its title
@@ -262,7 +266,7 @@ const keep = ref<{ $el: HTMLElement }>();
 watch(asking, (now) => {
     if (now) nextTick(() => keep.value?.$el?.focus());
 });
-defineExpose({ requestClose, titleId });
+defineExpose({ requestClose, settle, titleId });
 </script>
 <template>
     <div
