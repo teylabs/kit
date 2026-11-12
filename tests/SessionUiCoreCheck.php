@@ -258,7 +258,7 @@ try {
     check($navigated['navigation'] === [['label' => 'Dashboard', 'url' => '/dashboard', 'current' => true, 'group' => 'workspace']], 'without workspaces the shell lists the registered pages the Gate allows, root-relative and current by path; a denied or undefined ability is absent');
     check(array_column($navigated['user']['items'], 'label')[0] === 'Settings' && $navigated['user']['items'][0]['url'] === '/settings', 'a registered user-menu link (Settings) joins the account menu');
 
-    // kit.brand.lockup: a path (it has a slash) is the full lockup image, on in both shell sources; `true` and `false` keep their meaning with no image.
+    // kit.brand.lockup (set in config/brand.php): a path (it has a slash) is the full lockup image, on in both shell sources; `true` and `false` keep their meaning with no image.
     $lockupBefore = getenv('KIT_BRAND_LOCKUP');
     $configBefore = config('kit.brand.lockup');
     try {
@@ -268,7 +268,7 @@ try {
             $_ENV['KIT_BRAND_LOCKUP'] = $_SERVER['KIT_BRAND_LOCKUP'] = $value;
             $parsed[$value] = (require dirname(__DIR__).'/config/kit.php')['brand']['lockup'];
         }
-        check($parsed === ['/brand/lockup.svg' => '/brand/lockup.svg', 'true' => true, 'false' => false], 'KIT_BRAND_LOCKUP takes a path to a lockup image, and true or false as before');
+        check($parsed === ['/brand/lockup.svg' => false, 'true' => false, 'false' => false], 'config/kit.php no longer reads KIT_BRAND_LOCKUP (removed in 0.17): the lockup stays at its default, off');
         $guest = Request::create('https://kit.test/login', 'GET');
         foreach (['/brand/lockup.svg' => ['/brand/lockup.svg', true], true => [null, true], false => [null, false]] as $value => [$image, $on]) {
             config(['kit.brand.lockup' => $value === '/brand/lockup.svg' ? $value : (bool) $value]);

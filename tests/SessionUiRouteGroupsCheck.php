@@ -50,19 +50,20 @@ $token = str_repeat('a', 32);
 
 try {
     $on = groupsHost([]);
-    $groups = ['invitations.show', 'focus.welcome', 'focus.welcome.show', 'focus.welcome.skip', 'me.welcome.dismiss', 'me.passkey-offer.dismiss', 'demo.login'];
+    $groups = ['invitations.show', 'focus.welcome', 'focus.welcome.show', 'focus.welcome.skip', 'me.passkey-offer.dismiss', 'demo.login'];
     groupsCheck(array_diff($groups, $names($on)) === [], 'every group is on by default: invitations, welcome, passkey-offer and demo-login routes exist ('.implode(', ', array_diff($groups, $names($on))).')');
+    groupsCheck(! in_array('me.welcome.dismiss', $names($on), true) && in_array('focus.welcome.update', $names($on), true), 'the welcome card\'s dismiss route is gone (removed in 0.17); the /welcome onboarding steps stay');
     groupsCheck(str_contains($matched($on, 'GET', '/invitations/'.$token), 'InvitationController'), 'by default the kit serves /invitations/{token} (its routes load after the host\'s), as before');
 
     $off = groupsHost(['invitations' => false]);
     groupsCheck(! str_contains($actions($off), 'SessionUi\\Http\\InvitationController@') && str_contains($actions($on), 'SessionUi\\Http\\InvitationController@'), 'invitations off: none of the kit\'s invitation-link routes is registered (the People and workspace invitation management stays)');
     groupsCheck($off['router']->getRoutes()->getByName('invitations.show')?->uri() === 'invitations/{token}' && str_contains($matched($off, 'POST', '/invitations/'.$token), 'Closure') && ! str_contains($matched($off, 'POST', '/invitations/'.$token), 'Invitation'), 'invitations off: the host\'s own invitations.show and accept resolve, by name and by URL');
     groupsCheck(! str_contains($actions($off), 'InvitationAccountController') && str_contains($actions($on), 'InvitationAccountController'), 'invitations off: the invitation\'s account route is gone too');
-    groupsCheck(array_diff(['focus.welcome', 'focus.welcome.show', 'me.welcome.dismiss', 'me.passkey-offer.dismiss', 'demo.login', 'me.profile', 'home'], $names($off)) === [], 'invitations off: welcome, passkey-offer, the demo sign-in and the other pages stay');
+    groupsCheck(array_diff(['focus.welcome', 'focus.welcome.show', 'me.passkey-offer.dismiss', 'demo.login', 'me.profile', 'home'], $names($off)) === [], 'invitations off: welcome, passkey-offer, the demo sign-in and the other pages stay');
     groupsCheck(SessionUiRoutes::on('welcome') && ! SessionUiRoutes::on('invitations'), 'SessionUiRoutes::on reads the switches');
 
     $quiet = groupsHost(['welcome' => false, 'passkey-offer' => false, 'demo-login' => false]);
-    groupsCheck(array_intersect(['focus.welcome', 'focus.welcome.show', 'focus.welcome.update', 'focus.welcome.store', 'focus.welcome.skip', 'me.welcome.dismiss', 'me.passkey-offer.dismiss', 'demo.login'], $names($quiet)) === [], 'welcome, passkey-offer and demo-login off: their routes and names are absent');
+    groupsCheck(array_intersect(['focus.welcome', 'focus.welcome.show', 'focus.welcome.update', 'focus.welcome.store', 'focus.welcome.skip', 'me.passkey-offer.dismiss', 'demo.login'], $names($quiet)) === [], 'welcome, passkey-offer and demo-login off: their routes and names are absent');
     groupsCheck(str_contains($action($quiet, 'invitations.show'), 'InvitationController'), 'with the other groups off, the kit\'s invitation link stays');
     groupsCheck(! SessionUiRoutes::on('passkey-offer') && ! SessionUiRoutes::on('welcome'), 'SessionUiRoutes::on reports both off, which is what the passkey-offer share and the welcome redirect, card and after-join guards read');
 

@@ -436,9 +436,9 @@ final class Brand
     public const MAIL_CARD_DARK = '#18181b';
 
     /**
-     * The mail button's fill and label, in light and dark. The fill is `kit.brand.mail.button` (`KIT_BRAND_MAIL_BUTTON`), else the brand's light button: `ink`
+     * The mail button's fill and label, in light and dark. The fill is `kit.brand.mail.button`, else the brand's light button: `ink`
      * when the `button` role is ink (`style` mono), else the accent (BrandAssets::configuredAccent(), so an empty accent takes the theme's). The dark fill is
-     * `kit.brand.mail.button_dark` (`KIT_BRAND_MAIL_BUTTON_DARK`), else the dark accent when one is set, else the light fill. A colour that isn't a #rrggbb is
+     * `kit.brand.mail.button_dark`, else the dark accent when one is set, else the light fill. A colour that isn't a #rrggbb is
      * ignored, never printed. The label is white or near-black, whichever holds 4.5:1 on the fill (white when both do), else the higher of the two.
      *
      * @param  array<string, mixed>  $brand  `mail.brand`

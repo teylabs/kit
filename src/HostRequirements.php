@@ -218,6 +218,64 @@ final class HostRequirements
         return ['steps' => $steps, 'npm' => $npm, 'optional' => $optional, 'attention' => $warnings !== [], 'warnings' => $warnings];
     }
 
+    /** Where a host keeps what kit 0.17 removed: KIT_BRAND_* in env examples, CI, scripts and tests; the welcome card in its PHP. Paths under the host root. */
+    public const REMOVED_017_PLACES = ['brand' => ['.env*', 'phpunit.xml*', '.github', 'bin', 'tests'], 'welcome' => ['app', 'routes', 'tests']];
+
+    /**
+     * What tey/kit 0.17 removed and the host still uses, each a non-blocking attention step naming the files: a KIT_BRAND_* variable in an env file, CI,
+     * a script or a test (ignored since 0.17: config/brand.php is the only brand source), and the welcome card (`WelcomeCardData`, `WelcomeCardController`,
+     * the `me.welcome.dismiss` route) in the host's PHP. Welcome onboarding (`/welcome`, its steps and checklist) was not removed and is not flagged.
+     * Shown by kit:status and kit:update plan. Brand applies to every app; the welcome card step only with session-ui. vendor and node_modules are never read.
+     *
+     * @param  list<string>  $ids
+     * @return list<array<string, mixed>>
+     */
+    public static function removedIn017(string $root, array $ids): array
+    {
+        $scan = function (array $places, string $pattern, callable $accept) use ($root): array {
+            $found = [];
+            // A place with `*` is a root-level filename pattern (`.env*` takes .env.production, `phpunit.xml*` takes phpunit.xml.ci).
+            $paths = [];
+            foreach ($places as $place) {
+                array_push($paths, ...(str_contains($place, '*') ? array_filter(glob($root.'/'.$place, GLOB_NOSORT) ?: [], 'is_file') : [$root.'/'.$place]));
+            }
+            foreach ($paths as $path) {
+                $files = is_file($path) ? [$path] : (is_dir($path) ? iterator_to_array(new \RecursiveIteratorIterator(new \RecursiveCallbackFilterIterator(
+                    new \RecursiveDirectoryIterator($path, \FilesystemIterator::SKIP_DOTS),
+                    fn (\SplFileInfo $file): bool => ! in_array($file->getFilename(), ['vendor', 'node_modules', '.git'], true),
+                )), false) : []);
+                foreach ($files as $file) {
+                    $file = (string) $file;
+                    if (! is_file($file) || filesize($file) > 1048576 || ! $accept($file)) {
+                        continue;
+                    }
+                    if (preg_match_all($pattern, (string) file_get_contents($file), $m) > 0) {
+                        $found[ltrim(str_replace('\\', '/', substr($file, strlen($root))), '/')] = array_values(array_unique($m[0]));
+                    }
+                }
+            }
+            ksort($found);
+
+            return $found;
+        };
+        $list = fn (array $found): string => implode('; ', array_map(fn (string $file, array $hits): string => $file.' ('.implode(', ', $hits).')', array_keys($found), $found));
+        $steps = [];
+        $brand = $scan(self::REMOVED_017_PLACES['brand'], '/\bKIT_BRAND_[A-Z0-9_]+/', fn (string $file): bool => true);
+        $steps[] = ['feature' => in_array('core', $ids, true) ? 'core' : ($ids[0] ?? 'core'), 'kind' => 'file', 'step' => 'env brand keys', 'why' => 'tey/kit 0.17 no longer reads KIT_BRAND_* env values',
+            'status' => $brand === [] ? 'met' : 'unmet', 'blocking' => false,
+            'message' => $brand === [] ? 'no KIT_BRAND_* in env files, CI, bin or tests'
+                : 'KIT_BRAND_* is ignored since tey/kit 0.17 (config/brand.php is the only brand source; php artisan kit:brand:migrate moves the values there). Remove it from: '.$list($brand).'.'];
+        if (in_array('session-ui', $ids, true)) {
+            $welcome = $scan(self::REMOVED_017_PLACES['welcome'], '/\bWelcomeCard(?:Data|Controller)\b|me\.welcome\.dismiss/', fn (string $file): bool => str_ends_with($file, '.php'));
+            $steps[] = ['feature' => 'session-ui', 'kind' => 'file', 'step' => 'welcome card', 'why' => 'tey/kit 0.17 removed the dashboard welcome card',
+                'status' => $welcome === [] ? 'met' : 'unmet', 'blocking' => false,
+                'message' => $welcome === [] ? 'no app code uses the removed welcome card'
+                    : 'The dashboard welcome card was removed in tey/kit 0.17 (WelcomeCardData, WelcomeCardController, the welcome prop and me.welcome.dismiss; /welcome onboarding stays). Remove it from: '.$list($welcome).'. Personal steps are in the You card and workspace steps in the setup card (docs/dashboard.md).'];
+        }
+
+        return $steps;
+    }
+
     /** The workspaces feature's switch tasks: the only path that enters Concierge's context and flushes Pennant on a tenant switch. */
     public const SWITCH_TASKS = ['Tey\\Kit\\Features\\Workspaces\\Tasks\\ConciergeContextTask', 'Tey\\Kit\\Features\\Workspaces\\Tasks\\FlushFeatureCacheTask'];
 

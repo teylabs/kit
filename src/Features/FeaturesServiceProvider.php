@@ -249,7 +249,7 @@ final class FeaturesServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->mergeConfigFrom(dirname(__DIR__, 2).'/config/kit.php', 'kit');
-        // The brand resolves now, before any provider boots: config/brand.php, then the deprecated KIT_BRAND_* env, then the kit default. An invalid colour throws
+        // The brand resolves now, before any provider boots: config/brand.php, then the kit default (a KIT_BRAND_* variable still set is ignored and logged). An invalid colour throws
         // in local and testing, except under kit:brand:migrate (the way out of it) and kit:status (which reports it), and anywhere else is logged and takes the
         // default. The log lines wait for boot.
         $lenient = $this->app->runningInConsole() && BrandConfig::lenientCommand((array) ($_SERVER['argv'] ?? []));
@@ -334,7 +334,7 @@ final class FeaturesServiceProvider extends ServiceProvider
         $this->optimizes('structure-scouts:cache', 'structure-scouts:clear', 'kit-structure-scouts');
         // Published files are the app's own (host-owned): no feature generates or owns them.
         $this->publishes([dirname(__DIR__, 2).'/config/kit.php' => $this->app->configPath('kit.php')], 'kit-config');
-        // The app's own brand file, every key commented out at the kit's default: uncomment a key to set it (it then wins over its KIT_BRAND_* env value).
+        // The app's own brand file, every key commented out at the kit's default: uncomment a key to set it (it then wins over the kit default).
         $this->publishes([dirname(__DIR__, 2).'/resources/stubs/brand.php' => $this->app->configPath('brand.php')], 'kit-brand');
         // The self-hosted font files (kit.fonts_source = self): <x-kit::fonts /> points at public/vendor/kit/fonts.
         $this->publishes([dirname(__DIR__, 2).'/resources/fonts/files' => $this->app->publicPath(Fonts::PUBLISHED)], 'kit-fonts');

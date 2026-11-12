@@ -268,7 +268,7 @@ try {
         [$outsider] = $request('outsider', $method, $path, $method !== 'GET');
         httpCheck($owner === 200 && $member === 403 && $outsider === 404, $label.": the owner gets through ($owner), a member without the permission gets 403, a non-member 404");
     }
-    // The three controllers that take {workspace} outside a workspace request check membership themselves: a signed-in person who is not a member
+    // The two controllers that take {workspace} outside a workspace request check membership themselves: a signed-in person who is not a member
     // (`outsider`, in no workspace, and `elsewhere`, a member of another one) is refused and changes nothing.
     $beta = Workspace::create(['name' => 'Beta', 'slug' => 'beta']);
     $people['elsewhere'] = HttpUser::create(['name' => 'Elsewhere', 'email' => 'elsewhere@example.test', 'email_verified_at' => now()]);
@@ -283,14 +283,13 @@ try {
         $before = $memberships();
         [$status] = $request($who, 'DELETE', '/me/workspaces/acme/membership', true);
         httpCheck(in_array($status, [403, 404], true) && $memberships() === $before, "leaving a workspace $who is not a member of is refused ($status), and no membership row changes");
-        [$status] = $request($who, 'DELETE', '/me/welcome/'.$workspace->id, true);
-        httpCheck(in_array($status, [403, 404], true) && $states() === 0, "dismissing the welcome card of a workspace $who is not a member of is refused ($status), and nothing is written");
     }
-    // A member still gets the redirect and the dismissal, so the refusals above are about membership.
+    // A member still gets the redirect, so the refusals above are about membership.
     [$status] = $request('member', 'GET', '/workspaces/'.$workspace->id.'/settings', true);
     httpCheck($status === 301, 'a member following an old address is redirected');
+    // The welcome card's dismiss was removed in 0.17: the address is no route for anyone, and nothing is written.
     [$status] = $request('member', 'DELETE', '/me/welcome/'.$workspace->id, true);
-    httpCheck($states() === 1, 'a member dismisses their welcome card');
+    httpCheck(in_array($status, [404, 405], true) && $states() === 0, "the removed welcome card's dismiss is no route ($status), even for a member, and writes nothing");
 
     // A 403 page words Concierge's refusal only for an allowlisted code (not_active): changing the role of a suspended member shows Concierge's own message,
     // with the recovery link. Every other 403 keeps the generic copy, and no exception detail reaches the page.

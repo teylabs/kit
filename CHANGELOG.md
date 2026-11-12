@@ -7,6 +7,30 @@
 - **Release notes name the lineages to update.** `php bin/release-lineages.php [<from-ref> [<to-ref>]]` compares the feature pins in `src/Catalog.php` between two refs (by default the newest `vX.Y.Z` tag before HEAD, and HEAD) and prints the line for the release notes: ``Run `php artisan kit:update` for: core, shell``, or that no pin changed (`composer update` is enough). A feature new at the later ref gets a `kit:add` line instead. docs/releasing.md makes it part of the release step (#918). Release tooling only: no stub, pin or public API changed.
   - **Tests.** `test:release-lineages` (`tests/ReleaseLineagesCheck.php`): unchanged, one changed and several changed pins (named in catalog order, unchanged ones left out), a new feature, a catalog with no pins refused, and the command on a made-up repository (default base, a tag on HEAD itself skipped, two named refs, an unknown ref failing).
 
+## v0.17.0
+
+A minor release (v0.17.0): it removes the `KIT_BRAND_*` env brand fallback and the dashboard welcome card, both deprecated since 0.15.
+
+### Removed
+
+- **The `KIT_BRAND_*` env fallback.** `config/brand.php` is the brand's only source: each key is its value there, else the kit's default. A `KIT_BRAND_*` variable still set is ignored, logged once at boot, and named by `kit:status` (`brand_env_ignored` in `--json`). `kit:brand:migrate` still writes `config/brand.php` from the values still set (run it before `config:cache`). A `kit.brand` value set anywhere else (a published pre-0.17 `config/kit.php`, or a config cache built before the upgrade) is ignored too, and logged once naming the key, so it is moved rather than silently lost. `kit:status` lists sources as `config` or `default`; `env (deprecated)` and `empty in env (theme)` are gone.
+  - **Tests.** BrandConfigCheck: a stale `kit.brand` value takes the default and is logged once, while `config/brand.php` still wins. StatusCheck: `brand_env_ignored` appears in the no-adoption JSON too, and the 0.17 step finds `.env.production` and `phpunit.xml.ci`.
+- **The dashboard welcome card.** The `welcome` prop on the dashboard Page, `WelcomeCardData` (and its TypeScript type), `WelcomeCardController` and the `me.welcome.dismiss` route are removed. An app that still sends `welcome` gets nothing rendered for it. Onboarding stays: `/welcome`, its steps and the dashboard checklist are unchanged.
+  - **Tests.** HostBootCheck asserts `me.welcome.dismiss` is gone in auth-only and full adoption while `/welcome` stays. Browser (`dashboard.html?legacy`): a Page sent a `welcome` prop renders no `[data-welcome-card]`, checklist or Dismiss, light and dark, axe clean (it replaces the old card test, so the count and its floor stay at 315).
+
+### Added
+
+- **A 0.17 attention step (`HostRequirements::removedIn017`).** `kit:status` and `kit:update plan` name the host files that still use what 0.17 removed: `KIT_BRAND_` in any root-level `.env*` or `phpunit.xml*` file, `.github`, `bin/` and `tests`; `WelcomeCardData`, `WelcomeCardController` or `me.welcome.dismiss` in `app`, `routes` and `tests` (with session-ui). It is never blocking, and appears only when something is found.
+
+### Upgrading
+
+Both removals land together. Onboarding, `/welcome`, its steps and the checklist stay; only the standalone card goes.
+
+- **Brand.** Before updating, run `php artisan kit:brand:migrate` (it needs the old values still set) and commit `config/brand.php`. Then grep `.github`, `.env.example`, `bin/` and `tests` for `KIT_BRAND_`, and move anything that sets one, and any `brand` key in a published `config/kit.php`, into `config/brand.php` (or a generated one in CI): a CI job or test that sets `KIT_BRAND_*` now changes nothing. Remove the variables from `.env` and your platform's environment. See [docs/upgrading-brand-config.md](docs/upgrading-brand-config.md).
+- **Welcome card.** Delete any `WelcomeCardData`, `welcome` prop or `me.welcome.dismiss` use in the app; the 0.17 attention step names the files.
+- Run `kit:update plan|apply` for `workspace-ui`, then `composer types:generate` so the app's generated types drop `WelcomeCardData`, then `php artisan kit:status`: no ignored `KIT_BRAND_*` variable and no 0.17 attention step should remain.
+- Re-pins `workspace-ui` (`sha256:dd0ddbf0…24ae` → `sha256:74d1cd5e…863d`: pages/Workspace/Dashboard/Page.vue). `shell`, `session-ui` and every other lineage are unchanged by this release (after v0.16.16). `history.json`: only `current` changes.
+
 ## v0.16.16
 
 ### Fixed

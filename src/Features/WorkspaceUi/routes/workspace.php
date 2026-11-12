@@ -32,7 +32,6 @@ use Tey\Kit\Features\SessionUi\Http\TenantInvitationAccountController;
 use Tey\Kit\Features\SessionUi\Http\TenantInvitationController;
 use Tey\Kit\Features\SessionUi\Http\TransferOwnershipModalController;
 use Tey\Kit\Features\SessionUi\Http\TwoFactorController;
-use Tey\Kit\Features\SessionUi\Http\WelcomeCardController;
 use Tey\Kit\Features\SessionUi\Http\WidgetSortController;
 use Tey\Kit\Features\SessionUi\Http\WorkspaceDeletionController;
 use Tey\Kit\Features\SessionUi\Http\WorkspaceSectionsController;
@@ -152,12 +151,6 @@ Route::middleware(['auth:web', 'concierge.active'])->group(function (): void {
 app(PlaceholderRoutes::class)->register();
 // Where a signed-in person with no workspace lands (a new account, or after leaving or being removed): FocusShell, never a 403.
 WorkspaceRoutes::personalPage(Route::get('no-workspace', NoWorkspaceController::class)->middleware('auth:web')->name('focus.no-workspace'), 'No workspace yet', $home);
-// The dashboard's welcome card's dismiss. Group `welcome` (SessionUiRoutes), with the welcome steps.
-if (SessionUiRoutes::on('welcome')) {
-    Route::controller(WelcomeCardController::class)->middleware('auth:web')->group(function (): void {
-        Route::delete('me/welcome/{workspace}', 'destroy')->where('workspace', '[0-9]+')->name('me.welcome.dismiss');
-    });
-}
 // The first-run demo's one-click sign-in: signed, expiring and local only (a 404 anywhere else; Concierge's own environment check decides). Group `demo-login`.
 if (SessionUiRoutes::on('demo-login')) {
     Route::get('demo-login/{user}', DemoLoginController::class)->where('user', '[0-9]+')->middleware('signed')->name('demo.login');
