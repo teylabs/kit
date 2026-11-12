@@ -179,7 +179,8 @@ onBeforeUnmount(() => {
 // the outline token, `border-outline`, with `--kit-outline` set on the group the way the inverse FloatingToolbar sets it (the current colour, here the primary
 // text, at 20%), so it reads on the fill. The divider rule is under :where() (no specificity), so `dividerClass` (fillAll only, put on each
 // segment) overrides any of it: its colour, or `border-r-0` to drop it. `triggerClass` goes last on the ⌄ trigger (the fillAll segment here; on the ButtonGroup path, ButtonGroup's trigger), so it can set the
-// trigger's padding, its chevron (`[&>svg]:size-5`) or a ring. Without a pill surface neither does anything; the default pill padding is unchanged.
+// trigger's padding, its chevron (`[&>svg]:size-5`) or a ring; only a plain (non-fillAll) pill's trigger ignores it. fillAll and `dividerClass` need a pill
+// surface and do nothing without one; the default pill padding is unchanged.
 const fillAll = computed(() => pill.value && props.fillAll);
 const group = computed(() => [
     'inline-flex isolate min-w-0 [&>*+*]:-ml-px',
