@@ -59,6 +59,9 @@ use Throwable;
  */
 final class FeaturesServiceProvider extends ServiceProvider
 {
+    /** @var list<string>|null the adopted features, once read */
+    private ?array $features = null;
+
     /** Feature id => [provider, required features], in canonical order; the graph matches the starter's FeatureGraphTest. */
     public const FEATURES = [
         'core' => [CoreProvider::class, []],
@@ -127,6 +130,17 @@ final class FeaturesServiceProvider extends ServiceProvider
     }
 
     /**
+     * What `kit:cache` stores for one app id, read live: the adopted lineages, whether session-ui carries workspace-ui, and the host tables
+     * the workspaces lineage adopted (null when its record cannot be read). A record that cannot be read throws.
+     *
+     * @return array{lineages: list<string>, carry: bool, tables: list<string>|null}
+     */
+    public static function discover(string $root, string $appId): array
+    {
+        return ['lineages' => array_keys(Lineages::adopted($root, $appId)), 'carry' => self::carriesWorkspaceUi($root, $appId), 'tables' => self::adoptedTables($root, $appId)];
+    }
+
+    /**
      * Route options for one feature from `kit.routes.<id>`.
      *
      * @return array{enabled: bool, prefix: string, middleware: list<string>, name: string}
@@ -176,10 +190,12 @@ final class FeaturesServiceProvider extends ServiceProvider
         try {
             $appId = config('kit.app_id') ?? ($this->app->bound(LifecycleHost::class) ? $this->app->make(LifecycleHost::class)->appId() : config('kit-lifecycle.app_id'));
             if (is_string($appId) && $appId !== '') {
-                $adopt = Checkout::artifact($this->app->basePath(), $appId, Lineages::name('workspaces'))?->metadata['adopt'] ?? null;
-                $tables = is_array($adopt) && is_array($adopt['tables'] ?? null) ? $adopt['tables'] : [];
+                $tables = DiscoveryCache::entry($this->app, $appId)['tables'] ?? self::adoptedTables($this->app->basePath(), $appId);
             }
         } catch (Throwable) {
+            return;
+        }
+        if ($tables === null) {
             // No readable record: the flags stay null, and the migrations adopt only the tables the database already has.
             return;
         }
@@ -190,8 +206,31 @@ final class FeaturesServiceProvider extends ServiceProvider
         }
     }
 
+    /**
+     * The host tables kit:add recorded on the workspaces lineage, or null when the record cannot be read.
+     *
+     * @return list<string>|null
+     */
+    private static function adoptedTables(string $root, string $appId): ?array
+    {
+        try {
+            $adopt = Checkout::artifact($root, $appId, Lineages::name('workspaces'))?->metadata['adopt'] ?? null;
+        } catch (Throwable) {
+            return null;
+        }
+
+        return is_array($adopt) && is_array($adopt['tables'] ?? null) ? array_values(array_filter($adopt['tables'], 'is_string')) : [];
+    }
+
     /** @return list<string> */
     private function features(): array
+    {
+        // Read once per provider: register and boot both need them, and the lineages behind them do not change within a request.
+        return $this->features ??= $this->resolveFeatures();
+    }
+
+    /** @return list<string> */
+    private function resolveFeatures(): array
     {
         $appId = config('kit.app_id');
         $override = config('kit.features');
@@ -201,7 +240,15 @@ final class FeaturesServiceProvider extends ServiceProvider
             $appId = $this->app->bound(LifecycleHost::class) ? $this->app->make(LifecycleHost::class)->appId() : config('kit-lifecycle.app_id');
         }
 
-        return self::selected(self::carried($this->app->basePath(), $appId, self::adopted($this->app->basePath(), $appId, $override)));
+        $root = $this->app->basePath();
+        $cached = is_string($appId) && $appId !== '' ? DiscoveryCache::entry($this->app, $appId) : null;
+        if ($cached === null) {
+            return self::selected(self::carried($root, $appId, self::adopted($root, $appId, $override)));
+        }
+        // The same answer from the record as cached by kit:cache, unchanged since (DiscoveryCache checks).
+        $ids = $override ?? $cached['lineages'];
+
+        return self::selected($cached['carry'] && self::mayCarry($ids) ? [...$ids, 'workspace-ui'] : $ids);
     }
 
     /**
@@ -218,6 +265,13 @@ final class FeaturesServiceProvider extends ServiceProvider
         if ($ids === null || $appId === null || $appId === '' || ! self::mayCarry($ids)) {
             return $ids;
         }
+
+        return self::carriesWorkspaceUi($root, $appId) ? [...$ids, 'workspace-ui'] : $ids;
+    }
+
+    /** Whether the installed lineages carry workspace-ui for a selection that names session-ui without it (see carried()). */
+    private static function carriesWorkspaceUi(string $root, string $appId): bool
+    {
         $installed = Checkout::installed($root, $appId);
         $session = $installed[Lineages::name('session-ui')] ?? null;
         $carry = isset($installed[Lineages::name('workspace-ui')]);
@@ -231,7 +285,7 @@ final class FeaturesServiceProvider extends ServiceProvider
             $carry = array_intersect($pages, array_keys($session['files'])) !== [] || $released !== [];
         }
 
-        return $carry ? [...$ids, 'workspace-ui'] : $ids;
+        return $carry;
     }
 
     /** A page of the first workspace-ui split: under pages/Workspace or pages/Provision. */
@@ -330,8 +384,10 @@ final class FeaturesServiceProvider extends ServiceProvider
         if ($features !== []) {
             Event::listen(DiagnosingHealth::class, fn (DiagnosingHealth $event) => (new HealthChecks($placeholderCheck ? Brand::placeholders(...) : static fn (): array => [], $features))->handle($event));
         }
-        $this->commands([PreflightCommand::class, FirstRunDemoCommand::class]);
+        $this->commands([PreflightCommand::class, FirstRunDemoCommand::class, CacheCommand::class, ClearCommand::class]);
         $this->optimizes('structure-scouts:cache', 'structure-scouts:clear', 'kit-structure-scouts');
+        // The installed record's answers (adopted lineages, adopted tables), read once at deploy instead of on every request.
+        $this->optimizes('kit:cache', 'kit:clear', 'kit');
         // Published files are the app's own (host-owned): no feature generates or owns them.
         $this->publishes([dirname(__DIR__, 2).'/config/kit.php' => $this->app->configPath('kit.php')], 'kit-config');
         // The app's own brand file, every key commented out at the kit's default: uncomment a key to set it (it then wins over the kit default).

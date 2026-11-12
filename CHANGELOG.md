@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **The composition root no longer reads the installed lineage record on every request (#939).** `FeaturesServiceProvider` read and verified every `.mod-maintenance/installed` record on each request: once in `register()` for the kit's `adopt` flags, and twice more (register and boot) to find the adopted features when `kit.features` is unset. `php artisan optimize` now runs `kit:cache`, which stores those answers per app id in `bootstrap/cache/kit-features.php`, and `optimize:clear` runs `kit:clear`, which removes it. Measured in the starter (`APP_ENV=production`, `optimize` run, opcache on, `php -S` loop, median of 30 requests to `/up`):
+
+  | `register()` + `boot()` | before | after |
+  | --- | --- | --- |
+  | `kit.features` set (the starter's default) | 62.0 ms + 0.1 ms | 0.4 ms + 0.1 ms |
+  | `kit.features` unset (features read from the lineages) | 149.9 ms + 88.3 ms | 0.5 ms + 0.1 ms |
+  | `kit.features` unset, no `optimize` run | 149.9 ms + 88.3 ms | 151.2 ms + 0.1 ms (boot reuses register's read) |
+
+  Everything else in `register()` (brand, gretel, the feature providers, the bindings, `Event::listen`) measured under 0.1 ms each, so it is unchanged: no provider was made deferred.
+  - **Fails closed.** Each entry keeps a fingerprint of the record's files (name, inode, size, mtime, ctime) and of the installed kit, re-taken with a few `lstat` calls per request and no file opened. Any change (kit:add, kit:update, kit:remove, a hand edit, a `composer update`) misses, and the request reads the record live, with its verification and errors, exactly as before. A missing, unreadable or older-format cache file is a miss. `kit:cache` caches nothing when the record does not verify. It waits for the clock to pass every record's ctime before taking the fingerprint, so a write in the same second is never hidden. `kit.features`, `kit.app_id` and the `adopt` flags in config still win and are read on every request.
+  - **Upgrading.** Nothing to do: deploys that run `php artisan optimize` get the cache. A deploy that runs only `config:cache` keeps the live read, and still saves boot's second read. A patch: additive, no public signature changed, and only `src/`, tests and the changelog changed, so nothing to re-pin.
+  - **Tests.** `test:adopt-fresh` builds a real installed record. Without the cache, `register()` opens its files, which a recording `file://` wrapper sees. After `kit:cache`, it opens none and sets the same `adopt` flags, and the lineage features match the live answer. Any change to a record misses, and an unreadable record leaves the flags null, as without a cache. Restoring the record's bytes still misses until `kit:cache` runs again. `optimize`/`optimize:clear` run `kit:cache`/`kit:clear`, and `kit:clear` removes the file. The no-files check fails when the cache lookup is disabled.
+
 ## v0.17.2
 
 No lineage pin changed: `composer update` is enough.
