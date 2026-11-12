@@ -40,4 +40,7 @@ test('every menu row adds it after its own classes; destructive and disabled sta
     assert.match(link, /const control = \(own: string\) => cn\(own, itemClass\(\)\);/);
     assert.equal((link.match(/:class="control\('[^']*px-4 py-2[^']*'\)"/g) ?? []).length, 3, 'button, anchor and Inertia link');
     assert.doesNotMatch(link, /<DropdownMenuItem[^>]*itemClass/);
+    const modal = read('Menu/DropdownModalLink.vue.stub');
+    assert.match(modal, /provideMenuItemClass\(\(\) => undefined\);/, 'DropdownModalLink keeps it off its DropdownItem row');
+    assert.match(modal, /:class="linkClass\(\)"/, 'and merges it onto its ModalLink');
 });

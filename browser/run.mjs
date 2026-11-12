@@ -8104,7 +8104,7 @@ test('ActionBar item-class: every menu row takes the host class; destructive and
 
 // ── ButtonGroup `item-class` on DropdownItem / DropdownLink rows (?item-class): the host's "gap-2 px-4 py-2" lands on each row's own control, so a button, anchor
 // and Inertia-link row is the same height and padding as without it, not padded twice ──────────────────────────────────────────────────────────────────────
-test('ButtonGroup item-class="gap-2 px-4 py-2": DropdownItem and DropdownLink rows keep a single padding (button, anchor, Inertia link)', async () => {
+test('ButtonGroup item-class="gap-2 px-4 py-2": DropdownItem and DropdownLink rows keep a single padding (button, anchor, Inertia link), and DropdownModalLink', async () => {
     const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
     try {
         const tab = await context.newPage();
@@ -8124,7 +8124,7 @@ test('ButtonGroup item-class="gap-2 px-4 py-2": DropdownItem and DropdownLink ro
         };
         const plain = await rows('unset');
         const styled = await rows('set');
-        assert.equal(styled.length, 6, `six rows: DropdownItem and DropdownLink as button, anchor and Inertia link (${styled.length})`);
+        assert.equal(styled.length, 7, `seven rows: DropdownItem and DropdownLink as button, anchor and Inertia link, and a DropdownModalLink (${styled.length})`);
         styled.forEach((row, i) => {
             assert.equal(row.height, plain[i].height, `row ${i} is as tall as without itemClass (${row.height} vs ${plain[i].height})`);
             assert.deepEqual(row.rowPadding, ['0px', '0px'], `row ${i}: the menu row itself is not padded`);
