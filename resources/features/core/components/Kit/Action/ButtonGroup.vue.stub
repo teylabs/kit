@@ -12,7 +12,7 @@ import MenuTrigger from '@/components/Kit/Menu/MenuTrigger.vue';
  * outline around the segments, a divider between them, no border or radius of their own, so nothing looks nested; the menu trigger is its own outlined
  * segment beside them. A disabled segment is dimmed, hover included. Segments are semibold in the outline's text colour and dim on hover. `appearance="text"` drops the outline and
  * fill for link-style actions in a quiet header. `label` puts words beside the chevron; `menuLabel` names the trigger for assistive tech ("More actions" by
- * default). `offset` is the menu's [skid, gap] from the trigger. Layout only: it runs nothing itself. Written clean-room on the kit's paper and outline tokens.
+ * default). `triggerClass` is added last to the menu trigger's classes. `offset` is the menu's [skid, gap] from the trigger. Layout only: it runs nothing itself. Written clean-room on the kit's paper and outline tokens.
  */
 const props = withDefaults(
     defineProps<{
@@ -22,6 +22,7 @@ const props = withDefaults(
         offset?: [number, number];
         weight?: 'medium' | 'semibold';
         itemClass?: string;
+        triggerClass?: string;
     }>(),
     {
         label: null,
@@ -30,6 +31,7 @@ const props = withDefaults(
         offset: () => [0, 10],
         weight: 'medium',
         itemClass: undefined,
+        triggerClass: undefined,
     },
 );
 // `itemClass`: the host's own classes for each row in #menu (its row height, say), added after the row's own; destructive and disabled still apply.
@@ -123,6 +125,7 @@ function checkIcons(el: unknown): void {
                                 !text &&
                                     $slots.default &&
                                     '-ml-px rounded-l-none',
+                                triggerClass,
                             ]"
                             data-button-group-menu
                         >

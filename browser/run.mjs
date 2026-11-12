@@ -8147,7 +8147,7 @@ const fillAll = async (theme) => {
         }
         assert.equal(own.segments.at(-1).divider.width, '0px', 'dividerClass: the last segment draws no divider');
         // triggerClass goes last on the ⌄ trigger: pl-3.5 pr-2 and a 20px chevron make it 42px; dividerClass="border-r-0" drops the default divider.
-        // The same held to 90px, where the bar compacts: the compact layout's trigger takes triggerClass too.
+        // The same held to 170px, where the bar compacts: the compact layout's trigger takes triggerClass too.
         const trigger = (selector) => tab.$eval(selector, group => {
             const [lead, trigger] = group.children;
             return { lead: getComputedStyle(lead).borderRightWidth, width: trigger.getBoundingClientRect().width, menu: trigger.hasAttribute('data-action-menu'), pl: getComputedStyle(trigger).paddingLeft, pr: getComputedStyle(trigger).paddingRight, svg: trigger.querySelector('svg').getBoundingClientRect().width, ring: getComputedStyle(trigger).boxShadow };
@@ -8197,8 +8197,8 @@ const fillAll = async (theme) => {
 test('ActionBar fill-all (light): one primary pill with py-2, pl-3.5 then px-3, disabled dims; default pill unchanged; a panel-intent GET is a button that emits', () => fillAll('light'));
 test('ActionBar fill-all (dark): the same under the dark tokens', () => fillAll('dark'));
 // A menu-only ActionBar at phone width (?fill-all, 390px): its ⌄ trigger reads "Actions" unset, the host's text with menuTriggerLabel, and with null is
-// icon-only and still named "Actions".
-test('ActionBar menuTriggerLabel at 390px: unset "Actions", a string replaces it, null is icon-only and still named', async () => {
+// icon-only and named "More actions" (ButtonGroup's default). triggerClass reaches ButtonGroup's trigger, full and compact.
+test('ActionBar menuTriggerLabel at 390px: unset "Actions", a string replaces it, null is icon-only and named "More actions"; triggerClass on ButtonGroup\'s trigger', async () => {
     const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
     try {
         const tab = await context.newPage();
@@ -8210,8 +8210,16 @@ test('ActionBar menuTriggerLabel at 390px: unset "Actions", a string replaces it
         assert.deepEqual(await trigger('unset'), { text: 'Actions', svg: true }, 'unset keeps "Actions ⌄"');
         assert.deepEqual(await trigger('text'), { text: 'Trip', svg: true }, 'a string replaces it');
         assert.deepEqual(await trigger('null'), { text: '', svg: true }, 'null leaves the chevron alone');
-        const named = tab.locator('[data-menu-label-null]').getByRole('button', { name: 'Actions', exact: true });
-        assert.equal(await named.count(), 1, 'the icon-only trigger keeps its accessible name');
+        const named = tab.locator('[data-menu-label-null]').getByRole('button', { name: 'More actions', exact: true });
+        assert.equal(await named.count(), 1, 'the icon-only trigger is named "More actions"');
+        assert.equal(await tab.locator('[data-menu-label-unset]').getByRole('button', { name: 'Actions', exact: true }).count(), 1, 'unset is still named by its "Actions" text');
+        await tab.waitForSelector('[data-menu-trigger-class-compact] [data-action-layout="compact"]');
+        for (const [name, selector] of [['full', '[data-menu-trigger-class] [data-button-group-menu]'], ['compact', '[data-menu-trigger-class-compact] [data-action-layout="compact"] [data-button-group-menu]']]) {
+            const box = await tab.$eval(selector, el => ({ ml: getComputedStyle(el).marginLeft, tl: getComputedStyle(el).borderTopLeftRadius, bl: getComputedStyle(el).borderBottomLeftRadius }));
+            assert.deepEqual(box, { ml: '-1px', tl: '0px', bl: '0px' }, `${name}: triggerClass="-ml-px rounded-l-none" reaches ButtonGroup's trigger`);
+        }
+        const fillTrigger = await tab.$eval('[data-fill-all-trigger-compact] [data-action-layout="compact"] [data-action-menu]', el => { const r = el.getBoundingClientRect(); const s = el.closest('[data-surface]').getBoundingClientRect(); return r.right <= s.right && r.left >= s.left; });
+        assert.ok(fillTrigger, 'the compacted fill-all pill keeps its trigger inside the surface');
         await tab.screenshot({ path: `${process.env.SCREENSHOT_DIR ?? '/tmp'}/menu-trigger-label-390.png` });
         assert.deepEqual(errors, []);
     } finally {

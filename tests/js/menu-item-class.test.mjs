@@ -17,7 +17,7 @@ test('itemClass is an optional string on ActionBar and ButtonGroup, in the compo
     assert.match(group, /itemClass\?: string[;}]/);
     const contract = read('contract.ts.stub');
     assert.match(contract, /interface ActionBarProps \{[^}]*itemClass\?: string\}/);
-    assert.match(contract, /interface ButtonGroupProps \{[^}]*itemClass\?: string\}/);
+    assert.match(contract, /interface ButtonGroupProps \{[^}]*itemClass\?: string;[^}]*triggerClass\?: string\}/);
 });
 
 test('ActionBar hands itemClass to every ActionMenuItems and ButtonGroup it renders', () => {

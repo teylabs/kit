@@ -844,9 +844,9 @@ export interface ActionBarProps {
     fillAll?: boolean;
     /** With `fillAll`: the host's classes for the divider between segments (its colour, say), in place of the default outline token (the primary text at 20%), or `border-r-0` to drop it. No effect elsewhere. */
     dividerClass?: string;
-    /** With `fillAll`: the host's classes, added last to the ⌄ menu-trigger segment (its padding, `[&>svg]:size-5` for the chevron, a ring). No effect elsewhere. */
+    /** The host's classes, added last to the ⌄ menu trigger, in the full and compact layouts: the fillAll segment on a pill, ButtonGroup's trigger elsewhere (its padding, `[&>svg]:size-5` for the chevron, a ring, `-ml-px rounded-l-none`). Not on a plain (non-fillAll) pill. */
     triggerClass?: string;
-    /** A menu-only group's trigger text (no inline segment, ButtonGroup path): unset is 'Actions', a string replaces it, null leaves the ⌄ alone, still named "Actions". */
+    /** A menu-only group's trigger text (no inline segment, ButtonGroup path): unset is 'Actions', a string replaces it, null leaves the ⌄ alone, still named "More actions" (ButtonGroup's menuLabel). */
     menuTriggerLabel?: string | null;
     /** The host's own classes for each menu row (its row height, say), added after the row's own; destructive and disabled still apply. */
     itemClass?: string;
@@ -857,6 +857,8 @@ export interface ButtonGroupProps {
     offset?: [number, number];
     /** The host's own classes for each row in `menu`, added after the row's own; destructive and disabled still apply. */
     itemClass?: string;
+    /** The host's classes, added last to the menu trigger. */
+    triggerClass?: string;
 }
 
 /**

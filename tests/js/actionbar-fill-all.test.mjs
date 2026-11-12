@@ -41,13 +41,24 @@ test('fillAll applies on a pill only: the group is the primary pill with ButtonG
     assert.match(bar, /segment\(false, compact\.inline\.length === 0\)/);
 });
 
-test('menuTriggerLabel: unset keeps "Actions" on a menu-only trigger, a string replaces it, null leaves the chevron named "Actions"', () => {
+test('menuTriggerLabel: unset keeps "Actions" on a menu-only trigger, a string replaces it, null leaves the chevron named "More actions"', () => {
     assert.match(bar, /triggerClass\?: string; menuTriggerLabel\?: string \| null;/);
     assert.match(bar, /menuTriggerLabel: undefined,/);
     assert.match(read('contract.ts.stub'), /interface ActionBarProps \{[^}]*menuTriggerLabel\?: string \| null;/);
-    assert.match(bar, /:label="part\.inline\.length \? undefined : menuOnlyLabel" :menu-label="part\.inline\.length \? undefined : 'Actions'"/);
+    assert.match(bar, /:label="part\.inline\.length \? undefined : menuOnlyLabel" :trigger-class="triggerClass"/);
+    assert.doesNotMatch(bar, /:menu-label=/, 'null falls back to ButtonGroup\'s "More actions"');
+    assert.match(read('Action/ButtonGroup.vue.stub'), /menuLabel \?\? 'More actions'/);
     assert.match(bar, /const menuOnlyLabel = computed\(\(\) => props\.menuTriggerLabel === undefined \? 'Actions' : props\.menuTriggerLabel,?\s*\);/);
     assert.doesNotMatch(bar, /:label="part\.inline\.length \? undefined : 'Actions'"/, 'no hard-coded trigger text');
+});
+
+test('triggerClass reaches ButtonGroup\'s trigger, last, in the full and compact layouts', () => {
+    const group = read('Action/ButtonGroup.vue.stub');
+    assert.match(group, /itemClass\?: string; triggerClass\?: string;?\}/);
+    assert.match(group, /triggerClass: undefined,?\}/);
+    assert.match(group, /'-ml-px rounded-l-none', triggerClass,?\s*\]/, 'last on the trigger');
+    assert.equal((bar.match(/:trigger-class="triggerClass"/g) ?? []).length, 2, 'both ButtonGroup layouts pass it');
+    assert.match(read('contract.ts.stub'), /interface ButtonGroupProps \{[^}]*triggerClass\?: string;?\s*\}/);
 });
 
 test('a GET with intent panel is an operation (a button), like a dialog; a plain GET stays a link', () => {
