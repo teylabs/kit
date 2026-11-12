@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## v0.17.1
+
+No lineage pin changed: `composer update` is enough.
 
 ### Fixed
 
