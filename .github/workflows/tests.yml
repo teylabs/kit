@@ -575,6 +575,9 @@ jobs:
       - name: Release lineages (changed pins name the lineages to kit:update)
         timeout-minutes: 4
         run: composer test:release-lineages
+      - name: Agents setup hook (hooksPath containment, trailer filter)
+        timeout-minutes: 4
+        run: composer test:agents-setup
       - name: Form payload check (removed or renamed fields fail, added pass)
         timeout-minutes: 4
         run: composer test:form-payload-check
