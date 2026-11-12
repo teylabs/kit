@@ -484,6 +484,68 @@ try {
     file_put_contents($records[0], $bytes);
     check(DiscoveryCache::entry($app, 'host') === null, 'restoring the bytes still misses (the fingerprint holds ctime), until kit:cache runs again');
     check($app->make(Kernel::class)->call('kit:cache') === 0 && DiscoveryCache::entry($app, 'host') !== null, 'kit:cache re-caches the restored record');
+    // Copilot's review of #940, one check each.
+    $cacheFile = DiscoveryCache::path($app);
+    $rewriteEntry = function (Closure $change) use ($cacheFile): void {
+        $data = require $cacheFile;
+        $data['entries']['host'] = $change($data['entries']['host']);
+        file_put_contents($cacheFile, '<?php return '.var_export($data, true).';');
+        DiscoveryCache::forget();
+    };
+    // 1. A record changed while kit:cache reads it: the read is repeated, so the cache never pairs a new fingerprint with old answers.
+    $reads = 0;
+    DiscoveryCache::write($app, 'host', function () use (&$reads, $records, $root): array {
+        if (++$reads === 1) {
+            file_put_contents($records[0], file_get_contents($records[0]));
+            clearstatcache();
+
+            return ['lineages' => ['core'], 'carry' => false, 'tables' => []];
+        }
+
+        return FeaturesServiceProvider::discover($root, 'host');
+    });
+    check($reads === 2 && DiscoveryCache::entry($app, 'host') === $discovered, 'a record changed during kit:cache\'s read is read again, and the cache holds the second read\'s answers');
+    // 2. A record that does not verify fails kit:cache (so optimize fails), and nothing is cached.
+    file_put_contents($records[0], '{"not": "a record"}');
+    check($app->make(Kernel::class)->call('kit:cache') === 1 && ! is_file($cacheFile), 'kit:cache fails (exit 1) on a record that does not verify, and writes nothing');
+    file_put_contents($records[0], $bytes);
+    check($app->make(Kernel::class)->call('kit:cache') === 0, 'and succeeds again once the record verifies');
+    // 3. An entry not in the exact shape is a miss.
+    foreach (['lineages holding an array' => ['lineages' => [['core']]], 'lineages keyed, not a list' => ['lineages' => ['a' => 'core']], 'a table that is not a string' => ['tables' => [1]], 'carry not a bool' => ['carry' => 1], 'tables missing' => ['tables' => '(drop)']] as $label => $change) {
+        $app->make(Kernel::class)->call('kit:cache');
+        $rewriteEntry(function (array $entry) use ($change): array {
+            foreach ($change as $key => $value) {
+                if ($value === '(drop)') {
+                    unset($entry[$key]);
+                } else {
+                    $entry[$key] = $value;
+                }
+            }
+
+            return $entry;
+        });
+        check(DiscoveryCache::entry($app, 'host') === null, 'an entry with '.$label.' is a miss');
+    }
+    // 4. The kit's sources of the answers are fingerprinted: session-ui's feature.json, and the host's vendor/composer/installed.json.
+    $app->make(Kernel::class)->call('kit:cache');
+    $manifest = dirname(__DIR__).'/resources/features/session-ui/feature.json';
+    touch($manifest, filemtime($manifest));
+    DiscoveryCache::forget();
+    check(DiscoveryCache::entry($app, 'host') === null, 'a changed session-ui feature.json (any kit update) is a miss');
+    @mkdir($root.'/vendor/composer', 0700, true);
+    file_put_contents($root.'/vendor/composer/installed.json', '{"packages": []}');
+    $app->make(Kernel::class)->call('kit:cache');
+    file_put_contents($root.'/vendor/composer/installed.json', '{"packages": [], "dev": true}');
+    DiscoveryCache::forget();
+    check(DiscoveryCache::entry($app, 'host') === null, 'a changed vendor/composer/installed.json (any composer install or update) is a miss');
+    // 5. A cached `tables: null` (the workspaces artifact unreadable) is kept: register() opens no record file and leaves the flags null.
+    $app->make(Kernel::class)->call('kit:cache');
+    $rewriteEntry(fn (array $entry): array => ['tables' => null] + $entry);
+    $hit = DiscoveryCache::entry($app, 'host');
+    check($hit !== null && $hit['tables'] === null, 'a cached null tables is a hit');
+    $opened = OpenedFiles::during($registerFresh);
+    check(! $readsRecord($opened) && $config->get('kit.workspaces.adopt') === null && $config->get('kit.access.adopt') === null, 'and register() keeps it: no record file opened, the flags stay null');
+    $app->make(Kernel::class)->call('kit:cache');
     check((Illuminate\Support\ServiceProvider::$optimizeCommands['kit'] ?? null) === 'kit:cache' && (Illuminate\Support\ServiceProvider::$optimizeClearCommands['kit'] ?? null) === 'kit:clear', 'optimize runs kit:cache and optimize:clear runs kit:clear');
     check($app->make(Kernel::class)->call('kit:clear') === 0 && ! is_file(DiscoveryCache::path($app)) && DiscoveryCache::entry($app, 'host') === null, 'kit:clear removes the cache');
     $config->set('kit.workspaces.adopt', false);

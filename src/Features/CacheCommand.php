@@ -23,14 +23,14 @@ final class CacheCommand extends Command
             return self::SUCCESS;
         }
         try {
-            $entry = FeaturesServiceProvider::discover($this->laravel->basePath(), $appId);
+            DiscoveryCache::write($this->laravel, $appId, fn (): array => FeaturesServiceProvider::discover($this->laravel->basePath(), $appId));
         } catch (Throwable $error) {
-            // Never cache a record that does not verify: requests keep reading it live and fail as they would without a cache.
-            $this->components->warn('The installed record could not be read, so nothing was cached: '.$error->getMessage());
+            // Never cache a record that does not verify, and fail the step so `optimize` (and the deploy) sees it. Requests keep reading
+            // the record live and fail as they would without a cache.
+            $this->components->error('The installed record could not be cached: '.$error->getMessage());
 
-            return self::SUCCESS;
+            return self::FAILURE;
         }
-        DiscoveryCache::write($this->laravel, $appId, $entry);
         $this->components->info('Kit features cached.');
 
         return self::SUCCESS;

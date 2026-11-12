@@ -190,7 +190,9 @@ final class FeaturesServiceProvider extends ServiceProvider
         try {
             $appId = config('kit.app_id') ?? ($this->app->bound(LifecycleHost::class) ? $this->app->make(LifecycleHost::class)->appId() : config('kit-lifecycle.app_id'));
             if (is_string($appId) && $appId !== '') {
-                $tables = DiscoveryCache::entry($this->app, $appId)['tables'] ?? self::adoptedTables($this->app->basePath(), $appId);
+                // A cached null (the record's workspaces artifact could not be read) is kept: only a miss reads the record.
+                $cached = DiscoveryCache::entry($this->app, $appId);
+                $tables = $cached !== null ? $cached['tables'] : self::adoptedTables($this->app->basePath(), $appId);
             }
         } catch (Throwable) {
             return;
