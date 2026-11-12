@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **Error page: one h1 outside the app shell.** A guest's error page (a 404 for an invitation link that matches no token, say) drew no heading outside the app shell: in the app shell `<Page>` draws the layout's title as the h1, but outside it `<Page>` draws none, and the PublicShell has no title of its own. The error page now draws its title as the h1 itself when it is outside the app shell and its shell draws none. The GuestShell tells the page whether it was given a title (and so already draws the h1), so a host that passes the error's title to the GuestShell still gets one h1, not two. In the app shell nothing changes. No public prop, slot or default changed.
+  - **Tests.** Browser (`error.html?shell=public|guest|guest-titled|app`): exactly one h1, "Page not found", in the PublicShell, a GuestShell without and with the title, and the Workspace Layout. Fails on v0.16.14 (no h1 in the PublicShell). Floor 315 → 316.
+  - Re-pins `shell` (`sha256:bbca60c7…ee00f` → `sha256:c0588ed4…55a2`: Workspace/Partials/GuestShell) and `workspace-ui` (`sha256:155ea22c…48f3` → `sha256:dd0ddbf0…24ae`: Workspace/Error/Page). Run `kit:update plan|apply` for `shell` and `workspace-ui`. A host that drew the error title as an h1 in its own layout as a stopgap can drop it. `history.json`: only `current` changes.
+
 ## v0.16.14
 
 ### Fixed
