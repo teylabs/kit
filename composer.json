@@ -177,6 +177,7 @@
         "test:media-delivery": "@php tests/MediaDeliveryCheck.php vendor/autoload.php",
         "test:media-adopt": "@php tests/MediaAdoptCheck.php vendor/autoload.php",
         "test:media-prune": "@php tests/MediaPruneCheck.php vendor/autoload.php",
+        "test:images": "@php tests/ImageDriverCheck.php vendor/autoload.php",
         "test:media-collection": "@php tests/MediaCollectionCheck.php vendor/autoload.php",
         "test:toast": "@php tests/ToastCheck.php vendor/autoload.php",
         "test:table-count": "node --test tests/js/datatable-count.test.mjs tests/js/table-selection.test.mjs",
@@ -190,6 +191,8 @@
         "test:form-payload-check": "@php tests/FormPayloadCheck.php"
     },
     "suggest": {
+        "ext-imagick": "The kit-imagick driver for Laravel's image API, the default image driver when loaded (docs/images.md).",
+        "intervention/image": "Lets the kit-imagick driver hand other transformations and formats to the framework's Imagick driver (docs/images.md).",
         "league/flysystem-aws-s3-v3": "S3 multipart for large direct uploads (kit.media.multipart, docs/media.md)."
     },
     "config": {

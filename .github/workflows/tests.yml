@@ -180,8 +180,8 @@ jobs:
       - uses: shivammathur/setup-php@v2
         with:
           php: ${{ matrix.php }}
-          # gd: test:mail-render plates the mail lockup.
-          extensions: gd
+          # gd: test:mail-render plates the mail lockup. imagick: test:images (the kit-imagick image driver).
+          extensions: gd, imagick
           coverage: none
       - run: composer update --prefer-dist --no-interaction --no-progress ${{ matrix.deps == 'lowest' && '--prefer-lowest --prefer-stable' || '' }}
       - name: Catalog pins
@@ -530,6 +530,9 @@ jobs:
       - name: Media prune
         timeout-minutes: 4
         run: composer test:media-prune
+      - name: Image driver (kit-imagick)
+        timeout-minutes: 4
+        run: composer test:images
       - name: Media collection
         timeout-minutes: 4
         run: composer test:media-collection

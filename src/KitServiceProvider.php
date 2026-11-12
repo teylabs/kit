@@ -3,6 +3,7 @@
 namespace Tey\Kit;
 
 use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Image\ImageManager;
 use Illuminate\Support\ServiceProvider;
 use Inertia\Inertia;
 use RuntimeException;
@@ -34,6 +35,7 @@ final class KitServiceProvider extends ServiceProvider
                 'kitNumber' => fn (): array => ['currency' => config('kit.currency') ?: null, 'locale' => str_replace('_', '-', (string) app()->getLocale())],
             ]);
         }
+        $this->registerImageDriver();
         $this->commands([Console\AddCommand::class, Console\AdoptCommand::class, Console\InstallCommand::class, Console\LifecycleCommand::class, Console\ListCommand::class, Console\StatusCommand::class, Console\BrandCommand::class, Console\BrandMigrateCommand::class, Console\RemoveCommand::class, Media\Console\PruneUploadsCommand::class]);
         // Off by default: a host opts in with `kit.media.prune_schedule` (true for daily at 03:00, or a cron expression).
         $this->callAfterResolving(Schedule::class, fn (Schedule $schedule) => Media\Console\PruneUploadsCommand::schedule($schedule));
@@ -92,5 +94,22 @@ final class KitServiceProvider extends ServiceProvider
         $host = $this->app->make(LifecycleHost::class);
 
         return $host instanceof CatalogHost ? $host->catalog() : null;
+    }
+
+    /**
+     * The `kit-imagick` driver for Laravel's image API (docs/images.md), registered when the framework has the API and ext-imagick is loaded.
+     * It becomes `images.default` while that is still the framework's `gd` and `kit.images.default` is on (the default).
+     */
+    private function registerImageDriver(): void
+    {
+        if (! class_exists(ImageManager::class) || ! extension_loaded('imagick')) {
+            return;
+        }
+        $this->callAfterResolving('image', function (ImageManager $images): void {
+            $images->extend(Media\Images\SizedImagickDriver::NAME, fn (): Media\Images\SizedImagickDriver => Media\Images\SizedImagickDriver::fromConfig());
+        });
+        if (config('kit.images.default', true) && config('images.default', 'gd') === 'gd') {
+            config(['images.default' => Media\Images\SizedImagickDriver::NAME]);
+        }
     }
 }
