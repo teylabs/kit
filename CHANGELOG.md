@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **directUpload: a failed multipart `complete` aborts the upload.** A part that failed, or a cancel, sent the multipart upload to `abort`, but a `complete` request that was refused (a non-2xx answer) or threw on the network did not, so the incomplete multipart upload stayed on storage. Both now send `{ id }` to `abort` when the host gives one, then fail as before (`confirm` step for a refused answer, the original error for a thrown one). A successful complete never aborts. No public prop, signature or default changed.
+  - **Tests.** `tests/js/direct-upload-multipart.test.mjs`: a 422 complete and a throwing complete each end with the abort call; a successful one sends none. Fails on v0.16.14.
+  - Re-pins `core` (`sha256:231a22e3…da5a` → `sha256:c05cf9ee…3019`: Kit/Form/directUpload). Run `kit:update plan|apply` for `core`. `history.json`: only `current` changes.
+
 ## v0.16.14
 
 ### Fixed
