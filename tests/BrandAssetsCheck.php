@@ -162,6 +162,8 @@ try {
         check(true, 'a later unreadable --primary wins over an earlier hex and over kit.css: refused, not guessed');
     }
     file_put_contents($host.'/resources/css/app.css', "@import './kit.css';\n");
+    $app->instance('config', new Repository(['app' => ['name' => 'Example'], 'kit' => ['brand' => [], 'brand_sources' => ['accent' => 'config']]]));
+    check(preg_match('/\A#[0-9a-f]{6}\z/', BrandAssets::configuredAccent($host)) === 1, 'an accent resolved unset from config/brand.php (left out of kit.brand) also falls back to the theme');
     $brand(['accent' => '  ']);
     check(preg_match('/\A#[0-9a-f]{6}\z/', BrandAssets::configuredAccent($host)) === 1, 'with only kit.css, the accent is its --primary as #rrggbb');
     file_put_contents($host.'/resources/css/app.css', ":root { --primary: var(--brand); }\n.dark { --primary: #93c5fd; }\n");

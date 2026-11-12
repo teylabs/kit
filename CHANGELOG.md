@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **Unset brand values are null, so `config()` defaults apply.** A brand key that resolves unset (null in config/brand.php, an empty `KIT_BRAND_*` value, or an empty string in a non-colour key of an older config/brand.php) is now left out of `kit.brand` instead of being written back as `""`: `config('kit.brand.accent')` is null and `config('kit.brand.accent', '#2f6b5e')` returns `'#2f6b5e'`. Before, a null accent resolved to `""`, so a fallback never applied and code drew black. This holds for every brand key (accent, the colours, the logos, wordmarks and the rest). kit:brand still draws a null accent in the theme's `--primary`, and the page head still uses the neutral default. `kit:brand:migrate --force` writes a kept `""` back as null. An empty colour in config/brand.php is still refused, as before. **Already-migrated apps need do nothing:** the normalising happens at boot, so a config/brand.php holding `''` or null works as is; re-run `php artisan config:cache` if you cache config. Code that tested `config('kit.brand.accent') === ''` for "use the theme" should test for null (or empty) instead. No feature resource changed, so nothing to re-pin.
+
 ## v0.16.7
 
 ### Fixed

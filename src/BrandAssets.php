@@ -46,18 +46,22 @@ final class BrandAssets
     }
 
     /**
-     * The accent the assets are drawn in: `kit.brand.accent`, or, when that is an empty string (`KIT_BRAND_ACCENT=`), the accent the theme resolves to (the light `--primary` in the host's
+     * The accent the assets are drawn in: `kit.brand.accent`, or, when that is empty (`KIT_BRAND_ACCENT=`) or resolved unset (null in config/brand.php), the accent the theme resolves to (the light `--primary` in the host's
      * stylesheets, `ThemeAdvisory::primary()`). With neither it refuses, so no asset is drawn in an empty colour. A set accent reads as before (`Brand::accent()`).
      */
     public static function configuredAccent(?string $root = null): string
     {
         $accent = Brand::get('accent');
-        if (! is_string($accent) || trim($accent) !== '') {
+        // Resolved unset (config/brand.php or env set it to null or empty, so BrandConfig left it out of kit.brand): the theme, as an empty accent was.
+        $unset = $accent === null && in_array(BrandConfig::sources()['accent'] ?? null, [BrandConfig::SOURCE_CONFIG, BrandConfig::SOURCE_ENV], true);
+        if (! $unset && (! is_string($accent) || trim($accent) !== '')) {
             return Brand::accent();
         }
 
         return ThemeAdvisory::primary(HostRequirements::themeStylesheets($root ?? base_path()))
-            ?? throw new RuntimeException('kit.brand.accent (KIT_BRAND_ACCENT) is empty and the theme resolves to no accent (no readable --primary in :root of resources/css/app.css or its imports). Set KIT_BRAND_ACCENT to a #rrggbb colour, then run kit:brand again.');
+            ?? throw new RuntimeException((BrandConfig::sources()['accent'] ?? null) === BrandConfig::SOURCE_CONFIG
+                ? 'kit.brand.accent (config/brand.php) is null and the theme resolves to no accent (no readable --primary in :root of resources/css/app.css or its imports). Set \'accent\' in config/brand.php to a #rrggbb colour, then run kit:brand again.'
+                : 'kit.brand.accent (KIT_BRAND_ACCENT) is empty and the theme resolves to no accent (no readable --primary in :root of resources/css/app.css or its imports). Set KIT_BRAND_ACCENT to a #rrggbb colour, then run kit:brand again.');
     }
 
     /**
