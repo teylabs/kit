@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+# Prepares a fresh checkout for a cloud agent: PHP 8.5 with the extensions CI uses, Composer, a PostgreSQL server
+# (the `kit` role and kit_adopt_check database the PostgreSQL checks expect), Node 24, then the PHP and Node dependencies
+# and Playwright Chromium for the browser suite. A package, so `composer update` (there is no lock file).
+set -euo pipefail
+
+PHP_EXTENSIONS=(mbstring xml curl zip pgsql pdo_pgsql sqlite3 pdo_sqlite intl gd imagick)
+php_ready() {
+    command -v php >/dev/null && php -r 'exit(PHP_VERSION_ID >= 80500 ? 0 : 1);' || return 1
+    local loaded
+    loaded=$(php -m | tr '[:upper:]' '[:lower:]')
+    for extension in "${PHP_EXTENSIONS[@]}"; do
+        grep -qx "$extension" <<<"$loaded" || return 1
+    done
+}
+if ! php_ready; then
+    sudo add-apt-repository -y ppa:ondrej/php
+    sudo apt-get update
+    sudo apt-get install -y php8.5-cli php8.5-mbstring php8.5-xml php8.5-curl php8.5-zip php8.5-pgsql php8.5-sqlite3 \
+        php8.5-intl php8.5-gd php8.5-imagick unzip
+fi
+
+composer_ready() {
+    command -v composer >/dev/null || return 1
+    composer --version 2>/dev/null | grep -Eq 'Composer (version )?(2\.([2-9]|[1-9][0-9])|[3-9])\.'
+}
+if ! composer_ready; then
+    curl -sS https://getcomposer.org/installer | php -- --install-dir=/tmp
+    sudo mv /tmp/composer.phar /usr/local/bin/composer
+fi
+
+# Probe for the server, not the client: an image can ship psql without a server.
+if ! compgen -G '/usr/lib/postgresql/*/bin/postgres' >/dev/null; then
+    sudo apt-get update
+    sudo apt-get install -y postgresql
+fi
+sudo service postgresql start
+# What CI's PostgreSQL job uses: role kit, password kit, database kit_adopt_check. Reconciled, never superuser.
+sudo -u postgres psql -tc "select 1 from pg_roles where rolname = 'kit'" | grep -q 1 \
+    || sudo -u postgres psql -c "create role kit"
+sudo -u postgres psql -c "alter role kit login createdb password 'kit' nosuperuser nocreaterole noreplication nobypassrls"
+sudo -u postgres psql -tc "select 1 from pg_database where datname = 'kit_adopt_check'" | grep -q 1 \
+    || sudo -u postgres createdb -O kit kit_adopt_check
+sudo -u postgres psql -c "alter database kit_adopt_check owner to kit"
+
+# The browser suite wants Node 24 (CI's version); the component type-check runs on it too.
+node_ready() {
+    command -v node >/dev/null || return 1
+    node -e 'process.exit(Number(process.versions.node.split(".")[0]) >= 24 ? 0 : 1)'
+}
+if ! node_ready; then
+    curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
+    sudo apt-get install -y nodejs
+fi
+
+composer update --prefer-dist --no-interaction --no-progress
+(cd browser && npm ci && npx playwright install --with-deps chromium)
+(cd typecheck && npm ci)
+
+# House rule: no AI attribution in commits. A commit-msg hook strips the trailers agents add (Amp-Thread-ID,
+# Co-authored-by for Amp or Claude, Claude-Session, "Generated with ..."). Squash-merging stays the backstop.
+# Repo-local only: never write into a global core.hooksPath (it may be the machine's own hooks).
+HOOKS_DIR="$(git rev-parse --absolute-git-dir)/hooks"
+mkdir -p "$HOOKS_DIR"
+git config --local core.hooksPath "$HOOKS_DIR"
+HOOK="$HOOKS_DIR/commit-msg"
+cat > "$HOOK" <<'HOOK'
+#!/bin/sh
+# Installed by .agents/setup: strip AI attribution trailers.
+sed -i.bak -E \
+    -e '/^Amp-Thread(-ID)?:/Id' \
+    -e '/^Co-authored-by:.*(amp|claude|anthropic|ampcode)/Id' \
+    -e '/^Claude-Session:/Id' \
+    -e '/(Generated|Created) (with|by) (\[)?(Claude|Amp)/Id' \
+    -e '/claude\.ai\/code\/session/Id' \
+    "$1" && rm -f "$1.bak"
+HOOK
+chmod +x "$HOOK"
