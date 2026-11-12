@@ -29,6 +29,7 @@ use Tey\Kit\Features\Deliver\Events\DeliveryCancelled;
 use Tey\Kit\Features\Deliver\Events\DeliveryDelivered;
 use Tey\Kit\Features\Deliver\Events\DeliveryLinkRevoked;
 use Tey\Kit\Features\Deliver\Events\DeliveryOpened;
+use Tey\Kit\Features\Workspaces\Rls;
 use Tey\Kit\Features\Deliver\Events\DeliverySent;
 use Tey\Kit\Features\Deliver\Models\DeliveryEvent;
 use Tey\Kit\Features\Deliver\Models\DeliveryRecipient;
@@ -275,7 +276,7 @@ final class DeliveryDesk
                 $first = DeliveryRecipient::query()->whereKey($recipient->getKey())->whereNotIn('status', ['delivered', 'bounced', 'complained'])->update(['status' => 'delivered', 'last_event_at' => $at]) === 1;
                 if ($first) {
                     [$record, $recipient] = [DeliveryRecord::query()->findOrFail($row->id), $recipient->refresh()];
-                    DB::afterCommit(fn () => event(new DeliveryDelivered((string) $row->definition, $record, $recipient)));
+                    DB::connection(Rls::connection())->afterCommit(fn () => event(new DeliveryDelivered((string) $row->definition, $record, $recipient)));
                 } else {
                     DeliveryRecipient::query()->whereKey($recipient->getKey())->where('status', 'delivered')->update(['last_event_at' => $at]);
                 }
@@ -333,7 +334,7 @@ final class DeliveryDesk
                 // The link is per delivery, so an open names no recipient. Only the update that sets first_opened_at dispatches DeliveryOpened.
                 if ($record->first_opened_at === null && DeliveryRecord::query()->whereKey($deliveryId)->whereNull('first_opened_at')->update(['first_opened_at' => now()]) === 1) {
                     $opened = $record->fresh();
-                    DB::afterCommit(fn () => event(new DeliveryOpened($record->definition, $opened)));
+                    DB::connection(Rls::connection())->afterCommit(fn () => event(new DeliveryOpened($record->definition, $opened)));
                 }
                 $response = $delivery->customerResponse($subject, $record);
             }
