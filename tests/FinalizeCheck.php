@@ -67,6 +67,7 @@ use Tey\Kit\Features\FeaturesServiceProvider;
 use Tey\Kit\Features\Finalize\Data\GateError;
 use Tey\Kit\Features\Finalize\Events\Finalized;
 use Tey\Kit\Features\Finalize\Events\Unfinalized;
+use Tey\Kit\Features\Finalize\FinalizesWithinTransaction;
 use Tey\Kit\Features\Finalize\Flow;
 use Tey\Kit\Features\Finalize\Flows;
 use Tey\Kit\Features\Finalize\Integrations\Mcp\FinalizeSubject;
@@ -104,6 +105,43 @@ final class Report extends Model
     protected $guarded = [];
 
     protected $casts = ['secret' => 'boolean', 'amount' => 'integer', 'lock_version' => 'integer'];
+}
+
+// The same report as a subject that bumps its own guard inside the finalize transaction (FinalizesWithinTransaction), with a switch to fail.
+final class GuardedReport extends Model implements FinalizesWithinTransaction
+{
+    public $timestamps = false;
+
+    protected $table = 'reports';
+
+    protected $guarded = [];
+
+    protected $casts = ['lock_version' => 'integer'];
+
+    /** @var list<array{string, string, int, int, int|null, array<string, mixed>}> */
+    public static array $calls = [];
+
+    public static bool $fail = false;
+
+    public function onFinalizing(string $flow, Finalization $finalization, Principal $principal, array $extras): void
+    {
+        $this->hook('finalizing', $flow, $finalization, $principal, $extras);
+    }
+
+    public function onUnfinalizing(string $flow, Finalization $finalization, Principal $principal): void
+    {
+        $this->hook('unfinalizing', $flow, $finalization, $principal, []);
+    }
+
+    /** @param  array<string, mixed>  $extras */
+    private function hook(string $kind, string $flow, Finalization $finalization, Principal $principal, array $extras): void
+    {
+        self::$calls[] = [$kind, $flow, DB::transactionLevel(), $principal->actorId, $finalization->exists ? (int) $finalization->getKey() : null, $extras];
+        $this->forceFill(['lock_version' => $this->lock_version + 1, 'internal' => $kind])->saveQuietly();
+        if (self::$fail) {
+            throw new RuntimeException('hook_refused');
+        }
+    }
 }
 
 function check(bool $ok, string $message): void
@@ -497,6 +535,50 @@ try {
     $applied = [];
     $in($workspace, fn () => $gate->finalize($as('owner'), 'report.extras', $rkey, $rev(), true));
     check($applied[0][2] === [], 'the extras stay optional: finalizing without them still runs');
+
+    // FinalizesWithinTransaction: the subject bumps its own lock_version inside the gate's transaction (this flow declares no lockColumn, so only the
+    // hook bumps it), and an extra apply that fails after the hook rolls the hook's write back.
+    $failApply = false;
+    $flows->register(Flow::define('report.guarded')
+        ->subject('report', fn (string $key, bool $lock): ?GuardedReport => ctype_digit($key) ? GuardedReport::query()->where('workspace_id', Workspaces::required()->getKey())->whereKey((int) $key)->when($lock, fn ($q) => $q->lockForUpdate())->first() : null)
+        ->steps([Step::check('amount', 'Amount entered', fn (GuardedReport $r) => $r->amount !== null)])
+        ->statement(fn (): array => ['version' => 'v1', 'text' => 'I certify the guarded report.'])
+        ->extras(['what_changed' => ['nullable', 'string']], fn ($schema): array => ['what_changed' => $schema->string()->description('Optional: what changed since the last version.')],
+            function () use (&$failApply): void {
+                if ($failApply) {
+                    throw new RuntimeException('apply_failed');
+                }
+            }));
+    check(GuardedReport::$calls === [], 'a subject without FinalizesWithinTransaction finalizes and un-finalizes as before: no hook ran for the plain report flows');
+    $guarded = $in($workspace, fn () => Report::create(['workspace_id' => $workspace->id, 'title' => 'Guarded', 'amount' => 7, 'note' => '']));
+    $gkey = (string) $guarded->id;
+    $grev = fn (): string => $in($workspace, fn () => $gate->state($as('owner'), 'report.guarded', $gkey))->progress->revision;
+    $gversion = fn (): int => (int) DB::table('reports')->where('id', $guarded->id)->value('lock_version');
+    $gcount = fn (): int => $in($workspace, fn () => Finalization::query()->where('flow', 'report.guarded')->count());
+    $events = [];
+    $failApply = true;
+    check(refusal(fn () => $in($workspace, fn () => $gate->finalize($as('owner'), 'report.guarded', $gkey, $grev(), true))) === 'apply_failed' && count(GuardedReport::$calls) === 1 && $gversion() === 1 && (string) DB::table('reports')->where('id', $guarded->id)->value('internal') === '' && $gcount() === 0 && $events === [], 'the hook runs inside the finalize transaction: a failure after it rolls its write back, with no finalization and no event');
+    $failApply = false;
+    GuardedReport::$calls = [];
+    GuardedReport::$fail = true;
+    check(refusal(fn () => $in($workspace, fn () => $gate->finalize($as('owner'), 'report.guarded', $gkey, $grev(), true))) === 'hook_refused' && $gversion() === 1 && $gcount() === 0 && $events === [], 'an exception in onFinalizing rolls finalize back (fail closed) and Finalized does not fire');
+    GuardedReport::$fail = false;
+    GuardedReport::$calls = [];
+    $seen = $gversion();
+    $in($workspace, fn () => $gate->finalize($as('owner'), 'report.guarded', $gkey, $grev(), true, 'web', ['what_changed' => 'Hooked.']));
+    $row = $in($workspace, fn () => Finalization::query()->where('flow', 'report.guarded')->latest('id')->first());
+    check(GuardedReport::$calls === [['finalizing', 'report.guarded', 1, (int) $people['owner']->id, (int) $row->id, ['what_changed' => 'Hooked.']]] && $gversion() === $seen + 1 && $events === [['finalized', 'report.guarded', 0]], 'onFinalizing gets the flow, the written finalization, the actor and the validated extras inside the transaction; Finalized fires after the commit');
+    // The app's own stale-write guard: an update that carries the version the open tab loaded before finalizing matches no row.
+    $staleWrite = fn (int $version): int => DB::table('reports')->where('id', $guarded->id)->where('lock_version', $version)->update(['note' => 'edited from an old tab', 'lock_version' => $version + 1]);
+    check($staleWrite($seen) === 0 && (string) DB::table('reports')->where('id', $guarded->id)->value('note') === '', 'a write carrying the lock_version from before finalize is rejected, because the hook bumped it in the same transaction');
+    GuardedReport::$calls = [];
+    GuardedReport::$fail = true;
+    check(refusal(fn () => $in($workspace, fn () => $gate->unfinalize($as('owner'), 'report.guarded', $gkey, $grev(), 'Reopen'))) === 'hook_refused' && $gversion() === $seen + 1 && $in($workspace, fn () => $gate->isFinalized('report.guarded', $guarded->fresh())) && count($events) === 1, 'an exception in onUnfinalizing rolls un-finalize back: still finalized, version unchanged, no Unfinalized');
+    GuardedReport::$fail = false;
+    GuardedReport::$calls = [];
+    $before = $gversion();
+    $in($workspace, fn () => $gate->unfinalize($as('owner'), 'report.guarded', $gkey, $grev(), 'Reopen'));
+    check(GuardedReport::$calls === [['unfinalizing', 'report.guarded', 1, (int) $people['owner']->id, (int) $row->id, []]] && $gversion() === $before + 1 && $staleWrite($before) === 0 && $events[1] === ['unfinalized', 'report.guarded', 0], 'onUnfinalizing runs inside the un-finalize transaction and bumps the guard, so a write from before un-finalizing is rejected too');
 
     echo "Finalize checks on SQLite memory with real Concierge, spatie teams and Pennant; HTTP through router dispatch without the global middleware stack. The MCP tools are checked by registration, the finalize tool's schema, rules and call() (with extras), and the operation's mcp channel, not over the MCP transport. No browser: the kit's Vue pieces are not in this lineage yet.\n";
 } catch (Throwable $error) {

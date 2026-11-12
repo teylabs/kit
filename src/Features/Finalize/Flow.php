@@ -18,6 +18,9 @@ use Tey\Kit\Features\Core\Principal;
  * - `can(fn (Principal, Model, string $ability): bool)`: a per-subject check after the workspace permission, for read, confirm, certify and unfinalize.
  *   Without one, the workspace permission alone decides.
  * - `lockColumn('lock_version')`: finalizing and un-finalizing bump it, so a stale write from an open tab is refused by the app's own check.
+ *   A subject model that must change more of its own state atomically with the finalization implements `FinalizesWithinTransaction`: its
+ *   `onFinalizing` and `onUnfinalizing` run inside the gate's transaction, after the row lock and before the commit, and an exception there rolls
+ *   the operation back with no `Finalized` or `Unfinalized` event. A subject without it is unchanged.
  * - `unfinalizeCheck(fn (Principal, Model, $finalization): ?string)`: an optional extra rule for un-finalizing (a second person, say); a string refuses
  *   with that reason. Off unless set.
  * - `url(fn (Model): string)`: where a browser returns after an action.
