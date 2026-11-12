@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **`triggerClass` reaches ButtonGroup's menu trigger.** ActionBar now passes it to its ButtonGroups too (full and compact layouts), not only to the `fillAll` trigger, and ButtonGroup gains `triggerClass?: string`, added last to its trigger's classes (for example `-ml-px rounded-l-none`). `ButtonGroupProps` gains the optional prop.
+
+### Changed
+
+- **`menuTriggerLabel={null}` names the icon-only trigger "More actions"**, ButtonGroup's default, instead of "Actions". Unset and a string are unchanged.
+
 ## v0.16.4
 
 ### Added
