@@ -7,6 +7,7 @@ import { computed, onBeforeUnmount, onMounted, provide, ref, useSlots, watch } f
 import GlobalSearch from './Partials/GlobalSearch.vue';
 import PrimaryNav from './Partials/PrimaryNav.vue';
 import FocusShell from './Partials/FocusShell.vue';
+import { useDocumentTitle } from './Partials/documentTitle';
 import type { FocusShellShape } from './Partials/focusShell';
 import ShellDrawer from './Partials/ShellDrawer.vue';
 import SubNav from './Partials/SubNav.vue';
@@ -34,16 +35,10 @@ const app = computed(() => props.shell as Tey.Kit.Features.Shell.Data.ShellData)
 const drawer = computed(() => !focus.value && Boolean(app.value.user) && (Boolean(slots.nav) || Boolean(slots['drawer-nav']) || (app.value.navigation?.length ?? 0) > 0));
 // The document title comes from the page's `layout` (composed on the server), never set per page.
 const page = usePage<{ layout?: { documentTitle: string; navigationHeader?: { label: string; url: string } | null; breadcrumbs?: unknown[] }; environment?: { label: string; colour: string } | null }>();
-// Inertia's <Head> writes the <title> on a timer after the page has rendered, so after Back (a history restore, no request) the heading and the current item
-// showed the restored page while document.title still named the one left. The title is set in the same flush as the page (and on the first render);
-// <Head> then finds it equal. On the server there is no document and <Head> alone renders the title.
-watch(
-    () => (props.documentTitle ? page.props.layout?.documentTitle : undefined),
-    (title) => {
-        if (title && typeof document !== 'undefined') document.title = title;
-    },
-    { flush: 'post', immediate: true },
-);
+// The document title is the page's `layout.documentTitle`, written by the shell itself in the same flush as the page (documentTitle.ts: Inertia's debounced
+// <Head> could otherwise land an older page's title after Back). <Head> carries it only on the server, for the first HTML.
+useDocumentTitle(() => (props.documentTitle ? page.props.layout?.documentTitle : undefined));
+const ssr = typeof window === 'undefined';
 // Pages in this shell render their heading (the layout's `title`) and actions inside their <Page>, so it aligns with the content column.
 provide('kit.shell', true);
 // Where the trail is drawn: by each <Page> above its heading (`page`), or here as a full-width bar under the header (`bar`), the current page included.
@@ -85,7 +80,7 @@ onMounted(() => {
 onBeforeUnmount(() => rootObserver?.disconnect());
 </script>
 <template>
-    <Head v-if="props.documentTitle" :title="page.props.layout?.documentTitle" />
+    <Head v-if="ssr && props.documentTitle" :title="page.props.layout?.documentTitle" />
     <FocusShell v-if="focus" :shell="focus" :toaster="props.toaster"><slot /></FocusShell>
     <div v-else :class="['flex flex-col bg-[var(--shell-ground,var(--color-background))] text-foreground', props.fill ? 'h-svh overflow-hidden' : 'min-h-svh']" :data-shell-fill="props.fill || undefined">
         <a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:text-sm focus:ring-2 focus:ring-ring">Skip to content</a>

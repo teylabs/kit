@@ -48,11 +48,13 @@ const Shell = { render() { return h(WorkspaceLayout, { shell }, this.$slots); } 
 const layout = new URLSearchParams(window.location.search).has('shell')
     ? (name: string) => (name.startsWith('Workspace/Account/') ? [Shell, AccountLayout] : Shell)
     : undefined;
+const lazy = new URLSearchParams(window.location.search).has('lazy');
 const response = await fetch(window.location.href, { headers: { 'X-Inertia': 'true', Accept: 'text/html, application/xhtml+xml' } });
 const initial = await response.json();
 createInertiaApp({
     page: initial,
-    resolve: (component: string) => pages[component],
+    // `&lazy`: each page resolves a task later, as a host's code-split import() does.
+    resolve: (component: string) => (lazy ? new Promise((done) => setTimeout(() => done(pages[component]))) : pages[component]),
     ...(layout ? { layout } : {}),
     setup: ({ el, App, props, plugin }) => createApp({ render: () => [h(App, props), h(Toaster)] }).use(plugin).provide('kit.shell', true).mount(el),
     progress: false,
