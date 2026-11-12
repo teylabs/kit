@@ -31,5 +31,13 @@ test('every menu row adds it after its own classes; destructive and disabled sta
     assert.equal((items.match(/<DropdownMenu(?:Checkbox)?Item [^>]*(?::class="rowClass"|rowClass\]")/g) ?? []).length, 5, 'all five row kinds');
     assert.equal((items.match(/'text-destructive-text focus:text-destructive-text', action\.disabled && 'cursor-not-allowed opacity-50', rowClass\]/g) ?? []).length, 2);
     assert.match(group, /provideMenuItemClass\(\(\) => props\.itemClass\);/);
-    for (const row of ['Menu/DropdownItem.vue.stub', 'Menu/DropdownLink.vue.stub']) assert.match(read(row), /:class="itemClass\(\)"/, row);
+    // DropdownItem / DropdownLink: merged last onto the inner control (not the padded-twice row); DropdownItem's wrapper slot has no control, so its row takes it.
+    const item = read('Menu/DropdownItem.vue.stub');
+    assert.match(item, /const rowControlClass = \(\) => cn\(controlClass, itemClass\(\)\);/);
+    assert.equal((item.match(/:class="rowControlClass\(\)"/g) ?? []).length, 3, 'button, anchor and Inertia link');
+    assert.match(item, /:class="\$slots\.wrapper \? itemClass\(\) : undefined"/);
+    const link = read('Menu/DropdownLink.vue.stub');
+    assert.match(link, /const control = \(own: string\) => cn\(own, itemClass\(\)\);/);
+    assert.equal((link.match(/:class="control\('[^']*px-4 py-2[^']*'\)"/g) ?? []).length, 3, 'button, anchor and Inertia link');
+    assert.doesNotMatch(link, /<DropdownMenuItem[^>]*itemClass/);
 });
