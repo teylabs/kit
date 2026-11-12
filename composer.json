@@ -189,6 +189,7 @@
         "test:adoption-completeness": "@php tests/AdoptionCompletenessCheck.php",
         "test:catalog-history": "@php tests/CatalogHistoryCheck.php",
         "test:release-lineages": "@php tests/ReleaseLineagesCheck.php",
+        "test:agents-setup": "@php tests/AgentsSetupHookCheck.php",
         "test:form-payload-check": "@php tests/FormPayloadCheck.php"
     },
     "suggest": {
