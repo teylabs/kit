@@ -55,6 +55,9 @@ try {
     check($kernel->call('kit:status') === 0 && trim($kernel->output()) === 'No kit features adopted.', 'no record succeeds without a host binding');
     check($kernel->call('kit:status', ['--json' => true]) === 0, 'no record JSON succeeds');
     check(json_decode($kernel->output(), true, flags: JSON_THROW_ON_ERROR) === ['message' => 'No kit features adopted.', 'blueprint_features' => [], 'lineages' => []], 'no record JSON contains the empty status');
+    config(['kit.brand_env' => ['accent']]);
+    check($kernel->call('kit:status', ['--json' => true]) === 0 && (json_decode($kernel->output(), true, flags: JSON_THROW_ON_ERROR)['brand_env_ignored'] ?? null) === ['KIT_BRAND_ACCENT'], 'no record JSON still names an ignored KIT_BRAND_* variable');
+    config(['kit.brand_env' => []]);
     check(snapshot($root) === $before, 'empty status creates no files or directories');
 
     $paths = [];
@@ -115,15 +118,18 @@ try {
     }
     check(snapshot($root) === $before, 'fresh status changes no checkout or maintenance files');
     // The brand's source column: each key and where it came from (resolved at boot by the features provider; set here as it would be).
-    config(['kit.brand_sources' => ['accent' => 'config', 'legal_name' => 'env (deprecated)', 'ink' => 'default']]);
-    check($kernel->call('kit:status', ['--json' => true]) === 0 && json_decode($kernel->output(), true, flags: JSON_THROW_ON_ERROR)['brand_sources'] === ['accent' => 'config', 'legal_name' => 'env (deprecated)', 'ink' => 'default'], 'JSON reports each brand key\'s source');
+    config(['kit.brand_sources' => ['accent' => 'config', 'legal_name' => 'default', 'ink' => 'default'], 'kit.brand_env' => []]);
+    $json = json_decode($kernel->call('kit:status', ['--json' => true]) === 0 ? $kernel->output() : 'null', true, flags: JSON_THROW_ON_ERROR);
+    check($json['brand_sources'] === ['accent' => 'config', 'legal_name' => 'default', 'ink' => 'default'] && ! isset($json['brand_env_ignored']), 'JSON reports each brand key\'s source, and no ignored variable when none is set');
     $kernel->call('kit:status');
     $output = $kernel->output();
-    check(preg_match('/^  accent\s+config$/m', $output) === 1 && preg_match('/^  legal_name\s+env \(deprecated\)$/m', $output) === 1 && preg_match('/^  ink\s+default$/m', $output) === 1 && str_contains($output, 'kit:brand:migrate'), 'text shows the brand source column, and points env keys at kit:brand:migrate');
-    // A colour that loaded empty from env uses the theme: the source column notes it, and it is never reported as invalid.
-    config(['kit.brand_sources' => ['accent' => 'env (deprecated)', 'ink' => 'default'], 'kit.brand_env_empty' => ['accent'], 'kit.brand_invalid' => []]);
-    check($kernel->call('kit:status') === 0 && preg_match('/^  accent\s+env \(deprecated\), empty in env \(theme\)$/m', $output = $kernel->output()) === 1 && ! str_contains($output, 'not a valid colour'), 'text notes an empty env colour as empty in env (theme), not invalid');
-    config(['kit.brand_sources' => [], 'kit.brand_env_empty' => []]);
+    check(preg_match('/^  accent\s+config$/m', $output) === 1 && preg_match('/^  legal_name\s+default$/m', $output) === 1 && ! str_contains($output, 'Ignored KIT_BRAND_'), 'text shows the brand source column, config or default');
+    // A KIT_BRAND_* still set (ignored since 0.17) is named in text and JSON, so a leftover in .env, CI or a deploy is found.
+    config(['kit.brand_env' => ['accent', 'mail.button']]);
+    $json = json_decode($kernel->call('kit:status', ['--json' => true]) === 0 ? $kernel->output() : 'null', true, flags: JSON_THROW_ON_ERROR);
+    check($json['brand_env_ignored'] === ['KIT_BRAND_ACCENT', 'KIT_BRAND_MAIL_BUTTON'], 'JSON names each ignored KIT_BRAND_* variable');
+    check($kernel->call('kit:status') === 0 && str_contains($output = $kernel->output(), 'Ignored KIT_BRAND_* variables (tey/kit 0.17 removed env brand values): KIT_BRAND_ACCENT, KIT_BRAND_MAIL_BUTTON') && str_contains($output, 'kit:brand:migrate'), 'text names each ignored variable and kit:brand:migrate');
+    config(['kit.brand_sources' => [], 'kit.brand_env' => []]);
 
     [$edited, $missing] = array_keys($artifact->files);
     file_put_contents($root.'/'.$edited, 'local edit');
@@ -376,6 +382,35 @@ try {
     [$attention] = $cardStep();
     check($attention === true, 'an ActionCard with an editUrl is flagged too');
     check((new ReflectionMethod($command, 'cardNames'))->invoke($command, ['foundation'], null, $cards) === null, 'without core, no card names step');
+    // What 0.17 removed and the host still uses: attention naming each file (never blocking), shown by kit:status and kit:update plan; listed only when unmet.
+    $removed = $root.'/removed-017';
+    foreach (['.github/workflows', 'bin', 'tests/Feature', 'app/Http', 'routes', 'vendor/acme', 'node_modules/x'] as $dir) {
+        @mkdir($removed.'/'.$dir, 0777, true);
+    }
+    $removedSteps = fn (array $ids): array => array_column(HostRequirements::removedIn017($removed, $ids), null, 'step');
+    $none = $removedSteps(['core', 'session-ui']);
+    check($none['env brand keys']['status'] === 'met' && $none['welcome card']['status'] === 'met', 'a host with nothing left over: both steps met');
+    file_put_contents($removed.'/.env.example', "APP_NAME=Example\nKIT_BRAND_ACCENT=\"#112233\"\n");
+    file_put_contents($removed.'/.env.production', "KIT_BRAND_ICON=icon.svg\n");
+    file_put_contents($removed.'/phpunit.xml.ci', "<env name=\"KIT_BRAND_STYLE\" value=\"mono\"/>\n");
+    file_put_contents($removed.'/.github/workflows/ci.yml', "env:\n  KIT_BRAND_LEGAL_NAME: Example\n");
+    file_put_contents($removed.'/bin/rehearse.sh', "export KIT_BRAND_INK='#111111'\n");
+    file_put_contents($removed.'/tests/Feature/BrandTest.php', "<?php putenv('KIT_BRAND_PRIVATE=true');\n");
+    file_put_contents($removed.'/vendor/acme/x.php', "<?php // KIT_BRAND_IGNORED WelcomeCardData\n");
+    file_put_contents($removed.'/node_modules/x/y.js', "// KIT_BRAND_IGNORED\n");
+    file_put_contents($removed.'/app/Http/Dash.php', "<?php use Tey\\Kit\\Features\\SessionUi\\Data\\WelcomeCardData;\n");
+    file_put_contents($removed.'/routes/web.php', "<?php route('me.welcome.dismiss', 1); Route::get('/welcome', fn () => redirect()->route('focus.welcome'));\n");
+    $steps = $removedSteps(['core', 'session-ui']);
+    $brand = $steps['env brand keys'];
+    check($brand['status'] === 'unmet' && $brand['blocking'] === false && $brand['feature'] === 'core'
+        && str_contains($brand['message'], '.env.example (KIT_BRAND_ACCENT)') && str_contains($brand['message'], '.github/workflows/ci.yml (KIT_BRAND_LEGAL_NAME)')
+        && str_contains($brand['message'], 'bin/rehearse.sh (KIT_BRAND_INK)') && str_contains($brand['message'], 'tests/Feature/BrandTest.php (KIT_BRAND_PRIVATE)')
+        && str_contains($brand['message'], '.env.production (KIT_BRAND_ICON)') && str_contains($brand['message'], 'phpunit.xml.ci (KIT_BRAND_STYLE)')
+        && str_contains($brand['message'], 'kit:brand:migrate') && ! str_contains($brand['message'], 'KIT_BRAND_IGNORED'), 'KIT_BRAND_* in any root .env* or phpunit.xml*, CI, bin and tests is attention naming each file and variable; vendor and node_modules are skipped');
+    $welcome = $steps['welcome card'];
+    check($welcome['status'] === 'unmet' && $welcome['blocking'] === false && str_contains($welcome['message'], 'app/Http/Dash.php (WelcomeCardData)') && str_contains($welcome['message'], 'routes/web.php (me.welcome.dismiss)')
+        && str_contains($welcome['message'], '/welcome onboarding stays') && ! str_contains($welcome['message'], 'focus.welcome'), 'the removed welcome card in app code is attention naming the file; the /welcome onboarding routes are not flagged');
+    check(! isset($removedSteps(['core'])['welcome card']), 'without session-ui, no welcome card step');
     echo "Status checks only; no consumer, product, browser or database acceptance.\n";
 } catch (Throwable $error) {
     fwrite(STDERR, (string) $error."\n");

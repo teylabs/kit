@@ -29,39 +29,37 @@ final class BrandAssets
     public function __construct(private string $logomark, private string $accent, private string $name, private ?string $font = null, ?string $icon = null)
     {
         if (trim($accent) === '') {
-            throw new RuntimeException('The brand assets need an accent colour, and it is empty: set KIT_BRAND_ACCENT to a #rrggbb colour.');
+            throw new RuntimeException('The brand assets need an accent colour, and it is empty: set \'accent\' in config/brand.php to a #rrggbb colour.');
         }
         $this->icon = $icon ?? $logomark;
     }
 
     public static function fromConfig(): self
     {
-        $logomark = Brand::logomarkPath() ?? throw new RuntimeException('The brand has no logomark: set kit.brand.logomark (KIT_BRAND_LOGOMARK) to an SVG file.');
+        $logomark = Brand::logomarkPath() ?? throw new RuntimeException('The brand has no logomark: set \'logomark\' in config/brand.php to an SVG file.');
         $icon = Brand::iconPath();
         if (Brand::get('icon') !== null && Brand::get('icon') !== '' && $icon === null) {
-            throw new RuntimeException('kit.brand.icon (KIT_BRAND_ICON) is set but is not an SVG file this app can read.');
+            throw new RuntimeException('kit.brand.icon (config/brand.php) is set but is not an SVG file this app can read.');
         }
 
         return new self((string) file_get_contents($logomark), self::configuredAccent(), Brand::name(), Brand::get('font'), $icon === null ? null : (string) file_get_contents($icon));
     }
 
     /**
-     * The accent the assets are drawn in: `kit.brand.accent`, or, when that is empty (`KIT_BRAND_ACCENT=`) or resolved unset (null in config/brand.php), the accent the theme resolves to (the light `--primary` in the host's
+     * The accent the assets are drawn in: `kit.brand.accent`, or, when that is empty or resolved unset (null in config/brand.php), the accent the theme resolves to (the light `--primary` in the host's
      * stylesheets, `ThemeAdvisory::primary()`). With neither it refuses, so no asset is drawn in an empty colour. A set accent reads as before (`Brand::accent()`).
      */
     public static function configuredAccent(?string $root = null): string
     {
         $accent = Brand::get('accent');
-        // Resolved unset (config/brand.php or env set it to null or empty, so BrandConfig left it out of kit.brand): the theme, as an empty accent was.
-        $unset = $accent === null && in_array(BrandConfig::sources()['accent'] ?? null, [BrandConfig::SOURCE_CONFIG, BrandConfig::SOURCE_ENV], true);
+        // Resolved unset (config/brand.php set it to null or empty, so BrandConfig left it out of kit.brand): the theme, as an empty accent was.
+        $unset = $accent === null && (BrandConfig::sources()['accent'] ?? null) === BrandConfig::SOURCE_CONFIG;
         if (! $unset && (! is_string($accent) || trim($accent) !== '')) {
             return Brand::accent();
         }
 
         return ThemeAdvisory::primary(HostRequirements::themeStylesheets($root ?? base_path()))
-            ?? throw new RuntimeException((BrandConfig::sources()['accent'] ?? null) === BrandConfig::SOURCE_CONFIG
-                ? 'kit.brand.accent (config/brand.php) is null and the theme resolves to no accent (no readable --primary in :root of resources/css/app.css or its imports). Set \'accent\' in config/brand.php to a #rrggbb colour, then run kit:brand again.'
-                : 'kit.brand.accent (KIT_BRAND_ACCENT) is empty and the theme resolves to no accent (no readable --primary in :root of resources/css/app.css or its imports). Set KIT_BRAND_ACCENT to a #rrggbb colour, then run kit:brand again.');
+            ?? throw new RuntimeException('kit.brand.accent (config/brand.php) is '.($accent === null ? 'null' : 'empty').' and the theme resolves to no accent (no readable --primary in :root of resources/css/app.css or its imports). Set \'accent\' in config/brand.php to a #rrggbb colour, then run kit:brand again.');
     }
 
     /**
@@ -338,7 +336,7 @@ final class BrandAssets
             }
         }
 
-        throw new RuntimeException('No TrueType font was found for the social image. Set KIT_BRAND_FONT (kit.brand.font) to a .ttf file.');
+        throw new RuntimeException('No TrueType font was found for the social image. Set \'font\' in config/brand.php (kit.brand.font) to a .ttf file.');
     }
 
     private static function which(string $binary): ?string

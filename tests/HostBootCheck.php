@@ -39,6 +39,11 @@ function host(array $features, array $config = [], array $providers = [], ?strin
     foreach (['bootstrap/cache', 'storage/framework/views', 'storage/logs', 'config'] as $dir) {
         mkdir($root.'/'.$dir, 0700, true);
     }
+    // The brand goes in the app's own config/brand.php, its only source since 0.17.
+    if (isset($config['brand'])) {
+        file_put_contents($root.'/config/brand.php', '<?php return '.var_export($config['brand'], true).';');
+        unset($config['brand']);
+    }
     file_put_contents($root.'/config/kit.php', '<?php return '.var_export(['features' => $features, 'models' => ['user' => User::class]] + $config, true).';');
     file_put_contents($root.'/config/database.php', "<?php return ['default' => 'sqlite', 'connections' => ['sqlite' => ['driver' => 'sqlite', 'database' => ':memory:', 'prefix' => '']]];");
     file_put_contents($root.'/config/cache.php', "<?php return ['default' => 'array', 'stores' => ['array' => ['driver' => 'array']]];");
@@ -149,8 +154,9 @@ try {
     check($auth->getProvider(SessionUiProvider::class) !== null && $auth->getProvider(WorkspaceUiProvider::class) === null, 'auth-only: session-ui registers and workspace-ui does not');
     $present = ['login', 'password.request', 'password.reset', 'password.email', 'password.update', 'two-factor.login', 'verification.notice', 'verification.verify', 'focus.welcome', 'focus.welcome.show', 'account.switch', 'avatars.show', 'me.avatar.store'];
     check(array_diff($present, $names($auth)) === [], 'auth-only: the sign-in, password reset, two-factor, verify-email and welcome routes exist ('.implode(', ', array_diff($present, $names($auth))).')');
-    $absent = ['home', 'workspaces.dashboard.index', 'short.workspaces.search.index', 'workspaces.search.index', 'workspaces.settings.index', 'workspaces.people.index', 'me.index', 'me.profile', 'me.password', 'me.security', 'focus.no-workspace', 'me.welcome.dismiss', 'invitations.show', 'demo.login'];
+    $absent = ['home', 'workspaces.dashboard.index', 'short.workspaces.search.index', 'workspaces.search.index', 'workspaces.settings.index', 'workspaces.people.index', 'me.index', 'me.profile', 'me.password', 'me.security', 'focus.no-workspace', 'invitations.show', 'demo.login'];
     check(array_intersect($absent, $names($auth)) === [] && array_diff($absent, $names($full)) === [], 'auth-only: no home, dashboard, search, settings landing, People, account, no-workspace, invitation or demo sign-in route; full adoption has each (workspace-ui\'s since 0.6.0 for the invitation and the demo sign-in)');
+    check(! in_array('me.welcome.dismiss', $names($auth), true) && ! in_array('me.welcome.dismiss', $names($full), true) && in_array('focus.welcome', $names($full), true), 'the welcome card\'s dismiss route is gone since 0.17 (auth-only and full adoption); /welcome stays');
     check($home($auth) === [null, []], 'auth-only: the kit serves nothing at "/", which stays the host\'s');
     check($auth['config']->get('fortify.home') === '/' && Fortify::redirects('login') === '/' && $full['config']->get('fortify.home') === '/', 'after sign-in Fortify sends the person to kit.home: auth-only the app\'s own home, with workspace-ui the last workspace (else the list)');
     check($full['config']->get('concierge.workspaces.no_workspace_url') === '/no-workspace' && str_contains((string) tap($full['router']->getRoutes())->refreshNameLookups()->getByName('workspaces.index')?->getActionName(), 'WorkspaceController'), 'with workspace-ui: Concierge\'s no-workspace page and the /me/workspaces chooser are as before');

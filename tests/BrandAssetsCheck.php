@@ -172,7 +172,7 @@ try {
         BrandAssets::configuredAccent($host);
         check(false, 'an empty accent with no theme accent is refused');
     } catch (RuntimeException $error) {
-        check(str_contains($error->getMessage(), 'KIT_BRAND_ACCENT') && str_contains($error->getMessage(), '--primary'), 'an empty accent with no theme accent is refused, naming what to set');
+        check(str_contains($error->getMessage(), "'accent' in config/brand.php") && str_contains($error->getMessage(), '--primary'), 'an empty accent with no theme accent is refused, naming what to set');
     }
     $brand([]);
     check(BrandAssets::configuredAccent($host) === '#52525b', 'no accent key: unchanged, the neutral default');
@@ -221,7 +221,7 @@ try {
         check($exit === 0, 'an empty accent renders in the theme accent: the same bytes as that accent set outright (the favicon.svg, mail mark, touch icon, social image)');
         file_put_contents($host.'/resources/css/app.css', "body { color: red; }\n");
         [$exit, $out] = $run();
-        check($exit === 1 && str_contains($out, 'KIT_BRAND_ACCENT') && file_get_contents($public.'/favicon.ico') === 'hand made', 'kit:brand refuses with no resolvable accent and writes nothing');
+        check($exit === 1 && str_contains($out, "'accent' in config/brand.php") && file_get_contents($public.'/favicon.ico') === 'hand made', 'kit:brand refuses with no resolvable accent and writes nothing');
     } else {
         echo "SKIP own and theme-accent writes: no SVG renderer on this machine\n";
     }

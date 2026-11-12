@@ -3,8 +3,8 @@
 // The app's brand, read by tey/kit as `kit.brand` (the same keys and nesting). Published by `php artisan vendor:publish --tag=kit-brand`;
 // this file is the app's own, and kit updates never touch it. Every key is commented out at the kit's default: uncomment one to set it.
 //
-// Each key resolves, in order: the value here when the key is present (an explicit null included), else its KIT_BRAND_* env value (deprecated:
-// env brand values are removed in tey/kit 0.17, and `php artisan kit:brand:migrate` moves them here), else the kit's default.
+// Each key resolves, in order: the value here when the key is present (an explicit null included), else the kit's default. KIT_BRAND_* env
+// values are not read since tey/kit 0.17: `php artisan kit:brand:migrate` moves any still set here, and kit:status names them.
 // Colours are a #rgb or #rrggbb. null means "use the theme" (or the kit's default). An empty string is refused: it throws in local and testing,
 // and anywhere else is logged and takes the kit's default. `php artisan kit:status` shows where each key comes from.
 return [

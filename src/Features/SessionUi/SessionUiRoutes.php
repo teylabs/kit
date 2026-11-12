@@ -13,7 +13,7 @@ use LogicException;
 final class SessionUiRoutes
 {
     /**
-     * The groups: the invitation link (show, accept, the account it creates), the welcome steps and welcome card, the passkey offer, the first-run demo's sign-in,
+     * The groups: the invitation link (show, accept, the account it creates), the welcome steps (/welcome and its checklist), the passkey offer, the first-run demo's sign-in,
      * and the tenant invitation link (`/invite/{token}`, a new owner's own workspace), the one group off by default.
      */
     public const array GROUPS = ['invitations', 'welcome', 'passkey-offer', 'demo-login', 'tenant-invitations'];
