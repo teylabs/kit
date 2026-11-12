@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Deliver: events for delivered, first opened and link revoked (#936).** Deliver already recorded each of these but dispatched no event, so an app mirroring delivery activity into its own feed had nothing to listen to. Three events join `DeliverySent`, `DeliveryCancelled` and `DeliveryBounced` in `Tey\Kit\Features\Deliver\Events`. Each carries the definition and the `DeliveryRecord` (its `subject_key` is the subject), fires exactly once, and is dispatched after commit (`DB::afterCommit`), so a listener never sees a rolled-back change.
+  - `DeliveryDelivered`: once per address, on the first `delivered` that `recordEvent()` records, with the `DeliveryRecipient`. Never for a replayed webhook, a second `delivered`, or after a bounce or complaint. The status moves by a conditional update, so two webhooks at once dispatch one event.
+  - `DeliveryOpened`: once per delivery, only when the conditional update sets `first_opened_at`. Its `recipient` is null, since the link is per delivery and names no address.
+  - `DeliveryLinkRevoked`: whenever `token_revoked_at` is set, by Revoke link (`resent` false) or by a resend with `revokePrevious` (`resent` true; the event's delivery is the original), with `actorId`, who did it (null for a revoke by the kit).
+  - `DeliverySent::resent()` says whether the sent delivery is a resend (`$delivery->resent_from_id`, now documented on the event).
+
+  The events are documented in docs/deliver.md. A patch: additive, no public signature changed, and only `src/` and docs changed, so nothing to re-pin.
+  - **Tests.** DeliverCheck: one `DeliveryDelivered` for a first `delivered`, held until the caller's transaction commits; none for the same webhook replayed, a second `delivered` (which still moves `last_event_at`) or a `delivered` after a bounce. One `DeliveryOpened` for two opens of the same link. One `DeliveryLinkRevoked` for Revoke link (the owner, not a resend), none for a resend of an already revoked link, and one for a resend with `revokePrevious` (the original, the admin, a resend). Revoking it again, by a resend or by Revoke link, dispatches nothing. Every listener records transaction level 0, and `DeliverySent::resent()` is false for a send and true for a resend. Each check fails when its dispatch is moved inside the transaction, dropped, or made unconditional.
+
 ## v0.17.1
 
 No lineage pin changed: `composer update` is enough.
