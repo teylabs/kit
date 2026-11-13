@@ -33,9 +33,9 @@ function scaffoldTree(string $root): array
     return $tree;
 }
 
-function scaffoldApp(): array
+function scaffoldApp(?string $root = null): array
 {
-    $root = sys_get_temp_dir().'/kit-scaffold-cmd-'.bin2hex(random_bytes(6));
+    $root ??= sys_get_temp_dir().'/kit-scaffold-cmd-'.bin2hex(random_bytes(6));
     foreach (['bootstrap/cache', 'config', 'storage/framework', 'storage/logs'] as $dir) {
         mkdir($root.'/'.$dir, 0700, true);
     }
@@ -111,6 +111,14 @@ try {
     scaffoldCheck($exit !== 0 && str_contains($output, 'Refusing to write through a linked folder: resources/js/widgets') && scaffoldTree($root) === $tree && file_get_contents($outside.'/Notes.vue') === "outside\n", 'a linked parent folder refuses before any write, inside the app or outside it');
     unlink($root.'/resources/js/widgets');
     rename($outside, $root.'/resources/js/widgets');
+    // A linked app root (a Forge or Envoyer-style `current` link to the release) or a linked folder above it is the deploy's own layout: only the
+    // folders from the app root down to each file are checked.
+    $deploy = sys_get_temp_dir().'/kit-scaffold-deploy-'.bin2hex(random_bytes(6));
+    mkdir($deploy.'/releases/1', 0700, true);
+    symlink($deploy.'/releases/1', $deploy.'/current');
+    [$current, $scaffoldCurrent] = scaffoldApp($deploy.'/current');
+    [$exit, $output] = $scaffoldCurrent(['feature' => 'notes']);
+    scaffoldCheck($exit === 0 && str_contains($output, '5 written, 0 skipped.') && file_get_contents($deploy.'/releases/1/'.$widget) === $notes[$widget], 'a linked app root (a `current` deploy link) scaffolds into the release it points to');
     unlink($root.'/'.$widget);
     $scaffold(['feature' => 'notes', '--only' => [$widget]]);
     [$exit, $output] = $scaffold(['feature' => 'notes', '--only' => [$widget], '--diff' => true]);

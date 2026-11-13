@@ -46,7 +46,8 @@ final class ScaffoldCommand extends Command
 
                 return self::SUCCESS;
             }
-            // A linked folder on the way would carry a write outside the app: refuse before writing anything.
+            // A linked folder on the way would carry a write outside the app: refuse before writing anything. Only the folders from the app
+            // root down are checked; the root itself, or a folder above it, may be a link (a Forge or Envoyer-style `current` deploy).
             foreach (array_keys($files) as $path) {
                 for ($folder = dirname($path); $folder !== '.'; $folder = dirname($folder)) {
                     if (is_link($root.'/'.$folder)) {
