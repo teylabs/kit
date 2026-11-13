@@ -12,10 +12,10 @@ use Throwable;
 /** Writes the app-owned host binding kit:add needs. Never overwrites a file; a second run changes nothing. */
 final class InstallCommand extends Command
 {
-    private const PROVIDER = 'App\\Providers\\KitHostServiceProvider';
+    public const PROVIDER = 'App\\Providers\\KitHostServiceProvider';
 
     /** Target => stub in resources/install; the executor provenance is written from the runtime. */
-    private const FILES = [
+    public const FILES = [
         'app/Kit/KitHost.php' => 'KitHost.php.stub',
         'app/Kit/operations.php' => 'operations.php.stub',
         'config/kit-lifecycle.php' => 'kit-lifecycle.php.stub',
