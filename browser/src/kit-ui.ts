@@ -40,7 +40,7 @@ export { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from 
 export { default as Badge } from '@/components/Kit/Feedback/Badge.vue';
 export { default as CopyButton } from '@/components/Kit/Action/CopyButton.vue';
 export { checkedAtLabel, fromLine, fromPreview, fullRecordName, recordKind } from '@/components/Kit/Data/mailSending';
-export { useTimezone } from '@/components/Kit/Data/useTimezone';
+export { useClock, useTimezone } from '@/components/Kit/Data/useTimezone';
 export { default as EmptyState } from '@/components/Kit/Feedback/EmptyState.vue';
 export { default as PageSection } from '@/components/Kit/Layout/PageSection.vue';
 export { default as Surface } from '@/components/Kit/Surface/Surface.vue';

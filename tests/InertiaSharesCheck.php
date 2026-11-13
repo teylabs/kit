@@ -6,17 +6,22 @@
 // from the kernel's, the re-sync that dropped a router-only push), lists the kit's old middleware after its own, or is missing (the kit adds its plain
 // one). Nothing in src flushes Inertia's shared props, and two requests in one app share nothing of each other's (as under Octane). After an
 // Inertia::flushShared() between requests (pest-plugin-browser's, before each one), the next page still has every kit prop and only its own person's,
-// and a key the host shares itself (`shell`, `environment`) keeps the host's value with or without a flush.
+// and a key the host shares itself (`shell`, `environment`) keeps the host's value with or without a flush. `kitClock` resolves the person's own clock, then
+// the workspace's (Registry::workspaceClockUsing), then kit.clock.default, then auto, on every page (a public one on a host without session-ui, a portal
+// one); core's Clock answers 12h or 24h for a person and a workspace with no request and formats server-built times on it, a queued mail included.
 // Synthetic app, SQLite memory, real Fortify and Inertia, synthetic users; no network, no browser.
+use Carbon\CarbonImmutable;
 use Illuminate\Auth\AuthServiceProvider;
 use Illuminate\Auth\Middleware\Authenticate;
 use Illuminate\Auth\Middleware\RedirectIfAuthenticated;
 use Illuminate\Auth\Passwords\PasswordResetServiceProvider;
 use Illuminate\Bus\BusServiceProvider;
+use Illuminate\Bus\Queueable;
 use Illuminate\Cache\CacheServiceProvider;
 use Illuminate\Config\Repository;
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Contracts\Http\Kernel;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Cookie\CookieServiceProvider;
 use Illuminate\Database\DatabaseServiceProvider;
 use Illuminate\Database\Schema\Blueprint;
@@ -30,6 +35,7 @@ use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 use Illuminate\Foundation\Providers\FoundationServiceProvider;
 use Illuminate\Hashing\HashServiceProvider;
 use Illuminate\Http\Request;
+use Illuminate\Mail\Mailable;
 use Illuminate\Mail\MailServiceProvider;
 use Illuminate\Notifications\NotificationServiceProvider;
 use Illuminate\Pipeline\PipelineServiceProvider;
@@ -40,7 +46,9 @@ use Illuminate\Routing\RoutingServiceProvider;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Session\SessionServiceProvider;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Facade;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Translation\TranslationServiceProvider;
@@ -53,8 +61,10 @@ use Laravel\Fortify\FortifyServiceProvider;
 use Monolog\Handler\NullHandler;
 use Spatie\LaravelData\LaravelDataServiceProvider;
 use Symfony\Component\HttpFoundation\Response;
+use Tey\Kit\Features\Core\Clock;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\FeaturesServiceProvider;
+use Tey\Kit\Features\SessionUi\ClientClock;
 use Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests;
 use Tey\Kit\Features\SessionUi\Http\Middleware\PrepareKitRequest;
 use Tey\Kit\KitServiceProvider;
@@ -97,6 +107,24 @@ class HostOverridingInertiaRequests extends Middleware
 }
 
 /** A later middleware a host or package appends through the kernel: each append rebuilds the router's groups from the kernel's. */
+/** A queued mail that formats its booking on the clock of the person and workspace it was made for, at render time in the queue. */
+class ClockMail extends Mailable implements ShouldQueue
+{
+    use Queueable;
+
+    public static int $rendered = 0;
+
+    public function __construct(public ?int $userId, public ?int $workspaceId, public string $start, public string $end) {}
+
+    public function build(): self
+    {
+        self::$rendered++;
+        $zone = 'America/Halifax';
+
+        return $this->subject('Your booking')->html('<p>'.e(Clock::range(CarbonImmutable::parse($this->start)->setTimezone($zone), CarbonImmutable::parse($this->end)->setTimezone($zone), $this->userId, $this->workspaceId)).'</p>');
+    }
+}
+
 class HostLateMiddleware
 {
     public function handle(Request $request, Closure $next): mixed
@@ -106,11 +134,11 @@ class HostLateMiddleware
 }
 
 /**
- * A core, shell and session-ui host. `$web` is the host's `web` group before the providers boot; `$after` runs once they have.
+ * A core, shell and session-ui host (or `$features`). `$web` is the host's `web` group before the providers boot; `$after` runs once they have.
  *
  * @return array{0: Application, 1: Closure(Request): Response, 2: list<SharesUser>}
  */
-function sharesHost(array $web, ?Closure $after = null): array
+function sharesHost(array $web, ?Closure $after = null, array $features = ['core', 'shell', 'session-ui']): array
 {
     $root = sys_get_temp_dir().'/kit-inertia-shares-'.bin2hex(random_bytes(6));
     register_shutdown_function(fn () => exec('rm -rf '.escapeshellarg($root)));
@@ -129,7 +157,7 @@ function sharesHost(array $web, ?Closure $after = null): array
         'session' => ['driver' => 'array', 'lifetime' => 120, 'cookie' => 's', 'path' => '/', 'domain' => null, 'secure' => false, 'http_only' => true, 'same_site' => 'lax', 'partitioned' => false, 'lottery' => [0, 100], 'expire_on_close' => false, 'encrypt' => false],
         'view' => ['paths' => [], 'compiled' => $root.'/storage/framework/views'],
         'database' => ['default' => 'testing', 'connections' => ['testing' => ['driver' => 'sqlite', 'database' => ':memory:', 'prefix' => '', 'foreign_key_constraints' => false]]],
-        'kit' => ['app_id' => null, 'features' => ['core', 'shell', 'session-ui'], 'models' => ['user' => SharesUser::class]],
+        'kit' => ['app_id' => null, 'features' => $features, 'models' => ['user' => SharesUser::class]],
         'queue' => ['default' => 'sync', 'connections' => ['sync' => ['driver' => 'sync']]], 'mail' => ['default' => 'array', 'mailers' => ['array' => ['transport' => 'array']], 'from' => ['address' => 'kit@example.test', 'name' => 'Kit']],
         'logging' => ['default' => 'null', 'channels' => ['null' => ['driver' => 'monolog', 'handler' => NullHandler::class]]],
     ]));
@@ -207,7 +235,7 @@ function sharesProps(Response $response): array
 }
 
 $inertia = ['HTTP_X_INERTIA' => 'true', 'HTTP_ACCEPT' => 'text/html, application/xhtml+xml', 'HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest'];
-$kitKeys = ['kitPassword', 'passkeyOffer', 'environment', 'kitTimezone', 'shell', 'kitUi', 'kitToasts', 'kitNumber'];
+$kitKeys = ['kitPassword', 'passkeyOffer', 'environment', 'kitTimezone', 'kitClock', 'shell', 'kitUi', 'kitToasts', 'kitNumber'];
 $has = fn (array $props, array $keys): bool => array_diff($keys, array_keys($props)) === [];
 
 try {
@@ -278,6 +306,140 @@ try {
     // kitTimezone: the viewer's zone for timed values, from the browser's `tz` cookie when it is a real zone, else UTC (no saved or workspace zone here).
     $zoned = Request::create('https://kit.test/login', 'GET', cookies: ['tz' => 'America/Halifax'], server: $inertia);
     sharesCheck(($guest['kitTimezone'] ?? null) === 'UTC' && (sharesProps($dispatch($zoned))['kitTimezone'] ?? null) === 'America/Halifax' && (sharesProps($dispatch(Request::create('https://kit.test/login', 'GET', cookies: ['tz' => 'Not/AZone'], server: $inertia)))['kitTimezone'] ?? null) === 'UTC', 'kitTimezone is the browser\'s zone from the tz cookie when it is real, else UTC, and survives a flush');
+
+    // kitClock: the person's own clock (user_state `clock`), then the workspace's (Registry::workspaceClockUsing, read per request), then kit.clock.default,
+    // then auto. Anything but 12h or 24h at any level is no choice, and a workspace getter that throws falls back rather than failing the page.
+    $clockOf = fn (?SharesUser $as = null): mixed => sharesProps($dispatch(Request::create('https://kit.test/probe', 'GET', server: $inertia), $as))['kitClock'] ?? null;
+    sharesCheck(($guest['kitClock'] ?? null) === 'auto' && $clockOf($ada) === 'auto' && $clockOf() === 'auto', 'kitClock: with nothing set, a guest and a signed-in person get auto (the locale\'s own clock, no visible change)');
+    $app['config']->set('kit.clock.default', 'nonsense');
+    sharesCheck($clockOf($ada) === 'auto', 'kitClock: an unknown kit.clock.default is auto');
+    $app['config']->set('kit.clock.default', '24h');
+    sharesCheck($clockOf() === '24h' && $clockOf($ada) === '24h', 'kitClock: kit.clock.default 24h applies to a guest and a person with no choice');
+    $workspaceClock = '12h';
+    $saved = [];
+    $app->make(Registry::class)->workspaceClockUsing(function () use (&$workspaceClock): ?string {
+        if ($workspaceClock instanceof Throwable) {
+            throw $workspaceClock;
+        }
+
+        return $workspaceClock;
+    }, function (int $actorId, ?string $clock) use (&$saved): void {
+        $saved[] = [$actorId, $clock];
+    });
+    sharesCheck($clockOf() === '12h' && $clockOf($ada) === '12h', 'kitClock: the workspace\'s 12h wins over kit.clock.default 24h');
+    ClientClock::save((int) $ada->getKey(), '24h');
+    sharesCheck($clockOf($ada) === '24h' && $clockOf($grace) === '12h' && $clockOf() === '12h', 'kitClock: Ada\'s own 24h wins over the workspace\'s 12h, and only for Ada (Grace and a guest keep the workspace\'s)');
+    ClientClock::save((int) $grace->getKey(), '12h');
+    $workspaceClock = '24h';
+    sharesCheck($clockOf($grace) === '12h' && $clockOf($ada) === '24h', 'kitClock: Grace\'s own 12h wins over the workspace\'s 24h');
+    $workspaceClock = null;
+    $app['config']->set('kit.clock.default', 'auto');
+    ClientClock::save((int) $grace->getKey(), null);
+    sharesCheck($clockOf($grace) === 'auto' && DB::table('user_state')->where(['user_id' => $grace->getKey(), 'key' => 'clock'])->doesntExist(), 'kitClock: Grace back on the workspace\'s (none) and the default (auto) gets auto, and her row is gone');
+    $workspaceClock = new RuntimeException('the workspace\'s settings are unreadable');
+    $app['config']->set('kit.clock.default', '12h');
+    sharesCheck($clockOf() === '12h' && $clockOf($ada) === '24h', 'kitClock: a workspace getter that throws falls back to kit.clock.default (the page still renders), and a person\'s own choice still wins');
+    DB::table('user_state')->where(['user_id' => $ada->getKey(), 'key' => 'clock'])->update(['value' => 'auto']);
+    $workspaceClock = 'h23';
+    sharesCheck($clockOf($ada) === '12h', 'kitClock: a stored value that is not 12h or 24h (auto), and a workspace value that is not either (h23), are no choice');
+    sharesCheck($saved === [] && $app->make(Registry::class)->workspaceClock() !== null, 'kitClock: resolving never calls the workspace setter');
+
+    // Core's Clock: for() and current() answer 12h or 24h (auto through the app's locale), and time() and range() format server-built strings on them,
+    // in each Carbon's own zone. for() takes a person and a workspace and reads no request; a given workspace is entered through Registry::inWorkspace().
+    $app['config']->set('kit.clock.default', 'auto');
+    $workspaceClock = null;
+    $app['auth']->forgetGuards();
+    $locales = [];
+    foreach (['en', 'en_CA', 'en_GB', 'de', 'ko', 'es_MX'] as $locale) {
+        $app->setLocale($locale);
+        $locales[$locale] = Clock::for();
+    }
+    $app->setLocale('en');
+    sharesCheck($locales === ['en' => '12h', 'en_CA' => '12h', 'en_GB' => '24h', 'de' => '24h', 'ko' => '12h', 'es_MX' => '24h'] && Clock::preference() === 'auto', 'Clock::for: auto resolves through the app locale (en, en_CA, ko 12h; en_GB, de, es_MX 24h), and preference() stays auto ('.json_encode($locales).')');
+    ClientClock::save((int) $ada->getKey(), '24h');
+    ClientClock::save((int) $grace->getKey(), '12h');
+    Auth::guard('web')->setUser($grace);
+    sharesCheck(Clock::current() === '12h' && Clock::for($ada) === '24h' && Clock::for((int) $ada->getKey()) === '24h' && Clock::for() === '12h', 'Clock::current is the signed-in person\'s (Grace, 12h); Clock::for(Ada) is Ada\'s 24h whoever is signed in, and for() with no one is the locale\'s (en, 12h)');
+    $app['auth']->forgetGuards();
+    sharesCheck(Clock::current() === '12h', 'Clock::current with no one signed in: the current workspace\'s (none), the default (auto), the locale\'s (en, 12h)');
+    // A workspace given by id or model is read inside it: the app's getter sees that workspace as current, as Workspaces::run() makes it.
+    $inside = null;
+    $entered = [];
+    $byWorkspace = [7 => '24h', 8 => null];
+    $registry = $app->make(Registry::class);
+    $registry->workspaceRunnerUsing(function (object|int $workspace, Closure $fn) use (&$inside, &$entered): mixed {
+        $before = $inside;
+        $inside = is_object($workspace) ? $workspace->id : $workspace;
+        $entered[] = $inside;
+        try {
+            return $fn();
+        } finally {
+            $inside = $before;
+        }
+    });
+    $registry->workspaceClockUsing(function () use (&$inside, &$workspaceClock, $byWorkspace): ?string {
+        return $inside === null ? $workspaceClock : ($byWorkspace[$inside] ?? null);
+    }, fn (): null => null);
+    sharesCheck(Clock::for(null, 7) === '24h' && Clock::for(null, (object) ['id' => 7]) === '24h' && Clock::for(null, 8) === '12h' && Clock::for($grace, 7) === '12h' && $entered === [7, 7, 8, 7] && $inside === null, 'Clock::for(null, workspace) reads that workspace\'s clock inside it (7: 24h, by id or model; 8: none, so the locale\'s), a person\'s own still wins (Grace 12h in 7), and the runner restores what was current');
+    $at = CarbonImmutable::parse('2026-10-29 18:30:00', 'UTC')->setTimezone('America/Halifax');
+    $end = $at->addHours(8)->addMinutes(15);
+    sharesCheck(Clock::time($at, $ada) === '15:30' && Clock::time($at, (int) $grace->getKey()) === '3:30 PM' && Clock::time($at->setTime(0, 5), $ada) === '00:05' && Clock::time($at->setTime(0, 5), $grace) === '12:05 AM' && Clock::time($at, null, 7) === '15:30', 'Clock::time: Ada (24h) 15:30 and 00:05, Grace (12h) 3:30 PM and 12:05 AM, workspace 7 (24h) 15:30, in the Carbon\'s own zone (Halifax)');
+    $ranges = [Clock::range($at, $end, $ada), Clock::range($at, $end, $grace), Clock::range($at, $at->addHours(10), $ada), Clock::range($at, $end->setTimezone('UTC'), $grace)];
+    sharesCheck($ranges === ['Thu 29 Oct, 15:30 to 23:45', 'Thu 29 Oct, 3:30 PM to 11:45 PM', 'Thu 29 Oct, 15:30 to Fri 30 Oct, 01:30', 'Thu 29 Oct, 3:30 PM to 11:45 PM'], 'Clock::range shares the date (Thu 29 Oct, 15:30 to 23:45 / 3:30 PM to 11:45 PM), names both days across midnight, and shows the end in the start\'s zone ('.json_encode($ranges).')');
+    $app->setLocale('en_GB');
+    sharesCheck(Clock::time($at) === '15:30' && Clock::time($at, $grace) === '3:30 PM', 'Clock::time on auto follows the app locale (en_GB: 15:30); an explicit 12h is still 12-hour there (3:30 PM)');
+    $app->setLocale('ko');
+    sharesCheck(Clock::time($at) === '오후 3:30' && Clock::time($at, $ada) === '15:30', 'Clock::time keeps the locale\'s own pattern when its clock is the one asked for (ko auto: 오후 3:30), and is plain 24-hour when it isn\'t');
+    $app->setLocale('en');
+    Auth::guard('web')->setUser($ada);
+    sharesCheck(Clock::time($at) === '15:30', 'Clock::time with no person given uses the signed-in person (Ada, 24h)');
+    $app['auth']->forgetGuards();
+    $workspaceClock = '24h';
+    sharesCheck(Clock::time($at) === '15:30' && Clock::time($at, 999) === '15:30', 'Clock::time for a job (no one signed in) or a person with no choice is the current workspace\'s (24h)');
+    $workspaceClock = null;
+
+    // A queued mail, rendered by the queue (the sync driver serializes the job and runs it), with Grace (12h) signed in where it was sent from: each mail
+    // shows the clock of the person and workspace it was made for, not the request's. A mail with its own locale resolves auto through it.
+    $transport = $app['mailer']->getSymfonyTransport();
+    $transport->flush();
+    Auth::guard('web')->setUser($grace);
+    $start = '2026-06-02T13:00:00+00:00';
+    $finish = '2026-06-02T15:00:00+00:00';
+    Mail::to('ada@example.test')->queue(new ClockMail((int) $ada->getKey(), null, $start, $finish));
+    Mail::to('someone@example.test')->queue(new ClockMail(null, 7, $start, $finish));
+    Mail::to('someone@example.test')->queue(new ClockMail(null, 8, $start, $finish));
+    Mail::to('someone@example.test')->queue((new ClockMail(null, 8, $start, $finish))->locale('en_GB'));
+    $app['auth']->forgetGuards();
+    $bodies = array_map(fn ($sent): string => trim(strip_tags((string) $sent->getOriginalMessage()->getHtmlBody())), $transport->messages()->all());
+    sharesCheck($bodies === ['Tue 2 Jun, 10:00 to 12:00', 'Tue 2 Jun, 10:00 to 12:00', 'Tue 2 Jun, 10:00 AM to 12:00 PM', 'Tue 2 Jun, 10:00 to 12:00'] && ClockMail::$rendered === 4, 'queued mail: Ada\'s on her 24h, workspace 7\'s on its 24h, workspace 8\'s (no choice) on en\'s 12h and on en_GB\'s 24h with that locale, though Grace (12h) sent them all ('.json_encode($bodies).')');
+    ClientClock::save((int) $ada->getKey(), null);
+    ClientClock::save((int) $grace->getKey(), null);
+
+    // Every page the kit shares to has kitClock, not only the signed-in shell: a public page on a host with only core and shell (no session-ui, so no
+    // person's clock), after a flush too, and a page whose visitor is signed in on another guard (a portal), which gets the workspace's and the default.
+    [$app, $dispatch] = sharesHost([StartSession::class, HostHandleInertiaRequests::class], features: ['core', 'shell']);
+    $public = sharesProps($dispatch(Request::create('https://kit.test/probe', 'GET', server: $inertia)));
+    $app['config']->set('kit.clock.default', '24h');
+    Inertia::flushShared();
+    $flushed = sharesProps($dispatch(Request::create('https://kit.test/probe', 'GET', server: $inertia)));
+    sharesCheck(($public['kitClock'] ?? null) === 'auto' && ($flushed['kitClock'] ?? null) === '24h' && $app->make(Registry::class)->userClock() === null, 'kitClock on a public page of a core and shell host with no session-ui: auto, then kit.clock.default 24h after a flush');
+    // A host with no feature listed (kit.features empty: FeaturesServiceProvider binds no Registry and registers nothing) still renders its pages,
+    // and kitClock, core's share, is auto: the clock never needs a feature.
+    [$app, $dispatch] = sharesHost([StartSession::class, HostHandleInertiaRequests::class], features: []);
+    $bare = sharesProps($dispatch(Request::create('https://kit.test/probe', 'GET', server: $inertia)));
+    sharesCheck(! $app->bound(Registry::class) && ($bare['kitClock'] ?? null) === 'auto' && ($bare['hostThing'] ?? null) === 'from the host', 'kitClock on a host with no feature listed (no Registry bound): the page renders, and kitClock is auto');
+    [$app, $dispatch, [$ada]] = sharesHost([StartSession::class, HostHandleInertiaRequests::class]);
+    $app['config']->set('auth.guards.portal', ['driver' => 'session', 'provider' => 'users']);
+    $app['config']->set('kit.clock.default', '12h');
+    Route::middleware('web')->get('/portal', fn () => Inertia::render('Portal/Home'));
+    $app['router']->getRoutes()->refreshNameLookups();
+    $app['auth']->forgetGuards();
+    $portal = Request::create('https://kit.test/portal', 'GET', server: $inertia);
+    $portal->setLaravelSession($app['session']->driver());
+    $app->instance('request', $portal);
+    Auth::guard('portal')->setUser($ada);
+    $portalProps = sharesProps($app['router']->dispatch($portal));
+    sharesCheck(($portalProps['kitClock'] ?? null) === '12h', 'kitClock on a portal page (signed in on another guard): the default, 12h');
 
     // A host sharing a kit key itself (`environment`, `shell`) wins on every request, with and without a flush between them.
     foreach (['without a flush' => false, 'with a flush' => true] as $label => $flush) {
