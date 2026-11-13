@@ -74,21 +74,27 @@ php_ready() {
     done
 }
 # The ondrej PPA is Ubuntu's: on Ubuntu with add-apt-repository, PHP 8.5 from it. Anywhere else (a Debian orb: Debian 13 ships 8.4), or when the
-# PPA can't be added, Debian's own php packages, accepted at 8.4 or 8.5 (composer.json's range); an older one fails here with the version found.
+# PPA can't be added or can't deliver a working 8.5, the distribution's own php packages, accepted at 8.4 or 8.5 (composer.json's range); an older
+# one fails here with the version found.
 . /etc/os-release
-if ! php_ready; then
-    if [ "${ID:-}" = ubuntu ] && command -v add-apt-repository >/dev/null && sudo add-apt-repository -y ppa:ondrej/php; then
-        sudo apt-get update
-        sudo apt-get install -y php8.5-cli php8.5-mbstring php8.5-xml php8.5-curl php8.5-zip php8.5-pgsql php8.5-sqlite3 \
-            php8.5-intl php8.5-gd php8.5-imagick unzip
-        # Another PHP may already own `php`: select 8.5 and check before going on.
-        sudo update-alternatives --set php /usr/bin/php8.5
-        php_ready || { echo "setup: php is not PHP 8.5 with the required extensions" >&2; exit 1; }
-    else
-        sudo apt-get update
-        sudo apt-get install -y php-cli php-mbstring php-xml php-curl php-zip php-pgsql php-sqlite3 php-intl php-gd php-imagick unzip
-        php_ready 80400 || { echo "setup: php is not PHP 8.4 or 8.5 with the required extensions (found: $(php -r 'echo PHP_VERSION;' 2>/dev/null || echo none))" >&2; exit 1; }
+# Called as a condition, so a failing step returns nonzero instead of stopping the script.
+ppa_php() {
+    [ "${ID:-}" = ubuntu ] && command -v add-apt-repository >/dev/null || return 1
+    sudo add-apt-repository -y ppa:ondrej/php || return 1
+    # Another PHP may already own `php`: select 8.5 and check before going on.
+    if sudo apt-get update && sudo apt-get install -y php8.5-cli php8.5-mbstring php8.5-xml php8.5-curl php8.5-zip php8.5-pgsql \
+        php8.5-sqlite3 php8.5-intl php8.5-gd php8.5-imagick unzip && sudo update-alternatives --set php /usr/bin/php8.5 && php_ready; then
+        return 0
     fi
+    # A PPA that can't deliver is removed, so it can't break the fallback's own apt-get update.
+    sudo add-apt-repository -y --remove ppa:ondrej/php || true
+    return 1
+}
+if ! php_ready && ! ppa_php; then
+    echo "setup: no PHP 8.5 from the ondrej PPA here; installing the distribution's php packages" >&2
+    sudo apt-get update
+    sudo apt-get install -y php-cli php-mbstring php-xml php-curl php-zip php-pgsql php-sqlite3 php-intl php-gd php-imagick unzip
+    php_ready 80400 || { echo "setup: php is not PHP 8.4 or 8.5 with the required extensions (found: $(php -r 'echo PHP_VERSION;' 2>/dev/null || echo none))" >&2; exit 1; }
 fi
 
 composer_ready() {
