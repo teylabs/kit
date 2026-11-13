@@ -20,8 +20,9 @@
   - `Tey\Kit\Lineages`, `Tey\Kit\Lifecycle`, `Tey\Kit\LifecycleHost`, `Tey\Kit\CatalogHost`, `Tey\Kit\HostRequirements`, `Tey\Kit\HostCase`, `Tey\Kit\FeatureSwitch`
   - `Tey\Kit\Console\InstallCommand`, `AddCommand`, `AdoptCommand`, `LifecycleCommand`, `RemoveCommand`, `StatusCommand`, `ListCommand`, `FoundationCommand`, and the `Tey\Kit\Console\FailsClosed` trait
   - `Tey\Kit\Features\DiscoveryCache`
+  - `Tey\Kit\Console\DetachCommand` (`kit:detach`): the 0.17.8 one-off reads the install records 0.18 no longer reads. Run it on 0.17.8, before upgrading.
 - Also removed: `FeaturesServiceProvider::adopted()`, `discover()` and `carried()`; `KitServiceProvider::FOUNDATION_LAYOUT`; kit:install's stubs (`resources/install`); the `kit.host.vite_global_types` config key, and the `kit.app_id`, `kit.release`, `kit.scaffold_features` and `kit-lifecycle.*` settings, which nothing reads. `Blueprint` and `Catalog` stay, for the catalog: `Blueprint` validates feature manifests itself, and `ThemeAdvisory::themeStylesheets()` reads the theme for `kit:brand`. The kit still uses tey/mod's layout and discovery.
-- Checks for the tooling: `test:install`, `test:adopt`, `test:adopt-fresh`, `test:adopt-in-place`, `test:add-refused`, `test:plan-steps`, `test:remove-feature`, `test:status`, `test:starter-case`, `test:lifecycle`, `test:layout`, `test:scaffold` and `test:host-contract`. The checks that covered runtime behaviour beside the tooling keep those assertions.
+- Checks for the tooling: `test:install`, `test:adopt`, `test:adopt-fresh`, `test:adopt-in-place`, `test:add-refused`, `test:plan-steps`, `test:remove-feature`, `test:status`, `test:starter-case`, `test:lifecycle`, `test:layout`, `test:scaffold` and `test:host-contract`, and `test:detach` with `kit:detach`. The checks that covered runtime behaviour beside the tooling keep those assertions.
 
 ### Upgrading
 
@@ -31,6 +32,23 @@
 4. **Delete what `kit:detach` listed.** Keep any migration copy under `database/migrations/kit/` you edited, and every stamped copy (`<date>_<order>_<name>.php`, written for a host that adopted its own workspaces table): the package skips each migration you have a copy of, under any stamp, and your copies carry the names your migrations table recorded. Deleting a stamped copy would let the package's file of that migration run again under its own name.
 5. **Remove `kit:status` and `kit:update` from CI and deploy scripts.** `kit:cache` and `kit:clear` may stay.
 6. Update any query or migration of your own that names a renamed table.
+
+## v0.17.8
+
+No lineage pin changed: `composer update` is enough.
+
+No lineage pin changed: `composer update` is enough.
+
+### Added
+
+- **`php artisan kit:detach`, the one-off before 0.18 (#959).** 0.18 reads the features only from `kit.features` and retires the installed records. Run `kit:detach` once, on a branch, before moving to 0.18. It deletes nothing.
+  Features affected: none
+  - **config/kit.php.** It writes `'features' => [...]`, in catalog order: what the app boots from its records today, read the way the composition root reads them (`FeaturesServiceProvider::discover()`), so session-ui's carried workspace-ui and implied shell are listed. When the workspaces lineage recorded adopted host tables, `env('KIT_WORKSPACES_ADOPT')` and `env('KIT_ACCESS_ADOPT')` become `env('KIT_WORKSPACES_ADOPT', true)` and `env('KIT_ACCESS_ADOPT', true)`: a variable set in an environment still wins, as it does over the record today. Each edit is an anchored replacement; the rest of the file stays byte for byte. With no config/kit.php, the kit-config stub is published first.
+  - **Refusals.** A `kit.features` list that boots other features than the records is printed beside the records' list, and nothing is written (exit 1); `--force` writes the records' list. A list that boots the same features (session-ui without shell) is made explicit without `--force`. An entry that is not a literal list or null, an unreadable record, an unfinished update or no app id exits 1 with the reason, writing nothing. `--dry-run` prints and writes nothing.
+  - **Reports.** Each file the records list, per lineage: `unchanged`, `edited`, `kept` (kit:update keep, or kit:adopt's edited files) or `missing`. A file handed back with `kit:update claim` is owned again at its claimed bytes, so it reads `unchanged` until edited. Each copy under `database/migrations/kit/<feature>/`: `identical` to the kit's stub of the same name, rendered as kit:add rendered it (an adopting host's stamped copy is compared under its catalog name), or `edited`. `--json` prints the whole report.
+  - **Deletion checklist.** `.mod-maintenance/`, the `kit:install` files (`app/Kit/KitHost.php`, `app/Kit/operations.php`, `config/kit-lifecycle.php`, `config/kit-executor.json`, `app/Providers/KitHostServiceProvider.php`) and its `bootstrap/providers.php` line, the `.gitignore` lines for `.mod-maintenance`, and the identical migration copies. It also lists each `kit:status`, `kit:update` and `kit:cache` in `.github/workflows`, `composer.json`'s scripts and the usual deploy files (Envoy, Deployer, Docker, Fly, Nixpacks, Procfile, Render, Vapor, GitLab, Bitbucket and CircleCI configs, `scripts/`, `Makefile`).
+  - **Upgrading.** `kit:detach` prepares an app for 0.18 and changes nothing at runtime: the written list and flags are what the app already boots. Commit the config/kit.php it writes; delete the checklist's files only when you move to 0.18.
+  - **Tests.** `test:detach`: synthetic hosts with real installed records. An adopting host whose session-ui still owns a workspace page: the written features and flags equal `FeaturesServiceProvider`'s live and cached answer (workspace-ui carried, both flags on); the published file differs from the stub only in its features entry and the two adopt defaults; the statuses (kept, missing, edited, unchanged, and a claimed file); identical and edited stamped migrations; the checklist and references; a second run changes nothing; a corrupt record, a record that is not JSON and no app id each exit 1 and write nothing. A host with no adopted tables and no carry: an app's own config/kit.php whose list differs is refused with both lists, `--force --dry-run` writes nothing, `--force` changes only the list; a list that boots the same features is completed without `--force`; a computed entry is never rewritten.
 
 ## v0.17.7
 

@@ -9,7 +9,14 @@ if ($start === false) {
     exit(1);
 }
 $block = sys_get_temp_dir().'/agents-hook-block-'.bin2hex(random_bytes(4)).'.sh';
-file_put_contents($block, "#!/usr/bin/env bash\nset -euo pipefail\n".substr($source, $start));
+$end = strpos($source, "\n# End of the House rule block.\n", $start);
+// The block runs first, before the package installs that can fail: nothing but the shebang, comments and `set` precede it.
+$before = array_filter(explode("\n", substr($source, 0, $start)), fn (string $line): bool => $line !== '' && ! str_starts_with($line, '#') && $line !== 'set -euo pipefail');
+if ($end === false || $before !== []) {
+    fwrite(STDERR, "FAIL .agents/setup's House rule block must come first, before any command, and end with its marker\n");
+    exit(1);
+}
+file_put_contents($block, "#!/usr/bin/env bash\nset -euo pipefail\n".substr($source, $start, $end - $start)."\n");
 $failures = 0;
 $check = function (bool $ok, string $message) use (&$failures): void {
     echo ($ok ? 'PASS ' : 'FAIL ').$message."\n";
