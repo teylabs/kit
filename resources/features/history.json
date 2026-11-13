@@ -78899,7 +78899,7 @@
                 "database/migrations/kit/settings/0001_01_02_000401_create_kit_settings_tables.php": "9f91ccb0568e3ddc3c4f69baefa4813d91ae069b07ecda265b1bfac5ed39ec37",
                 "database/migrations/kit/settings/0001_01_02_000402_adopt_display_name_as_workspace_name.php": "d52ecfe20d22b60fa521aab745cd5e311d90d4a9b1f56388ebcf7ed1d51e3456",
                 "database/migrations/kit/settings/0001_01_02_000403_create_workspace_mail_identities_table.php": "466cae1619dc7a455365966b28077252288870a2c5b4d70b40d5f64a992dd1cf",
-                "resources/js/pages/Workspace/Settings/Email/Page.vue": "2fe347a7802c6437d78174b0ab187b917ef4a51ca8922f67e0a77e9356ea7ad9",
+                "resources/js/pages/Workspace/Settings/Email/Page.vue": "1204148c1e95decc9928ab2c55247aa9cd67ff8f0314e6febd1868014496c062",
                 "resources/js/pages/Workspace/Settings/General/Page.vue": "33a1cd07afad252f292d46988e50c13c8274e0dae71a197a3a3f3238a0afc191"
             },
             "shell": {
@@ -78947,7 +78947,7 @@
                 "resources/js/pages/Workspace/Account/Delete/Page.vue": "c4e24dd2701d1613e47c0a4427431d3d49bc4b5cbb2f0a05650c340bfcaf0f65",
                 "resources/js/pages/Workspace/Account/Layout.vue": "1e9c6e28d5244897a15e3e90bf668cd1e268d155e11da0a870c6f00fa1b50f28",
                 "resources/js/pages/Workspace/Account/Password/Page.vue": "ea15ea56ffeb840fa17304af09ac2b28638af410cbee9f23f85d769779afd452",
-                "resources/js/pages/Workspace/Account/Profile/Page.vue": "d29b9c8bc7b6175768547c4ce0aa5c8486f5993774fd09005b4d2714c237e75d",
+                "resources/js/pages/Workspace/Account/Profile/Page.vue": "3bb56771f3ccfca3c227bcb29ec21e60cc53a90b2bce3815d6c3069dec7d9e1d",
                 "resources/js/pages/Workspace/Account/Security/Page.vue": "6dc060a165c798b993ba9900d496601da7431508300ce84ccd09962030b4cc6f",
                 "resources/js/pages/Workspace/Dashboard/Page.vue": "8c024460a6eb3a3383019c01416586a16d720ddcdd2aad8f7a26a4b9a0dd8c0a",
                 "resources/js/pages/Workspace/Dashboard/Partials/ActivityWidget.vue": "ec4d2490e7a38f86358d47728446e38c236002f870c61c74e7dc4ac1e6dbf7b8",

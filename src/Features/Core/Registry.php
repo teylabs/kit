@@ -568,6 +568,68 @@ final class Registry
         return $this->workspaceTimezone;
     }
 
+    /** @var array{get: callable, set: callable}|null */
+    private ?array $workspaceClock = null;
+
+    /** @var ?callable(int): ?string */
+    private $userClock = null;
+
+    /**
+     * How the workspace's clock (`12h`, `24h`, or null for none) is read and written, inside its tenant context, like workspaceTimezoneUsing: the app's own
+     * setting, which the kit falls back to under a person's own choice (Clock). Clock::for() reads a given workspace's through inWorkspace(). One only.
+     */
+    public function workspaceClockUsing(callable $get, callable $set): self
+    {
+        $this->workspaceClock = ['get' => $get, 'set' => $set];
+
+        return $this;
+    }
+
+    /** @return array{get: callable, set: callable}|null */
+    public function workspaceClock(): ?array
+    {
+        return $this->workspaceClock;
+    }
+
+    /** How a person's own clock is read by their id (session-ui's user_state), so core's Clock resolves it without depending on session-ui. One only. */
+    public function userClockUsing(callable $get): self
+    {
+        $this->userClock = $get;
+
+        return $this;
+    }
+
+    /** @return ?callable(int): ?string */
+    public function userClock(): ?callable
+    {
+        return $this->userClock;
+    }
+
+    /** @var ?callable(object|int, \Closure): mixed */
+    private $workspaceRunner = null;
+
+    /** How code runs inside a given workspace (the workspaces feature's Workspaces::run), so core can read a workspace's settings with no request. One only. */
+    public function workspaceRunnerUsing(callable $run): self
+    {
+        $this->workspaceRunner = $run;
+
+        return $this;
+    }
+
+    /**
+     * Runs `$fn` inside a workspace (a model or its id) and returns its result. Without the workspaces feature there is no workspace to enter, so it
+     * runs as it is.
+     *
+     * @template T
+     *
+     * @param  \Closure(): T  $fn
+     * @return T
+     */
+    public function inWorkspace(object|int $workspace, \Closure $fn): mixed
+    {
+        return $this->workspaceRunner === null ? $fn() : ($this->workspaceRunner)($workspace, $fn);
+    }
+
     /** A step run inside a newly provisioned workspace's tenant context, in registration order. */
     public function provisioning(callable $provision): self
     {

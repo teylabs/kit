@@ -63,6 +63,8 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
         SessionUiRoutes::validate();
         $registry->routes(__DIR__.'/routes/session.php', 'web', $routes);
         $registry->focusRoutes('account.switch', 'verification.*', 'focus.*');
+        // A person's own 12- or 24-hour clock, for core's Clock (the `kitClock` share core makes on every page, and server-built times).
+        $registry->userClockUsing(fn (int $userId): ?string => ClientClock::own($userId));
     }
 
     public function register(): void

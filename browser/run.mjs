@@ -2514,6 +2514,76 @@ test('DateTime renders <time datetime> with a full title; a calendar date is the
     }
 });
 
+// ── The viewer's clock (?clock): kitClock 12h or 24h sets Intl's hourCycle in DateTime and the time inputs; auto (or no share) leaves the locale's own ─────
+
+const clockPage = async (query) => {
+    const context = await browser.newContext({ viewport: { width: 1024, height: 700 } });
+    const tab = await context.newPage();
+    const errors = [];
+    tab.on('pageerror', error => errors.push(error.message));
+    await tab.goto(`${url}?${query}`);
+    await tab.waitForSelector('[data-slot="input-time-range"]');
+    const spaced = (value) => value.replace(/\s/gu, ' ').trim();
+    const time = async (name) => spaced(await tab.$eval(`time[data-case="${name}"]`, el => el.textContent));
+    // What a time field shows: its segments' text, literals included ("3:30 PM", "15:30").
+    const field = async (index) => spaced(await tab.locator('[data-slot^="input-time"] [aria-labelledby]').nth(index).evaluate(el => [...el.querySelectorAll('[data-reka-time-field-segment]')].map(segment => segment.textContent).join('')));
+    const hidden = (name) => tab.$eval(`form#clock input[name="${name}"]`, el => el.value);
+    return { context, tab, errors, time, field, hidden };
+};
+
+test('Clock: kitClock 24h shows DateTime and the time inputs on a 24-hour clock in en-US, 12h on a 12-hour clock in en-GB; the submitted value is HH:MM either way', async () => {
+    for (const [query, expected] of [
+        ['clock=24h&lang=en-US', { time: '20:30', local: 'Oct 29, 2026, 20:30', opens: '15:30', hours: '09:00 – 17:00', dayPeriods: 0, fixed: '3:30 PM' }],
+        ['clock=12h&lang=en-GB', { time: '08:30 pm', local: '29 Oct 2026, 08:30 pm', opens: '3:30 PM', hours: '9:00 AM – 5:00 PM', dayPeriods: 3, fixed: '3:30 PM' }],
+    ]) {
+        const { context, tab, errors, time, field, hidden } = await clockPage(query);
+        try {
+            assert.equal(await time('time'), expected.time, `${query}: DateTime format=time`);
+            assert.equal(await time('local'), expected.local, `${query}: DateTime local`);
+            assert.equal(await time('explicit'), query.includes('en-GB') ? '08:30 pm' : '8:30 PM', `${query}: an explicit clock="12h" wins over kitClock`);
+            assert.equal(await field(0), expected.opens, `${query}: InputTime shows the clock`);
+            assert.match(await field(1), new RegExp(`^${expected.hours.split(' – ')[0]}`), `${query}: InputTimeRange's start shows the clock`);
+            const dayPeriods = tab.locator('[data-slot^="input-time"] [aria-labelledby]');
+            assert.equal((await dayPeriods.nth(0).locator('[data-reka-time-field-segment="dayPeriod"]').count()) + (await dayPeriods.nth(1).locator('[data-reka-time-field-segment="dayPeriod"]').count()), expected.dayPeriods, `${query}: AM/PM segments only on a 12-hour clock`);
+            assert.equal(await field(2), expected.fixed, `${query}: an explicit hour-cycle="12" on InputTime wins over kitClock`);
+            assert.deepEqual([await hidden('opens'), await hidden('hours[start]'), await hidden('hours[end]')], ['15:30', '09:00', '17:00'], `${query}: the submitted values are 24-hour HH:MM whatever the display`);
+        } finally {
+            await context.close();
+        }
+        assert.deepEqual(errors, []);
+    }
+});
+
+test('Clock: auto and no kitClock at all render exactly the locale\'s own clock (en-US 12-hour, en-GB 24-hour), so an app that never sets a clock sees no change; a changed share re-renders', async () => {
+    for (const lang of ['en-US', 'en-GB']) {
+        const read = async (query) => {
+            const { context, errors, time, field } = await clockPage(query);
+            try {
+                return [await time('time'), await time('local'), await field(0), await field(1), errors];
+            } finally {
+                await context.close();
+            }
+        };
+        const none = await read(`clock&lang=${lang}`);
+        const auto = await read(`clock=auto&lang=${lang}`);
+        assert.deepEqual(auto, none, `${lang}: auto is byte for byte no share`);
+        assert.deepEqual(none.slice(0, 3), lang === 'en-US' ? ['8:30 PM', 'Oct 29, 2026, 8:30 PM', '3:30 PM'] : ['20:30', '29 Oct 2026, 20:30', '15:30'], `${lang}: the locale's own clock`);
+        assert.deepEqual(none[4], []);
+    }
+    const { context, tab, errors, time, field } = await clockPage('clock=auto&lang=en-US');
+    try {
+        await tab.evaluate(() => window.kitClock('24h'));
+        await tab.waitForFunction(() => document.querySelector('time[data-case="time"]')?.textContent === '20:30');
+        assert.equal(await time('local'), 'Oct 29, 2026, 20:30');
+        assert.equal(await field(0), '15:30', 'the time input follows a changed share');
+        if (!(await tab.evaluate(() => Boolean(window.axe)))) await tab.addScriptTag({ path: axeSource });
+        assert.deepEqual(await tab.evaluate(async () => (await window.axe.run(document)).violations.map(v => v.id)), []);
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+});
+
 // ── DataTable (?datatable): a card surface on a ground of another colour, headers that never wrap, a descriptor-declared date column, plain grant removal ──
 
 for (const scheme of ['light', 'dark']) {
@@ -6785,7 +6855,7 @@ const passwordError = (body) => (!body.password ? { password: 'Enter your passwo
 
 // Account › Profile: the name and email (Fortify's profile update, UpdateProfile) and the photo (AvatarController: StoreAvatar, RemoveAvatar).
 function profileAccount() {
-    const store = { name: 'Robin Vale', email: 'robin@example.test', verified: true, avatar: null, notice: null };
+    const store = { name: 'Robin Vale', email: 'robin@example.test', verified: true, avatar: null, notice: null, clock: 'workspace' };
     const initials = () => store.name.split(/\s+/).map(part => part[0]).join('').slice(0, 2).toUpperCase();
     return {
         store,
@@ -6794,7 +6864,7 @@ function profileAccount() {
             Profile: () => {
                 const notice = store.notice;
                 store.notice = null;
-                return { component: 'Workspace/Account/Profile/Page', props: { ...titled('Profile'), name: store.name, initials: initials(), avatar: store.avatar ? { url: `/avatars/${store.avatar.token}`, url_2x: null } : null, store_url: '/me/avatar', max_kb: 2048, email: store.email, email_verified: store.verified, profile_url: '/user/profile-information', notice, verify_url: '/email/verification-notification' } };
+                return { component: 'Workspace/Account/Profile/Page', props: { ...titled('Profile'), name: store.name, initials: initials(), avatar: store.avatar ? { url: `/avatars/${store.avatar.token}`, url_2x: null } : null, store_url: '/me/avatar', max_kb: 2048, email: store.email, email_verified: store.verified, profile_url: '/user/profile-information', notice, verify_url: '/email/verification-notification', clock: store.clock, clock_url: '/me/profile/clock', kitClock: store.clock === 'workspace' ? 'auto' : store.clock } };
             },
         },
         routes: [
@@ -6814,6 +6884,11 @@ function profileAccount() {
                 return {};
             }],
             ['DELETE', '/me/avatar', () => { store.avatar = null; return {}; }],
+            ['PUT', '/me/profile/clock', (body) => {
+                if (!['workspace', '12h', '24h'].includes(body.clock)) return { errors: { clock: 'Choose a clock.' } };
+                store.clock = body.clock;
+                return saved('Clock saved.');
+            }],
         ],
     };
 }
@@ -6843,6 +6918,29 @@ test('Profile: a person changes the name and email and presses Save; the posted 
         }
         assert.equal(await tab.locator('[data-account-notice]').count(), 0, 'the notice was flashed once, not kept');
         if (accountShots) await accountShot(tab, 'profile-saved');
+    });
+});
+
+test('Profile: a person chooses 24-hour and presses Save clock; only `clock` is posted, a toast confirms it, and the choice is still chosen after a reload; Use workspace setting is the default', async () => {
+    const profile = profileAccount();
+    await accountPage(profile, async ({ tab, posts, reload, settle, toast }) => {
+        const chosen = () => tab.$eval('[data-clock-form] input[type=radio]:checked', el => el.value);
+        assert.equal(await chosen(), 'workspace', 'with no choice of their own, Use workspace setting is chosen');
+        assert.deepEqual(await tab.$$eval('[data-clock-form] [role=radio], [data-clock-form] input[type=radio]', els => [...new Set(els.map(el => el.value ?? el.getAttribute('value')))]), ['workspace', '12h', '24h']);
+        await tab.locator('[data-clock-form]').getByText('24-hour', { exact: true }).click();
+        assert.equal(await tab.getByRole('radio', { name: /^24-hour/ }).isChecked(), true, 'the card checks its radio');
+        await tab.getByRole('button', { name: 'Save clock', exact: true }).click();
+        await settle(1);
+        assert.equal(posts.length, 1, 'one save');
+        assert.deepEqual([posts[0].method, posts[0].url, posts[0].inertia, { ...posts[0].body }], ['PUT', '/me/profile/clock', true, { clock: '24h' }], 'the clock form posts only its field, not the name or email');
+        payloadFixture('profile-clock', posts[0].body);
+        assert.equal(await toast('Clock saved.'), 1);
+        for (const when of ['after the redirect', 'after a reload']) {
+            assert.equal(await chosen(), '24h', when);
+            if (when === 'after the redirect') await reload();
+        }
+        assert.equal(await tab.inputValue('#profile-name'), 'Robin Vale', 'the profile form is untouched');
+        if (accountShots) await accountShot(tab, 'profile-clock');
     });
 });
 

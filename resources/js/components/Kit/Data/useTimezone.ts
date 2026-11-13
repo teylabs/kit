@@ -7,6 +7,7 @@ import {
     type Ref,
 } from 'vue';
 import { browserTimezone } from '../timezone';
+import { type Clock } from './dateTime';
 
 /*
  * The viewer's timezone for timed values: the server's `kitTimezone` share (session-ui resolves it from the browser's `tz` cookie, the person's saved zone and
@@ -24,6 +25,23 @@ export function useTimezone(): ComputedRef<string> {
         return typeof shared === 'string' && shared !== ''
             ? shared
             : (browserTimezone() ?? 'UTC');
+    });
+}
+
+/*
+ * The viewer's clock for times of day: the server's `kitClock` share (`12h`, `24h` or `auto`; the person's choice, then the workspace's, then
+ * `kit.clock.default`), else `auto`, the locale's own. dateTime's hourCycle() turns it into Intl's option (nothing for auto).
+ */
+export function useClock(): ComputedRef<Clock> {
+    let page: { props: Record<string, unknown> } | null = null;
+    try {
+        page = usePage();
+    } catch {
+        page = null;
+    }
+    return computed(() => {
+        const shared = page?.props.kitClock;
+        return shared === '12h' || shared === '24h' ? shared : 'auto';
     });
 }
 
