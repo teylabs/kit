@@ -469,6 +469,11 @@ try {
     DiscoveryCache::forget();
     $opened = OpenedFiles::during($registerFresh);
     check(! $readsRecord($opened) && $config->get('kit.workspaces.adopt') === true && $config->get('kit.access.adopt') === true, 'with the cache, register() reads no file of the installed record (it opens them only for the fingerprint\'s hash) and sets the same flags');
+    $hashedFiles = array_map(fn (string $path): string => substr($path, strlen($root) + 1), array_values(preg_grep('#/\.mod-maintenance/#', $opened)));
+    $expectedHashed = array_map(fn (string $path): string => substr($path, strlen($root) + 1), [...glob($root.'/.mod-maintenance/installed/*.json'), $root.'/.mod-maintenance/owner.json']);
+    sort($hashedFiles);
+    sort($expectedHashed);
+    check($hashedFiles === $expectedHashed && glob($root.'/.mod-maintenance/journal-*.json') !== [] && is_file($root.'/.mod-maintenance/lock'), 'and it hashes each installed record and owner.json once ('.count($hashedFiles).' files: one lookup per register), never a journal or the lock');
     $config->set('kit.features', null);
     $features = fn (FeaturesServiceProvider $provider): array => (fn (): array => $this->features())->call($provider);
     DiscoveryCache::clear($app);

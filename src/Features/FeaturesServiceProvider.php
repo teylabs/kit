@@ -62,6 +62,9 @@ final class FeaturesServiceProvider extends ServiceProvider
     /** @var list<string>|null the adopted features, once read */
     private ?array $features = null;
 
+    /** @var array<string, array{lineages: list<string>, carry: bool, tables: list<string>|null}|null> DiscoveryCache's entry per app id, once looked up */
+    private array $cached = [];
+
     /** Feature id => [provider, required features], in canonical order; the graph matches the starter's FeatureGraphTest. */
     public const FEATURES = [
         'core' => [CoreProvider::class, []],
@@ -191,7 +194,7 @@ final class FeaturesServiceProvider extends ServiceProvider
             $appId = config('kit.app_id') ?? ($this->app->bound(LifecycleHost::class) ? $this->app->make(LifecycleHost::class)->appId() : config('kit-lifecycle.app_id'));
             if (is_string($appId) && $appId !== '') {
                 // A cached null (the record's workspaces artifact could not be read) is kept: only a miss reads the record.
-                $cached = DiscoveryCache::entry($this->app, $appId);
+                $cached = $this->cached($appId);
                 $tables = $cached !== null ? $cached['tables'] : self::adoptedTables($this->app->basePath(), $appId);
             }
         } catch (Throwable) {
@@ -224,6 +227,21 @@ final class FeaturesServiceProvider extends ServiceProvider
         return is_array($adopt) && is_array($adopt['tables'] ?? null) ? array_values(array_filter($adopt['tables'], 'is_string')) : [];
     }
 
+    /**
+     * The discovery cache's entry, looked up once per provider: the adoption flags and the features both need it, and each lookup re-takes
+     * the fingerprint, which hashes the installed records.
+     *
+     * @return array{lineages: list<string>, carry: bool, tables: list<string>|null}|null
+     */
+    private function cached(string $appId): ?array
+    {
+        if (! array_key_exists($appId, $this->cached)) {
+            $this->cached[$appId] = DiscoveryCache::entry($this->app, $appId);
+        }
+
+        return $this->cached[$appId];
+    }
+
     /** @return list<string> */
     private function features(): array
     {
@@ -243,7 +261,7 @@ final class FeaturesServiceProvider extends ServiceProvider
         }
 
         $root = $this->app->basePath();
-        $cached = is_string($appId) && $appId !== '' ? DiscoveryCache::entry($this->app, $appId) : null;
+        $cached = is_string($appId) && $appId !== '' ? $this->cached($appId) : null;
         if ($cached === null) {
             return self::selected(self::carried($root, $appId, self::adopted($root, $appId, $override)));
         }

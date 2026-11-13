@@ -14,7 +14,7 @@ use Tey\Mod\Maintenance\InstalledRecord;
  *
  * Reading and verifying the record costs tens of milliseconds a request. The cache holds an entry only while the record is unchanged:
  * each entry keeps a fingerprint of the record's files and of the installed kit, re-taken on every read with a few lstat calls and a hash of
- * the record's small JSON files. Any difference (kit:add, kit:update, kit:remove, a hand edit, a composer update) misses, and the live read
+ * the installed records. Any difference (kit:add, kit:update, kit:remove, a hand edit, a composer update) misses, and the live read
  * runs with its own verification and errors exactly as without a cache. A missing, unreadable or foreign file is a miss too.
  *
  * The fingerprint holds nothing a copy of the checkout changes: no ctime, inode or device. A host that runs `optimize` in its build and
@@ -97,9 +97,9 @@ final class DiscoveryCache
      * 3. a wait until the clock has passed every fingerprinted file's mtime (stat times have one-second resolution);
      * 4. the after state, taken the same way, which is stored. A different before and after repeats the read.
      * A write during the read changes the contents hash, even a same-second, same-size rewrite that keeps the fingerprint. A write after
-     * step 4 lands in a later second than every mtime fingerprinted, so its mtime differs and requests miss; a write under `.mod-maintenance`
-     * that also restores its mtime still misses on its contents hash, which requests re-take. The kit's sources and installed.json are
-     * hashed here, at cache build time, never per request.
+     * step 4 lands in a later second than every mtime fingerprinted, so its mtime differs and requests miss; a write to an installed record
+     * or owner.json that also restores its mtime still misses on its contents hash, which requests re-take. The other files are hashed
+     * here, at cache build time, never per request.
      *
      * @param  Closure(): array{lineages: list<string>, carry: bool, tables: list<string>|null}  $discover
      */
@@ -156,7 +156,7 @@ final class DiscoveryCache
 
     /**
      * Everything the cached answers were computed from, as it stands (see paths() and stats()): lstat of each path, and the contents hash of
-     * each regular file under `.mod-maintenance`. No other file is opened.
+     * each installed record and owner.json. No other file is opened.
      */
     public static function fingerprint(string $root): string
     {
@@ -193,16 +193,18 @@ final class DiscoveryCache
      *   change whenever anything in them does (a log, a session file, the home directory), nor their device and inode, which differ between
      *   the build container and the instance;
      * - the kit's sources and the host's installed.json: a link or not, size, mtime and mode;
-     * - every entry of the `.mod-maintenance` tree: the same, its name (paths() names each entry, and absent ones), and for a regular file
-     *   the xxh128 hash of its contents, so a same-size rewrite that keeps its mtime misses too. The records are small JSON files: hashing
-     *   them costs microseconds, against tens of milliseconds for the live read.
+     * - every entry of the `.mod-maintenance` tree: the same, and its name (paths() names each entry, and absent ones);
+     * - the files the live read takes bytes from (each installed record, the 0.8 record and owner.json), when regular files: also the xxh128
+     *   hash of their contents, so a same-size rewrite that keeps its mtime misses too. A record embeds its lineage's files and can be about
+     *   750 KB: hashing about 2 MB of records takes about 0.5 ms, against tens of milliseconds for the live read. Journals and the lock are
+     *   never read by it and are not hashed; a change to one still shows in its size, mtime or presence.
      *
      * @return array<string, list<int|bool|string>|null>
      */
     private static function stats(string $root): array
     {
         clearstatcache();
-        $maintenance = dirname(InstalledRecord::DIRECTORY);
+        $read = [InstalledRecord::LEGACY, '.mod-maintenance/owner.json'];
         $parts = [];
         foreach (self::paths($root) as $key => $path) {
             if (str_starts_with($key, 'root:')) {
@@ -211,7 +213,7 @@ final class DiscoveryCache
                 continue;
             }
             $parts[$key] = self::stat($path);
-            if ($parts[$key] !== null && ($key === $maintenance || str_starts_with($key, $maintenance.'/')) && ! is_link($path) && is_file($path)) {
+            if ($parts[$key] !== null && (in_array($key, $read, true) || str_starts_with($key, InstalledRecord::DIRECTORY.'/')) && ! is_link($path) && is_file($path)) {
                 $parts[$key][] = @hash_file('xxh128', $path) ?: '(unreadable)';
             }
         }
