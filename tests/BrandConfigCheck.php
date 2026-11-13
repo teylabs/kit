@@ -223,6 +223,26 @@ KIT_BRAND_IDENTITY=
     $kernel = boot_migrate($root);
     check($kernel->call('kit:brand:migrate', ['--force' => true]) === 0 && (require $root.'/config/brand.php') === ['ink' => '#222222', 'legal_name' => 'Env Co'], '--force carries over a config-owned key and adds only the env-sourced ones');
 
+    // A brand set in a published pre-0.17 config/kit.php, not in env: migrate writes what kit.brand merged to then, keys at the default left out, an invalid
+    // colour flagged as null; a key with a KIT_BRAND_* variable still comes from env. It says the 'brand' array can go, and that other environments are copied by hand.
+    $roots[] = $root = host("APP_ENV=local\nKIT_BRAND_INK=\"#111111\"\n");
+    file_put_contents($root.'/config/kit.php', "<?php return ['brand' => ['logomark' => '/logomark.svg', 'wordmark' => '', 'mail' => ['button' => '#0e7490'], 'accent' => '#C2410C', 'ink' => env('KIT_BRAND_INK', '#09090b'), 'card' => 'nope', 'legal_name' => 'Kit Co', 'lockup' => true]];");
+    $kernel = boot_migrate($root);
+    $code = $kernel->call('kit:brand:migrate');
+    $out = $kernel->output();
+    check($code === 0 && (require $root.'/config/brand.php') === ['lockup' => true, 'mail' => ['button' => '#0e7490'], 'accent' => '#c2410c', 'ink' => '#111111', 'card' => null, 'legal_name' => 'Kit Co'], "migrate writes config/kit.php's brand (defaults left out, the colour normalised, an invalid one as null) and the env key from env");
+    check(str_contains($out, '1 key(s) from env, 4 from config/kit.php, and 1 flagged') && str_contains($out, "FLAGGED kit.brand.card: kit.brand.card in config/kit.php is 'nope'") && str_contains($out, '  KIT_BRAND_INK="#111111"') && ! str_contains($out, 'KIT_BRAND_ACCENT'), 'migrate counts each source, flags the invalid config/kit.php colour and lists only the env lines to delete');
+    check(str_contains($out, "Delete its 'brand' array (written above: lockup, mail.button, accent, card, legal_name)") && str_contains($out, 'copy it into config/brand.php by hand'), "migrate says config/kit.php's brand can go, and that a value set only in another environment is copied by hand");
+    forgetEnv();
+    boot($root);
+    check(config('kit.brand.accent') === '#c2410c' && BrandConfig::sources()['accent'] === 'config' && config('kit.brand.legal_name') === 'Kit Co' && config('kit.brand.card') === null, "the migrated app boots in local with config/kit.php's brand, from config/brand.php");
+    // Nothing to migrate still names the other environments; a config/kit.php that cannot be read fails, with nothing written.
+    $roots[] = $root = host("APP_ENV=local\n");
+    $kernel = boot_migrate($root);
+    check($kernel->call('kit:brand:migrate') === 0 && str_contains($out = $kernel->output(), 'Nothing written') && str_contains($out, 'copy it into config/brand.php by hand') && ! is_file($root.'/config/brand.php'), 'with nothing to migrate, migrate writes nothing and names other environments');
+    file_put_contents($root.'/config/kit.php', "<?php throw new RuntimeException('broken kit config');");
+    check($kernel->call('kit:brand:migrate') === 1 && str_contains($kernel->output(), 'broken kit config') && ! is_file($root.'/config/brand.php'), 'a config/kit.php that cannot be read fails migrate, with nothing written');
+
     // kit:status names every KIT_BRAND_* still set, so a leftover in .env, CI or a deploy is found; it boots past any value.
     $roots[] = $root = host("APP_ENV=local\nKIT_BRAND_ACCENT=red\nKIT_BRAND_CARD=\n");
     file_put_contents($root.'/config/kit.php', "<?php return ['features' => ['core']];");

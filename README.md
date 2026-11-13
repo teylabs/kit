@@ -231,7 +231,7 @@ Routes and config ship in the library: no feature generates a config file. The k
 
 ### Capabilities and Pennant
 
-Declare a capability from your provider's `register()` (`app(Registry::class)->capabilities([...])`), with the rest of its contributions. The kit defines each declared capability as a Pennant feature once every provider has booted, so one declared in `boot()` is defined too, but `register()` is the documented place.
+Declare a capability from your provider's `register()` (`app(Registry::class)->capabilities([...])`), with the rest of its contributions. The kit defines each declared capability as a Pennant feature once every provider has booted, so one declared in `boot()` is defined too, but `register()` is the documented place. A capability your app already defined itself (`Feature::define()` in a provider's `boot()`, to follow its own workspace features, say) keeps your definition: the kit defines only the capabilities still undefined.
 
 A capability's default comes from `kit.capabilities`, resolved through Pennant, and Pennant **stores** what it resolved for each workspace (the `features` table on the database driver). Changing `kit.capabilities` later does not change a workspace that already resolved it: run `php artisan pennant:purge <capability>` (or `pennant:purge` for all) after the change, for example in the deploy that ships it. Operator overrides (`kit:capability`, `kit_capability_overrides`) are not in Pennant and survive a purge. The kit does not purge for you: a value your app set itself with `Feature::for($workspace)->activate()` (a plan, say) lives in the same rows and a purge would drop it.
 
