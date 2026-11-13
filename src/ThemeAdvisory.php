@@ -156,7 +156,8 @@ final class ThemeAdvisory
 
     /**
      * Each stylesheet's contents, by path relative to the host root, following local `@import`s (relative paths only; never a link, never outside the root, at most
-     * 50 files): a package or URL import is skipped. A file is read only when its real path is its path under the root's real path, so no component of it is a link.
+     * 50 files): a package or URL import is skipped. No folder or file from the root down may be a link; the root itself, or a folder above it, may (a
+     * Forge or Envoyer-style `current` deploy).
      *
      * @param  list<string>  $files
      * @return array<string, string>
@@ -164,12 +165,11 @@ final class ThemeAdvisory
     private static function stylesheets(string $root, array $files): array
     {
         $read = [];
-        $real = realpath($root);
         $queue = $files;
         while ($queue !== [] && count($read) < 50) {
             $file = self::normalize(array_shift($queue));
             $path = $root.'/'.$file;
-            if ($file === null || $real === false || isset($read[$file]) || realpath($path) !== $real.'/'.$file || ! is_file($path)) {
+            if ($file === null || isset($read[$file]) || self::linked($root, $file) || ! is_file($path)) {
                 continue;
             }
             $read[$file] = (string) file_get_contents($path);
@@ -180,6 +180,20 @@ final class ThemeAdvisory
         }
 
         return $read;
+    }
+
+    /** Whether a folder or the file on the way from the root down to $file (relative, normalized) is a link. */
+    private static function linked(string $root, string $file): bool
+    {
+        $current = $root;
+        foreach (explode('/', $file) as $segment) {
+            $current .= '/'.$segment;
+            if (is_link($current)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** A relative path with `.` and `..` resolved, or null when it would leave the host root. */

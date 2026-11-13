@@ -79,6 +79,10 @@ try {
     file_put_contents($root.'/resources/css/admin.css', "@import './vendor/theme.css';\n@import './inside/theme.css';\n@import './real/theme.css';\n");
     check(! in_array('resources/css/vendor/theme.css', $sheets(), true), 'an import through a linked directory outside the app root is not read');
     check(! in_array('resources/css/inside/theme.css', $sheets(), true) && in_array('resources/css/real/theme.css', $sheets(), true), 'nor one through a linked directory inside it; the same file by its real path is');
+    // The app root itself may be a link (a `current` deploy): only the folders from the root down are checked.
+    symlink($root, $root.'-current');
+    check(in_array('resources/css/app.css', array_keys(ThemeAdvisory::themeStylesheets($root.'-current')), true) && in_array('resources/css/real/theme.css', array_keys(ThemeAdvisory::themeStylesheets($root.'-current')), true), 'a linked app root is read through');
+    unlink($root.'-current');
     unlink($root.'/resources/css/vendor');
     exec('rm -rf '.escapeshellarg($outside));
     echo "Theme checks on kit.css, the kit's stubs and synthetic stylesheets; no browser or host app.\n";
