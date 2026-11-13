@@ -1,5 +1,37 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **An app's features come only from `config/kit.php` (#959).** `FeaturesServiceProvider` registers exactly the features `kit.features` lists, in catalog order, and takes `kit.workspaces.adopt` and `kit.access.adopt` from config alone. Nothing on the request path reads install history any more: no installed lineage record, no `kit.app_id` or `LifecycleHost` app id, no `.mod-maintenance` file, and no `Tey\Mod\Maintenance` class is loaded. `kit.features` unset or empty registers no feature and logs an error once per process (fail closed). A list naming `session-ui` without `shell` still gets `shell`; a list naming `session-ui` without `workspace-ui` no longer gets `workspace-ui` from the record: list it.
+  - **Tests.** `test:host-boot`: an unset list beside install history and an app id registers nothing and logs the error once; an empty list does the same; a list registers only its features; the adopt flags are what config sets. `test:session-ui-core`: a request loads no `Tey\Mod\Maintenance` class (it fails when the provider loads one).
+- **`kit:cache` and `kit:clear` do nothing.** They stay registered and hooked into `optimize` and `optimize:clear`, so deploys that run them keep working, and print "nothing to cache since 0.18". `bootstrap/cache/kit-features.php` is no longer written or read; an old one can be deleted.
+  - **Tests.** `test:host-boot`: both succeed, write nothing and are still `optimize`'s and `optimize:clear`'s.
+- **Migrations load from the package.** Each listed feature's migrations load from `database/migrations/<feature>` in the kit, under the names kit:add gave the copies it wrote into apps, byte for byte. An app's own copies under `database/migrations/kit/<feature>` still load and win: the package skips each migration the app has a copy of, by the same name or, for a host that adopted its own workspaces table, by the stamped name kit:add used (`<stamp>_<order>_<name>.php`). Laravel keys migrations by name, so an upgraded app runs none of them again, and an edited copy stays the one that runs. Nothing is read from disk on a request: the paths are worked out when the migrator is resolved. A released migration is never edited; a fix is a new migration.
+  - **Tests.** `test:migrations` (SQLite, and PostgreSQL in CI): every package baseline is the catalog stub of the same feature, name and bytes; a fresh app runs each once; an app that ran its 0.17 copies runs only the renames; an edited copy runs instead of its package twin; a stamped copy keeps its baseline out.
+- **Infrastructure tables lose the `kit_` prefix.** New package migrations, one per feature, rename `kit_user_state` → `user_state`, `kit_account_deletions` → `account_deletions` (session-ui), `kit_entitlements` → `plan_entitlements`, `kit_permission_defaults` → `permission_defaults`, `kit_capability_overrides` → `capability_overrides` (access), and `kit_mcp_intents` → `mcp_intents`, `kit_mcp_registrations` → `mcp_registrations`, `kit_mcp_runs` → `mcp_runs` (mcp). Each rename runs only while the old table exists and the new one does not; with both present `migrate` refuses, naming both, and merges nothing. They are dated `2026_11_14`, after the kit's own creates and an app's migrations from before 0.18, so a fresh database ends with the new names too. The kit reads and writes the new names. Indexes, keys and sequences keep the names they were created with. Not renamed: the domain tables (`kit_deliveries*`, `kit_finalizations`, `kit_finalize_confirmations`, `kit_notes*`, `kit_security_events`, `entitlements`, `complimentary_grants`, `workspaces`), which become app-owned in 0.19, and `kit_meta` and `kit_adoptions`.
+  - **Tests.** `test:migrations`: three synthetic rows in each old table come through the rename column for column, a renamed table still numbers new rows, rolling back restores the old names and rows, and with both `kit_user_state` and `user_state` present `migrate` refuses and changes neither.
+- **The release notes name the features affected.** `bin/release-lineages.php` prints `Features affected: <features>` (and `New features:`) instead of the `kit:update` and `kit:add` lines.
+
+### Removed
+
+- **The lifecycle tooling.** The commands `kit:install`, `kit:add`, `kit:adopt`, `kit:update`, `kit:remove`, `kit:status`, `kit:list` and `kit:foundation`, and `KitServiceProvider` no longer builds a blueprint or registers a tey/mod scaffold on boot. Removed classes:
+  - `Tey\Kit\Lineages`, `Tey\Kit\Lifecycle`, `Tey\Kit\LifecycleHost`, `Tey\Kit\CatalogHost`, `Tey\Kit\HostRequirements`, `Tey\Kit\HostCase`, `Tey\Kit\FeatureSwitch`
+  - `Tey\Kit\Console\InstallCommand`, `AddCommand`, `AdoptCommand`, `LifecycleCommand`, `RemoveCommand`, `StatusCommand`, `ListCommand`, `FoundationCommand`, and the `Tey\Kit\Console\FailsClosed` trait
+  - `Tey\Kit\Features\DiscoveryCache`
+- Also removed: `FeaturesServiceProvider::adopted()`, `discover()` and `carried()`; `KitServiceProvider::FOUNDATION_LAYOUT`; kit:install's stubs (`resources/install`); the `kit.host.vite_global_types` config key, and the `kit.app_id`, `kit.release`, `kit.scaffold_features` and `kit-lifecycle.*` settings, which nothing reads. `Blueprint` and `Catalog` stay, for the catalog: `Blueprint` validates feature manifests itself, and `ThemeAdvisory::themeStylesheets()` reads the theme for `kit:brand`. The kit still uses tey/mod's layout and discovery.
+- Checks for the tooling: `test:install`, `test:adopt`, `test:adopt-fresh`, `test:adopt-in-place`, `test:add-refused`, `test:plan-steps`, `test:remove-feature`, `test:status`, `test:starter-case`, `test:lifecycle`, `test:layout`, `test:scaffold` and `test:host-contract`. The checks that covered runtime behaviour beside the tooling keep those assertions.
+
+### Upgrading
+
+1. **On 0.17.8, run `php artisan kit:detach`** and commit `config/kit.php`: it writes `kit.features` and the adopt flags from your install record. Without `kit.features`, 0.18 registers no feature.
+2. **Bump** `tey/kit` to 0.18 and run `composer update`.
+3. **Run `php artisan migrate`.** It runs the three renames and nothing else. If it refuses because both names of a table exist, keep the one that holds your data, drop or rename the other, and migrate again.
+4. **Delete what `kit:detach` listed.** Keep any migration copy under `database/migrations/kit/` you edited, and every stamped copy (`<date>_<order>_<name>.php`, written for a host that adopted its own workspaces table): the package skips the migrations you have a copy of, and a stamped copy has a name the package's file does not.
+5. **Remove `kit:status` and `kit:update` from CI and deploy scripts.** `kit:cache` and `kit:clear` may stay.
+6. Update any query or migration of your own that names a renamed table.
+
 ## v0.17.7
 
 No lineage pin changed: `composer update` is enough.
