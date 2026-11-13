@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## v0.19.0
+
+Features affected: none.
 
 Features affected: deliver, finalize, notes, access, session-ui, workspaces
 
