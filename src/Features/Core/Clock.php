@@ -2,15 +2,18 @@
 
 namespace Tey\Kit\Features\Core;
 
+use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Throwable;
 
 /**
- * The clock times of day show in: `12h`, `24h`, or `auto`, the locale's own. Resolution: the person's own choice (session-ui keeps it in user_state as `clock`,
- * read through Registry::userClock), then the workspace's when the app registers one (Registry::workspaceClockUsing, read inside the tenant), then
- * `kit.clock.default` (`auto` unless the app sets it). The browser gets the same answer as the `kitClock` share. time() and range() format a server-built
- * string (a mail, a receipt) with it, in the Carbon's own zone and the app's locale.
+ * The clock times of day show in. A preference is `12h`, `24h` or `auto`: the person's own choice (session-ui keeps it in user_state as `clock`, read
+ * through Registry::userClock), then the workspace's when the app registers one (Registry::workspaceClockUsing, read inside that workspace), then
+ * `kit.clock.default` (`auto` unless the app sets it). `auto` is the locale's own clock, so for() and current() answer `12h` or `24h`, resolving it
+ * through the app's locale. Pages get the preference as the `kitClock` share (the browser resolves `auto` by the page's locale). time() and range()
+ * format server-built strings (a mail, a receipt, a digest, a chat message) on the resolved clock, in each Carbon's own zone and the app's locale.
+ * Nothing here needs a request: for() takes the person and the workspace, so a queued job passes the ones it was made for.
  */
 final class Clock
 {
@@ -20,52 +23,92 @@ final class Clock
         return $clock === '12h' || $clock === '24h' ? $clock : null;
     }
 
+    /** `12h` or `24h` for the signed-in person in the current workspace (or, for a guest or a job, the current workspace's and the default). */
+    public static function current(): string
+    {
+        return self::for(self::signedIn());
+    }
+
     /**
-     * `12h`, `24h` or `auto` for a person: a user or their id, or, when null, the signed-in person (none in a queued job or for a guest). A failure reading
-     * the person's or the workspace's choice falls back rather than failing the page or the mail.
+     * `12h` or `24h` for a person (a user or their id) and a workspace (a model or its id), either of them null; no request is read. A null workspace
+     * is the current one, when the app has a current workspace at all. `auto` is resolved through the app's locale (en 12h, en_GB 24h).
      */
-    public static function resolve(Authenticatable|int|null $user = null): string
+    public static function for(Authenticatable|int|null $user = null, object|int|null $workspace = null): string
+    {
+        return self::valid(self::preference($user, $workspace)) ?? self::localeClock((string) app()->getLocale());
+    }
+
+    /**
+     * The preference, `12h`, `24h` or `auto`, for a person and a workspace, as for(). A failure reading the person's or the workspace's choice falls back
+     * rather than failing the page or the mail.
+     */
+    public static function preference(Authenticatable|int|null $user = null, object|int|null $workspace = null): string
     {
         $registry = app(Registry::class);
-        $id = $user instanceof Authenticatable ? (int) $user->getAuthIdentifier() : ($user ?? self::signedIn());
-        $own = $workspace = null;
+        $id = $user instanceof Authenticatable ? (int) $user->getAuthIdentifier() : $user;
+        $own = $setting = null;
         try {
             $own = $id === null || $registry->userClock() === null ? null : ($registry->userClock())($id);
         } catch (Throwable) {
             $own = null;
         }
         try {
-            $workspace = $registry->workspaceClock() === null ? null : ($registry->workspaceClock()['get'])();
+            $get = $registry->workspaceClock()['get'] ?? null;
+            $setting = $get === null ? null : ($workspace === null ? $get() : $registry->inWorkspace($workspace, fn (): mixed => $get()));
         } catch (Throwable) {
-            $workspace = null;
+            $setting = null;
         }
 
-        return self::valid($own) ?? self::valid($workspace) ?? self::valid(config('kit.clock.default')) ?? 'auto';
+        return self::valid($own) ?? self::valid($setting) ?? self::valid(config('kit.clock.default')) ?? 'auto';
     }
 
-    /** A time of day: `3:30 PM` (12h), `15:30` (24h), or the locale's own (auto). */
-    public static function time(CarbonInterface $at, Authenticatable|int|null $user = null): string
+    /** The `kitClock` share: the signed-in person's preference (`auto` left for the browser to resolve by the page's locale). */
+    public static function shared(): string
     {
-        return self::format($at, self::resolve($user));
+        return self::preference(self::signedIn());
     }
 
-    /** A span of times of day, `9:00 AM – 5:00 PM`, on one clock. */
-    public static function range(CarbonInterface $start, CarbonInterface $end, Authenticatable|int|null $user = null): string
+    /** A locale's own clock, from its time format (Carbon's `LT`): `12h` when the hour is 12-hour (en, en_CA, ko), else `24h` (en_GB, de, fr). */
+    public static function localeClock(string $locale): string
     {
-        $clock = self::resolve($user);
+        $format = (string) (CarbonImmutable::now()->locale($locale)->getIsoFormats()['LT'] ?? 'h:mm A');
 
-        return self::format($start, $clock).' – '.self::format($end, $clock);
+        return str_contains((string) preg_replace('/\[[^\]]*\]/', '', $format), 'h') ? '12h' : '24h';
     }
 
+    /** A time of day: `3:30 PM` or `15:30`. With no person and no workspace, the current() clock; else for() them. */
+    public static function time(CarbonInterface $at, Authenticatable|int|null $user = null, object|int|null $workspace = null): string
+    {
+        return self::format($at, self::clockFor($user, $workspace));
+    }
+
+    /**
+     * A span of time sharing its date: `Tue 2 Jun, 10:00 to 12:00` or `Tue 2 Jun, 10:00 AM to 12:00 PM`. When the ends fall on different days, each
+     * has its own (`Tue 2 Jun, 22:00 to Wed 3 Jun, 02:00`). The end is shown in the start's zone. The person and workspace are as for time().
+     */
+    public static function range(CarbonInterface $start, CarbonInterface $end, Authenticatable|int|null $user = null, object|int|null $workspace = null): string
+    {
+        $clock = self::clockFor($user, $workspace);
+        $end = $end->copy()->setTimezone($start->getTimezone());
+        $start = $start->copy()->locale(app()->getLocale());
+        $end = $end->locale(app()->getLocale());
+        $tail = $start->isSameDay($end) ? self::format($end, $clock) : $end->isoFormat('ddd D MMM').', '.self::format($end, $clock);
+
+        return $start->isoFormat('ddd D MMM').', '.self::format($start, $clock).' to '.$tail;
+    }
+
+    private static function clockFor(Authenticatable|int|null $user, object|int|null $workspace): string
+    {
+        return $user === null && $workspace === null ? self::current() : self::for($user, $workspace);
+    }
+
+    /** The locale's own time format when its clock is the one asked for (so `ko` keeps `오후 3:30`), else a plain 12- or 24-hour one. */
     private static function format(CarbonInterface $at, string $clock): string
     {
-        $at = $at->copy()->locale(app()->getLocale());
+        $locale = (string) app()->getLocale();
+        $pattern = self::localeClock($locale) === $clock ? 'LT' : ($clock === '12h' ? 'h:mm A' : 'HH:mm');
 
-        return $at->isoFormat(match ($clock) {
-            '12h' => 'h:mm A',
-            '24h' => 'HH:mm',
-            default => 'LT',
-        });
+        return $at->copy()->locale($locale)->isoFormat($pattern);
     }
 
     private static function signedIn(): ?int

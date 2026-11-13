@@ -576,7 +576,7 @@ final class Registry
 
     /**
      * How the workspace's clock (`12h`, `24h`, or null for none) is read and written, inside its tenant context, like workspaceTimezoneUsing: the app's own
-     * setting, which the kit falls back to under a person's own choice (Clock). One only.
+     * setting, which the kit falls back to under a person's own choice (Clock). Clock::for() reads a given workspace's through inWorkspace(). One only.
      */
     public function workspaceClockUsing(callable $get, callable $set): self
     {
@@ -603,6 +603,31 @@ final class Registry
     public function userClock(): ?callable
     {
         return $this->userClock;
+    }
+
+    /** @var ?callable(object|int, \Closure): mixed */
+    private $workspaceRunner = null;
+
+    /** How code runs inside a given workspace (the workspaces feature's Workspaces::run), so core can read a workspace's settings with no request. One only. */
+    public function workspaceRunnerUsing(callable $run): self
+    {
+        $this->workspaceRunner = $run;
+
+        return $this;
+    }
+
+    /**
+     * Runs `$fn` inside a workspace (a model or its id) and returns its result. Without the workspaces feature there is no workspace to enter, so it
+     * runs as it is.
+     *
+     * @template T
+     *
+     * @param  \Closure(): T  $fn
+     * @return T
+     */
+    public function inWorkspace(object|int $workspace, \Closure $fn): mixed
+    {
+        return $this->workspaceRunner === null ? $fn() : ($this->workspaceRunner)($workspace, $fn);
     }
 
     /** A step run inside a newly provisioned workspace's tenant context, in registration order. */

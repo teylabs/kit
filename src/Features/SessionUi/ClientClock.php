@@ -2,12 +2,11 @@
 
 namespace Tey\Kit\Features\SessionUi;
 
-use Illuminate\Http\Request;
 use Tey\Kit\Features\Core\Clock;
 
 /**
- * The viewer's clock, 12- or 24-hour, for the `kitClock` share. A person's own choice is kept in user_state as `clock` (`12h` or `24h`; none means the
- * workspace's); the resolution is core's Clock: the person's, then the workspace's (Registry::workspaceClockUsing), then `kit.clock.default`, `auto` by default.
+ * A person's own clock, 12- or 24-hour, kept in user_state as `clock` (`12h` or `24h`; none means the workspace's). Core's Clock reads it through
+ * Registry::userClock and resolves the rest: the workspace's (Registry::workspaceClockUsing), then `kit.clock.default`, `auto` by default.
  */
 final class ClientClock
 {
@@ -24,11 +23,5 @@ final class ClientClock
     {
         $clock = Clock::valid($clock);
         $clock === null ? UserState::forget($userId, self::KEY) : UserState::set($userId, self::KEY, $clock);
-    }
-
-    /** `12h`, `24h` or `auto` for the signed-in person, or for a guest the workspace's and then the default. */
-    public static function forViewer(Request $request): string
-    {
-        return Clock::resolve($request->user('web'));
     }
 }

@@ -45,7 +45,7 @@ A time of day shows on the viewer's clock: `12h` (3:30 PM), `24h` (15:30), or `a
 
 Anything other than `12h` or `24h` at any step counts as no choice, and a workspace getter that throws falls back to the next step. The default is `auto`, so an app that sets nothing renders exactly as before.
 
-session-ui shares the result as `kitClock` (always `12h`, `24h` or `auto`), and `useClock()` returns it (`auto` without the share). `DateTime`, `formatDateTime()`, `fullDateTime()`, `InputTime`, `InputTimeRange` and `checkedAtLabel()` pass it to `Intl` as `hourCycle`: `h12` for 12h, `h23` for 24h (so midnight is 12:30 AM or 00:30, never 0:30 or 24:30), and nothing for auto. An explicit option still wins: `<DateTime clock="12h">`, `formatDateTime(value, 'time', { clock: '24h' })`, `<InputTime :hour-cycle="12">`. A time input always submits a 24-hour `HH:MM`, whatever it shows.
+Core shares the preference with every Inertia page as `kitClock` (always `12h`, `24h` or `auto`): signed-in, guest, public and portal pages alike, also on a host without session-ui (there it's the workspace's and the default). `useClock()` returns it (`auto` without the share), and the browser resolves `auto` by the page's locale. `DateTime`, `formatDateTime()`, `fullDateTime()`, `InputTime`, `InputTimeRange` and `checkedAtLabel()` pass it to `Intl` as `hourCycle`: `h12` for 12h, `h23` for 24h (so midnight is 12:30 AM or 00:30, never 0:30 or 24:30), and nothing for auto. An explicit option still wins: `<DateTime clock="12h">`, `formatDateTime(value, 'time', { clock: '24h' })`, `<InputTime :hour-cycle="12">`. A time input always submits a 24-hour `HH:MM`, whatever it shows.
 
 ### The workspace's clock
 
@@ -69,18 +69,23 @@ The kit only calls the getter. The setter is for the app's own field: for exampl
 
 ### Server-built times
 
-`Tey\Kit\Features\Core\Clock` formats times for mail, receipts and other strings built on the server, using the same resolution:
+`Tey\Kit\Features\Core\Clock` resolves the clock and formats times for mail, receipts, digests and chat messages. It never needs a request, so a queued job passes the person and workspace it was made for:
 
 ```php
 use Tey\Kit\Features\Core\Clock;
 
-Clock::time($booking->starts_at->setTimezone($zone));             // the signed-in person: "3:30 PM" or "15:30"
-Clock::time($booking->starts_at, $member);                         // a given user (or their id), e.g. in a queued mail
-Clock::range($shift->starts_at, $shift->ends_at, $member);         // "9:00 AM – 5:00 PM"
-Clock::resolve($member);                                           // '12h', '24h' or 'auto'
+Clock::current();                       // '12h' or '24h': the signed-in person in the current workspace
+Clock::for($member, $workspace);        // '12h' or '24h' for a user (or id) and a workspace (model or id), either null
+Clock::preference($member, $workspace); // '12h', '24h' or 'auto', before the locale resolves it
+
+Clock::time($booking->starts_at->setTimezone($zone), $member);   // "3:30 PM" or "15:30"
+Clock::range($shift->starts_at, $shift->ends_at, $member, $workspace);
+// "Tue 2 Jun, 10:00 to 12:00" or "Tue 2 Jun, 10:00 AM to 12:00 PM"; across midnight "Tue 2 Jun, 22:00 to Wed 3 Jun, 02:00"
 ```
 
-The time is formatted in the Carbon's own timezone and the app's locale (`auto` uses the locale's own pattern). With no person given and no one signed in (a queued job), it uses the workspace's clock, then the default.
+- **`auto` resolves through the app's locale** (`app()->getLocale()`): en, en_CA and ko are 12-hour; en_GB, de and fr are 24-hour (Carbon's own time format for the locale). A mailable's `->locale()`, or a notifiable's `preferredLocale()`, sets the app locale while it renders, so it decides too.
+- **A given workspace** is read inside it, through `Registry::inWorkspace()`: the workspaces feature registers `Workspaces::run()` there, so the app's getter sees that workspace as current (with row-level security as `run()` sets it). A null workspace is the current one, if any. Without the workspaces feature the getter runs as it is.
+- **`time()` and `range()`** with no person and no workspace use `current()`; otherwise `for()` them. Each formats in the Carbon's own zone (a range's end in the start's zone) and the app's locale, keeping the locale's own pattern when its clock is the one asked for (ko on auto: 오후 3:30). A range names the date once, and both days when it crosses midnight.
 
 ## Without a component
 
@@ -99,5 +104,6 @@ The time is formatted in the Carbon's own timezone and the app's locale (`auto` 
 - The clock:
   - `tests/js/date-time.test.mjs` and `tests/js/mail-sending.test.mjs`: 24h in a 12-hour locale, 12h in a 24-hour one, midnight on each, and `auto` byte for byte the same as no clock;
   - `browser/run.mjs` (`?clock`): DateTime and the time inputs on each clock, an explicit clock winning, `auto` and no share unchanged, and the Profile page's Clock card saved and reloaded;
-  - `tests/InertiaSharesCheck.php`: the resolution order of `kitClock`, its fallbacks, and `Clock::time()` / `range()`;
+  - `tests/InertiaSharesCheck.php`: the resolution order of `kitClock` and its fallbacks; `kitClock` on a public page of a host without session-ui and on a portal page; `Clock::for()`, `current()`, `time()` and `range()`, a given workspace read through the runner, and a queued mail rendered by the queue;
+  - `tests/WorkspaceRunCheck.php`: `Registry::inWorkspace()` is `Workspaces::run()`, and `Clock::for(null, $workspace)` reads that workspace's clock;
   - `tests/AccountFormPayloadsCheck.php`: the recorded Profile clock payload saved through the real route, a refused value, and *Use workspace setting* deleting the row.

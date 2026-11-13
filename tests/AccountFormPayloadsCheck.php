@@ -80,6 +80,7 @@ use Tey\Concierge\Enums\MembershipStatus;
 use Tey\Concierge\Support\ConciergeModels;
 use Tey\Kit\Features\Access\Console\SyncPermissionsCommand;
 use Tey\Kit\Features\Core\Registry;
+use Tey\Kit\Features\Core\Clock;
 use Tey\Kit\Features\FeaturesServiceProvider;
 use Tey\Kit\Features\SessionUi\Contracts\PurgesAccountData;
 use Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests;
@@ -302,12 +303,12 @@ try {
     $result = $send('robin', 'PUT', '/me/profile/clock', $fixture('profile-clock'));
     httpCheck($redirected($result) && $clockRow('robin') === '24h' && $clockRow('sam') === null, 'Profile clock: the recorded payload saves Robin\'s 24h to user_state, redirecting back with no errors, and no one else\'s'.$describe($result));
     $page = json_decode((string) $send('robin', 'GET', '/me/profile', [])[3]->getContent(), true);
-    httpCheck(($page['props']['clock'] ?? null) === '24h' && ($page['props']['clock_url'] ?? null) === '/me/profile/clock' && ($page['props']['kitClock'] ?? null) === '24h', 'Profile clock: the page shows Robin\'s 24h as the chosen option, and kitClock is 24h'.json_encode([$page['props']['clock'] ?? null, $page['props']['kitClock'] ?? null]));
+    httpCheck(($page['props']['clock'] ?? null) === '24h' && ($page['props']['clock_url'] ?? null) === '/me/profile/clock' && Clock::for($people['robin']) === '24h', 'Profile clock: the page shows Robin\'s 24h as the chosen option, and Clock::for(Robin) is 24h'.json_encode($page['props']['clock'] ?? null));
     $result = $send('robin', 'PUT', '/me/profile/clock', ['clock' => 'auto']);
     httpCheck(isset($result[2]['clock']) && $clockRow('robin') === '24h', 'Profile clock: a value other than workspace, 12h or 24h (auto) is refused on the field, and the saved clock is kept'.$describe($result));
     $result = $send('robin', 'PUT', '/me/profile/clock', ['clock' => 'workspace']);
     $page = json_decode((string) $send('robin', 'GET', '/me/profile', [])[3]->getContent(), true);
-    httpCheck($redirected($result) && $clockRow('robin') === null && ($page['props']['clock'] ?? null) === 'workspace' && ($page['props']['kitClock'] ?? null) === 'auto', 'Profile clock: `workspace` forgets Robin\'s own clock, so the page shows Use workspace setting and kitClock is auto again'.$describe($result));
+    httpCheck($redirected($result) && $clockRow('robin') === null && ($page['props']['clock'] ?? null) === 'workspace' && Clock::preference($people['robin']) === 'auto', 'Profile clock: `workspace` forgets Robin\'s own clock, so the page shows Use workspace setting and Robin\'s preference is auto again'.$describe($result));
 
     // Account › Profile's photo: the recorded file, multipart, as StoreAvatar takes it.
     $result = $send('robin', 'POST', '/me/avatar', $fixture('avatar'));

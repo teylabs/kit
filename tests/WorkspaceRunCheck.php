@@ -4,6 +4,7 @@
 // was current before, on success, on a throw and when nested; an unknown id is refused before anything switches. Kit code passes it block closures.
 // The InWorkspace trait and the Pest functions reset between tests and opt out cleanly (Pest is not installed here, so the hooks are called the way
 // Laravel's TestCase and Pest call them). The factory concern refuses without a workspace and creates each row inside its own. SQLite memory, synthetic data.
+use Carbon\CarbonImmutable;
 use Illuminate\Auth\AuthServiceProvider;
 use Illuminate\Bus\BusServiceProvider;
 use Illuminate\Cache\CacheServiceProvider;
@@ -44,6 +45,8 @@ use Spatie\Permission\PermissionServiceProvider;
 use Tey\Concierge\Concierge;
 use Tey\Concierge\ConciergeServiceProvider;
 use Tey\Concierge\Contracts\Member;
+use Tey\Kit\Features\Core\Clock;
+use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\FeaturesServiceProvider;
 use Tey\Kit\Features\Workspaces\Concerns\BelongsToWorkspace;
 use Tey\Kit\Features\Workspaces\Concerns\HasWorkspaces;
@@ -275,6 +278,12 @@ try {
     runCheck(Workspaces::run($two, function () {
         return runNow();
     }) === [$two->id, $two->id, $two->id] && runNow() === $none, 'run() takes the workspace model too');
+    // Core enters a given workspace through the Registry (Clock::for() reading a workspace's clock from a queued job): the workspaces feature's runner is run().
+    $registry = app(Registry::class);
+    $clocks = [$one->id => '24h', $two->id => '12h'];
+    $registry->workspaceClockUsing(fn (): ?string => $clocks[Workspace::current()?->id] ?? null, fn (): null => null);
+    runCheck($registry->inWorkspace($one->id, fn () => runNow()) === [$one->id, $one->id, $one->id] && $registry->inWorkspace($two, fn () => runNow()) === [$two->id, $two->id, $two->id] && runNow() === $none, 'Registry::inWorkspace() is run(): by id or model, the workspace is current inside and none after');
+    runCheck(Clock::for(null, $one->id) === '24h' && Clock::for(null, $two) === '12h' && Clock::time(CarbonImmutable::parse('2026-06-02 15:30', 'UTC'), null, $two->id) === '3:30 PM' && runNow() === $none, 'Clock::for(null, workspace) reads each workspace\'s own clock inside it, with no request and none current before or after');
     $one->makeCurrent();
     runCheck(Workspaces::run($two->id, function () {
         return runNow();

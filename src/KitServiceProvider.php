@@ -6,6 +6,7 @@ use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Image\ImageManager;
 use Illuminate\Support\ServiceProvider;
 use Inertia\Inertia;
+use Tey\Kit\Features\Core\Clock;
 use Tey\Kit\Features\Core\KitShares;
 use Tey\Kit\Features\Core\Toast;
 
@@ -24,6 +25,8 @@ final class KitServiceProvider extends ServiceProvider
                 'kitToasts' => fn (): array => Toast::shared(),
                 // Money and percent defaults for InputNumber and Amount: the configured currency (`kit.currency`, null when unset) and the app locale as a BCP 47 tag.
                 'kitNumber' => fn (): array => ['currency' => config('kit.currency') ?: null, 'locale' => str_replace('_', '-', (string) app()->getLocale())],
+                // The viewer's clock for times of day (DateTime, the time inputs): `12h`, `24h`, or `auto`, the locale's own. On every page, guest and public too.
+                'kitClock' => fn (): string => Clock::shared(),
             ]);
         }
         $this->registerImageDriver();

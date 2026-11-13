@@ -63,7 +63,7 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
         SessionUiRoutes::validate();
         $registry->routes(__DIR__.'/routes/session.php', 'web', $routes);
         $registry->focusRoutes('account.switch', 'verification.*', 'focus.*');
-        // A person's own 12- or 24-hour clock, for core's Clock (the `kitClock` share, server-built times).
+        // A person's own 12- or 24-hour clock, for core's Clock (the `kitClock` share core makes on every page, and server-built times).
         $registry->userClockUsing(fn (int $userId): ?string => ClientClock::own($userId));
     }
 
@@ -118,8 +118,6 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
             'passkeyOffer' => fn (): ?array => SessionUiRoutes::on('passkey-offer') ? PasskeyOffer::shared(request()->user('web')) : null,
             // The viewer's timezone for timed values (DateTime, the pickers): a calendar date never uses it.
             'kitTimezone' => fn (): string => ClientTimezone::forViewer(request()),
-            // The viewer's clock for times of day (DateTime, the time inputs): `12h`, `24h`, or `auto`, the locale's own.
-            'kitClock' => fn (): string => ClientClock::forViewer(request()),
         ]);
         // Middleware joins `web` through the HTTP kernel, which owns the groups: the router's are rebuilt from it on every kernel change, so a push
         // to the router alone is dropped by the next appendMiddlewareToGroup. Core's StartKitRequest already runs first in `web` (CoreProvider); it is not
