@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## v0.18.2
+
+Features affected: none.
 
 Features affected: core
 
