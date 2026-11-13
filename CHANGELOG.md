@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## v0.18.3
+
+Features affected: none.
 
 ### Added
 
