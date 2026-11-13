@@ -67,6 +67,7 @@
         "test:mcp-server-config": "@php tests/McpServerConfigCheck.php vendor/autoload.php",
         "test:mcp-limits": "@php tests/McpLimitsCheck.php vendor/autoload.php",
         "test:host-boot": "@php tests/HostBootCheck.php vendor/autoload.php",
+        "test:migrations": "@php tests/MigrationsCheck.php vendor/autoload.php",
         "test:route-groups": "@php tests/SessionUiRouteGroupsCheck.php vendor/autoload.php",
         "test:tenant-invites": "@php tests/TenantInvitesCheck.php vendor/autoload.php",
         "test:route-invariants": "@php tests/RouteInvariantsCheck.php vendor/autoload.php",

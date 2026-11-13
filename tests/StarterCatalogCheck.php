@@ -197,7 +197,7 @@ try {
     }
     file_put_contents($temp.'/composer.json', json_encode(['name' => 'example/consumer', 'autoload' => ['psr-4' => ['App\\' => 'app/']]]));
 
-    // The features in kit.features load their migrations from database/migrations/kit/<feature> with no other app configuration.
+    // The features in kit.features load their migrations from the package (and any copies under database/migrations/kit/<feature>) with no other app configuration.
     @mkdir($temp.'/database/migrations', 0700, true);
     file_put_contents($temp.'/database/migrations/0001_01_01_000000_create_users_table.php', "<?php\nuse Illuminate\\Database\\Migrations\\Migration;\nuse Illuminate\\Database\\Schema\\Blueprint;\nuse Illuminate\\Support\\Facades\\Schema;\nreturn new class extends Migration { public function up(): void { Schema::create('users', function (Blueprint \$t): void { \$t->id(); \$t->string('name'); \$t->string('email'); }); } };\n");
     $selected = ['core', 'workspaces', 'access', 'settings', 'mcp'];
@@ -214,9 +214,14 @@ try {
     // The permission migration reads the permission config, which now comes from the library defaults.
     (new WorkspacesProvider($migrating))->register();
     $paths = $migrating['migrator']->paths();
-    starterCheck(array_map(fn (string $path): string => substr($path, strlen($temp) + 1), $paths) === array_map(fn (string $id): string => 'database/migrations/kit/'.$id, $selected), 'each adopted feature registers its kit migration directory, in canonical order');
+    $expected = [];
+    foreach ($selected as $id) {
+        $expected = [...$expected, $temp.'/database/migrations/kit/'.$id, ...array_filter(glob(dirname(__DIR__).'/database/migrations/'.$id.'/*.php'), fn (string $file): bool => ! is_file($temp.'/database/migrations/kit/'.$id.'/'.basename($file)))];
+    }
+    // This app has the catalog's copies under database/migrations/kit, as kit:add wrote them: of the package's, only the 0.18 renames are left to load.
+    starterCheck($paths === $expected && count(array_filter($paths, fn (string $path): bool => str_contains($path, '_rename_'))) === 2, 'each adopted feature registers the app\'s database/migrations/kit/<feature>, then the package\'s migrations the app has no copy of, in canonical order');
     starterCheck($kernel->call('migrate', ['--force' => true]) === 0, 'migrate runs the host and kit migrations on synthetic SQLite memory');
-    $tables = ['users', 'workspaces', 'operators', 'audit_events', 'entitlements', 'complimentary_grants', 'kit_entitlements', 'settings', 'settings_intents', 'connections', 'kit_mcp_intents', 'kit_mcp_runs', 'roles', 'permissions'];
+    $tables = ['users', 'workspaces', 'operators', 'audit_events', 'entitlements', 'complimentary_grants', 'plan_entitlements', 'settings', 'settings_intents', 'connections', 'mcp_intents', 'mcp_runs', 'roles', 'permissions'];
     starterCheck(array_filter($tables, fn (string $table): bool => ! Schema::hasTable($table)) === [], 'every kit table exists after migrate');
     starterCheck(Schema::hasColumn('workspaces', 'slug'), 'workspaces carry a slug');
     $ran = $migrating['db']->table('migrations')->pluck('migration')->all();

@@ -1,0 +1,202 @@
+<?php
+
+// The kit's migrations load from the package (database/migrations/<feature>) since 0.18, deferring to an app's own copies under
+// database/migrations/kit/<feature>: the package baselines are the stubs kit:add copied, byte for byte and by name; an app that ran its copies runs none
+// of them again (a stamped copy too), and an edited copy is the one that runs. The 0.18 renames move the infrastructure tables' rows intact, run on a
+// fresh database too, and refuse when both names exist. Synthetic apps on SQLite files in temp directories, synthetic rows; no network.
+use Illuminate\Contracts\Console\Kernel;
+use Illuminate\Foundation\Application;
+use Illuminate\Foundation\Auth\User;
+use Illuminate\Support\Facades\Schema;
+use Tey\Kit\Features\FeaturesServiceProvider;
+
+$loader = require $argv[1];
+$loader->addPsr4('Tey\\Kit\\', dirname(__DIR__).'/src', true);
+
+const PACKAGE = __DIR__.'/../database/migrations';
+const FEATURES = ['core', 'workspaces', 'access', 'shell', 'session-ui', 'mcp'];
+const RENAMES = [
+    'kit_user_state' => 'user_state', 'kit_account_deletions' => 'account_deletions', 'kit_entitlements' => 'plan_entitlements', 'kit_permission_defaults' => 'permission_defaults',
+    'kit_capability_overrides' => 'capability_overrides', 'kit_mcp_intents' => 'mcp_intents', 'kit_mcp_registrations' => 'mcp_registrations', 'kit_mcp_runs' => 'mcp_runs',
+];
+const RENAME_MIGRATIONS = ['2026_11_14_000304_rename_access_tables', '2026_11_14_000506_rename_session_ui_tables', '2026_11_14_000605_rename_mcp_tables'];
+// Kept as they are in 0.18: the domain tables (app-owned in 0.19), kit_meta and kit_adoptions.
+const UNTOUCHED = ['kit_meta', 'kit_adoptions', 'kit_security_events', 'entitlements', 'complimentary_grants', 'workspaces'];
+
+function check(bool $ok, string $message): void
+{
+    if (! $ok) {
+        throw new RuntimeException($message);
+    }
+    echo 'PASS '.$message."\n";
+}
+
+/**
+ * A synthetic app with the given kit features, its own users table and an SQLite file, and the given files (path => bytes).
+ *
+ * @param  array<string, string>  $files
+ */
+function host(array $files = []): Application
+{
+    $root = sys_get_temp_dir().'/kit-migrations-'.bin2hex(random_bytes(8));
+    register_shutdown_function(fn () => exec('rm -rf '.escapeshellarg($root)));
+    foreach (['bootstrap/cache', 'storage/framework/views', 'storage/logs', 'config', 'database/migrations'] as $dir) {
+        mkdir($root.'/'.$dir, 0700, true);
+    }
+    touch($root.'/database/database.sqlite');
+    file_put_contents($root.'/database/migrations/0001_01_01_000000_create_users_table.php', "<?php\n\nreturn new class extends Illuminate\\Database\\Migrations\\Migration\n{\n    public function up(): void\n    {\n        Illuminate\\Support\\Facades\\Schema::create('users', fn (\$t) => \$t->id());\n    }\n};\n");
+    foreach ($files as $path => $bytes) {
+        @mkdir(dirname($root.'/'.$path), 0700, true);
+        file_put_contents($root.'/'.$path, $bytes);
+    }
+    file_put_contents($root.'/config/kit.php', '<?php return '.var_export(['features' => FEATURES, 'models' => ['user' => User::class], 'routes' => ['mcp' => ['enabled' => false]]], true).';');
+    file_put_contents($root.'/config/database.php', '<?php return '.var_export(['default' => 'sqlite', 'migrations' => ['table' => 'migrations'], 'connections' => ['sqlite' => ['driver' => 'sqlite', 'database' => $root.'/database/database.sqlite', 'prefix' => '', 'foreign_key_constraints' => false]]], true).';');
+    file_put_contents($root.'/config/cache.php', "<?php return ['default' => 'array', 'stores' => ['array' => ['driver' => 'array']]];");
+    file_put_contents($root.'/config/app.php', '<?php return '.var_export(['env' => 'testing', 'key' => 'base64:'.base64_encode(random_bytes(32)), 'cipher' => 'AES-256-CBC'], true).';');
+    file_put_contents($root.'/config/permission.php', '<?php return '.var_export(['teams' => false, 'table_names' => ['roles' => 'roles', 'permissions' => 'permissions', 'model_has_permissions' => 'model_has_permissions', 'model_has_roles' => 'model_has_roles', 'role_has_permissions' => 'role_has_permissions'], 'column_names' => ['role_pivot_key' => null, 'permission_pivot_key' => null, 'model_morph_key' => 'model_id', 'team_foreign_key' => 'team_id']], true).';');
+    $app = Application::configure($root)->withMiddleware(fn ($m) => null)->withExceptions(fn ($e) => null)->withProviders([FeaturesServiceProvider::class])->create();
+    $app->make(Kernel::class)->bootstrap();
+
+    return $app;
+}
+
+/** The app copies kit:add wrote for every feature: each package baseline at database/migrations/kit/<feature>/, under its name or a stamp. */
+function copies(string $stamp = '0001_01_02'): array
+{
+    $files = [];
+    foreach (FEATURES as $id) {
+        foreach (glob(PACKAGE.'/'.$id.'/0001_01_02_*.php') ?: [] as $file) {
+            $files['database/migrations/kit/'.$id.'/'.$stamp.substr(basename($file), 10)] = (string) file_get_contents($file);
+        }
+    }
+
+    return $files;
+}
+
+/** Runs `migrate`; returns the migrations it ran, in order. */
+function migrate(Application $app, array $options = []): array
+{
+    $before = Schema::hasTable('migrations') ? $app['db']->table('migrations')->pluck('migration')->all() : [];
+    $code = $app->make(Kernel::class)->call('migrate', ['--force' => true] + $options);
+    if ($code !== 0) {
+        throw new RuntimeException('migrate exited '.$code.': '.$app->make(Kernel::class)->output());
+    }
+
+    return array_values(array_diff($app['db']->table('migrations')->orderBy('id')->pluck('migration')->all(), $before));
+}
+
+/** Runs only the host's own migrations and the app's copies, as `migrate` did before 0.18. */
+function migrate017(Application $app): array
+{
+    $paths = [$app->databasePath('migrations'), ...array_map(fn (string $id): string => $app->databasePath('migrations/kit/'.$id), FEATURES)];
+
+    return migrate($app, ['--path' => array_filter($paths, 'is_dir'), '--realpath' => true]);
+}
+
+/** Three synthetic rows for a table, every column filled with a value of its type that differs per row. */
+function seed(string $table): void
+{
+    foreach ([1, 2, 3] as $row) {
+        $values = [];
+        foreach (Schema::getColumns($table) as $column) {
+            $type = strtolower((string) $column['type_name']);
+            $values[$column['name']] = match (true) {
+                str_contains($type, 'int') => $row * 7 + strlen($column['name']),
+                str_contains($type, 'bool') || $type === 'tinyint' => $row % 2,
+                str_contains($type, 'json') => json_encode(['row' => $row, 'column' => $column['name']]),
+                str_contains($type, 'date') || str_contains($type, 'time') => sprintf('2026-0%d-1%d 12:3%d:00', $row, $row, $row),
+                str_contains($type, 'float') || str_contains($type, 'double') || str_contains($type, 'numeric') || str_contains($type, 'decimal') => $row + 0.5,
+                default => substr($column['name'], 0, 20).'-'.$row,
+            };
+        }
+        Schema::getConnection()->table($table)->insert($values);
+    }
+}
+
+/** @return list<array<string, mixed>> */
+function rows(string $table): array
+{
+    return array_map(fn (object $row): array => (array) $row, Schema::getConnection()->table($table)->orderBy(Schema::getColumns($table)[0]['name'])->get()->all());
+}
+
+try {
+    // The package baselines are the catalog's migration stubs: the same names kit:add gave its copies, the same bytes. Only new migrations are package-only.
+    $stubs = [];
+    foreach (glob(__DIR__.'/../resources/features/*/migrations/*.php.stub') ?: [] as $stub) {
+        $stubs[basename(dirname($stub, 2)).'/'.basename($stub, '.stub')] = hash_file('sha256', $stub);
+    }
+    $package = [];
+    foreach (glob(PACKAGE.'/*/*.php') ?: [] as $file) {
+        $package[basename(dirname($file)).'/'.basename($file)] = hash_file('sha256', $file);
+    }
+    $baselines = array_filter($package, fn (string $path): bool => str_contains($path, '/0001_01_02_'), ARRAY_FILTER_USE_KEY);
+    check($stubs !== [] && $baselines === $stubs, 'every package baseline is a catalog stub at the same feature, name and bytes ('.count($stubs).')');
+    $others = array_map(fn (string $path): string => basename($path, '.php'), array_keys(array_diff_key($package, $baselines)));
+    sort($others);
+    check($others === RENAME_MIGRATIONS, 'the package\'s only other migrations are the 0.18 renames, one per feature');
+
+    // A fresh app on 0.18 (no copies): the package's migrations run once each, and end at the new names.
+    $fresh = host();
+    $ran = migrate($fresh);
+    check(count($ran) === count(array_unique($ran)) && array_diff(array_map(fn (string $path): string => basename($path, '.php'), array_keys(array_filter($package, fn ($hash, string $path): bool => in_array(dirname($path), FEATURES, true), ARRAY_FILTER_USE_BOTH))), $ran) === [], 'a fresh app runs each of its features\' package migrations once ('.count($ran).')');
+    check(array_filter(RENAMES, fn (string $to, string $from): bool => Schema::hasTable($from) || ! Schema::hasTable($to), ARRAY_FILTER_USE_BOTH) === [] && array_filter(UNTOUCHED, fn (string $table): bool => $table !== 'kit_adoptions' && ! Schema::hasTable($table)) === [], 'a fresh database has each infrastructure table under its new name only, and the domain tables and kit_meta as they were');
+    check(migrate($fresh) === [], 'a second migrate runs nothing');
+    check(FeaturesServiceProvider::packageMigrations('shell', $fresh->databasePath('migrations/kit/shell')) === [], 'a feature with no migrations loads none');
+
+    // An app upgraded from 0.17: its copies ran, with rows in every table. migrate runs no baseline again: only the renames, which keep every row.
+    $upgraded = host(copies());
+    $ran017 = migrate017($upgraded);
+    check(count($ran017) > 20 && preg_grep('/rename/', $ran017) === [], 'the 0.17 app ran its copies ('.count($ran017).')');
+    $seeded = [];
+    foreach (array_keys(RENAMES) as $table) {
+        seed($table);
+        $seeded[$table] = rows($table);
+    }
+    check(count($seeded['kit_user_state']) === 3 && $seeded['kit_user_state'][0] !== $seeded['kit_user_state'][1], 'each old table holds three distinct synthetic rows');
+    $ran = migrate($upgraded);
+    check($ran === RENAME_MIGRATIONS, 'after the upgrade migrate runs only the three renames: no baseline runs twice ('.implode(', ', $ran).')');
+    foreach (RENAMES as $from => $to) {
+        check(! Schema::hasTable($from) && rows($to) === $seeded[$from], $from.' is now '.$to.', with the same '.count($seeded[$from]).' rows, column for column');
+    }
+    $names = $upgraded['db']->table('migrations')->pluck('migration')->all();
+    check(count($names) === count(array_unique($names)), 'the migrations table names each migration once');
+    $upgraded->make(Kernel::class)->call('migrate:rollback', ['--force' => true, '--step' => 3]);
+    check(array_filter(RENAMES, fn (string $to, string $from): bool => ! Schema::hasTable($from) || Schema::hasTable($to), ARRAY_FILTER_USE_BOTH) === [] && rows('kit_mcp_runs') === $seeded['kit_mcp_runs'], 'rolling the renames back restores the old names and rows');
+
+    // An edited copy is the one that runs, on a fresh database too, and its package twin never does.
+    $files = copies();
+    $edited = 'database/migrations/kit/session-ui/0001_01_02_000502_create_kit_user_state_table.php';
+    $files[$edited] = str_replace("\$t->text('value')->nullable();", "\$t->text('value')->nullable();\n            \$t->string('edited_by_the_app')->nullable();", $files[$edited]);
+    check(str_contains($files[$edited], 'edited_by_the_app'), 'the fixture edits the app\'s copy of the user state migration');
+    $app = host($files);
+    $ran = migrate($app);
+    check(Schema::hasColumn('user_state', 'edited_by_the_app') && count(array_keys($ran, '0001_01_02_000502_create_kit_user_state_table', true)) === 1 && count($ran) === count(array_unique($ran)), 'the app\'s edited copy runs, once, and the package\'s file of that name does not; the rename still follows');
+    check(! in_array(PACKAGE.'/session-ui/0001_01_02_000502_create_kit_user_state_table.php', FeaturesServiceProvider::packageMigrations('session-ui', $app->databasePath('migrations/kit/session-ui')), true)
+        && in_array(realpath(PACKAGE.'/session-ui/2026_11_14_000506_rename_session_ui_tables.php'), array_map('realpath', FeaturesServiceProvider::packageMigrations('session-ui', $app->databasePath('migrations/kit/session-ui'))), true), 'the package loads the rename beside the app\'s copies, and not their baselines');
+
+    // A host that adopted its own tables got its copies stamped (`<stamp>_<order>_<name>.php`): the package's baseline of each is not loaded either.
+    $stamped = host(copies('2026_03_04_050607'));
+    $loaded = array_map('basename', FeaturesServiceProvider::packageMigrations('session-ui', $stamped->databasePath('migrations/kit/session-ui')));
+    check($loaded === ['2026_11_14_000506_rename_session_ui_tables.php'], 'a stamped copy keeps its package baseline out; only the rename loads ('.implode(', ', $loaded).')');
+    $ran = migrate($stamped);
+    check(preg_grep('/\A0001_01_02_/', $ran) === [] && count(preg_grep('/\A2026_03_04_050607_/', $ran)) === count(copies()), 'migrate on the stamped app runs its copies and no package baseline');
+
+    // Both names present: the rename refuses, naming both, and changes nothing.
+    $both = host(copies());
+    migrate017($both);
+    seed('kit_user_state');
+    $kept = rows('kit_user_state');
+    Schema::create('user_state', fn ($t) => $t->id());
+    $refusal = null;
+    try {
+        migrate($both);
+    } catch (Throwable $error) {
+        $refusal = $error->getMessage();
+    }
+    check($refusal !== null && str_contains($refusal, 'Both kit_user_state and user_state exist') && str_contains($refusal, 'never merges'), 'with both kit_user_state and user_state present, migrate refuses, naming both');
+    check(rows('kit_user_state') === $kept && rows('user_state') === [], 'and neither table is changed');
+    echo "Package migrations and the 0.18 renames on SQLite files, synthetic apps and rows. PostgreSQL and a consumer app are not covered here.\n";
+} catch (Throwable $error) {
+    fwrite(STDERR, 'FAIL '.$error->getMessage()."\n".$error->getTraceAsString()."\n");
+    exit(1);
+}

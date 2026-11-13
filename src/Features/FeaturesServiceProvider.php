@@ -45,7 +45,8 @@ use Tey\Kit\PassportKeys;
 use Tey\Kit\Search\SearchWorkspace;
 
 /**
- * The composition root: registers each adopted feature's provider, fills the Registry and loads each adopted feature's migrations.
+ * The composition root: registers each adopted feature's provider, fills the Registry and loads each adopted feature's migrations
+ * from the package, deferring to the app's own copies (packageMigrations()).
  *
  * The adopted features are `config('kit.features')` and nothing else; the request path never reads install history.
  */
@@ -107,6 +108,27 @@ final class FeaturesServiceProvider extends ServiceProvider
         }
 
         return array_values(array_intersect(array_keys(self::FEATURES), $ids));
+    }
+
+    /**
+     * The package's migrations for one feature (database/migrations/<feature> in the kit), less each one the app has its own copy of in
+     * $appDirectory: the same file name, or for a baseline (`0001_01_02_<order>_<name>.php`) the name kit:add published it under for a host
+     * that adopts its own tables (`<stamp>_<order>_<name>.php`). Laravel's migrator keys migrations by name, so an app that ran its copies sees
+     * the package's as already run, and an app's copy, edited or not, stays the one that runs.
+     *
+     * @return list<string> absolute paths, in name order
+     */
+    public static function packageMigrations(string $id, string $appDirectory): array
+    {
+        $package = glob(dirname(__DIR__, 2).'/database/migrations/'.$id.'/*.php') ?: [];
+        $own = is_dir($appDirectory) ? array_map('basename', glob($appDirectory.'/*.php') ?: []) : [];
+        $stamped = array_map(fn (string $name): string => (string) preg_replace('/\A\d{4}_\d{2}_\d{2}_\d{6}_(?=\d{6}_)/', '', $name), $own);
+
+        return array_values(array_filter($package, function (string $file) use ($own, $stamped): bool {
+            $name = basename($file);
+
+            return ! in_array($name, $own, true) && ! (str_starts_with($name, '0001_01_02_') && in_array(substr($name, 11), $stamped, true));
+        }));
     }
 
     /**
@@ -275,9 +297,16 @@ final class FeaturesServiceProvider extends ServiceProvider
         if ($branded) {
             $this->bootBrand();
         }
-        foreach ($features as $id) {
-            $this->loadMigrationsFrom($this->app->databasePath('migrations/kit/'.$id));
-        }
+        // Each feature's migrations: the app's own copies under database/migrations/kit/<feature> (what kit:add wrote), then the package's under
+        // database/migrations/<feature>, less those the app has a copy of. Worked out only when the migrator is resolved, never on a request.
+        $this->callAfterResolving('migrator', function ($migrator) use ($features): void {
+            foreach ($features as $id) {
+                $migrator->path($this->app->databasePath('migrations/kit/'.$id));
+                foreach (self::packageMigrations($id, $this->app->databasePath('migrations/kit/'.$id)) as $file) {
+                    $migrator->path($file);
+                }
+            }
+        });
         if ($features === [] || $this->app->routesAreCached()) {
             return;
         }
