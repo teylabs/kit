@@ -631,6 +631,8 @@ export interface InputTimeProps {
     min?: string;
     max?: string;
     step?: number;
+    /** 12 or 24: overrides the viewer's clock (`kitClock`). */
+    hourCycle?: 12 | 24;
 }
 export interface InputTimeRangeProps {
     name: string;
@@ -644,6 +646,8 @@ export interface InputTimeRangeProps {
     min?: string;
     max?: string;
     step?: number;
+    /** 12 or 24: overrides the viewer's clock (`kitClock`). */
+    hourCycle?: 12 | 24;
 }
 export interface InputTagsProps {
     name?: string;
@@ -1017,4 +1021,6 @@ export interface DateTimeProps {
     now?: number | Date;
     live?: boolean;
     relativeUntilDays?: number;
+    /** `12h`, `24h` or `auto` (the locale's own): overrides the viewer's clock (`kitClock`). */
+    clock?: import('./Data/dateTime').Clock;
 }
