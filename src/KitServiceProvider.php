@@ -37,6 +37,7 @@ final class KitServiceProvider extends ServiceProvider
         }
         $this->registerImageDriver();
         $this->commands([Console\AddCommand::class, Console\AdoptCommand::class, Console\InstallCommand::class, Console\LifecycleCommand::class, Console\ListCommand::class, Console\StatusCommand::class, Console\BrandCommand::class, Console\BrandMigrateCommand::class, Console\RemoveCommand::class, Media\Console\PruneUploadsCommand::class]);
+        $this->commands([Console\ScaffoldCommand::class]);
         // Off by default: a host opts in with `kit.media.prune_schedule` (true for daily at 03:00, or a cron expression).
         $this->callAfterResolving(Schedule::class, fn (Schedule $schedule) => Media\Console\PruneUploadsCommand::schedule($schedule));
         // The v0.1 scaffold fixture; the starter features are adopted through kit.features instead.

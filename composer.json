@@ -48,7 +48,10 @@
         }
     },
     "scripts": {
-        "test:scaffold": "@php tests/ScaffoldCheck.php vendor/autoload.php",
+        "test:scaffold": [
+            "@php tests/ScaffoldCheck.php vendor/autoload.php",
+            "@php tests/KitScaffoldCheck.php vendor/autoload.php"
+        ],
         "test:features": "@php tests/FeatureCheck.php vendor/autoload.php",
         "test:catalog": "@php tests/CatalogCheck.php vendor/autoload.php",
         "test:lifecycle": "@php tests/LifecycleCheck.php vendor/autoload.php",
