@@ -271,6 +271,7 @@ try {
     $kitNames = array_keys(array_filter(PAIRS, fn (string $to, string $from): bool => $from !== $to, ARRAY_FILTER_USE_BOTH));
     check(array_filter($kitNames, fn (string $table): bool => ! Schema::hasTable($table)) === [] && array_filter(PAIRS, fn (string $to, string $from): bool => $from !== $to && Schema::hasTable($to), ARRAY_FILTER_USE_BOTH) === [], 'an app that does not adopt migrates the domain tables under the kit\'s names only');
     check(DomainModels::problems() === [] && Kit::model('note') === Note::class && Kit::table('delivery') === 'kit_deliveries' && Kit::table('note_intent') === 'kit_note_intents' && Kit::table('entitlement') === 'entitlements', 'and Kit::model() and Kit::table() name the kit\'s own classes and tables');
+    check(Kit::model('media_upload') === Tey\Kit\Media\Models\MediaUpload::class && Kit::table('media_upload') === 'kit_media_uploads', 'Kit::model() and Kit::table() resolve media_upload too, a kit.models key that no feature registers');
     check(Relation::getMorphedModel('kit-note') === Note::class && Relation::getMorphedModel('kit-delivery') === Tey\Kit\Features\Deliver\Models\DeliveryRecord::class, 'the stable morph aliases (kit-note, kit-delivery) name the kit\'s classes');
     $drift = [];
     foreach (DomainModels::COLUMNS as $key => $expected) {

@@ -624,6 +624,23 @@ try {
         $registry->adopting($adopted);
         Schema::rename('kit_notes_away', 'kit_notes');
     }
+    // The same for a notes table that is there but has lost its workspace_id: deleting by a column it lacks would leave the notes behind.
+    $app['cache']->store()->clear();
+    [$columnless] = $workspace('Columnless Notes', 'columnless-notes', ['owner' => 'owner']);
+    $left = fn (): array => [Workspace::query()->whereKey($columnless->id)->count(), ConciergeModels::membership()::query()->where('workspace_id', $columnless->id)->count(), DB::table('kit_note_intents')->where('workspace_id', $columnless->id)->count()];
+    DB::table('kit_note_intents')->insert(['workspace_id' => $columnless->id, 'actor_id' => $people['owner']->id, 'intent_key' => 'note-columnless', 'fingerprint' => 'synthetic', 'result' => '{}', 'created_at' => now()]);
+    Schema::rename('kit_notes', 'kit_notes_away');
+    Schema::create('kit_notes', fn ($t) => $t->id());
+    try {
+        [$status] = $http('owner', 'DELETE', '/@columnless-notes/settings/delete', ['confirmation' => 'Columnless Notes', 'password' => 'secret-owner']);
+        check($status === 500 && $left() === [1, 1, 1], 'with the notes feature on and its table missing workspace_id, the workspace deletion fails closed: it rolls back, its note intents and memberships kept');
+    } finally {
+        Schema::drop('kit_notes');
+        Schema::rename('kit_notes_away', 'kit_notes');
+    }
+    $app['cache']->store()->clear();
+    [$status] = $http('owner', 'DELETE', '/@columnless-notes/settings/delete', ['confirmation' => 'Columnless Notes', 'password' => 'secret-owner']);
+    check($status === 200 && $left() === [0, 0, 0], 'with the notes table whole again, the same deletion succeeds and leaves nothing behind');
 
     // Deferred workspace deletion: the handler implements DefersWorkspacePurge. The workspace closes at once and nothing is deleted until the finish hook.
     $app['cache']->store()->clear();

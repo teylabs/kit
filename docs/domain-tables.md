@@ -98,6 +98,6 @@ Read-only. For each table the kit reads for the feature (the app's once adopted,
 - an uneditable config refuses;
 - a class that doesn't implement its contract, and a part-adopted feature, stop the boot.
 
-`composer test:lifecycle-pages` checks that account and workspace deletion fail closed on a missing table of a feature that is on (#967).
+`composer test:lifecycle-pages` checks that account and workspace deletion fail closed on a missing table of a feature that is on, and workspace deletion also on a feature's table that lacks `workspace_id` (#967).
 
 **Not covered:** MySQL and SQL Server (the migration renames indexes there, but keeps foreign key names), a consumer app, and the kit's pages running on adopted tables.

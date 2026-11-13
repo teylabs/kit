@@ -165,7 +165,22 @@ class DeleteWorkspace
     public function deleteRows(int $id): void
     {
         $owners = self::owners();
-        $where = fn (string $table, string $column = 'workspace_id') => Kit::present($owners[$table] ?? 'workspaces', $table) && Schema::hasColumn($table, $column) ? DB::table($table)->where($column, $id)->delete() : 0;
+        // A feature's own table must have the column it is deleted by, or its rows would stay behind; only another table (permission's
+        // team column when teams are off) may lack it.
+        $where = function (string $table, string $column = 'workspace_id') use ($owners, $id): int {
+            if (! Kit::present($owners[$table] ?? 'workspaces', $table)) {
+                return 0;
+            }
+            if (! Schema::hasColumn($table, $column)) {
+                if (isset($owners[$table])) {
+                    throw new RuntimeException('The '.$owners[$table].' feature is on but its table '.$table.' has no '.$column.' column, so nothing was deleted. Restore the column, then delete the workspace again.');
+                }
+
+                return 0;
+            }
+
+            return DB::table($table)->where($column, $id)->delete();
+        };
         if (Kit::present('mcp', 'connections') && Kit::present('mcp', 'mcp_intents')) {
             DB::table('mcp_intents')->whereIn('connection_id', DB::table('connections')->where('workspace_id', $id)->select('id'))->delete();
         }
