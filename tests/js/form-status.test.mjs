@@ -5,8 +5,8 @@ import { readFileSync } from 'node:fs';
 // FormStatus is checked by source here, and in a real browser by browser/run.mjs (?form-status): a persistent, polite confirmation that composes Alert and never times out.
 const root = new URL('../../resources/features/', import.meta.url);
 const read = path => readFileSync(new URL(path, root), 'utf8');
-const kit = 'core/components/Kit/';
-const source = read(`${kit}Form/FormStatus.vue.stub`);
+const kit = '../js/components/Kit/';
+const source = read(`${kit}Form/FormStatus.vue`);
 const script = source.split('</script>')[0];
 const template = source.split('<template>')[1];
 

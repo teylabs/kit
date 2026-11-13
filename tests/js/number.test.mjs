@@ -8,7 +8,7 @@ import { pathToFileURL } from 'node:url';
 // The stubs are TypeScript with a .stub suffix; node strips types from a plain .ts copy.
 const dir = mkdtempSync(join(tmpdir(), 'kit-number-'));
 const load = async name => {
-    copyFileSync(new URL(`../../resources/features/core/components/Kit/Form/${name}.ts.stub`, import.meta.url), join(dir, `${name}.ts`));
+    copyFileSync(new URL(`../../resources/js/components/Kit/Form/${name}.ts`, import.meta.url), join(dir, `${name}.ts`));
     return import(pathToFileURL(join(dir, `${name}.ts`)).href);
 };
 const { numberDefaults, numberFormat } = await load('number');

@@ -7,7 +7,7 @@ import { pathToFileURL } from 'node:url';
 
 // The stubs are TypeScript with a .stub suffix; node strips types from a plain .ts copy. The Vue context (useLocked.ts) wraps this module and is not tested here.
 const dir = mkdtempSync(join(tmpdir(), 'kit-locked-'));
-copyFileSync(new URL('../../resources/features/core/components/Kit/Form/locked.ts.stub', import.meta.url), join(dir, 'locked.ts'));
+copyFileSync(new URL('../../resources/js/components/Kit/Form/locked.ts', import.meta.url), join(dir, 'locked.ts'));
 const { NOTICES, UNLOCKED, VIEW_ONLY, fileSize, implicitSubmit, readOnlyLabel, resolveLocked, withoutEditActions } = await import(pathToFileURL(join(dir, 'locked.ts')).href);
 const save = { label: 'Save', url: '/settings', method: 'put' };
 

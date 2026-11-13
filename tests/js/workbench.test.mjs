@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 // The Workbench's logic runs here without Vue or a DOM; its components are checked by source (the kit has no browser test runner).
-const kit = new URL('../../resources/features/core/components/Kit/', import.meta.url);
+const kit = new URL('../../resources/js/components/Kit/', import.meta.url);
 const dir = mkdtempSync(join(tmpdir(), 'kit-workbench-'));
 // A stand-in for Inertia's client, so the default senders load without the package; tests pass their own senders.
 const inertia = join(dir, 'node_modules', '@inertiajs', 'vue3');
@@ -14,11 +14,11 @@ mkdirSync(inertia, { recursive: true });
 writeFileSync(join(inertia, 'package.json'), JSON.stringify({ name: '@inertiajs/vue3', type: 'module', main: 'index.js' }));
 writeFileSync(join(inertia, 'index.js'), "export const http = { getClient: () => globalThis.kitHttpClient ?? ({ request: () => Promise.reject(new Error('offline')) }) };\n");
 // Vite resolves extensionless imports; node needs the extension, so the copies point at each other's .ts files.
-writeFileSync(join(dir, 'http.ts'), readFileSync(new URL('http.ts.stub', kit), 'utf8'));
-for (const name of ['workbench', 'workbenchLayout']) writeFileSync(join(dir, `${name}.ts`), readFileSync(new URL(`Workbench/${name}.ts.stub`, kit), 'utf8').replace("from './workbench';", "from './workbench.ts';").replace("from '../http';", "from './http.ts';"));
+writeFileSync(join(dir, 'http.ts'), readFileSync(new URL('http.ts', kit), 'utf8'));
+for (const name of ['workbench', 'workbenchLayout']) writeFileSync(join(dir, `${name}.ts`), readFileSync(new URL(`Workbench/${name}.ts`, kit), 'utf8').replace("from './workbench';", "from './workbench.ts';").replace("from '../http';", "from './http.ts';"));
 const wb = await import(pathToFileURL(join(dir, 'workbench.ts')).href);
 const { createLayoutStore, parseLayout, layoutFallbackKey, defaultCollapses, sendLayout } = await import(pathToFileURL(join(dir, 'workbenchLayout.ts')).href);
-const source = name => readFileSync(new URL(`Workbench/${name}.stub`, kit), 'utf8');
+const source = name => readFileSync(new URL(`Workbench/${name}`, kit), 'utf8');
 const flush = () => new Promise(resolve => setTimeout(resolve, 0));
 
 // ── Breakpoints and regions ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────

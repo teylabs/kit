@@ -343,12 +343,18 @@ try {
     // Each feature's stubs import from the host's `@/components/ui` only what its `host_ui` declares (kit:add checks those, and blocks without them), and nothing from `@/lib/utils`.
     foreach (glob(dirname(__DIR__).'/resources/features/*/feature.json') as $manifestFile) {
         $manifest = json_decode((string) file_get_contents($manifestFile), true, 512, JSON_THROW_ON_ERROR);
-        $stubs = [];
-        foreach ($manifest['files'] as $path => $entry) {
-            $stubs[$path] = (string) file_get_contents(dirname($manifestFile).'/'.$entry['stub']);
-            libraryCheck(! str_contains($stubs[$path], "'@/lib/utils'") && ! str_contains($stubs[$path], '"@/lib/utils"'), $manifest['id'].' '.$path.' imports nothing from the host\'s @/lib/utils (the kit ships its own cn)');
+        $stubs = array_map(fn (array $entry): string => (string) file_get_contents(dirname($manifestFile).'/'.$entry['stub']), $manifest['files']);
+        // core's shared components load from the package (resources/js/components/Kit); core still declares what they need.
+        if ($manifest['id'] === 'core') {
+            $components = dirname(__DIR__).'/resources/js/components/Kit';
+            foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($components, FilesystemIterator::SKIP_DOTS)) as $component) {
+                $stubs['resources/js/components/Kit/'.substr($component->getPathname(), strlen($components) + 1)] = (string) file_get_contents($component->getPathname());
+            }
+        }
+        foreach ($stubs as $path => $stub) {
+            libraryCheck(! str_contains($stub, "'@/lib/utils'") && ! str_contains($stub, '"@/lib/utils"'), $manifest['id'].' '.$path.' imports nothing from the host\'s @/lib/utils (the kit ships its own cn)');
             // The host declares only @inertiajs/vue3 (which pins its own core): a stub importing @inertiajs/core is an undeclared import (pnpm cannot resolve it), so the kit's types are its own (Kit/types.ts).
-            libraryCheck(preg_match('/(?:from\s+|import\s*\(\s*)[\'"]@inertiajs\/core[\'"]/', $stubs[$path]) !== 1, $manifest['id'].' '.$path.' imports nothing from @inertiajs/core');
+            libraryCheck(preg_match('/(?:from\s+|import\s*\(\s*)[\'"]@inertiajs\/core[\'"]/', $stub) !== 1, $manifest['id'].' '.$path.' imports nothing from @inertiajs/core');
         }
         $declared = $manifest['requires']['host_ui'] ?? [];
         sort($declared);

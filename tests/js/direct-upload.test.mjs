@@ -7,7 +7,7 @@ import { pathToFileURL } from 'node:url';
 
 // The stub is TypeScript with a .stub suffix; node strips types from a plain .ts copy. The transport is faked: no network.
 const dir = mkdtempSync(join(tmpdir(), 'kit-direct-upload-'));
-copyFileSync(new URL('../../resources/features/core/components/Kit/Form/directUpload.ts.stub', import.meta.url), join(dir, 'directUpload.ts'));
+copyFileSync(new URL('../../resources/js/components/Kit/Form/directUpload.ts', import.meta.url), join(dir, 'directUpload.ts'));
 const { directUpload, mutationFor, DirectUploadError } = await import(pathToFileURL(join(dir, 'directUpload.ts')).href);
 
 const routes = { request: '/uploads', confirm: '/uploads/confirm' };

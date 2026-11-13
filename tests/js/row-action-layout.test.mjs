@@ -8,12 +8,12 @@ import { pathToFileURL } from 'node:url';
 // RowActions' layout and naming rules (rowActionLayout.ts): the split and overflow variants, the default between them, verb labels clamped with the record in the
 // accessible name and the confirmation. browser/run.mjs (?row-variants) renders the same in Chromium.
 const table = new URL(
-    '../../resources/features/core/components/Kit/Table/',
+    '../../resources/js/components/Kit/Table/',
     import.meta.url,
 );
 const dir = mkdtempSync(join(tmpdir(), 'kit-row-actions-'));
 copyFileSync(
-    new URL('rowActionLayout.ts.stub', table),
+    new URL('rowActionLayout.ts', table),
     join(dir, 'rowActionLayout.ts'),
 );
 const {
@@ -228,7 +228,7 @@ test('RowActions shows a menu item description under its label, truncated, and d
     const read = (path) =>
         readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8');
     const rows = read(
-        'resources/features/core/components/Kit/Table/RowActions.vue.stub',
+        'resources/js/components/Kit/Table/RowActions.vue',
     );
     const shown = rows.match(/<span\s+v-if="action\.description"[\s\S]*?<\/span/g);
     assert.equal(shown.length, 6, 'every menu item shape (button, link and new-tab link, in both menus) shows it');
@@ -248,7 +248,7 @@ test('ButtonGroup segments share one height and line so split labels align', asy
     const { readFileSync } = await import('node:fs');
     const group = readFileSync(
         new URL(
-            '../../resources/features/core/components/Kit/Action/ButtonGroup.vue.stub',
+            '../../resources/js/components/Kit/Action/ButtonGroup.vue',
             import.meta.url,
         ),
         'utf8',
@@ -264,8 +264,8 @@ test('ButtonGroup segments share one height and line so split labels align', asy
 test('PageEnd adds 8px to the Page gap so it sits 32px below the content, as before 0.15.6', async () => {
     const { readFileSync } = await import('node:fs');
     const read = (path) => readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8');
-    const end = read('resources/features/core/components/Kit/Layout/PageEnd.vue.stub');
-    const page = read('resources/features/core/components/Kit/Layout/Page.vue.stub');
+    const end = read('resources/js/components/Kit/Layout/PageEnd.vue');
+    const page = read('resources/js/components/Kit/Layout/Page.vue');
     assert.match(page, /'flex flex-col gap-6'/, 'the Page gap is 24px');
     assert.match(page, /data-slot="page"/);
     assert.match(page, /:data-flush="flush \|\| undefined"/);
@@ -275,8 +275,8 @@ test('PageEnd adds 8px to the Page gap so it sits 32px below the content, as bef
 test('DataTable passes the table noun to RowActions, which uses it for an untitled confirmation', async () => {
     const { readFileSync } = await import('node:fs');
     const read = (path) => readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8');
-    const table = read('resources/features/core/components/Kit/Table/DataTable.vue.stub');
-    const rows = read('resources/features/core/components/Kit/Table/RowActions.vue.stub');
+    const table = read('resources/js/components/Kit/Table/DataTable.vue');
+    const rows = read('resources/js/components/Kit/Table/RowActions.vue');
     assert.match(table, /:noun="table\.noun \?\? null"/);
     assert.match(rows, /noun\?: string \| null;/);
     assert.match(rows, /confirmTitle\(action, props\.noun\)/);

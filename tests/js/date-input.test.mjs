@@ -6,9 +6,9 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 // The pickers' values (Kit/Form/dateInput.ts): a date, month, year or time is a wall value and never shifts between zones; a timed value goes through the viewer's zone and carries its offset.
-const kit = new URL('../../resources/features/core/components/Kit/', import.meta.url);
+const kit = new URL('../../resources/js/components/Kit/', import.meta.url);
 const dir = mkdtempSync(join(tmpdir(), 'kit-date-input-'));
-writeFileSync(join(dir, 'dateInput.ts'), readFileSync(new URL('Form/dateInput.ts.stub', kit), 'utf8'));
+writeFileSync(join(dir, 'dateInput.ts'), readFileSync(new URL('Form/dateInput.ts', kit), 'utf8'));
 const m = await import(pathToFileURL(join(dir, 'dateInput.ts')).href);
 
 test('validates dates, months, years and times', () => {

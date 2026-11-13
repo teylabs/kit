@@ -160,7 +160,7 @@ try {
     $laravel = $run(['laravel']);
     $custom = $run(['host-modules']);
     check($custom['tree'] === $laravel['tree'], 'kit files land at the same canonical paths, with the same bytes, as under laravel');
-    check(! is_dir($custom['root'].'/app/Modules') && ! is_dir($custom['root'].'/app/UI') && isset($custom['tree']['resources/js/components/Kit/index.ts']), 'nothing lands in the host\'s module tree or UI mount; the kit\'s own resources/js tree is used');
+    check(! is_dir($custom['root'].'/app/Modules') && ! is_dir($custom['root'].'/app/UI') && isset($custom['tree']['resources/css/kit.css']), 'nothing lands in the host\'s module tree or UI mount; the kit\'s own resources/js tree is used');
     check($custom['identity'] === $laravel['identity'], 'the installed core lineage has the same identity under both layouts');
     $run(['adopt', $custom['root']]);
     echo "Layout checks on synthetic fresh apps only; package providers registered by hand, no HTTP, browser or consumer acceptance.\n";

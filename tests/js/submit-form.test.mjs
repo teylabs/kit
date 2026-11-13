@@ -8,7 +8,7 @@ import { pathToFileURL } from 'node:url';
 // useSubmitForm (Kit/Form/submitForm.ts): the non-visiting form. Runs here over a stand-in for vue (reactive is the identity: the form's getters read plain state)
 // and the real http.ts, with synthetic handlers: a SubmitError, thrown fetch Responses and useHttp-style errors, a plain Laravel 422 object, a timeout, a sync throw.
 // The 409 body is tests/fixtures/stale-write-409.json, the same file the PHP side checks the kit's stale-write refusal against (WorkspaceModelCheck).
-const kit = new URL('../../resources/features/core/components/Kit/', import.meta.url);
+const kit = new URL('../../resources/js/components/Kit/', import.meta.url);
 const dir = mkdtempSync(join(tmpdir(), 'kit-submit-form-'));
 const vue = join(dir, 'node_modules', 'vue');
 mkdirSync(vue, { recursive: true });
@@ -16,9 +16,9 @@ mkdirSync(join(dir, 'Form'));
 writeFileSync(join(vue, 'package.json'), JSON.stringify({ name: 'vue', type: 'module', main: 'index.js' }));
 // toValue as Vue's: a getter is called, a ref (here a { value } box) is read, anything else is itself.
 writeFileSync(join(vue, 'index.js'), "export const reactive = (value) => value;\nexport const toValue = (value) => (typeof value === 'function' ? value() : value !== null && typeof value === 'object' && 'value' in value ? value.value : value);\n");
-copyFileSync(new URL('http.ts.stub', kit), join(dir, 'http.ts'));
+copyFileSync(new URL('http.ts', kit), join(dir, 'http.ts'));
 // Node resolves only explicit extensions; a host's bundler resolves the stub's '../http' as written.
-writeFileSync(join(dir, 'Form', 'submitForm.ts'), readFileSync(new URL('Form/submitForm.ts.stub', kit), 'utf8').replace("from '../http';", "from '../http.ts';"));
+writeFileSync(join(dir, 'Form', 'submitForm.ts'), readFileSync(new URL('Form/submitForm.ts', kit), 'utf8').replace("from '../http';", "from '../http.ts';"));
 const { useSubmitForm, SubmitError, isSubmitForm, SUBMIT_MESSAGE_MAX, SUBMIT_GENERIC_MESSAGE, SUBMIT_TIMEOUT_MESSAGE, readCanSubmit, submitBlock, submitBlockMessages, SUBMIT_BLOCK_MESSAGES } = await import(pathToFileURL(join(dir, 'Form', 'submitForm.ts')).href);
 const staleWrite = JSON.parse(readFileSync(new URL('../fixtures/stale-write-409.json', import.meta.url), 'utf8'));
 

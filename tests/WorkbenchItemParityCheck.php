@@ -147,10 +147,10 @@ try {
     });
     $app->boot();
 
-    $tsItem = tsFields((string) file_get_contents($root.'/resources/features/core/components/Kit/Workbench/workbench.ts.stub'), 'WorkbenchItem');
-    $tsThumbnail = tsFields((string) file_get_contents($root.'/resources/features/core/components/Kit/Workbench/workbench.ts.stub'), 'WorkbenchThumbnail');
+    $tsItem = tsFields((string) file_get_contents($root.'/resources/js/components/Kit/Workbench/workbench.ts'), 'WorkbenchItem');
+    $tsThumbnail = tsFields((string) file_get_contents($root.'/resources/js/components/Kit/Workbench/workbench.ts'), 'WorkbenchThumbnail');
     sort($tsThumbnail);
-    $descriptor = tsFields((string) file_get_contents($root.'/resources/features/core/components/Kit/Action/actionPlacement.ts.stub'), 'ActionDescriptor');
+    $descriptor = tsFields((string) file_get_contents($root.'/resources/js/components/Kit/Action/actionPlacement.ts'), 'ActionDescriptor');
     $declared = (string) file_get_contents($root.'/types/kit.d.ts');
     sort($descriptor);
 

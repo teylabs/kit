@@ -5,9 +5,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-const kit = new URL('../../resources/features/core/components/Kit/', import.meta.url);
+const kit = new URL('../../resources/js/components/Kit/', import.meta.url);
 const dir = mkdtempSync(join(tmpdir(), 'kit-toast-'));
-copyFileSync(new URL('Feedback/toastPlacement.ts.stub', kit), join(dir, 'toastPlacement.ts'));
+copyFileSync(new URL('Feedback/toastPlacement.ts', kit), join(dir, 'toastPlacement.ts'));
 const { resolvePosition, toastPlacement, flashedToast, resolveTrigger, toastPlan, toastTiming, isAway, whenBack, toastGate } = await import(pathToFileURL(join(dir, 'toastPlacement.ts')).href);
 
 const shell = (over = {}) => ({ bars: { count: 0, height: 0 }, small: false, headerActions: false, headerHeight: 104, ...over });

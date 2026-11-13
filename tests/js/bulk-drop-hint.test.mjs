@@ -4,14 +4,14 @@ import { readFileSync } from 'node:fs';
 
 // BulkDrop's limit hint, checked by source (the kit has no Vue renderer in node): `showLimit` (default true) shows sizeHint(maxBytes) when no `hint` is
 // given; `showLimit: false` with no hint renders no hint element, and nothing points aria-describedby at one.
-const kit = new URL('../../resources/features/core/components/Kit/', import.meta.url);
-const source = readFileSync(new URL('Form/BulkDrop.vue.stub', kit), 'utf8');
+const kit = new URL('../../resources/js/components/Kit/', import.meta.url);
+const source = readFileSync(new URL('Form/BulkDrop.vue', kit), 'utf8');
 const template = source.slice(source.indexOf('<template>'));
 
 test('showLimit is an optional prop, default true, typed in the contract', () => {
     assert.match(source, /showLimit\?: boolean;/);
     assert.match(source, /withDefaults\([\s\S]*\{ showLimit: true \},?\s*\)/);
-    const contract = readFileSync(new URL('contract.ts.stub', kit), 'utf8');
+    const contract = readFileSync(new URL('contract.ts', kit), 'utf8');
     const props = contract.slice(contract.indexOf('export interface BulkDropProps'));
     assert.match(props.slice(0, props.indexOf('}')), /showLimit\?: boolean;/);
 });

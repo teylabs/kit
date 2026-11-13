@@ -7,10 +7,10 @@ import { pathToFileURL } from 'node:url';
 
 // ActionBar's resize handling: the fit has hysteresis, so a width at the boundary cannot flip it back and forth, and the ResizeObserver callback never writes in its
 // own frame (the "ResizeObserver loop completed with undelivered notifications" error). Pure logic here; the component is checked by source (no browser runner).
-const kit = new URL('../../resources/features/core/components/Kit/', import.meta.url);
+const kit = new URL('../../resources/js/components/Kit/', import.meta.url);
 const read = path => readFileSync(new URL(path, kit), 'utf8');
 const dir = mkdtempSync(join(tmpdir(), 'kit-actionbar-resize-'));
-writeFileSync(join(dir, 'actionFit.ts'), read('Action/actionFit.ts.stub'));
+writeFileSync(join(dir, 'actionFit.ts'), read('Action/actionFit.ts'));
 const { fitActions, sameMeasure, ACTION_FIT_HYSTERESIS } = await import(pathToFileURL(join(dir, 'actionFit.ts')).href);
 
 const actions = ['publish', 'preview', 'duplicate'].map(key => ({ key }));

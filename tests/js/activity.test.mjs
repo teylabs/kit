@@ -7,11 +7,11 @@ import { pathToFileURL } from 'node:url';
 
 // ActivityStream and useCursorFeed: the day sections, the trusted-html path and the cursor paging run here without Vue (activity.ts is plain TypeScript); the
 // components' markup is checked by source, comments stripped (no browser runner).
-const kit = new URL('../../resources/features/core/components/Kit/', import.meta.url);
+const kit = new URL('../../resources/js/components/Kit/', import.meta.url);
 const read = path => readFileSync(new URL(path, kit), 'utf8');
 const strip = s => s.replace(/<!--[\s\S]*?-->/g, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`])\/\/.*$/gm, '$1');
 const dir = mkdtempSync(join(tmpdir(), 'kit-activity-'));
-writeFileSync(join(dir, 'activity.ts'), read('Feed/activity.ts.stub'));
+writeFileSync(join(dir, 'activity.ts'), read('Feed/activity.ts'));
 const { activitySections, trustedHtml, headlineText, createCursorFeed, activityTone } = await import(pathToFileURL(join(dir, 'activity.ts')).href);
 
 const entry = (id, day = null, headline = { text: `entry ${id}` }) => ({ id, kind: 'activity', headline, occurredAt: null, timestamp: null, timestampTitle: null, intent: null, meta: [], count: null, truncated: false, children: [], day });

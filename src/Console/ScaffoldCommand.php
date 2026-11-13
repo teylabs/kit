@@ -22,7 +22,10 @@ final class ScaffoldCommand extends Command
     public function handle(): int
     {
         try {
-            $feature = (string) $this->argument('feature');
+            $feature = $this->argument('feature');
+            if (! is_string($feature)) {
+                throw new RuntimeException('Name one feature.');
+            }
             $files = $this->select(self::files($feature), $this->paths('only'));
             $force = $this->paths('force');
             foreach ($force as $path) {
@@ -90,14 +93,16 @@ final class ScaffoldCommand extends Command
         if (! is_file($manifest) || is_link($manifest)) {
             throw new RuntimeException('Unknown feature: '.$feature);
         }
-        $entries = json_decode((string) file_get_contents($manifest), true, flags: JSON_THROW_ON_ERROR)['files'] ?? [];
+        $decoded = json_decode((string) file_get_contents($manifest), true, flags: JSON_THROW_ON_ERROR);
+        $entries = is_array($decoded) ? ($decoded['files'] ?? []) : null;
+        if (! is_array($entries)) {
+            throw new RuntimeException('Invalid '.$feature.'/feature.json.');
+        }
         $files = [];
         foreach ($entries as $path => $entry) {
             $stub = is_array($entry) ? ($entry['stub'] ?? null) : null;
-            foreach ([$path, $stub] as $relative) {
-                if (! is_string($relative) || ! preg_match('/\A[A-Za-z0-9][A-Za-z0-9._-]*(\/[A-Za-z0-9][A-Za-z0-9._-]*)*\z/', $relative) || preg_match('#(\A|/)\.\.(/|\z)#', $relative)) {
-                    throw new RuntimeException('Invalid path in '.$feature.'/feature.json.');
-                }
+            if (! self::relative($path) || ! self::relative($stub)) {
+                throw new RuntimeException('Invalid path in '.$feature.'/feature.json.');
             }
             if (str_starts_with($path, self::SHARED)) {
                 continue;
@@ -112,10 +117,17 @@ final class ScaffoldCommand extends Command
         return $files;
     }
 
+    /** @phpstan-assert-if-true string $path */
+    private static function relative(mixed $path): bool
+    {
+        return is_string($path) && preg_match('/\A[A-Za-z0-9][A-Za-z0-9._-]*(\/[A-Za-z0-9][A-Za-z0-9._-]*)*\z/', $path) === 1 && preg_match('#(\A|/)\.\.(/|\z)#', $path) !== 1;
+    }
+
     /** @return list<string> */
     private function paths(string $option): array
     {
-        $paths = array_merge([], ...array_map(fn (string $paths): array => explode(',', $paths), $this->option($option)));
+        $values = $this->option($option);
+        $paths = array_merge([], ...array_map(fn (mixed $paths): array => is_string($paths) ? explode(',', $paths) : [], is_array($values) ? $values : []));
 
         return array_values(array_filter(array_map(fn (string $path): string => trim($path, " \t/"), $paths), fn (string $path): bool => $path !== ''));
     }

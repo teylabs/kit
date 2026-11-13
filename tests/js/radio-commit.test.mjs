@@ -7,10 +7,10 @@ import { pathToFileURL } from 'node:url';
 
 // RadioCardGroup commit="click": the controller the component runs is driven here without Vue (arrows move focus, a press commits once); the markup and aria are
 // checked by source (no browser runner). Enter and Space reach `press` as the button's own click, as a tap does.
-const kit = new URL('../../resources/features/core/components/Kit/', import.meta.url);
+const kit = new URL('../../resources/js/components/Kit/', import.meta.url);
 const read = path => readFileSync(new URL(path, kit), 'utf8');
 const dir = mkdtempSync(join(tmpdir(), 'kit-radio-commit-'));
-writeFileSync(join(dir, 'radioCommit.ts'), read('Form/radioCommit.ts.stub'));
+writeFileSync(join(dir, 'radioCommit.ts'), read('Form/radioCommit.ts'));
 const { createCommitter, moveFocus, commitChoice } = await import(pathToFileURL(join(dir, 'radioCommit.ts')).href);
 
 function poll(options = [{ value: 'a', label: 'A' }, { value: 'b', label: 'B' }, { value: 'c', label: 'C' }], start = null) {

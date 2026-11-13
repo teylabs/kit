@@ -7,10 +7,10 @@ import { pathToFileURL } from 'node:url';
 
 // Live props: liveTransport.ts (plain TypeScript) runs here against a fake Echo; useLive.ts is checked by source, and its Vue and
 // Inertia calls are typechecked against the clients the kit supports.
-const kit = new URL('../../resources/features/core/components/Kit/', import.meta.url);
+const kit = new URL('../../resources/js/components/Kit/', import.meta.url);
 const read = path => readFileSync(new URL(path, kit), 'utf8');
 const dir = mkdtempSync(join(tmpdir(), 'kit-live-'));
-writeFileSync(join(dir, 'liveTransport.ts'), read('Live/liveTransport.ts.stub'));
+writeFileSync(join(dir, 'liveTransport.ts'), read('Live/liveTransport.ts'));
 const { echoLiveTransport, listenerLiveTransport } = await import(pathToFileURL(join(dir, 'liveTransport.ts')).href);
 const settle = () => new Promise(resolve => setTimeout(resolve, 0));
 

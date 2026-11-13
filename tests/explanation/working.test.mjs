@@ -7,7 +7,7 @@ import { after, test } from 'node:test';
 
 const root = new URL('../../', import.meta.url).pathname;
 const directory = mkdtempSync(join(tmpdir(), 'kit-working-'));
-copyFileSync(join(root, 'resources/features/core/components/Kit/Explanation/working.ts.stub'), join(directory, 'working.ts'));
+copyFileSync(join(root, 'resources/js/components/Kit/Explanation/working.ts'), join(directory, 'working.ts'));
 const { humanWorkingText, ledgerRows, safeLink, workingText } = await import(join(directory, 'working.ts'));
 after(() => rmSync(directory, { recursive: true, force: true }));
 const fixture = JSON.parse(readFileSync(join(root, 'tests/fixtures/explanation.json'), 'utf8'));

@@ -422,7 +422,7 @@ The first three apply to a tinted ground; the shipped themes are white grounds, 
 
 ## Use your own components
 
-Kit pages and the shell import every UI primitive (the form set, buttons, cards, menus) only through one alias, `@kit/ui`, as in `import { Field, Input, Button } from '@kit/ui'`. By default the alias resolves to the kit's own set: `core` generates it into your app at `resources/js/components/Kit/` (`index.ts`, `contract.ts` and `Form/*`), built on the shadcn-vue primitives in `@/components/ui` (button, input, label, checkbox, dropdown-menu, sheet, from Laravel's MIT Vue starter kit) and Reka UI. Plain Tailwind otherwise.
+Kit pages and the shell import every UI primitive (the form set, buttons, cards, menus) only through one alias, `@kit/ui`, as in `import { Field, Input, Button } from '@kit/ui'`. By default the alias resolves to the kit's own set, which loads from the package at `vendor/tey/kit/resources/js/components/Kit/` (`index.ts`, `contract.ts` and `Form/*`; since 0.18 it is no longer copied into the app, see [docs/kit-components.md](docs/kit-components.md)), built on the shadcn-vue primitives in `@/components/ui` (button, input, label, checkbox, dropdown-menu, sheet, from Laravel's MIT Vue starter kit) and Reka UI. Plain Tailwind otherwise.
 
 Pages follow the ViewModel standard: a page's props are one typed ViewModel (`Tey\Kit\Features\Core\ViewModels\PageViewModel`; every public method with no required parameters is a prop, with a declared return type and a docblock shape for arrays), and the generated TypeScript is read from those methods, so `defineProps<EditClientViewModel>()` restates nothing. `AdHocViewModel` is for a small page (three props at most, no action or permission prop, one render site; the guard fails one that outgrows that). Data classes are values and forms, never the page. There are two producers and two keys: `shell` (the product and viewer, the workspace switcher, the primary navigation and a small shell-only `can` map, shared by the middleware) and the page's own `layout()` (`layout.navigation` for the section navigation, `title`, `documentTitle` and `breadcrumbs`, all decided on the server). Pages declare no layout: the nearest folder `Layout.vue` (`pages/Workspace/Settings`, `pages/Workspace/Account`) renders the section navigation and stays mounted while you move between its sections. Permission checks are memoized per request. **Literal types:** Spatie's transformer writes a docblock literal union (`@return 'queued'|'running'`, `@param 1|2 $level`) as `unknown`. Register the kit's transformers in your `typescript-transformer` config instead of Spatie's: `Tey\Kit\TypeScript\ViewModelTransformer` and `Tey\Kit\TypeScript\AttributedDataTransformer` (in place of `AttributedClassTransformer`), and those literals come out as TypeScript literal unions. Until then, `#[LiteralTypeScriptType("'queued' | 'running'")]` on the property works with any transformer.
 
@@ -471,21 +471,27 @@ Forms follow one shape: Inertia's `<Form>` (uncontrolled, so every control submi
 
 The kit's Reka components need `reka-ui` 2.11.0 or later (`InputSelect` does not typecheck on earlier releases). Core lists it under `requires.npm`; the host's `package.json` must provide it, because `kit:add` does not install npm packages. Its preview checks the declared range and flags a missing or older one.
 
-Add the alias in `vite.config.ts` and `tsconfig.json`:
+Add the aliases in `vite.config.ts` and `tsconfig.json`, and the `@source` line in `resources/css/app.css` (the full recipe is [docs/kit-components.md](docs/kit-components.md)):
 
 ```ts
 // vite.config.ts
-resolve: { alias: { '@kit/ui': path.resolve(__dirname, 'resources/js/components/Kit/index.ts') } }
+const kitComponents = path.resolve(__dirname, 'vendor/tey/kit/resources/js/components/Kit');
+resolve: { alias: { '@/components/Kit': kitComponents, '@kit/ui': `${kitComponents}/index.ts` } }
 ```
 
 ```json
 // tsconfig.json, compilerOptions
-"paths": { "@kit/ui": ["./resources/js/components/Kit/index.ts"] }
+"paths": { "@/components/Kit": ["./vendor/tey/kit/resources/js/components/Kit/index.ts"], "@/components/Kit/*": ["./vendor/tey/kit/resources/js/components/Kit/*"], "@kit/ui": ["./vendor/tey/kit/resources/js/components/Kit/index.ts"] }
 ```
 
-In dev, add `kitImports()` from `resources/js/components/Kit/kitImports.js` to the Vite plugins, after `vue()`. It rewrites each `@kit/ui` import into imports of the files it names, so a page loads only the kit components it uses. Production builds are unchanged. See [docs/kit-imports.md](docs/kit-imports.md).
+```css
+/* resources/css/app.css: Tailwind skips the git-ignored vendor/ unless it is named */
+@source '../../vendor/tey/kit/resources/js/components/Kit';
+```
 
-To use your own components, point `@kit/ui` at a module of yours that exports the same names, with the props in `resources/js/components/Kit/contract.ts`. The kit's pages import these from it (mcp's Authorize page imports `InputSelect`, for instance), so your module must export each of them: <!-- kit-ui-names -->`ActivityStream`, `Alert`, `AppearanceToggle`, `Avatar`, `Badge`, `Breadcrumbs`, `browserTimezone`, `BulkDrop`, `Button`, `checkedAtLabel`, `Checklist`, `confirmPasskeyPassword`, `CopyButton`, `DataTable`, `DateTime`, `Dialog`, `Dropdown`, `DropdownConfirm`, `DropdownItem`, `DropdownMenu`, `DropdownMenuContent`, `DropdownMenuItem`, `DropdownMenuLabel`, `DropdownMenuSeparator`, `DropdownMenuTrigger`, `EmptyState`, `Field`, `FileInput`, `FormActions`, `FormCard`, `FormStatus`, `fromLine`, `fromPreview`, `fullRecordName`, `Input`, `InputCheckbox`, `InputSelect`, `Modal`, `opensSearch`, `Page`, `PageEnd`, `PageGrid`, `PageSection`, `passkeyName`, `PasskeyOffer`, `passkeySignInSupported`, `passkeysSupported`, `PasswordInput`, `Placeholder`, `provideCard`, `RadioCardGroup`, `recordKind`, `registerPasskey`, `ScriptForm`, `ScrollList`, `SearchBox`, `Section`, `SectionIcon`, `Select`, `SettingsFrame`, `Sheet`, `SheetContent`, `SheetDescription`, `SheetTitle`, `SheetTrigger`, `signInWithPasskey`, `Stack`, `Surface`, `Textarea`, `TimezoneSelect`, `Toaster`, `useTimezone`<!-- /kit-ui-names -->. Kit pages then render your components, with no forking of the pages. Re-export what you do not replace: `export * from '@/components/Kit'`, then your own named exports.
+In dev, add `kitImports()` from `vendor/tey/kit/resources/js/components/Kit/kitImports.js` to the Vite plugins, after `vue()`. It rewrites each `@kit/ui` import into imports of the files it names, so a page loads only the kit components it uses. Production builds are unchanged. See [docs/kit-imports.md](docs/kit-imports.md).
+
+To use your own components, point `@kit/ui` at a module of yours that exports the same names, with the props in `vendor/tey/kit/resources/js/components/Kit/contract.ts`. The kit's pages import these from it (mcp's Authorize page imports `InputSelect`, for instance), so your module must export each of them: <!-- kit-ui-names -->`ActivityStream`, `Alert`, `AppearanceToggle`, `Avatar`, `Badge`, `Breadcrumbs`, `browserTimezone`, `BulkDrop`, `Button`, `checkedAtLabel`, `Checklist`, `confirmPasskeyPassword`, `CopyButton`, `DataTable`, `DateTime`, `Dialog`, `Dropdown`, `DropdownConfirm`, `DropdownItem`, `DropdownMenu`, `DropdownMenuContent`, `DropdownMenuItem`, `DropdownMenuLabel`, `DropdownMenuSeparator`, `DropdownMenuTrigger`, `EmptyState`, `Field`, `FileInput`, `FormActions`, `FormCard`, `FormStatus`, `fromLine`, `fromPreview`, `fullRecordName`, `Input`, `InputCheckbox`, `InputSelect`, `Modal`, `opensSearch`, `Page`, `PageEnd`, `PageGrid`, `PageSection`, `passkeyName`, `PasskeyOffer`, `passkeySignInSupported`, `passkeysSupported`, `PasswordInput`, `Placeholder`, `provideCard`, `RadioCardGroup`, `recordKind`, `registerPasskey`, `ScriptForm`, `ScrollList`, `SearchBox`, `Section`, `SectionIcon`, `Select`, `SettingsFrame`, `Sheet`, `SheetContent`, `SheetDescription`, `SheetTitle`, `SheetTrigger`, `signInWithPasskey`, `Stack`, `Surface`, `Textarea`, `TimezoneSelect`, `Toaster`, `useTimezone`<!-- /kit-ui-names -->. Kit pages then render your components, with no forking of the pages. Re-export what you do not replace: `export * from '@/components/Kit'`, then your own named exports.
 
 | Component | Props | Notes |
 | --- | --- | --- |

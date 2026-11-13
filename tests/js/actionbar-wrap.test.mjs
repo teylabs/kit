@@ -8,21 +8,21 @@ import { flat } from './shape.mjs';
 
 // ActionBar's opt-in `wrap` (a phone header), the menu's icon defaults, the iconless indent, Cancel's destructive row and the dev-only mixed-icons warning.
 // Checked by source, comments stripped, and by running actionPlacement and the warning helper: what the components decide, not their markup.
-const kit = new URL('../../resources/features/core/components/Kit/', import.meta.url);
+const kit = new URL('../../resources/js/components/Kit/', import.meta.url);
 const strip = s => s.replace(/<!--[\s\S]*?-->/g, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`])\/\/.*$/gm, '$1');
 const read = path => flat(strip(readFileSync(new URL(path, kit), 'utf8')));
-const bar = read('Action/ActionBar.vue.stub');
-const items = read('Action/ActionMenuItems.vue.stub');
-const icons = read('Action/actionIcons.ts.stub');
+const bar = read('Action/ActionBar.vue');
+const items = read('Action/ActionMenuItems.vue');
+const icons = read('Action/actionIcons.ts');
 const dir = mkdtempSync(join(tmpdir(), 'kit-wrap-'));
-copyFileSync(new URL('Action/actionPlacement.ts.stub', kit), join(dir, 'actionPlacement.ts'));
+copyFileSync(new URL('Action/actionPlacement.ts', kit), join(dir, 'actionPlacement.ts'));
 const { actionIconName } = await import(pathToFileURL(join(dir, 'actionPlacement.ts')).href);
 const a = (label, extra = {}) => ({ label, url: `/${label}`, method: 'post', ...extra });
 
 test('wrap is an optional prop defaulting off, in the component and the contract', () => {
     assert.match(bar, /wrap\?: boolean[;}]/);
     assert.match(bar, /wrap: false[,}]/);
-    assert.match(read('contract.ts.stub'), /interface ActionBarProps \{[^}]*wrap\?: boolean[;}]/);
+    assert.match(read('contract.ts'), /interface ActionBarProps \{[^}]*wrap\?: boolean[;}]/);
 });
 
 test('wrap never compacts, renders no compact copy and does not measure; the default path still does', () => {
@@ -71,7 +71,7 @@ test('the More menu: a destructive row is red, and a row without an icon keeps a
 });
 
 test('mixed-icons warning: dev builds only, once per menu, only when a menu mixes', async () => {
-    const source = readFileSync(new URL('Action/actionIcons.ts.stub', kit), 'utf8');
+    const source = readFileSync(new URL('Action/actionIcons.ts', kit), 'utf8');
     const body = source.slice(source.indexOf('export function mixedIconsWarning'));
     const load = async (dev) => {
         const file = join(dir, `warning-${dev}.ts`);
@@ -99,7 +99,7 @@ test('mixed-icons warning: dev builds only, once per menu, only when a menu mixe
         console.warn = original;
     }
     assert.match(items, /const warnMixed = mixedIconsWarning\('ActionBar menu'\);/);
-    const group = read('Action/ButtonGroup.vue.stub');
+    const group = read('Action/ButtonGroup.vue');
     assert.match(group, /const warnMixed = mixedIconsWarning\('ButtonGroup menu'\);/);
     assert.match(group, /if \(!import\.meta\.env\?\.DEV \|\| !\(el instanceof HTMLElement\)\) return;/);
     assert.match(group, /<div :ref="checkIcons" class="py-1"><slot name="menu" \/><\/div>/);

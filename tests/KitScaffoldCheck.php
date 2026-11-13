@@ -120,6 +120,64 @@ try {
         scaffoldCheck($exit !== 0 && str_contains($output, $error), 'refuses feature '.$feature);
     }
     scaffoldCheck(! file_exists($root.'/.mod-maintenance'), 'no records in a fresh app either');
+
+    // The documented aliases (docs/kit-components.md) name folders the package ships, and every import in the scaffolded pages and the
+    // shared components resolves to a file: `@/components/Kit` and `@kit/ui` in the package, `@/pages`, `@kit/shell` and relative imports in the app.
+    $package = dirname(__DIR__);
+    $doc = (string) file_get_contents($package.'/docs/kit-components.md');
+    preg_match_all('#vendor/tey/kit/([A-Za-z0-9/._-]+)#', $doc, $targets);
+    scaffoldCheck(count($targets[1]) >= 6 && in_array('resources/js/components/Kit', $targets[1], true), 'the alias snippets name the package\'s component folder');
+    foreach (array_unique($targets[1]) as $target) {
+        scaffoldCheck(file_exists($package.'/'.$target), 'the documented vendor/tey/kit/'.$target.' exists in the package');
+    }
+    [$root, $scaffold] = scaffoldApp();
+    foreach (glob($package.'/resources/features/*/feature.json') as $manifest) {
+        $scaffold(['feature' => basename(dirname($manifest))]);
+    }
+    $resolve = function (string $base): ?string {
+        foreach (['', '.ts', '.vue', '.js', '/index.ts'] as $extension) {
+            if (is_file($base.$extension)) {
+                return $base.$extension;
+            }
+        }
+
+        return null;
+    };
+    $components = $package.'/resources/js/components/Kit';
+    $sources = [];
+    foreach ([$root.'/resources/js', $components] as $tree) {
+        foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($tree, FilesystemIterator::SKIP_DOTS)) as $file) {
+            if (preg_match('/\.(vue|ts|js)\z/', $file->getFilename())) {
+                $sources[] = $file->getPathname();
+            }
+        }
+    }
+    $checked = 0;
+    $unresolved = [];
+    foreach ($sources as $source) {
+        preg_match_all("/(?:\\bfrom\\s*|\\bimport\\s*\\(\\s*|^import\\s+)['\"]([^'\"]+)['\"]/m", (string) file_get_contents($source), $imports);
+        foreach ($imports[1] as $import) {
+            $target = match (true) {
+                $import === '@kit/ui' => $components.'/index.ts',
+                $import === '@kit/shell' => $root.'/resources/js/pages/Workspace/Partials/index.ts',
+                str_starts_with($import, '@/components/Kit/') => $components.substr($import, 16),
+                $import === '@/components/Kit' => $components.'/index.ts',
+                str_starts_with($import, '@/pages/') => $root.'/resources/js/pages'.substr($import, 7),
+                str_starts_with($import, '.') => dirname($source).'/'.$import,
+                // The host's own shadcn-vue primitives (core's requires.host_ui) and npm packages.
+                default => null,
+            };
+            if ($target === null) {
+                continue;
+            }
+            $checked++;
+            if ($resolve($target) === null) {
+                $unresolved[] = substr($source, strlen(str_starts_with($source, $root) ? $root : $package) + 1).': '.$import;
+            }
+        }
+    }
+    scaffoldCheck($checked > 500 && $unresolved === [], 'every kit import in the scaffolded pages and the shared components resolves to a file through the aliases ('.$checked.' imports'.($unresolved === [] ? '' : '; unresolved: '.implode(', ', $unresolved)).')');
+    scaffoldCheck(! is_dir($root.'/resources/js/components'), 'and none resolves to a copy in the app');
 } catch (Throwable $e) {
     fwrite(STDERR, 'FAIL '.$e->getMessage()."\n");
     exit(1);

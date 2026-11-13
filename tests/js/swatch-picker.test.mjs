@@ -8,12 +8,12 @@ import { flat, members } from './shape.mjs';
 
 // SwatchPicker: swatch.ts (plain TypeScript) runs here without Vue; the component's markup and keys are checked by source, and the browser job
 // (browser/run.mjs, ?swatch) renders it, drives the keys and runs axe.
-const kit = new URL('../../resources/features/core/components/Kit/', import.meta.url);
+const kit = new URL('../../resources/js/components/Kit/', import.meta.url);
 const read = path => readFileSync(new URL(path, kit), 'utf8');
 const dir = mkdtempSync(join(tmpdir(), 'kit-swatch-'));
-writeFileSync(join(dir, 'swatch.ts'), read('Form/swatch.ts.stub'));
+writeFileSync(join(dir, 'swatch.ts'), read('Form/swatch.ts'));
 const { contrastRatio, luminance, markColour, normaliseHex, swatchList } = await import(pathToFileURL(join(dir, 'swatch.ts')).href);
-const source = read('Form/SwatchPicker.vue.stub');
+const source = read('Form/SwatchPicker.vue');
 
 test('normaliseHex takes six digits with or without #, any case and spacing, and refuses the rest', () => {
     assert.equal(normaliseHex(' #1d4ed8 '), '#1D4ED8');
@@ -48,9 +48,9 @@ test('swatchList puts the suggested first, each colour once, normalised, and dro
 });
 
 test('SwatchPicker is exported from @kit/ui with its colour helpers, and typed in the contract', () => {
-    assert.match(read('index.ts.stub'), /export \{ default as SwatchPicker \} from '\.\/Form\/SwatchPicker\.vue';/);
-    assert.match(flat(read('index.ts.stub')), /export \{contrastRatio, luminance, markColour, normaliseHex\} from '\.\/Form\/swatch';/);
-    const props = members(read('contract.ts.stub'), 'SwatchPickerProps');
+    assert.match(read('index.ts'), /export \{ default as SwatchPicker \} from '\.\/Form\/SwatchPicker\.vue';/);
+    assert.match(flat(read('index.ts')), /export \{contrastRatio, luminance, markColour, normaliseHex\} from '\.\/Form\/swatch';/);
+    const props = members(read('contract.ts'), 'SwatchPickerProps');
     assert.equal(props.get('label'), 'label: string');
     assert.equal(props.get('palette'), 'palette: string[]');
 });
