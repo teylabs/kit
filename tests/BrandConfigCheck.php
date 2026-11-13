@@ -236,6 +236,18 @@ KIT_BRAND_IDENTITY=
     forgetEnv();
     boot($root);
     check(config('kit.brand.accent') === '#c2410c' && BrandConfig::sources()['accent'] === 'config' && config('kit.brand.legal_name') === 'Kit Co' && config('kit.brand.card') === null, "the migrated app boots in local with config/kit.php's brand, from config/brand.php");
+    // A variable set only in the process, after the config loaded (as with a cached config, whose kit.brand_env is the snapshot from the build), still wins over
+    // config/kit.php. An invalid icon choice there is flagged as null, so the migrated app boots; a false that differs from the default is written.
+    $roots[] = $root = host("APP_ENV=local\n");
+    file_put_contents($root.'/config/kit.php', "<?php return ['brand' => ['icon_colours' => 'rainbow', 'icon_padding' => 0.25, 'legal_name' => 'Kit Co', 'copyright' => false]];");
+    $kernel = boot_migrate($root);
+    putenv('KIT_BRAND_LEGAL_NAME=Deploy Co');
+    $_ENV['KIT_BRAND_LEGAL_NAME'] = $_SERVER['KIT_BRAND_LEGAL_NAME'] = 'Deploy Co';
+    check($kernel->call('kit:brand:migrate') === 0 && (require $root.'/config/brand.php') === ['icon_colours' => null, 'icon_padding' => 0.25, 'legal_name' => 'Deploy Co', 'copyright' => false], 'a process-only variable wins over config/kit.php, an invalid icon_colours there is written as null, and copyright false is kept');
+    check(str_contains($out = $kernel->output(), "FLAGGED kit.brand.icon_colours: kit.brand.icon_colours in config/kit.php is 'rainbow', not 'mono' or 'full'. null = the kit default") && str_contains($out, 'not .env (remove them where they are set: CI, deploy settings, scripts): KIT_BRAND_LEGAL_NAME'), 'migrate flags the icon choice and names the process-only variable');
+    forgetEnv();
+    boot($root);
+    check(config('kit.brand.icon_colours') === null && config('kit.brand.icon_padding') === 0.25 && config('kit.brand.copyright') === false, 'the migrated app boots in local (icon_colours unset: kit:brand draws mono)');
     // Nothing to migrate still names the other environments; a config/kit.php that cannot be read fails, with nothing written.
     $roots[] = $root = host("APP_ENV=local\n");
     $kernel = boot_migrate($root);

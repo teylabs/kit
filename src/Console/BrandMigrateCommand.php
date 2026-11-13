@@ -62,24 +62,28 @@ final class BrandMigrateCommand extends Command
 
                 continue;
             }
-            if (! in_array($key, $fromEnv, true) && ! isset($lines[$name])) {
+            // The process environment too: with a cached config, kit.brand_env is the snapshot from when the cache was built, and a deploy may set a variable
+            // only for this run. A key with a variable anywhere comes from env, never from config/kit.php.
+            if (! in_array($key, $fromEnv, true) && ! isset($lines[$name]) && ($name === '' || env($name) === null)) {
                 // No variable: the value config/kit.php gave kit.brand before 0.17, already cast by that file, when it differs from the default. An empty
-                // string was unset then, so it is null now; an invalid colour is flagged as null, never written.
+                // string was unset then, so it is null now; an invalid colour or icon choice is flagged as null, never written (the next boot would refuse it).
                 if (! Arr::has($kitBrand, $key)) {
                     continue;
                 }
                 $value = Arr::get($kitBrand, $key);
                 $value = is_string($value) && trim($value) === '' ? null : $value;
-                if (in_array($key, BrandConfig::COLOURS, true)) {
-                    $checked = BrandConfig::colour($key, $value);
-                    if ($checked === false) {
-                        $flagged[$key] = 'kit.brand.'.$key.' in config/kit.php is '.var_export($value, true).', not '.BrandConfig::takes($key).'. null = use theme; set a value to override.';
-                        $fromKit[] = $key;
+                if (! BrandConfig::valid($key, $value)) {
+                    $flagged[$key] = 'kit.brand.'.$key.' in config/kit.php is '.var_export($value, true).', not '.BrandConfig::takes($key).'. '
+                        .match (true) {
+                            ! in_array($key, BrandConfig::COLOURS, true) => 'null = the kit default',
+                            $key === 'icon_background' => 'null = the accent',
+                            default => 'null = use theme',
+                        }.'; set a value to override.';
+                    $fromKit[] = $key;
 
-                        continue;
-                    }
-                    $value = $checked;
+                    continue;
                 }
+                $value = in_array($key, BrandConfig::COLOURS, true) ? BrandConfig::colour($key, $value) : $value;
                 if ($value !== BrandConfig::DEFAULTS[$key]) {
                     $values[$key] = $value;
                     $fromKit[] = $key;
