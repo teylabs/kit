@@ -429,6 +429,26 @@ try {
     $app = boot($rootC);
     $refused = refusal(fn () => migrate($app));
     check($refused !== null && str_contains($refused, 'Both kit_delivery_recipients and delivery_recipients exist') && Schema::hasTable('kit_deliveries') && ! Schema::hasTable('deliveries') && Schema::hasTable('kit_delivery_events'), 'migrate refuses on the second pair before renaming the first: kit_deliveries keeps its name');
+    Schema::drop('delivery_recipients');
+
+    // An index name the rename would give is already on another table: migrate refuses before renaming any table or key, and records nothing.
+    $deliverRecords = fn (): int => Schema::getConnection()->table('kit_meta')->where('key', 'like', 'adopt:%_adopt_deliver_tables:%')->count();
+    $index = array_values(preg_grep('/\Akit_delivery_recipients_.+_unique\z/', keyNames('kit_delivery_recipients')) ?: [])[0] ?? throw new RuntimeException('no unique index on kit_delivery_recipients');
+    $clash = 'delivery_recipients'.substr($index, strlen('kit_delivery_recipients'));
+    Schema::create('unrelated_codes', fn ($t) => $t->string('code')->index($clash));
+    $refused = refusal(fn () => migrate($app));
+    check($refused !== null && str_contains($refused, $clash) && str_contains($refused, 'renames nothing') && Schema::hasTable('kit_deliveries') && Schema::hasTable('kit_delivery_recipients') && ! Schema::hasTable('deliveries') && ! Schema::hasTable('delivery_recipients') && in_array($index, keyNames('kit_delivery_recipients'), true) && $deliverRecords() === 0, 'with an index name the rename needs already on another table, migrate refuses naming it: no table or key renamed, no record written');
+    Schema::drop('unrelated_codes');
+    $deliverFile = (string) (glob($rootC.'/database/migrations/*_adopt_deliver_tables.php') ?: [''])[0];
+    if ($pgsql) {
+        // On PostgreSQL up() is one transaction with its kit_meta record, even outside the migrator: a record it cannot write undoes every rename.
+        Schema::getConnection()->statement("alter table kit_meta add constraint adopt_blocked check (key not like 'adopt:%') not valid");
+        $refused = refusal(fn () => (require $deliverFile)->up());
+        Schema::getConnection()->statement('alter table kit_meta drop constraint adopt_blocked');
+        check($refused !== null && Schema::hasTable('kit_deliveries') && Schema::hasTable('kit_delivery_events') && ! Schema::hasTable('deliveries') && $deliverRecords() === 0, 'PostgreSQL: when up() fails after renaming (its record refused), the transaction puts every table back and records nothing');
+    }
+    migrate($app);
+    check(Schema::hasTable('deliveries') && Schema::hasTable('delivery_recipients') && ! Schema::hasTable('kit_deliveries') && $deliverRecords() === 3, 'with the clash gone the same migration renames the deliver tables and records each');
 
     // A config/kit.php whose models it cannot set exactly (a computed entry): it refuses, prints the entries to set, and writes nothing.
     $computed = "<?php\n\n\$models = ['user' => Illuminate\\Foundation\\Auth\\User::class];\n\nreturn ['features' => ".var_export(FEATURES, true).", 'models' => \$models];\n";
@@ -436,6 +456,30 @@ try {
     $app = boot($rootD);
     [$code, $output] = artisan($app, 'kit:scaffold', ['feature' => 'notes', '--adopt' => true]);
     check($code === 1 && str_contains($output, 'Could not set kit.models.note') && str_contains($output, "'models' => ['note' => \\App\\Models\\Note::class]") && glob($rootD.'/app/Models/*') === [] && glob($rootD.'/database/migrations/*_adopt_*') === [] && file_get_contents($rootD.'/config/kit.php') === $computed, 'a config/kit.php it cannot edit exactly is refused with the entries to set, and nothing is written');
+
+    // Links: --adopt writes nothing through a link, even with --force: not a linked model file, a linked folder below the app root, or a linked config/kit.php.
+    $outside = sys_get_temp_dir().'/kit-domain-outside-'.bin2hex(random_bytes(8));
+    mkdir($outside, 0700, true);
+    register_shutdown_function(fn () => exec('rm -rf '.escapeshellarg($outside)));
+    file_put_contents($outside.'/Note.php', 'outside');
+    $rootE = root(kitConfig('current'));
+    $app = boot($rootE);
+    $untouched = fn (): bool => file_get_contents($outside.'/Note.php') === 'outside' && glob($rootE.'/database/migrations/*_adopt_*') === [] && ! str_contains((string) file_get_contents($rootE.'/config/kit.php'), 'App\\Models\\Note');
+    symlink($outside.'/Note.php', $rootE.'/app/Models/Note.php');
+    [$code, $output] = artisan($app, 'kit:scaffold', ['feature' => 'notes', '--adopt' => true, '--force' => ['app/Models/Note.php']]);
+    check($code === 1 && str_contains($output, 'app/Models/Note.php') && $untouched(), 'a linked model file is refused even with --force, and nothing is written through it or anywhere else');
+    unlink($rootE.'/app/Models/Note.php');
+    rmdir($rootE.'/app/Models');
+    symlink($outside, $rootE.'/app/Models');
+    [$code, $output] = artisan($app, 'kit:scaffold', ['feature' => 'notes', '--adopt' => true, '--force' => ['app/Models/Note.php']]);
+    check($code === 1 && str_contains($output, 'linked folder') && $untouched(), 'a linked folder below the app root is refused even with --force');
+    unlink($rootE.'/app/Models');
+    mkdir($rootE.'/app/Models');
+    rename($rootE.'/config/kit.php', $outside.'/kit.php');
+    symlink($outside.'/kit.php', $rootE.'/config/kit.php');
+    $config = (string) file_get_contents($outside.'/kit.php');
+    [$code, $output] = artisan($app, 'kit:scaffold', ['feature' => 'notes', '--adopt' => true]);
+    check($code === 1 && str_contains($output, 'config/kit.php') && file_get_contents($outside.'/kit.php') === $config && glob($rootE.'/app/Models/*') === [] && glob($rootE.'/database/migrations/*_adopt_*') === [], 'a linked config/kit.php is refused, and nothing is written');
 
     // The boot check: a configured class that is not a model with its contract, and a feature adopted in part, stop the boot in testing.
     $refused = refusal(fn () => boot(root(kitConfig('current', ['note' => 'NotANote::class']))));

@@ -53,13 +53,25 @@ final class Adoption
                 throw new RuntimeException('--force='.$path.' names no file this run writes.');
             }
         }
-        foreach (array_keys($files) as $path) {
+        // Nothing is written through a link, even with --force: not a linked file, nor a linked folder from the app root down (the root itself, or a
+        // folder above it, may be a link, as in a `current` deploy). config/kit.php, which this run edits, is checked the same way.
+        $configPath = $this->app->configPath('kit.php');
+        $edits = str_starts_with($configPath, $root.'/') ? [substr($configPath, strlen($root) + 1)] : [];
+        foreach ([...array_keys($files), ...$edits] as $path) {
             for ($folder = dirname($path); $folder !== '.'; $folder = dirname($folder)) {
                 if (is_link($root.'/'.$folder)) {
                     throw new RuntimeException('Refusing to write through a linked folder: '.$folder.' (for '.$path.')');
                 }
             }
-            if ((file_exists($root.'/'.$path) || is_link($root.'/'.$path)) && ! in_array($path, $force, true)) {
+            if (is_link($root.'/'.$path) || is_dir($root.'/'.$path)) {
+                throw new RuntimeException('Refusing to overwrite a link or folder: '.$path.', so nothing was written.');
+            }
+        }
+        if ($edits === [] && is_link($configPath)) {
+            throw new RuntimeException('Refusing to write through a link: '.$configPath.', so nothing was written.');
+        }
+        foreach (array_keys($files) as $path) {
+            if (file_exists($root.'/'.$path) && ! in_array($path, $force, true)) {
                 throw new RuntimeException($path.' exists, so nothing was written (--force='.$path.' overwrites it). An app class of that name that is not the kit\'s model keeps its name: write the model by hand with the kit\'s trait and contract instead.');
             }
         }

@@ -58,7 +58,7 @@ It writes:
 - one migration, `database/migrations/<date>_adopt_deliver_tables.php`;
 - the `kit.models` (and `kit.tables`) entries in `config/kit.php`. When the app has no `config/kit.php`, the kit's defaults are published first. Every other line stays as it was.
 
-Review the migration, then run `php artisan migrate`. On a database where the kit created the tables, the migration renames each one, with its rows. It also renames the indexes named after it, and on PostgreSQL its foreign keys and id sequence. On a fresh database it creates the tables under the app's names, and the kit's own migrations for them don't run. It runs on the migration's connection (`--database` applies). Before renaming anything it checks every table: when both names of any table exist, it refuses, naming both, and changes nothing, so a database without transactional DDL is never left half renamed. `up()` records in `kit_meta`, keyed by the migration and the table (`adopt:<migration>:<table>`), what it did to each table: `renamed`, `created` or `left`. `down()` reads that record. A renamed table is renamed back, after checking every pair; a created one is dropped; a left one stays. A table with no record stays as it is too: a rollback never drops a table the migration didn't create.
+Review the migration, then run `php artisan migrate`. On a database where the kit created the tables, the migration renames each one, with its rows. It also renames the indexes named after it, and on PostgreSQL its foreign keys and id sequence. On a fresh database it creates the tables under the app's names, and the kit's own migrations for them don't run. It runs on the migration's connection (`--database` applies). Before renaming anything it checks every table: when both names of any table exist, it refuses, naming both, and changes nothing, so a database without transactional DDL is never left half renamed. The same goes for every index, foreign key and sequence name it would give: one already taken stops it before any table moves. On PostgreSQL `up()` and `down()` also run in one transaction with their `kit_meta` records. `up()` records in `kit_meta`, keyed by the migration and the table (`adopt:<migration>:<table>`), what it did to each table: `renamed`, `created` or `left`. `down()` reads that record. A renamed table is renamed back, after checking every pair; a created one is dropped; a left one stays. A table with no record stays as it is too: a rollback never drops a table the migration didn't create.
 
 `kit:scaffold <feature> --adopt` refuses, writing nothing, when:
 
@@ -94,7 +94,8 @@ Read-only. For each table the kit reads for the feature (the app's once adopted,
 - rollback restores the names, and migrating again renames them again;
 - rollback follows each table's record: it keeps a table the app already had (`left`) and one with no record, and refuses before renaming back when a pair is in the way;
 - a fresh database gets the tables under the app's names, with the kit's columns exactly;
-- both names present refuses, in the command and in the migration;
+- both names present refuses, in the command and in the migration, and so does an index name the rename needs that another table already has;
+- `--adopt` writes nothing through a linked file or folder, even with `--force`;
 - an uneditable config refuses;
 - a class that doesn't implement its contract, and a part-adopted feature, stop the boot.
 
