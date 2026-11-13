@@ -36,7 +36,7 @@
 // InputTags (?tags) must pass axe, add a tag on a separator, Enter and a multi-line paste, select then drop the last chip on Backspace, and refuse a duplicate,
 // an invalid tag and one past the limit with a described reason.
 // A searchable InputSelect (?select-query, &modal in the kit Modal) must never search for its chosen label: typing anywhere in it starts a fresh query; Escape, a click
-// outside, a choice and focus leaving drop the query and show the label again; an optional field has a Clear button in the tab order, a required one none.
+// outside, a choice and focus leaving drop the query and show the label again; a clearable field has a Clear button in the tab order, a default one none.
 // A FormCard over useSubmitForm (?form-submit) must submit on Enter with no navigation, disable Save while pending, show a 422's field error and summary
 // with focus on the field, then Saved, and pass axe with contrast. A Workbench with :form (?workbench-form=submit|inertia, the latter a stand-in useForm with
 // `save`) must save on Ctrl+S but not from a contenteditable that binds it or while pending, focus a 422's field in its collapsed inspector, show a 409's
@@ -624,7 +624,7 @@ test('InputTags refuses a duplicate, an invalid tag and one past the limit, with
     }
 });
 
-// ── InputSelect's search (?select-query): the chosen label is never the query; Escape, a click outside, a choice and blur drop it; an optional field clears ──
+// ── InputSelect's search (?select-query): the chosen label is never the query; Escape, a click outside, a choice and blur drop it; a clearable one clears ─────
 async function selectQuery(run, query = '') {
     const tab = await browser.newPage({ viewport: { width: 1280, height: 800 } });
     try {
@@ -719,32 +719,35 @@ test('InputSelect in the kit Modal: Escape and a click outside the list close on
     }, '&modal');
 });
 
-test('InputSelect: an optional field has a Clear button in the tab order (Enter and Space clear it), a required one has none, and axe passes', async () => {
+test('InputSelect: Clear is opt-in: a clearable select has a Clear button in the tab order (Enter and Space clear it), a default one has none, and axe passes', async () => {
     await selectQuery(async (tab, { input, model }) => {
         await tab.addScriptTag({ path: axeSource });
         const violations = await tab.evaluate(async () => (await window.axe.run(document)).violations.map(v => ({ id: v.id, targets: v.nodes.map(n => n.target.join(' ')) })));
         assert.deepEqual(violations, []);
-        const clearFor = tab.locator('[data-select-clear]');
-        assert.equal(await clearFor.count(), 1, 'For (optional) has one; Room (required) has none');
-        assert.equal(await tab.locator('#room').evaluate(el => el.closest('[popover]').querySelector('[data-select-clear]')), null);
-        assert.ok(await clearFor.getAttribute('aria-label'), 'named');
-        // Escape on a closed single field does not clear it: only the button does.
+        const clearIn = (id) => tab.locator(`#${id}`).evaluate(el => el.closest('[popover]').querySelector('[data-select-clear]') !== null);
+        assert.equal(await clearIn('for'), false, 'For (a default single select) has none');
+        assert.equal(await clearIn('room'), true, 'Room (clearable) has one');
+        const room = tab.locator('#room');
+        const clear = tab.locator('[data-select-clear]');
+        assert.ok(await clear.getAttribute('aria-label'), 'named');
+        // Escape on a closed default field does not clear it.
         await input.focus();
         await input.press('Escape');
         assert.deepEqual(await model(), { for: 'public', room: 'north' });
+        await room.focus();
         await tab.keyboard.press('Tab');
-        assert.equal(await tab.evaluate(() => document.activeElement?.hasAttribute('data-select-clear')), true, 'Tab from the field reaches Clear');
+        assert.equal(await tab.evaluate(() => document.activeElement?.hasAttribute('data-select-clear')), true, 'Tab from the clearable field reaches Clear');
         await tab.keyboard.press('Enter');
-        assert.deepEqual(await model(), { for: null, room: 'north' }, 'Enter clears');
-        assert.equal(await input.inputValue(), '');
-        assert.equal(await tab.evaluate(() => document.activeElement?.id), 'for', 'and focus goes back to the field');
-        assert.equal(await clearFor.count(), 0, 'nothing left to clear');
-        await input.click();
-        await tab.getByRole('option', { name: 'Grace Hopper' }).click();
-        await input.focus();
+        assert.deepEqual(await model(), { for: 'public', room: null }, 'Enter clears');
+        assert.equal(await room.inputValue(), '');
+        assert.equal(await tab.evaluate(() => document.activeElement?.id), 'room', 'and focus goes back to the field');
+        assert.equal(await clear.count(), 0, 'nothing left to clear');
+        await room.click();
+        await tab.getByRole('option', { name: 'Garden' }).click();
+        await room.focus();
         await tab.keyboard.press('Tab');
         await tab.keyboard.press('Space');
-        assert.deepEqual(await model(), { for: null, room: 'north' }, 'Space clears');
+        assert.deepEqual(await model(), { for: 'public', room: null }, 'Space clears');
     });
 });
 
@@ -768,7 +771,7 @@ test('InputSelect: a choice, choosing the current option again and focus leaving
         await input.click();
         await tab.keyboard.type('k');
         assert.equal(await input.inputValue(), 'k', 'choosing the current option leaves no query');
-        // Focus leaving the field (Tab to the Clear button, then on to Room).
+        // Focus leaving the field (Tab on to Room).
         await tab.keyboard.press('Tab');
         await list.waitFor({ state: 'detached' });
         assert.equal(await input.inputValue(), 'Grace Hopper', 'Tab away restores the label');

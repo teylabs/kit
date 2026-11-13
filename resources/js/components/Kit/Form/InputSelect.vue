@@ -155,16 +155,9 @@ const searchOn = computed(
         (props.creatable && props.searchable === null) ||
         searchEnabled(props.searchable, props.options, props.filter),
 );
-// Clearable by default unless the field is required (a caller's `required` or `aria-required`, or `nativeRequired`); `clearable` decides either way.
-const required = computed(
-    () =>
-        props.nativeRequired ||
-        (attrs.required !== undefined && attrs.required !== false) ||
-        String(attrs['aria-required']) === 'true',
-);
 const canClear = computed(
     () =>
-        (props.clearable ?? (props.multiple || !required.value)) &&
+        (props.clearable ?? props.multiple) &&
         !readOnly.value &&
         !props.disabled &&
         values.value.length > 0,
@@ -467,8 +460,7 @@ function onKeydown(event: KeyboardEvent) {
             own();
             if (open.value) setOpen(false);
             else if (typed.value) resetText();
-            else if (canClear.value && (props.clearable ?? props.multiple))
-                clear();
+            else if (canClear.value) clear();
             return;
         case 'Tab':
             event.stopPropagation();

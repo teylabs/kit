@@ -5,7 +5,7 @@ import InputSelect from '@/components/Kit/Form/InputSelect.vue';
 import ModalPanel from '@/components/Kit/Overlay/ModalPanel.vue';
 
 // A searchable single select for run.mjs (?select-query): a chosen label is never the search, Escape and a click outside drop the typed text, and an optional
-// field clears by keyboard. `For` is optional (clearable by default), `Room` is required (no clear). `&modal` puts both in the kit Modal (a native <dialog>).
+// `clearable` field clears by keyboard. `For` is a default select (no Clear, as in the reported app), `Room` is `clearable`. `&modal` puts both in the kit Modal (a native <dialog>).
 const inModal = new URLSearchParams(location.search).has('modal');
 const people = ['Ada Lovelace', 'Grace Hopper', 'Katherine Johnson', 'Margaret Hamilton', 'Radia Perlman', 'Barbara Liskov', 'Frances Allen', 'Annie Easley'].map(
     (label) => ({ value: label.toLowerCase().replace(/ /g, '-'), label }),
@@ -30,7 +30,7 @@ onMounted(() => {
                 <InputSelect id="for" v-model="forWho" name="for" :options="options" />
             </Field>
             <Field id="room" label="Room">
-                <InputSelect id="room" v-model="room" name="room" :options="rooms" required />
+                <InputSelect id="room" v-model="room" name="room" :options="rooms" clearable />
             </Field>
         </form>
         <p data-outside class="mt-8">Somewhere else on the page</p>
@@ -57,7 +57,7 @@ onMounted(() => {
                             <InputSelect id="for" v-model="forWho" name="for" :options="options" />
                         </Field>
                         <Field id="room" label="Room">
-                            <InputSelect id="room" v-model="room" name="room" :options="rooms" required />
+                            <InputSelect id="room" v-model="room" name="room" :options="rooms" clearable />
                         </Field>
                         <p data-outside>Somewhere else in the modal</p>
                     </div>
