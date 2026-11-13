@@ -20,7 +20,7 @@ use Tey\Mod\Maintenance\InstalledRecord;
 final class DiscoveryCache
 {
     /** Bumped when an entry's shape changes, so an older file is a miss. */
-    private const VERSION = 3;
+    private const VERSION = 4;
 
     /** The kit's files the cached answers depend on, relative to the package root. */
     private const SOURCES = [
@@ -185,7 +185,9 @@ final class DiscoveryCache
         clearstatcache();
         $parts = [];
         foreach (self::paths($root) as $key => $path) {
-            $parts[$key] = self::stat($path);
+            // The root and its parents: only what the live read checks (a link or not, and which directory), never their times, which change
+            // whenever anything in them does (a log, a session file, the home directory), so they would miss on nearly every request.
+            $parts[$key] = str_starts_with($key, 'root:') ? self::identity($path) : self::stat($path);
         }
 
         return $parts;
@@ -250,6 +252,14 @@ final class DiscoveryCache
         $stat = @lstat($path);
 
         return $stat === false ? null : [is_link($path), $stat['ino'], $stat['size'], $stat['mtime'], $stat['ctime'], $stat['mode']];
+    }
+
+    /** @return list<int|bool>|null A directory's identity without its times: a link or not, its device, inode and mode. */
+    private static function identity(string $path): ?array
+    {
+        $stat = @lstat($path);
+
+        return $stat === false ? null : [is_link($path), $stat['dev'], $stat['ino'], $stat['mode']];
     }
 
     /** @return array<string, mixed>|null */
