@@ -248,7 +248,7 @@ final class DetachCommand extends Command
                 $delete[] = $path;
             }
         }
-        foreach (self::lines($root.'/bootstrap/providers.php', '/\b'.preg_quote(class_basename(InstallCommand::PROVIDER), '/').'::class\b/') as $number => $line) {
+        foreach (self::lines($root.'/bootstrap/providers.php', InstallCommand::providerLine()) as $number => $line) {
             $delete[] = 'bootstrap/providers.php:'.$number.': '.trim($line);
         }
         foreach (self::lines($root.'/.gitignore', '/\.mod-maintenance/') as $number => $line) {

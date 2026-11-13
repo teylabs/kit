@@ -178,7 +178,7 @@ try {
         @mkdir(dirname($root.'/'.$file), 0700, true);
         file_put_contents($root.'/'.$file, "synthetic\n");
     }
-    file_put_contents($root.'/bootstrap/providers.php', "<?php\n\nreturn [\n    App\\Providers\\AppServiceProvider::class,\n    App\\Providers\\KitHostServiceProvider::class,\n];\n");
+    file_put_contents($root.'/bootstrap/providers.php', "<?php\n\nreturn [\n    App\\Providers\\AppServiceProvider::class,\n    App\\Billing\\KitHostServiceProvider::class,\n    \\App\\Providers\\KitHostServiceProvider::class,\n    App\\Providers\\KitHostServiceProviders::class,\n];\n");
     file_put_contents($root.'/.gitignore', "/vendor\n/.mod-maintenance/journal-*.json\n/.mod-maintenance/lock\n/.mod-maintenance/owner.json\n/.mod-maintenance-stage-*\n/node_modules\n");
     file_put_contents($root.'/.github/workflows/deploy.yml', "steps:\n  - run: php artisan kit:statuses\n  - run: php artisan kit:cache\n");
     file_put_contents($root.'/Envoy.blade.php', "@task('deploy')\n    php artisan migrate --force\n    php artisan kit:status --check\n@endtask\n");
@@ -222,7 +222,7 @@ try {
     check(count($migrations) === count($copies) && array_unique(array_column($report['migrations'], 'stamped')) === [true], 'every copy is reported, each as stamped');
 
     // The checklist and the references.
-    check($report['delete'] === ['.mod-maintenance/', 'app/Kit/KitHost.php', 'app/Kit/operations.php', 'config/kit-lifecycle.php', 'config/kit-executor.json', 'app/Providers/KitHostServiceProvider.php', 'bootstrap/providers.php:5: App\Providers\KitHostServiceProvider::class,', '.gitignore:2: /.mod-maintenance/journal-*.json', '.gitignore:3: /.mod-maintenance/lock', '.gitignore:4: /.mod-maintenance/owner.json', '.gitignore:5: /.mod-maintenance-stage-*', ...$identical], 'the checklist: .mod-maintenance, the kit:install files, the provider line, the .mod-maintenance .gitignore lines and the identical copies, not the edited one');
+    check($report['delete'] === ['.mod-maintenance/', 'app/Kit/KitHost.php', 'app/Kit/operations.php', 'config/kit-lifecycle.php', 'config/kit-executor.json', 'app/Providers/KitHostServiceProvider.php', 'bootstrap/providers.php:6: \\App\\Providers\\KitHostServiceProvider::class,', '.gitignore:2: /.mod-maintenance/journal-*.json', '.gitignore:3: /.mod-maintenance/lock', '.gitignore:4: /.mod-maintenance/owner.json', '.gitignore:5: /.mod-maintenance-stage-*', ...$identical], 'the checklist: .mod-maintenance, the kit:install files, kit:install\'s provider line by its full class (not App\\Billing\\KitHostServiceProvider or KitHostServiceProviders), the .mod-maintenance .gitignore lines and the identical copies, not the edited one');
     check($report['references'] === ['composer.json scripts.post-update-cmd: @php artisan kit:update plan', '.github/workflows/deploy.yml:3: - run: php artisan kit:cache', 'Envoy.blade.php:3: php artisan kit:status --check'], 'the references: composer scripts, workflows and deploy files, not kit:statuses or a README');
     check(file_exists($root.'/.mod-maintenance') && is_file($root.'/app/Kit/KitHost.php') && count(glob($root.'/database/migrations/kit/*/*.php')) === count($copies), 'kit:detach deleted nothing');
 
