@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **The kit's mails set Laravel's `actionUrl`.** Kit mails (verify email, password reset, invitations, security notices) build their button with `FluentMailMessage::button()`, which left `MailMessage::$actionText` and `$actionUrl` empty. Anything that asks a notification for its link (a test reading `actionUrl`, a channel or a log) got nothing. The first filled `button()` now sets both, as `action()` does. Later buttons and plain-link (`secondary`) ones don't replace it, and an `action()` set earlier is kept. The rendered mail is unchanged.
+  - **Tests.** `test:mail`: the first filled button is the action, later ones don't replace it, and a secondary link isn't the action.
+
 ## v0.17.3
 
 No lineage pin changed: `composer update` is enough.
