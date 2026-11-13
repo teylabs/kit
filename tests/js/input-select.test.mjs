@@ -117,24 +117,14 @@ test('closed, the input points at nothing: no aria-controls or aria-activedescen
     assert.deepEqual(closedAria(false, { 'aria-controls': 'my-list' }), { 'aria-activedescendant': undefined }, 'a caller\'s own aria-controls still wins');
 });
 
-test('a first edit of the shown label searches for what was typed only, wherever the caret was: never label + keystroke', () => {
-    const label = 'Not a member (a public booking)';
-    assert.equal(s.freshQuery(label, `f${label}`), 'f', 'the reported case: the caret before the label gave "fNot a member (a public booking)"');
-    assert.equal(s.freshQuery(label, `${label}f`), 'f', 'after the label');
-    assert.equal(s.freshQuery(label, 'Not a member (a fpublic booking)'), 'f', 'inside it');
-    assert.equal(s.freshQuery(label, 'Not a member (a pubblic booking)'), 'b', 'a doubled letter: the insertion, not a slice of the label');
-    assert.equal(s.freshQuery(label, 'Not a gra (a public booking)'), 'gra', 'over a selected word (a paste or IME text)');
-    assert.equal(s.freshQuery(label, 'Ada'), 'Ada', 'over the whole label');
-    assert.equal(s.freshQuery(label, 'Not a member (a public bookin'), '', 'Backspace only deletes: an empty search, not the rest of the label');
-    assert.equal(s.freshQuery(label, ''), '');
-    assert.equal(s.freshQuery('Apple', 'Appple'), 'p');
-});
-
-test('with the caret or selection from before the edit, a paste that repeats the label\'s letters is taken exactly', () => {
-    const label = 'Not a member (a public booking)';
-    assert.equal(s.freshQuery(label, `Nnamdi${label}`, [0, 0]), 'Nnamdi', 'without the range this reads as "namdiN"');
-    assert.equal(s.freshQuery('a', 'aba', [0, 0]), 'ab', 'without the range this reads as "ba"');
-    assert.equal(s.freshQuery(label, `${label}ng`, [label.length, label.length]), 'ng');
-    assert.equal(s.freshQuery(label, 'Not a member (a public outing)', [23, 30]), 'outing', 'over the selected word "booking"');
-    assert.equal(s.freshQuery(label, 'Not a member (a public bookin', [label.length, label.length]), '', 'Backspace: not an insertion there, so the inference decides (an empty search)');
+test('the first edit of a shown label is read from its beforeinput event: what it inserts replaces the label, a deletion empties it, anything else is refused', () => {
+    // The reported case: "f" typed with the caret before "Not a member (a public booking)" is the query "f", whatever the field's text would have become.
+    assert.equal(s.labelEdit('insertText', 'f'), 'f');
+    assert.equal(s.labelEdit('insertFromPaste', 'Nnamdi'), 'Nnamdi', 'a paste that repeats the label\'s first letter');
+    assert.equal(s.labelEdit('insertFromDrop', null, 'Ada'), 'Ada', 'a drop carries its text on the dataTransfer');
+    assert.equal(s.labelEdit('insertReplacementText', null, null), '');
+    assert.equal(s.labelEdit('deleteContentBackward', null), '', 'Backspace: an empty query, not the rest of the label');
+    assert.equal(s.labelEdit('deleteWordForward', null), '');
+    assert.equal(s.labelEdit('historyUndo', null), null);
+    assert.equal(s.labelEdit('formatBold', null), null);
 });

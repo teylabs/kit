@@ -30,8 +30,8 @@ import {
     filterGroups,
     flatOptions,
     fold,
-    freshQuery,
     interpolate,
+    labelEdit,
     moveHighlight,
     resultsMessage,
     searchEnabled,
@@ -180,16 +180,6 @@ const closedAria = computed<Record<string, undefined>>(() =>
 );
 const query = ref('');
 const typed = ref(false);
-// The caret or selection just before the first edit of the shown label, so freshQuery takes exactly what the edit inserted.
-let editRange: [number, number] | null = null;
-function onBeforeInput(event: Event) {
-    if (typed.value || editRange) return;
-    const el = event.target as HTMLInputElement;
-    editRange = [
-        el.selectionStart ?? el.value.length,
-        el.selectionEnd ?? el.value.length,
-    ];
-}
 const singleLabel = computed(() =>
     props.multiple ? '' : (chosen.value[0]?.label ?? ''),
 );
@@ -197,14 +187,10 @@ const fieldText = computed({
     get: () =>
         typed.value || props.multiple ? query.value : singleLabel.value,
     set: (value: string) => {
-        const range = editRange;
-        editRange = null;
         if (!interactive.value || !searchOn.value) return;
-        // The shown label (single) is never the search: the first edit starts it from what was typed, wherever the caret was.
-        if (!typed.value && singleLabel.value) {
-            if (value === singleLabel.value) return;
-            value = freshQuery(singleLabel.value, value, range ?? undefined);
-        }
+        // The field's value is the query: the shown label never gets here edited (onBeforeInput, onCompositionStart).
+        if (!typed.value && singleLabel.value && value === singleLabel.value)
+            return;
         query.value = value;
         typed.value = true;
     },
@@ -295,7 +281,6 @@ function setOpen(next: boolean) {
 function resetText() {
     query.value = '';
     typed.value = false;
-    editRange = null;
     clearTimeout(searchTimer);
 }
 
@@ -560,6 +545,40 @@ function onListEscape(event: KeyboardEvent) {
     if (inList) focusInput();
 }
 
+// The shown label (single) is never edited into a query: the first edit replaces it whole. Typing, a paste or a drop is taken from its beforeinput event, whose
+// default (editing the label where the caret is) is prevented, and handed on as the field's whole value; a deletion starts an empty query. An IME composition's
+// beforeinput can't be prevented, so a composition starts with the whole label selected, which it replaces; what it commits is then the field's value.
+const labelShown = () =>
+    !typed.value && !!singleLabel.value && interactive.value && searchOn.value;
+function onBeforeInput(event: InputEvent) {
+    if (
+        !labelShown() ||
+        event.isComposing ||
+        event.inputType === 'insertCompositionText'
+    )
+        return;
+    event.preventDefault();
+    const text = labelEdit(
+        event.inputType,
+        event.data,
+        event.dataTransfer?.getData('text/plain'),
+    );
+    if (text === null) return;
+    const el = event.target as HTMLInputElement;
+    el.value = text;
+    el.setSelectionRange(text.length, text.length);
+    el.dispatchEvent(
+        new InputEvent('input', {
+            bubbles: true,
+            inputType: event.inputType,
+            data: text,
+        }),
+    );
+}
+function onCompositionStart(event: CompositionEvent) {
+    if (labelShown()) (event.target as HTMLInputElement).select();
+}
+
 // The list is named by the field's label, read when it opens.
 const listId = `${uid}-list`;
 const listName = ref<string | undefined>(undefined);
@@ -725,6 +744,7 @@ const layerTarget = useLayerTarget();
                     @focus="onInputFocus"
                     @blur="onInputBlur"
                     @beforeinput="onBeforeInput"
+                    @compositionstart="onCompositionStart"
                 />
                 <div
                     v-if="interactive"

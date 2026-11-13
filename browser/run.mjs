@@ -626,7 +626,7 @@ test('InputTags refuses a duplicate, an invalid tag and one past the limit, with
 
 // ── InputSelect's search (?select-query): the chosen label is never the query; Escape, a click outside, a choice and blur drop it; a clearable one clears ─────
 async function selectQuery(run, query = '') {
-    const tab = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    const tab = await browser.newPage({ viewport: { width: 1280, height: 800 }, permissions: ['clipboard-read', 'clipboard-write'] });
     try {
         await tab.goto(`${url}?select-query${query}`);
         await tab.waitForSelector('#for');
@@ -663,12 +663,24 @@ test('InputSelect: typing on a chosen label starts a fresh search, before, insid
         await tab.keyboard.type('ada');
         assert.equal(await input.inputValue(), 'ada', 'after the label');
         assert.deepEqual(await tab.getByRole('option').allInnerTexts(), ['Ada Lovelace']);
-        // A paste before the label that repeats its first letter: the caret from before the edit decides, so it is "Nnamdi", not "namdiN".
+        // A real paste (Ctrl+V) before the label that repeats its first letter: the query is what was pasted, never worked out from the field's text.
         await tab.keyboard.press('Escape');
         await input.click();
         await input.press('Home');
-        await tab.keyboard.insertText('Nnamdi');
-        assert.equal(await input.inputValue(), 'Nnamdi', 'a paste or IME commit before the label');
+        await tab.evaluate(() => navigator.clipboard.writeText('Nnamdi'));
+        await input.press('ControlOrMeta+V');
+        assert.equal(await input.inputValue(), 'Nnamdi', 'a paste before the label');
+        // An IME composition (Chrome's own IME input) inside the label, overlapping its letters: it replaces the label whole, and the commit is the query.
+        await tab.keyboard.press('Escape');
+        await input.click();
+        await input.press('End');
+        for (let i = 0; i < 5; i++) await input.press('ArrowLeft');
+        const ime = await tab.context().newCDPSession(tab);
+        await ime.send('Input.imeSetComposition', { text: 'bo', selectionStart: 2, selectionEnd: 2 });
+        await ime.send('Input.imeSetComposition', { text: 'book', selectionStart: 4, selectionEnd: 4 });
+        await ime.send('Input.insertText', { text: 'booking' });
+        assert.equal(await input.inputValue(), 'booking', 'an IME composition inside the label');
+        assert.deepEqual(await tab.getByRole('option').allInnerTexts(), [LABEL], 'it filters on "booking" alone (with the label in the query nothing would match)');
     });
 });
 
