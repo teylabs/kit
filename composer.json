@@ -96,6 +96,7 @@
         "test:workspace-route-scope": "@php tests/WorkspaceRouteScopeCheck.php vendor/autoload.php",
         "test:capability-guard": "@php tests/CapabilityGuardCheck.php vendor/autoload.php",
         "test:capability-declared": "@php tests/CapabilityDeclaredCheck.php vendor/autoload.php",
+        "test:capability-lazy": "@php tests/CapabilityLazyCheck.php vendor/autoload.php",
         "test:capability-tool": "@php tests/CapabilityToolCheck.php vendor/autoload.php",
         "test:mcp-queued": "@php tests/McpQueuedCheck.php vendor/autoload.php",
         "test:entitlements": "@php tests/EntitlementsCheck.php vendor/autoload.php",

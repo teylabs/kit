@@ -4,7 +4,7 @@ namespace Tey\Kit\Features\Access;
 
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
-use Laravel\Pennant\Feature;
+use Laravel\Pennant\FeatureManager;
 use Tey\Concierge\Contracts\Workspace;
 use Tey\Kit\Features\Access\Console\CapabilityCommand;
 use Tey\Kit\Features\Access\Console\SyncPermissionsCommand;
@@ -38,19 +38,33 @@ final class AccessProvider extends ServiceProvider implements Contributes
         // On the contract, so the policy covers whichever workspace model the app binds (the Gate matches subclasses), read when first asked.
         Gate::policy(Workspace::class, WorkspacePolicy::class);
         $this->commands([SyncPermissionsCommand::class, CapabilityCommand::class]);
-        // Now, and again once every provider has booted: the kit boots before the app's providers, so a capability one of them declares in its own boot() would
-        // otherwise stay undefined (off, and every route behind it a 404). Contribute in register() all the same: it is the documented place.
-        // A capability already defined is left alone: the first pass defined it, or the app did (to follow its own workspace features, say), and defining
-        // it again here would replace the app's definition with the kit.capabilities default.
-        $define = function (): void {
-            $defined = Feature::defined();
-            foreach (app(Registry::class)->workspaceCapabilities() as $capability) {
-                if (! in_array($capability, $defined, true)) {
-                    Feature::define($capability, fn (Workspace $workspace): bool => (bool) (config('kit.capabilities', [])[$capability] ?? false));
-                }
+        // Lazily, so a request that never checks a capability (`/up`) resolves no Pennant manager and, for this provider's part, builds no Registry: when the
+        // manager is first resolved, and again once every provider has booted if it was resolved before then. The kit boots before the app's providers, so a capability one
+        // of them declares in its own boot() would otherwise stay undefined (off, and every route behind it a 404). Contribute in register() all the same:
+        // it is the documented place. Until the manager is resolved, nothing can ask Pennant, so nothing is decided before a capability is defined.
+        $this->callAfterResolving(FeatureManager::class, static function (FeatureManager $features): void {
+            self::defineCapabilities($features);
+        });
+        $this->app->booted(function (): void {
+            if ($this->app->resolved(FeatureManager::class)) {
+                self::defineCapabilities($this->app->make(FeatureManager::class));
             }
-        };
-        $define();
-        $this->app->booted($define);
+        });
+    }
+
+    /**
+     * Define every workspace capability the Registry declares and Pennant does not know yet.
+     *
+     * A capability already defined is left alone: an earlier pass defined it, or the app did (to follow its own workspace features, say), and defining it
+     * again here would replace the app's definition with the kit.capabilities default.
+     */
+    private static function defineCapabilities(FeatureManager $features): void
+    {
+        $defined = $features->defined();
+        foreach (app(Registry::class)->workspaceCapabilities() as $capability) {
+            if (! in_array($capability, $defined, true)) {
+                $features->define($capability, fn (Workspace $workspace): bool => (bool) (config('kit.capabilities', [])[$capability] ?? false));
+            }
+        }
     }
 }
