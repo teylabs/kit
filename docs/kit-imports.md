@@ -37,7 +37,7 @@ The kit's browser check (`browser/run.mjs`, "kitImports") serves the dashboard g
 
 ## Migrating an app
 
-1. Get the plugin's files, `resources/js/components/Kit/kitImports.js` and `kitImports.d.ts`. Since 0.18 the kit writes no files into an app: an app that lacks them copies core's stubs (`vendor/tey/kit/resources/features/core/components/Kit/kitImports.js.stub` and `kitImports.d.ts.stub`, without the `.stub`).
+1. Load the shared components from the package ([kit-components.md](kit-components.md)). The plugin ships with them, at `vendor/tey/kit/resources/js/components/Kit/kitImports.js` and `kitImports.d.ts`, so there is nothing to copy. A copy an earlier kit wrote to `resources/js/components/Kit/` goes when you delete that folder.
 2. In `vite.config.ts`, import the plugin and add it after `vue()`:
 
    ```ts
