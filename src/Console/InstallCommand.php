@@ -12,10 +12,10 @@ use Throwable;
 /** Writes the app-owned host binding kit:add needs. Never overwrites a file; a second run changes nothing. */
 final class InstallCommand extends Command
 {
-    private const PROVIDER = 'App\\Providers\\KitHostServiceProvider';
+    public const PROVIDER = 'App\\Providers\\KitHostServiceProvider';
 
     /** Target => stub in resources/install; the executor provenance is written from the runtime. */
-    private const FILES = [
+    public const FILES = [
         'app/Kit/KitHost.php' => 'KitHost.php.stub',
         'app/Kit/operations.php' => 'operations.php.stub',
         'config/kit-lifecycle.php' => 'kit-lifecycle.php.stub',
@@ -95,7 +95,13 @@ final class InstallCommand extends Command
 
     private function registered(string $providers): bool
     {
-        return preg_match('/^\s*\\\\?'.preg_quote(self::PROVIDER, '/').'::class\s*,?\s*$/m', file_get_contents($providers)) === 1;
+        return preg_match(self::providerLine(), file_get_contents($providers)) === 1;
+    }
+
+    /** The bootstrap/providers.php line kit:install writes: the provider by its fully qualified name (a leading `\` allowed), never another class of the same basename. */
+    public static function providerLine(): string
+    {
+        return '/^\s*\\\\?'.preg_quote(self::PROVIDER, '/').'::class\s*,?\s*$/m';
     }
 
     /** The providers file with the class line appended to its returned list; the rest stays as the host wrote it. */

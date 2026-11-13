@@ -164,6 +164,7 @@
         "test:preflight-exit": "@php tests/PreflightExitCheck.php vendor/autoload.php",
         "test:adopt-fresh": "@php tests/AdoptFreshCheck.php vendor/autoload.php",
         "test:table-adopt": "@php tests/TableAdoptCheck.php vendor/autoload.php",
+        "test:detach": "@php tests/DetachCheck.php vendor/autoload.php",
         "test:search-js": "node --test tests/js/search.test.mjs",
         "test:notes": "@php tests/NotesCheck.php vendor/autoload.php",
         "test:finalize": "@php tests/FinalizeCheck.php vendor/autoload.php",
