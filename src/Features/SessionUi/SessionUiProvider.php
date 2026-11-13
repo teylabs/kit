@@ -50,6 +50,7 @@ use Tey\Kit\Features\SessionUi\ViewModels\ConfirmPasswordViewModel;
 use Tey\Kit\Features\SessionUi\ViewModels\LoginViewModel;
 use Tey\Kit\Features\SessionUi\ViewModels\RegisterViewModel;
 use Tey\Kit\Features\SessionUi\ViewModels\ResetPasswordViewModel;
+use Tey\Kit\Features\SessionUi\Welcome\Onboarding;
 use Tey\Kit\Features\Shell\ShellSource;
 
 final class SessionUiProvider extends ServiceProvider implements Contributes
@@ -72,6 +73,8 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
         $this->app->bind(ShellSource::class, PageShell::class);
         // Cancel on the confirm-password page: a host's own binding wins.
         $this->app->bindIf(ConfirmPasswordCancelUrl::class, ConfirmPasswordCancel::class);
+        // The welcome steps' person and workspace are the request's: Octane and the queue worker forget scoped instances between requests and jobs.
+        $this->app->scoped(Onboarding::class);
     }
 
     /** @return ?array{url: string, email: string} Concierge's local sign-in offer, as the login page takes it; null when Concierge is not booted or offers none. */

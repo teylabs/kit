@@ -78,7 +78,7 @@ Each one is `Tey\Kit\Features\SessionUi\Notifications\SecurityNotice`. It's secu
 
 **A first password is set, not changed.** An account's first password is logged as "Password set" and mails nobody, so a brand-new owner or an invitee choosing a password doesn't hear "your password was changed". The kit counts it as a first password in two cases:
 
-- **No password yet:** the account had none (null or empty).
+- **No password yet:** the account had none (null or empty), and the password event (`PasswordReset`, or Fortify's `PasswordUpdatedViaController`) carries the same model instance the password was saved on, as Fortify's reset and password update do. The flag is kept on that model and goes with it, so it never carries over to a later request in a long-lived worker (Octane). An event that carries a model fetched again is a change and is mailed; mark such accounts with `awaitFirstPassword()` instead.
 - **Marked:** it was marked with `SecurityLog::awaitFirstPassword($user)`. Use the mark when your app provisions an account with a random password and sends a reset link (`Tey\Kit\Features\SessionUi\Account\SecurityLog`). The first set clears the mark, and every later change is mailed as usual.
 
 **Not covered:** sign-in alerts from a new device. They need device tracking, which the kit doesn't have yet; a sign-in is still written to the security history.
