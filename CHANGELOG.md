@@ -10,6 +10,7 @@
 
   No public signature changed. PHP-FPM was never affected. Not changed: Deliver's `SentMessages` singleton, which the issue notes as lower risk (its map grows if a message is recorded and never pulled).
   - **Upgrading.** A host that sets an account's first password and then dispatches `PasswordReset` or `PasswordUpdatedViaController` with a model fetched again, not the one it saved, now gets "Password changed" and the mail. Dispatch the event with the model you saved, as Fortify does, or mark the account with `SecurityLog::awaitFirstPassword()` before the password is set. Nothing else to do. Only `src/`, docs, tests and the changelog changed, so nothing to re-pin.
+  - A real password change also clears a first-password mark left on the same model object by an earlier save that dispatched no password event, so reusing one model can't turn a change into a silent `password_set`.
   - **Tests.** Each check runs two requests in one process and forgets scoped instances between them, as Octane does. `test:dashboard`: after a dashboard request sets the onboarding context, the next request's `Onboarding::workspaceId()` is null. `test:security-mail`: one request sets an account's first password with no password event, and the next request's real change, made on its own model of the user, is logged as `password_changed` and mailed. Both fail against v0.17.4.
 
 ## v0.17.4

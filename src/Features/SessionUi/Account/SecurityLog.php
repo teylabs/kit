@@ -100,9 +100,15 @@ final class SecurityLog
         // An account's first password (it had none: null or empty) is set, not changed: logged as password_set, which mails nobody. A brand-new owner or an
         // invitee choosing a password through the reset link would otherwise be told "your password was changed".
         $events->listen('eloquent.updating: '.Users::model(), function ($user): void {
-            if ($user->isDirty('password') && trim((string) $user->getOriginal('password')) === '') {
-                self::$firstPassword ??= new \WeakMap;
+            if (! $user->isDirty('password')) {
+                return;
+            }
+            self::$firstPassword ??= new \WeakMap;
+            if (trim((string) $user->getOriginal('password')) === '') {
                 self::$firstPassword[$user] = true;
+            } else {
+                // A real change on the same model: a first-password mark its earlier save left (no password event followed) must not make this one look like a first set.
+                unset(self::$firstPassword[$user]);
             }
         });
         $events->listen(PasswordReset::class, fn (PasswordReset $e) => self::record($e->user->getAuthIdentifier(), self::passwordEvent($e->user)));

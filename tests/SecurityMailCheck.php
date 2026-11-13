@@ -217,6 +217,13 @@ try {
     }
     $app->instance('request', $request);
     securityCheck(Notification::sent($seeded, SecurityNotice::class)->map(fn (SecurityNotice $n) => $n->type)->all() === ['password_changed'] && $types($seeded->id) === ['password_changed'], 'a first password set without its event in one request does not make the next request\'s change a silent password_set');
+    // The same model object reused: a first password saved with no event, then a real change on that object with its event, is still a change.
+    Notification::fake();
+    $reused = SecurityUser::create(['name' => 'Ria', 'email' => 'ria@example.test', 'password' => null]);
+    $reused->forceFill(['password' => 'hashed:seeded'])->save();
+    $reused->forceFill(['password' => 'hashed:chosen'])->save();
+    event(new PasswordUpdatedViaController($reused));
+    securityCheck(Notification::sent($reused, SecurityNotice::class)->map(fn (SecurityNotice $n) => $n->type)->all() === ['password_changed'] && $types($reused->id) === ['password_changed'], 'a first password saved without its event, then a real change on the same model object, is logged and mailed as a change');
 
     Notification::fake();
     config(['kit.security_mail' => false]);
