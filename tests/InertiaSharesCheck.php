@@ -423,6 +423,11 @@ try {
     Inertia::flushShared();
     $flushed = sharesProps($dispatch(Request::create('https://kit.test/probe', 'GET', server: $inertia)));
     sharesCheck(($public['kitClock'] ?? null) === 'auto' && ($flushed['kitClock'] ?? null) === '24h' && $app->make(Registry::class)->userClock() === null, 'kitClock on a public page of a core and shell host with no session-ui: auto, then kit.clock.default 24h after a flush');
+    // A host with no feature listed (kit.features empty: FeaturesServiceProvider binds no Registry and registers nothing) still renders its pages,
+    // and kitClock, core's share, is auto: the clock never needs a feature.
+    [$app, $dispatch] = sharesHost([StartSession::class, HostHandleInertiaRequests::class], features: []);
+    $bare = sharesProps($dispatch(Request::create('https://kit.test/probe', 'GET', server: $inertia)));
+    sharesCheck(! $app->bound(Registry::class) && ($bare['kitClock'] ?? null) === 'auto' && ($bare['hostThing'] ?? null) === 'from the host', 'kitClock on a host with no feature listed (no Registry bound): the page renders, and kitClock is auto');
     [$app, $dispatch, [$ada]] = sharesHost([StartSession::class, HostHandleInertiaRequests::class]);
     $app['config']->set('auth.guards.portal', ['driver' => 'session', 'provider' => 'users']);
     $app['config']->set('kit.clock.default', '12h');
