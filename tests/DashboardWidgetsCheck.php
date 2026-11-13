@@ -589,6 +589,28 @@ try {
     Onboarding::context($owner_id, $workspace->id + 1000);
     check($here === ['skipped', 'skipped'] && Onboarding::state($owner_id, 'branding') === 'pending' && Onboarding::state($owner_id, 'profile') === 'skipped', 'a skipped workspace step stays pending in another workspace; a skipped personal step is skipped everywhere');
     DB::table('kit_user_state')->where('user_id', $owner_id)->where('key', 'like', 'onboarding.skipped.%')->delete();
+    // Two requests in one process, as a long-lived worker (Octane) runs them, forgetting scoped instances between them. The dashboard sets the welcome steps'
+    // person and workspace; the next request reads the workspace without setting its own, and gets none rather than the dashboard's.
+    $app['router']->get('/onboarding-probe', fn () => response()->json(['workspace' => Onboarding::workspaceId()]));
+    [$status] = $page('owner');
+    $dashboardWorkspace = Onboarding::workspaceId();
+    $app->forgetScopedInstances();
+    $app->instance('request', $probe = Request::create('https://kit.test/onboarding-probe'));
+    $probed = json_decode((string) $app['router']->dispatch($probe)->getContent(), true);
+    check($status === 200 && $dashboardWorkspace === $workspace->id && $probed === ['workspace' => null], 'the next request in the same worker does not inherit the dashboard\'s onboarding workspace');
+    // Fail closed: without session-ui's scoped binding, Onboarding refuses rather than answering about nobody. The binding is restored after.
+    $bindings = (new ReflectionProperty($app, 'bindings'))->getValue($app);
+    $binding = $bindings[Onboarding::class];
+    $app->offsetUnset(Onboarding::class);
+    $refused = null;
+    try {
+        Onboarding::workspaceId();
+    } catch (LogicException $e) {
+        $refused = $e->getMessage();
+    } finally {
+        $app->scoped(Onboarding::class, $binding['concrete']);
+    }
+    check($refused !== null && str_contains($refused, 'scoped binding') && $app->bound(Onboarding::class) && Onboarding::workspaceId() === null, 'without its scoped binding Onboarding refuses (LogicException), and the binding is restored after');
     $config->set('kit.dashboard.aside', 'wide');
     [, $wide] = $page('owner');
     check($wide['props']['aside'] === 'wide', 'kit.dashboard.aside wide reaches the page');
