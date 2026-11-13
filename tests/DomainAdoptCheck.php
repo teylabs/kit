@@ -19,6 +19,7 @@ use Tey\Kit\Features\Notes\Models\Note;
 use Tey\Kit\Features\SessionUi\Operations\DeleteAccount;
 use Tey\Kit\Features\Workspaces\Concerns\HasWorkspaces;
 use Tey\Kit\KitServiceProvider;
+use Tey\Kit\Media\MediaUploads;
 
 $loader = require $argv[1];
 $loader->addPsr4('Tey\\Kit\\', dirname(__DIR__).'/src', true);
@@ -245,6 +246,12 @@ function refusal(Closure $run): ?string
 }
 
 $schemas = 0;
+// Run in a process of its own with a file size limit (by the check below): --adopt on an app root the parent made, whose migration write is cut short.
+if (($argv[2] ?? null) === 'partial-write') {
+    [$code, $output] = artisan(boot((string) $argv[3]), 'kit:scaffold', ['feature' => 'deliver', '--adopt' => true]);
+    echo 'exit='.$code.' '.$output;
+    exit(0);
+}
 // Run in a process of its own (by the check below), so no feature registered before it: an app without session-ui deletes an account.
 if (($argv[2] ?? null) === 'without-session-ui') {
     $schemas = 100;
@@ -272,6 +279,13 @@ try {
     check(array_filter($kitNames, fn (string $table): bool => ! Schema::hasTable($table)) === [] && array_filter(PAIRS, fn (string $to, string $from): bool => $from !== $to && Schema::hasTable($to), ARRAY_FILTER_USE_BOTH) === [], 'an app that does not adopt migrates the domain tables under the kit\'s names only');
     check(DomainModels::problems() === [] && Kit::model('note') === Note::class && Kit::table('delivery') === 'kit_deliveries' && Kit::table('note_intent') === 'kit_note_intents' && Kit::table('entitlement') === 'entitlements', 'and Kit::model() and Kit::table() name the kit\'s own classes and tables');
     check(Kit::model('media_upload') === Tey\Kit\Media\Models\MediaUpload::class && Kit::table('media_upload') === 'kit_media_uploads', 'Kit::model() and Kit::table() resolve media_upload too, a kit.models key that no feature registers');
+    $malformed = [];
+    foreach ([false, ''] as $value) {
+        config(['kit.models.media_upload' => $value]);
+        $malformed[] = refusal(fn () => MediaUploads::model());
+    }
+    config(['kit.models.media_upload' => null]);
+    check(count(array_filter($malformed, fn (?string $refused): bool => $refused !== null && str_contains($refused, 'kit.models.media_upload'))) === 2 && MediaUploads::model() === Tey\Kit\Media\Models\MediaUpload::class, 'MediaUploads::model() refuses kit.models.media_upload set to false or an empty string, naming it; null is the kit\'s own');
     check(Relation::getMorphedModel('kit-note') === Note::class && Relation::getMorphedModel('kit-delivery') === Tey\Kit\Features\Deliver\Models\DeliveryRecord::class, 'the stable morph aliases (kit-note, kit-delivery) name the kit\'s classes');
     $drift = [];
     foreach (DomainModels::COLUMNS as $key => $expected) {
@@ -519,6 +533,15 @@ try {
         check($code === 1 && str_contains($output, 'Could not write config/kit.php') && glob($rootF.'/app/Models/*') === [] && glob($rootF.'/database/migrations/*_adopt_*') === [] && file_get_contents($rootF.'/config/kit.php') === $config, 'a read-only config/kit.php refuses, and the models and migration it wrote first are removed');
     }
     chmod($rootF.'/config/kit.php', 0644);
+
+    // A write cut short part way (here by a file size limit, as on a full disk) leaves a partial file: it is removed with the rest. The pre-0.19 config is
+    // small enough to edit under the limit; the deliver migration is not.
+    $rootG = root(kitConfig('old'));
+    boot($rootG); // writes the app's bootstrap caches here, before the limit applies
+    $config = (string) file_get_contents($rootG.'/config/kit.php');
+    $child = proc_open(['bash', '-c', 'trap "" XFSZ; ulimit -f 8; exec "$0" "$@"', PHP_BINARY, __FILE__, $argv[1], 'partial-write', $rootG], [1 => ['pipe', 'w'], 2 => ['redirect', 1]], $pipes);
+    $out = (string) stream_get_contents($pipes[1]);
+    check(proc_close($child) === 0 && str_contains($out, 'exit=1') && str_contains($out, 'Could not write database/migrations/') && glob($rootG.'/app/Models/*') === [] && glob($rootG.'/database/migrations/*_adopt_*') === [] && file_get_contents($rootG.'/config/kit.php') === $config, 'a migration write cut short part way refuses, and the partial migration and the models written before it are removed'.(str_contains($out, 'exit=1') ? '' : ': '.substr($out, 0, 300)));
 
     echo 'Domain table adoption on '.($pgsql ? 'PostgreSQL (throwaway schemas)' : 'SQLite files').', synthetic apps and rows. MySQL, a consumer app and the kit\'s pages on adopted tables are not covered here.'."\n";
 } catch (Throwable $error) {

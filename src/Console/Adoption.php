@@ -89,11 +89,11 @@ final class Adoption
                 if (! is_dir(dirname($target)) && ! @mkdir(dirname($target), 0755, true) && ! is_dir(dirname($target))) {
                     throw new RuntimeException('Could not create the folder for '.$path.', so nothing was written.');
                 }
-                $previous = is_file($target) ? file_get_contents($target) : null;
+                // Recorded before the write: a write cut short (a full disk) leaves a partial file, which is put back too.
+                $before[$target] = is_file($target) ? file_get_contents($target) : null;
                 if (@file_put_contents($target, $bytes) === false) {
                     throw new RuntimeException('Could not write '.$path.', so nothing was written: the files written before it were put back.');
                 }
-                $before[$target] = $previous;
             }
         } catch (Throwable $error) {
             foreach (array_reverse($before, true) as $target => $previous) {

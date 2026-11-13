@@ -68,7 +68,7 @@ final class Kit
     }
 
     /** A `kit.models` or `kit.tables` entry: null (or absent) for the kit's own, else a non-empty string. Anything else refuses rather than fall back to the kit's table. */
-    private static function configured(string $path, string $what): ?string
+    public static function configured(string $path, string $what): ?string
     {
         $configured = config($path);
         if ($configured === null) {

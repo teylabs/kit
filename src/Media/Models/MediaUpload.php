@@ -8,7 +8,7 @@ use Tey\Kit\Media\Contracts\MediaUpload as MediaUploadContract;
 
 /**
  * The kit's upload model: the default for `kit.models.media_upload`. Its table is already the app's (`kit.media.uploads_table`), so an app needs its
- * own model only to add behaviour. Deprecated since 0.19 for new code: reach it through `Tey\Kit\MediaUploads::model()`. The behaviour is
+ * own model only to add behaviour. Deprecated since 0.19 for new code: reach it through `Tey\Kit\Media\MediaUploads::model()`. The behaviour is
  * Concerns\IsMediaUpload.
  *
  * @property string $id
