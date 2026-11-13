@@ -444,6 +444,14 @@ export {
     type DateTimeOptions,
 } from './Data/dateTime';
 export { useTimezone } from './Data/useTimezone';
+// A long file name, path or URL cut in the middle, its start and tail (a file's extension) kept, to fit the width it is given (docs/middle-truncate.md).
+export { default as MiddleTruncate } from './Data/MiddleTruncate.vue';
+export {
+    middleTruncate,
+    truncationKind,
+    type MiddleTruncateKind,
+    type MiddleTruncation,
+} from './Data/middleTruncate';
 // Settings › Email sending's labels: the From line, the live address preview, each DNS record's purpose and full name, and Last checked in the viewer's zone.
 export {
     checkedAtLabel,
