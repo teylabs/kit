@@ -25,8 +25,8 @@ final class Adoption
     public function adopt(string $feature, array $force): int
     {
         $keys = self::keys($feature);
-        if (DomainModels::adopted($feature)) {
-            throw new RuntimeException('The '.$feature.' feature is already adopted: config/kit.php names the app\'s '.implode(', ', DomainModels::adoptedKeys($feature)).'. Nothing was written.');
+        if (DomainModels::adoptedKeys($feature) !== []) {
+            throw new RuntimeException('The '.$feature.' feature is already adopted, in whole or in part: config/kit.php names the app\'s '.implode(', ', DomainModels::adoptedKeys($feature)).'. Nothing was written.');
         }
         $root = $this->app->basePath();
         $slug = str_replace('-', '_', $feature);
@@ -77,18 +77,35 @@ final class Adoption
         }
         $this->refuseBothNames($keys);
         [$configPath, $config] = $this->config($entries);
-        foreach ($files as $path => $bytes) {
-            $target = $root.'/'.$path;
-            if (! is_dir(dirname($target)) && ! mkdir(dirname($target), 0755, true) && ! is_dir(dirname($target))) {
-                throw new RuntimeException('Could not create the folder for '.$path);
+        // All or none: when a write fails, config/kit.php included, each file written is put back as it was and each folder made is removed.
+        $before = [];
+        $folders = [];
+        try {
+            foreach ([...array_map(fn (string $path): array => [$root.'/'.$path, $path], array_keys($files)), [$configPath, 'config/kit.php']] as [$target, $path]) {
+                $bytes = $path === 'config/kit.php' ? $config : $files[$path];
+                for ($folder = dirname($target); ! is_dir($folder); $folder = dirname($folder)) {
+                    array_unshift($folders, $folder);
+                }
+                if (! is_dir(dirname($target)) && ! @mkdir(dirname($target), 0755, true) && ! is_dir(dirname($target))) {
+                    throw new RuntimeException('Could not create the folder for '.$path.', so nothing was written.');
+                }
+                $previous = is_file($target) ? file_get_contents($target) : null;
+                if (@file_put_contents($target, $bytes) === false) {
+                    throw new RuntimeException('Could not write '.$path.', so nothing was written: the files written before it were put back.');
+                }
+                $before[$target] = $previous;
             }
-            if (file_put_contents($target, $bytes) === false) {
-                throw new RuntimeException('Could not write '.$path);
+        } catch (Throwable $error) {
+            foreach (array_reverse($before, true) as $target => $previous) {
+                is_string($previous) ? @file_put_contents($target, $previous) : @unlink($target);
             }
-            $this->command->line('wrote '.$path);
+            foreach (array_reverse($folders) as $folder) {
+                @rmdir($folder);
+            }
+            throw $error;
         }
-        if (file_put_contents($configPath, $config) === false) {
-            throw new RuntimeException('Could not write config/kit.php');
+        foreach (array_keys($files) as $path) {
+            $this->command->line('wrote '.$path);
         }
         $named = [...array_map(fn (string $key): string => 'kit.models.'.$key, array_keys($entries['models'])), ...array_map(fn (string $key): string => 'kit.tables.'.$key, array_keys($entries['tables']))];
         $this->command->line('updated config/kit.php ('.implode(', ', $named).')');

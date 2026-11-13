@@ -641,6 +641,25 @@ try {
     $app['cache']->store()->clear();
     [$status] = $http('owner', 'DELETE', '/@columnless-notes/settings/delete', ['confirmation' => 'Columnless Notes', 'password' => 'secret-owner']);
     check($status === 200 && $left() === [0, 0, 0], 'with the notes table whole again, the same deletion succeeds and leaves nothing behind');
+    // With teams on, the permission tables are deleted by their team column: one that has lost it refuses rather than leave the workspace's role rows behind.
+    [$teamless] = $workspace('Teamless Roles', 'teamless-roles', ['owner' => 'owner']);
+    $roleRows = fn (string $table): int => DB::table($table)->where((string) config('permission.column_names.team_foreign_key'), $teamless->id)->count();
+    $held = $roleRows('model_has_roles');
+    Schema::rename('model_has_roles', 'model_has_roles_away');
+    Schema::create('model_has_roles', fn ($t) => $t->unsignedBigInteger('role_id')->index('teamless_role_id_index'));
+    $error = null;
+    try {
+        DB::transaction(fn () => app(DeleteWorkspace::class)->deleteRows((int) $teamless->id));
+    } catch (Throwable $thrown) {
+        $error = $thrown->getMessage();
+    } finally {
+        Schema::drop('model_has_roles');
+        Schema::rename('model_has_roles_away', 'model_has_roles');
+    }
+    check((bool) config('permission.teams') && $held > 0 && $error !== null && str_contains($error, 'model_has_roles') && Workspace::query()->whereKey($teamless->id)->exists() && $roleRows('model_has_roles') === $held && ConciergeModels::membership()::query()->where('workspace_id', $teamless->id)->count() === 1, 'with teams on and model_has_roles missing its team column, the workspace deletion fails closed: its role rows, memberships and workspace are kept');
+    $app['cache']->store()->clear();
+    [$status] = $http('owner', 'DELETE', '/@teamless-roles/settings/delete', ['confirmation' => 'Teamless Roles', 'password' => 'secret-owner']);
+    check($status === 200 && Workspace::query()->whereKey($teamless->id)->doesntExist() && $roleRows('model_has_roles') === 0, 'with the team column back, the same deletion succeeds and its role rows go');
 
     // Deferred workspace deletion: the handler implements DefersWorkspacePurge. The workspace closes at once and nothing is deleted until the finish hook.
     $app['cache']->store()->clear();

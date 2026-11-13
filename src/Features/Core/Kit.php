@@ -52,9 +52,8 @@ final class Kit
             return ConciergeModels::workspace();
         }
         $default = self::$models[$key] ?? throw new RuntimeException('Unknown kit model: '.$key.' (no registered feature declares it; is its feature in kit.features?)');
-        $configured = config('kit.models.'.$key);
 
-        return is_string($configured) && $configured !== '' ? $configured : $default;
+        return self::configured('kit.models.'.$key, 'a model class name') ?? $default;
     }
 
     /** The table for a key: its model's table, or `kit.tables.<key>` (else the kit's own) for a table the kit reads without a model. */
@@ -64,9 +63,22 @@ final class Kit
             return (new (self::model($key)))->getTable();
         }
         $default = self::$tables[$key] ?? throw new RuntimeException('Unknown kit table: '.$key.' (no registered feature declares it; is its feature in kit.features?)');
-        $configured = config('kit.tables.'.$key);
 
-        return is_string($configured) && $configured !== '' ? $configured : $default;
+        return self::configured('kit.tables.'.$key, 'a table name') ?? $default;
+    }
+
+    /** A `kit.models` or `kit.tables` entry: null (or absent) for the kit's own, else a non-empty string. Anything else refuses rather than fall back to the kit's table. */
+    private static function configured(string $path, string $what): ?string
+    {
+        $configured = config($path);
+        if ($configured === null) {
+            return null;
+        }
+        if (! is_string($configured) || $configured === '') {
+            throw new RuntimeException($path.' must be '.$what.', or null for the kit\'s own; it is '.var_export($configured, true).'. Fix it in config/kit.php.');
+        }
+
+        return $configured;
     }
 
     /**

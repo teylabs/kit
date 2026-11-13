@@ -165,15 +165,15 @@ class DeleteWorkspace
     public function deleteRows(int $id): void
     {
         $owners = self::owners();
-        // A feature's own table must have the column it is deleted by, or its rows would stay behind; only another table (permission's
-        // team column when teams are off) may lack it.
-        $where = function (string $table, string $column = 'workspace_id') use ($owners, $id): int {
+        // A feature's own table must have the column it is deleted by, or its rows would stay behind, and so must a table $required names (the
+        // permission tables' team column, with teams on). Only another table, such as the permission tables with teams off, may lack it.
+        $where = function (string $table, string $column = 'workspace_id', bool $required = false) use ($owners, $id): int {
             if (! Kit::present($owners[$table] ?? 'workspaces', $table)) {
                 return 0;
             }
             if (! Schema::hasColumn($table, $column)) {
-                if (isset($owners[$table])) {
-                    throw new RuntimeException('The '.$owners[$table].' feature is on but its table '.$table.' has no '.$column.' column, so nothing was deleted. Restore the column, then delete the workspace again.');
+                if (isset($owners[$table]) || $required) {
+                    throw new RuntimeException('The '.($owners[$table] ?? 'workspaces').' feature is on but its table '.$table.' has no '.$column.' column, so nothing was deleted. Restore the column, then delete the workspace again.');
                 }
 
                 return 0;
@@ -193,7 +193,7 @@ class DeleteWorkspace
         }
         $team = (string) config('permission.column_names.team_foreign_key', 'workspace_id');
         foreach (['model_has_roles', 'model_has_permissions', 'roles'] as $key) {
-            $where((string) config('permission.table_names.'.$key, $key), $team);
+            $where((string) config('permission.table_names.'.$key, $key), $team, (bool) config('permission.teams'));
         }
         $settings = (string) (config('settings.repositories.database.table') ?? 'settings');
         if (Kit::present('settings', $settings)) {

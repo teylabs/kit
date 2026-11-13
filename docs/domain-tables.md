@@ -31,7 +31,7 @@ The namespaces are under `Tey\Kit\Features\` (media under `Tey\Kit\`).
 
 ## The registry
 
-`config/kit.php` names the models in `kit.models` and the tables the kit reads without a model in `kit.tables`. A key left unset or null keeps the kit's own class or table, so an app that does nothing keeps working on the old tables. Kit code reaches every one of them through `Tey\Kit\Features\Core\Kit`:
+`config/kit.php` names the models in `kit.models` and the tables the kit reads without a model in `kit.tables`. A key left unset or null keeps the kit's own class or table, so an app that does nothing keeps working on the old tables. Any other value that isn't a non-empty string, such as `false` or `''`, refuses where the kit reads it: it never falls back to the kit's table. Kit code reaches every one of them through `Tey\Kit\Features\Core\Kit`:
 
 ```php
 use Tey\Kit\Features\Core\Kit;
@@ -96,6 +96,8 @@ Read-only. For each table the kit reads for the feature (the app's once adopted,
 - a fresh database gets the tables under the app's names, with the kit's columns exactly;
 - both names present refuses, in the command and in the migration, and so does an index name the rename needs that another table already has;
 - `--adopt` writes nothing through a linked file or folder, even with `--force`;
+- `--adopt` writes all of its files and `config/kit.php` or none: a write that fails puts back the ones before it;
+- a malformed `kit.models` or `kit.tables` entry refuses, and a feature adopted in part still runs the kit's migrations;
 - an uneditable config refuses;
 - a class that doesn't implement its contract, and a part-adopted feature, stop the boot.
 

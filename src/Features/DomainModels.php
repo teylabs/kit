@@ -83,10 +83,12 @@ final class DomainModels
         return $keys;
     }
 
-    /** Whether the app has adopted a feature's domain tables (all of them: problems() refuses a part). */
+    /** Whether the app has adopted a feature's domain tables: all of them. A part is not adopted (problems() reports it), so the kit's migrations still run. */
     public static function adopted(string $feature): bool
     {
-        return self::adoptedKeys($feature) !== [];
+        $keys = self::adoptedKeys($feature);
+
+        return $keys !== [] && count($keys) === count(self::FEATURES[$feature] ?? []);
     }
 
     /**

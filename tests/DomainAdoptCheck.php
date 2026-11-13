@@ -489,6 +489,37 @@ try {
     check(refusal(fn () => boot(root(kitConfig('current', ['note' => 'Tey\\Kit\\Features\\Notes\\Models\\Note::class'])))) === null, 'naming the kit\'s own class is not adopting');
     check(refusal(fn () => boot(root(kitConfig('current', ['note' => 'NotANote::class']), env: 'production'))) === null, 'outside local and testing the app boots and the problem is logged');
 
+    // A malformed entry is not "unset": only null means the kit's own. A model entry that is not a class name stops the app; a table entry that is not
+    // a table name refuses where the kit reads it. Neither falls back to the kit's table.
+    $refused = refusal(fn () => boot(root(kitConfig('current', ['note' => 'false']), env: 'production')));
+    check($refused !== null && str_contains($refused, 'kit.models.note'), 'kit.models.note set to false refuses, naming the key, rather than run on the kit\'s note table');
+    $app = boot(root(str_replace("'note_intent' => null", "'note_intent' => ''", kitConfig('current')), env: 'production'));
+    check(refusal(fn () => Kit::table('note_intent')) !== null && str_contains((string) refusal(fn () => Kit::table('note_intent')), 'kit.tables.note_intent') && Kit::table('entitlement') === 'entitlements', 'kit.tables.note_intent set to an empty string refuses, naming the key; a null entry is still the kit\'s table');
+
+    // A feature adopted in part is not adopted: outside local and testing the app boots (the problem logged), and the kit's create migrations still run,
+    // so its tables exist.
+    $part = root(kitConfig('current', ['delivery' => 'App\\Models\\Delivery::class']), ['app/Models/Delivery.php' => (string) file_get_contents(dirname(__DIR__).'/resources/adopt/models/Delivery.php.stub')], 'production');
+    $app = boot($part);
+    // Booted as production; migrate as testing, which skips the deploy's role catalog sync (no catalog here).
+    $app['env'] = 'testing';
+    $ran = migrate($app);
+    check(! DomainModels::adopted('deliver') && DomainModels::adoptedKeys('deliver') === ['delivery'] && Schema::hasTable('kit_deliveries') && Schema::hasTable('kit_delivery_recipients') && preg_grep('/_create_kit_deliver_tables\z/', $ran) !== [], 'a feature adopted in part is not adopted: migrate still runs the kit\'s deliver migrations');
+    [$code, $output] = artisan($app, 'kit:scaffold', ['feature' => 'deliver', '--adopt' => true]);
+    check($code === 1 && str_contains($output, 'delivery') && glob($part.'/database/migrations/*_adopt_*') === [], 'and kit:scaffold deliver --adopt refuses it, naming the key already set');
+
+    // When config/kit.php cannot be written, the models and migration written before it are removed again: --adopt writes all of it or none.
+    $rootF = root(kitConfig('current'));
+    $app = boot($rootF);
+    $config = (string) file_get_contents($rootF.'/config/kit.php');
+    chmod($rootF.'/config/kit.php', 0444);
+    if (is_writable($rootF.'/config/kit.php')) {
+        echo "SKIP a read-only config/kit.php: this process writes it anyway (root)\n";
+    } else {
+        [$code, $output] = artisan($app, 'kit:scaffold', ['feature' => 'deliver', '--adopt' => true]);
+        check($code === 1 && str_contains($output, 'Could not write config/kit.php') && glob($rootF.'/app/Models/*') === [] && glob($rootF.'/database/migrations/*_adopt_*') === [] && file_get_contents($rootF.'/config/kit.php') === $config, 'a read-only config/kit.php refuses, and the models and migration it wrote first are removed');
+    }
+    chmod($rootF.'/config/kit.php', 0644);
+
     echo 'Domain table adoption on '.($pgsql ? 'PostgreSQL (throwaway schemas)' : 'SQLite files').', synthetic apps and rows. MySQL, a consumer app and the kit\'s pages on adopted tables are not covered here.'."\n";
 } catch (Throwable $error) {
     fwrite(STDERR, 'FAIL '.$error->getMessage()."\n".$error->getTraceAsString()."\n");
