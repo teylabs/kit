@@ -1,12 +1,6 @@
 # Changelog
 
-## v0.18.2
-
-Features affected: none.
-
-Features affected: core
-
-No lineage pin changed: `composer update` is enough.
+## Unreleased
 
 ### Added
 
@@ -14,6 +8,14 @@ No lineage pin changed: `composer update` is enough.
   Features affected: core
   - **Tests.** `test:js` (`tests/js/middle-truncate.test.mjs`): at every width from one under the value's to the floor, a file name keeps its extension (`.pdf`, `.tar.gz`, `.xlsx`) and what is shown fits; a wider box never shows less; a URL keeps `https://cd…` and its last segment, its query cut to `?…`; a path keeps its root and last segment; `minTail` holds; an emoji family, a flag and stacked accents are never split (re-segmenting the parts gives the same graphemes); an Arabic name keeps its first letters and `.pdf`. The browser job (`?middle-truncate`): a box resized from 320 to 900 to 140px and back refits each time and fills the box; every row from 120 to 400px fits without the CSS end ellipsis, an Arabic name included (at 220 and 240px its parts, shaped one by one, overflowed by under a pixel before the after-paint correction); the link's accessible name, `title` and a copied selection are the whole value, the URL's cut query included; axe passes in light and dark; and Vue's server renderer outputs the whole value with `truncate`, with no DOM in Node.
   - **Not covered:** a consumer app, a real SSR host (the server render runs through Vite's `ssrLoadModule`), and browsers other than Chromium.
+
+## v0.18.2
+
+Features affected: none.
+
+Features affected: core
+
+No lineage pin changed: `composer update` is enough.
 
 ### Fixed
 
