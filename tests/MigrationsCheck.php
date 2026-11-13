@@ -3,7 +3,7 @@
 // The kit's migrations load from the package (database/migrations/<feature>) since 0.18, deferring to an app's own copies under
 // database/migrations/kit/<feature>: the package baselines are the stubs kit:add copied, byte for byte and by name; an app that ran its copies runs none
 // of them again (a stamped copy too), and an edited copy is the one that runs. The 0.18 renames move the infrastructure tables' rows intact, run on a
-// fresh database too, and refuse when both names exist. Synthetic apps in temp directories, synthetic rows; no network. SQLite files by default;
+// fresh database too, and refuse when both names exist. The adopt flags from config keep the kit from creating a host's table. Synthetic apps in temp directories, synthetic rows; no network. SQLite files by default;
 // DB_CONNECTION=pgsql runs each app in its own kit_migrations_* schema of the PostgreSQL the DB_* variables name, dropped and recreated: point it only
 // at a throwaway database.
 use Illuminate\Contracts\Console\Kernel;
@@ -34,11 +34,12 @@ function check(bool $ok, string $message): void
 }
 
 /**
- * A synthetic app with the given kit features, its own users table and an SQLite file, and the given files (path => bytes).
+ * A synthetic app with the kit's FEATURES, its own users table and its own database, and the given files (path => bytes) and kit config.
  *
  * @param  array<string, string>  $files
+ * @param  array<string, mixed>  $kit
  */
-function host(array $files = []): Application
+function host(array $files = [], array $kit = []): Application
 {
     $root = sys_get_temp_dir().'/kit-migrations-'.bin2hex(random_bytes(8));
     register_shutdown_function(fn () => exec('rm -rf '.escapeshellarg($root)));
@@ -58,7 +59,7 @@ function host(array $files = []): Application
         @mkdir(dirname($root.'/'.$path), 0700, true);
         file_put_contents($root.'/'.$path, $bytes);
     }
-    file_put_contents($root.'/config/kit.php', '<?php return '.var_export(['features' => FEATURES, 'models' => ['user' => User::class], 'routes' => ['mcp' => ['enabled' => false]]], true).';');
+    file_put_contents($root.'/config/kit.php', '<?php return '.var_export($kit + ['features' => FEATURES, 'models' => ['user' => User::class], 'routes' => ['mcp' => ['enabled' => false]]], true).';');
     file_put_contents($root.'/config/database.php', '<?php return '.var_export(['default' => 'kit', 'migrations' => ['table' => 'migrations'], 'connections' => ['kit' => $connection]], true).';');
     file_put_contents($root.'/config/cache.php', "<?php return ['default' => 'array', 'stores' => ['array' => ['driver' => 'array']]];");
     file_put_contents($root.'/config/app.php', '<?php return '.var_export(['env' => 'testing', 'key' => 'base64:'.base64_encode(random_bytes(32)), 'cipher' => 'AES-256-CBC'], true).';');
@@ -227,6 +228,25 @@ try {
     }
     check($refusal !== null && str_contains($refusal, 'Both kit_user_state and user_state exist') && str_contains($refusal, 'never merges'), 'with both kit_user_state and user_state present, migrate refuses, naming both');
     check(rows('kit_user_state') === $kept && rows('user_state') === [], 'and neither table is changed');
+    // The adopt flags come from config alone. On, with the host's table not there yet, the kit's migration refuses to create it, and says why.
+    foreach (['workspaces' => 'workspaces', 'access' => 'roles'] as $flag => $table) {
+        $adopting = host([], [$flag => ['adopt' => true]]);
+        $refusal = null;
+        try {
+            migrate($adopting);
+        } catch (Throwable $error) {
+            $refusal = $error->getMessage();
+        }
+        check(str_contains((string) $refusal, 'kit.'.$flag.'.adopt is on') && ! Schema::hasTable($table), 'with kit.'.$flag.'.adopt on and no host '.$table.' table, migrate refuses and creates none');
+    }
+    // An adopting host with its own workspaces table: `migrate --pretend` shows the adoption's SQL and changes nothing.
+    $pretending = host(['database/migrations/0001_01_01_000001_create_workspaces_table.php' => "<?php\n\nreturn new class extends Illuminate\\Database\\Migrations\\Migration\n{\n    public function up(): void\n    {\n        Illuminate\\Support\\Facades\\Schema::create('workspaces', fn (\$t) => \$t->id());\n    }\n};\n"], ['workspaces' => ['adopt' => true]]);
+    migrate($pretending, ['--path' => [$pretending->databasePath('migrations')], '--realpath' => true]);
+    $kernel = $pretending->make(Kernel::class);
+    $code = $kernel->call('migrate', ['--force' => true, '--pretend' => true]);
+    $sql = $kernel->output();
+    check($code === 0 && preg_match('/alter table "?workspaces"? add column "?provisioning_invitation_id"?/i', $sql) === 1 && ! str_contains($sql, 'create table "workspaces"'), 'migrate --pretend on an adopting host shows the columns it adds to the host\'s workspaces table, and no create');
+    check(! Schema::hasColumn('workspaces', 'provisioning_invitation_id') && ! Schema::hasTable('user_state'), 'and it changes nothing');
     echo 'Package migrations and the 0.18 renames on '.(getenv('DB_CONNECTION') === 'pgsql' ? 'PostgreSQL (throwaway schemas)' : 'SQLite files').", synthetic apps and rows. A consumer app is not covered here.\n";
 } catch (Throwable $error) {
     fwrite(STDERR, 'FAIL '.$error->getMessage()."\n".$error->getTraceAsString()."\n");
