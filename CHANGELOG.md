@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## v0.18.0
+
+Features affected: core
 
 core re-pinned: `sha256:c05cf9ee…3019` → `sha256:c89c790d…fdfd` (the 236 `components/Kit` stubs leave the feature; `css/kit.css` and the migrations are unchanged). In `history.json` only the `current` block changed.
 
