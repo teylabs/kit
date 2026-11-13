@@ -129,3 +129,12 @@ test('a first edit of the shown label searches for what was typed only, wherever
     assert.equal(s.freshQuery(label, ''), '');
     assert.equal(s.freshQuery('Apple', 'Appple'), 'p');
 });
+
+test('with the caret or selection from before the edit, a paste that repeats the label\'s letters is taken exactly', () => {
+    const label = 'Not a member (a public booking)';
+    assert.equal(s.freshQuery(label, `Nnamdi${label}`, [0, 0]), 'Nnamdi', 'without the range this reads as "namdiN"');
+    assert.equal(s.freshQuery('a', 'aba', [0, 0]), 'ab', 'without the range this reads as "ba"');
+    assert.equal(s.freshQuery(label, `${label}ng`, [label.length, label.length]), 'ng');
+    assert.equal(s.freshQuery(label, 'Not a member (a public outing)', [23, 30]), 'outing', 'over the selected word "booking"');
+    assert.equal(s.freshQuery(label, 'Not a member (a public bookin', [label.length, label.length]), '', 'Backspace: not an insertion there, so the inference decides (an empty search)');
+});

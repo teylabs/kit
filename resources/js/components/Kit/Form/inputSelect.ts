@@ -173,9 +173,27 @@ export function showCreate(
 
 /**
  * The search a first edit of the shown label starts: only what the edit put in, wherever the caret was (before, inside or after the label, or over a selection
- * of it), so the label is never part of the query. An edit that only deleted starts an empty search.
+ * of it), so the label is never part of the query. An edit that only deleted starts an empty search. `selection` is the caret or selection just before the
+ * edit; with it the inserted text is exact. Without it (or when the edit was not an insertion there) it is inferred from the two strings, which is ambiguous
+ * when the inserted text repeats the label's letters next to it ("Nnamdi" pasted before "Not a member").
  */
-export function freshQuery(label: string, edited: string): string {
+export function freshQuery(
+    label: string,
+    edited: string,
+    selection?: [number, number],
+): string {
+    if (selection) {
+        const [from, to] = selection;
+        const tail = label.length - to;
+        if (
+            from <= to &&
+            to <= label.length &&
+            edited.length >= from + tail &&
+            edited.startsWith(label.slice(0, from)) &&
+            edited.endsWith(label.slice(to))
+        )
+            return edited.slice(from, edited.length - tail);
+    }
     let start = 0;
     while (
         start < label.length &&

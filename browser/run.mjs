@@ -663,6 +663,12 @@ test('InputSelect: typing on a chosen label starts a fresh search, before, insid
         await tab.keyboard.type('ada');
         assert.equal(await input.inputValue(), 'ada', 'after the label');
         assert.deepEqual(await tab.getByRole('option').allInnerTexts(), ['Ada Lovelace']);
+        // A paste before the label that repeats its first letter: the caret from before the edit decides, so it is "Nnamdi", not "namdiN".
+        await tab.keyboard.press('Escape');
+        await input.click();
+        await input.press('Home');
+        await tab.keyboard.insertText('Nnamdi');
+        assert.equal(await input.inputValue(), 'Nnamdi', 'a paste or IME commit before the label');
     });
 });
 

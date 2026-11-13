@@ -180,6 +180,16 @@ const closedAria = computed<Record<string, undefined>>(() =>
 );
 const query = ref('');
 const typed = ref(false);
+// The caret or selection just before the first edit of the shown label, so freshQuery takes exactly what the edit inserted.
+let editRange: [number, number] | null = null;
+function onBeforeInput(event: Event) {
+    if (typed.value || editRange) return;
+    const el = event.target as HTMLInputElement;
+    editRange = [
+        el.selectionStart ?? el.value.length,
+        el.selectionEnd ?? el.value.length,
+    ];
+}
 const singleLabel = computed(() =>
     props.multiple ? '' : (chosen.value[0]?.label ?? ''),
 );
@@ -187,11 +197,13 @@ const fieldText = computed({
     get: () =>
         typed.value || props.multiple ? query.value : singleLabel.value,
     set: (value: string) => {
+        const range = editRange;
+        editRange = null;
         if (!interactive.value || !searchOn.value) return;
         // The shown label (single) is never the search: the first edit starts it from what was typed, wherever the caret was.
         if (!typed.value && singleLabel.value) {
             if (value === singleLabel.value) return;
-            value = freshQuery(singleLabel.value, value);
+            value = freshQuery(singleLabel.value, value, range ?? undefined);
         }
         query.value = value;
         typed.value = true;
@@ -283,6 +295,7 @@ function setOpen(next: boolean) {
 function resetText() {
     query.value = '';
     typed.value = false;
+    editRange = null;
     clearTimeout(searchTimer);
 }
 
@@ -711,6 +724,7 @@ const layerTarget = useLayerTarget();
                     ]"
                     @focus="onInputFocus"
                     @blur="onInputBlur"
+                    @beforeinput="onBeforeInput"
                 />
                 <div
                     v-if="interactive"
