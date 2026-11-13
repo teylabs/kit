@@ -5,8 +5,9 @@ set -eu
 root=$(cd "$(dirname "$0")/.." && pwd)
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
-cd "$root/resources/features"
-find . -name '*.php.stub' | while read -r stub; do
+# The feature stubs, and the adopt files kit:scaffold --adopt writes (resources/adopt).
+cd "$root/resources"
+find features adopt -name '*.php.stub' | while read -r stub; do
     mkdir -p "$work/stubs/$(dirname "$stub")"
     cp "$stub" "$work/stubs/${stub%.stub}"
 done

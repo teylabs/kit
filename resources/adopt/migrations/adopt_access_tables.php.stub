@@ -1,0 +1,127 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+
+// The access feature's billing tables: entitlements and complimentary grants. Their names do not change; on a fresh database this creates them.
+// Written by `php artisan kit:scaffold access --adopt` (tey/kit 0.19), and the app's own from then on. On a database where the kit created the tables,
+// up() renames them, with their indexes, keys and sequences, and keeps every row; on a fresh one it creates them under the app's names. With both names of
+// a table present it refuses before changing anything: it never merges two tables. down() renames them back, or drops them when up() created them.
+return new class extends Migration
+{
+    /** The kit's name => the app's, parents first. */
+    private const TABLES = [
+        'entitlements' => 'entitlements',
+        'complimentary_grants' => 'complimentary_grants',
+    ];
+
+    /** The kit's migration that created them (database/migrations/access in tey/kit). */
+    private const BASELINE = 'create_kit_access_tables';
+
+    public function up(): void
+    {
+        $this->rename(self::TABLES);
+        $this->create();
+    }
+
+    public function down(): void
+    {
+        if ($this->baselineRan()) {
+            $this->rename(array_flip(array_reverse(self::TABLES, true)));
+
+            return;
+        }
+        foreach (array_reverse(self::TABLES) as $table) {
+            Schema::dropIfExists($table);
+        }
+    }
+
+    /** Each table not there under the app's name, as the kit's migrations leave it. */
+    private function create(): void
+    {
+        if (! Schema::hasTable('entitlements')) {
+            Schema::create('entitlements', function (Blueprint $t): void {
+                $t->id();
+                $t->foreignId('workspace_id')->constrained();
+                $t->string('kind');
+                $t->timestamp('revoked_at')->nullable();
+            });
+        }
+        if (! Schema::hasTable('complimentary_grants')) {
+            Schema::create('complimentary_grants', function (Blueprint $t): void {
+                $t->id();
+                $t->foreignId('workspace_id')->constrained();
+                $t->unsignedBigInteger('granted_by');
+                $t->string('intent_key');
+                $t->string('fingerprint');
+                $t->unsignedBigInteger('revoked_by')->nullable();
+                $t->string('revocation_reason')->nullable();
+                $t->unique(['granted_by', 'intent_key']);
+                $t->string('reason');
+                $t->timestamp('expires_at');
+                $t->timestamp('revoked_at')->nullable();
+            });
+        }
+    }
+
+    /**
+     * Renames each table whose old name exists, with its indexes, foreign keys and sequence, after checking every pair: when any pair has both names,
+     * it refuses before renaming a single table, so a database without transactional DDL is never left half renamed. A pair whose names are the same
+     * is left as it is.
+     *
+     * @param  array<string, string>  $tables  from => to
+     */
+    private function rename(array $tables): void
+    {
+        foreach ($tables as $from => $to) {
+            if ($from !== $to && Schema::hasTable($from) && Schema::hasTable($to)) {
+                throw new RuntimeException('Both '.$from.' and '.$to.' exist, so this migration will not rename '.$from.' to '.$to.': it never merges two tables. Keep the one that holds the data, drop or rename the other, then migrate again.');
+            }
+        }
+        foreach ($tables as $from => $to) {
+            if ($from !== $to && Schema::hasTable($from)) {
+                Schema::rename($from, $to);
+                $this->renameKeys($from, $to);
+            }
+        }
+    }
+
+    /** The indexes, and on PostgreSQL the foreign keys and the id sequence, named after the old table take the new table's name. */
+    private function renameKeys(string $from, string $to): void
+    {
+        $renamed = fn (?string $name): ?string => $name !== null && str_starts_with($name, $from.'_') ? $to.substr($name, strlen($from)) : null;
+        foreach (Schema::getIndexes($to) as $index) {
+            $name = $renamed($index['name']);
+            if ($name !== null) {
+                Schema::table($to, fn (Blueprint $t) => $t->renameIndex($index['name'], $name));
+            }
+        }
+        $connection = Schema::getConnection();
+        if ($connection->getDriverName() !== 'pgsql') {
+            return;
+        }
+        $grammar = $connection->getSchemaGrammar();
+        foreach (Schema::getForeignKeys($to) as $key) {
+            $name = $renamed($key['name']);
+            if ($name !== null) {
+                $connection->statement('alter table '.$grammar->wrapTable($to).' rename constraint '.$grammar->wrap($key['name']).' to '.$grammar->wrap($name));
+            }
+        }
+        $sequence = $connection->scalar('select pg_get_serial_sequence(?, ?)', [$grammar->wrapTable($to), 'id']);
+        $name = is_string($sequence) ? $renamed(trim((string) strrchr('.'.$sequence, '.'), '."')) : null;
+        if ($name !== null) {
+            $connection->statement('alter sequence '.$sequence.' rename to '.$grammar->wrap($name));
+        }
+    }
+
+    /** Whether the kit's migration that created these tables ran here: when it did, down() renames them back; when not, this migration created them. */
+    private function baselineRan(): bool
+    {
+        $migrations = config('database.migrations');
+        $table = is_array($migrations) ? (string) ($migrations['table'] ?? 'migrations') : (is_string($migrations) ? $migrations : 'migrations');
+
+        return DB::table($table)->pluck('migration')->contains(fn (mixed $name): bool => is_string($name) && str_ends_with($name, '_'.self::BASELINE));
+    }
+};

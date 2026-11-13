@@ -1,5 +1,62 @@
 # Changelog
 
+## Unreleased
+
+Features affected: deliver, finalize, notes, access, session-ui, workspaces
+
+No lineage pin changed: `composer update` is enough. Nothing changes until an app adopts a feature: without `kit.models` entries the kit's own classes run on the kit's tables, as before.
+
+### Added
+
+- **The domain tables become the app's (#957).** When you inspect the database, the schema reads like the app: `deliveries`, `notes`, `security_events`. The kit ships each domain model's behaviour as a trait and a contract (`Deliver\Concerns\IsDelivery` and `Deliver\Contracts\Delivery`, and likewise for the delivery recipient and event, the finalization and its confirmation, the note, the security event and the media upload), and the app owns the table and the model once it adopts the feature. The ownership tiers, the keys and the tables are in [docs/domain-tables.md](docs/domain-tables.md).
+  Features affected: deliver, finalize, notes, access, session-ui
+  - **The registry.** `kit.models` extends `kit.models.user` with `workspace`, `delivery`, `delivery_recipient`, `delivery_event`, `finalization`, `finalization_confirmation`, `note`, `security_event` and `media_upload`. A new `kit.tables` covers what the kit reads without a model: `note_intent`, `entitlement` and `complimentary_grant`. Unset or null keeps the kit's own class or table. `Tey\Kit\Features\Core\Kit::model('delivery')` and `Kit::table('note_intent')` resolve them, and every `new`, `::query()` and `DB::table()` of these tables in the kit goes through them. Each feature's provider registers its own defaults. `kit.models.workspace` stays Concierge's binding (`concierge.models.workspace`); the media upload keeps `kit.media.uploads_table`.
+  - **The boot check.** In `local` and `testing`, the app refuses to boot when a class in `kit.models` doesn't exist, isn't an Eloquent model or doesn't implement its key's contract, when `kit.models.workspace` names another model than `concierge.models.workspace`, or when a feature is adopted in part. Elsewhere it logs the problem.
+  - **Stable morph aliases.** `kit-note` (as before), `kit-delivery`, `kit-delivery-recipient`, `kit-delivery-event`, `kit-finalization`, `kit-finalization-confirmation` and `kit-security-event` are registered against whichever class config names, so media rows and an app's own morphs follow the model to the app. Once adopted, a row stored under the kit's class name also resolves to the app's model.
+  - **`php artisan kit:scaffold <feature> --adopt`** for `deliver`, `finalize`, `notes`, `access` and `session-ui`. It writes the app's models in `app/Models` (each extends `Model`, uses the kit's trait, implements its contract and sets `$table`), the `kit.models` and `kit.tables` entries in `config/kit.php` (published first when the app has none), and ONE migration, `<date>_adopt_<feature>_tables.php`. Where the kit's tables exist the migration renames them with every row, along with the indexes named after them and, on PostgreSQL, their foreign keys and id sequence. On a fresh database it creates them under the app's names, and the kit's migrations for them don't run (`PackageMigrator` leaves an adopted feature's domain migrations out where the first of them never ran). It runs on the migration's own connection and checks every pair before renaming any table: with both names of a table present it refuses, naming both, and changes nothing. `down()` renames the tables back, or drops them where `up()` created them. Access's tables keep their names (`entitlements`, `complimentary_grants`), so its migration only creates them on a fresh database.
+  - **Refusals.** Nothing is written for a feature without domain tables (workspaces says to bind its own model), a feature already adopted or whose adopt migration exists, a model file that exists (`--force=<path>` overwrites it), both names of a table in the database, or a `config/kit.php` whose entries it can't set exactly. It loads the edited file and compares each entry; on a mismatch it prints the entries to set by hand.
+  - **`kit:scaffold <feature> --check`** is read-only. It compares each table the kit reads for the feature (the app's once adopted, the kit's before) with the columns the kit relies on (`DomainModels::COLUMNS`), names each missing one and exits 1.
+  - The adopt migrations and models are under `resources/adopt`, outside the features, so no feature is re-pinned. `test:pint-stubs` and `test:phpstan-stubs` now cover them too.
+  - **Tests.** `test:domain-adopt` (new; SQLite, and PostgreSQL 17 in CI's PostgreSQL job):
+    - An app that doesn't adopt migrates the kit's names only, with `Kit::model()`, `Kit::table()` and the aliases naming the kit's own.
+    - With three synthetic rows in each of the ten domain tables, adopting all five features writes seven models, five migrations and only the config lines it names. `migrate` then runs the five migrations and nothing else. Every row is there under the app's name, column for column, with no kit name left.
+    - After the adopt: index (and, on PostgreSQL, foreign key and sequence) names take the app's name, and foreign keys still point at the renamed parents and at `users`. Media rows stored under `kit-note` and under the kit's class name both resolve to the app's note, and `--check` passes.
+    - Rollback restores the kit's names, rows and key names, and migrating again renames them again.
+    - `--check` names a dropped column and exits 1.
+    - A fresh database with the adopted app's files runs none of the kit's migrations for those tables and creates them with the kit's columns exactly. Rolling those migrations back drops them.
+    - With both names present, the command refuses and writes nothing, and the migration refuses on the second pair before renaming the first. A pre-0.19 one-line `models` config is edited correctly, and a computed one is refused.
+    - A non-contract class and a part-adopted feature stop the boot; the kit's own class named explicitly does not.
+
+    Each fails when its part is removed: the pre-check, the key renames, the class-name alias, the boot check, the migrator's exclusion and the config read-back. `DeliverCheck`, `FinalizeCheck`, `NotesCheck`, `SecurityMailCheck`, the media checks and `LifecyclePagesCheck` pass unchanged on the kit's names through the registry.
+  - **Not covered:** MySQL and SQL Server (indexes are renamed there, foreign key names are kept), a consumer app, and the kit's pages on adopted tables.
+
+### Changed
+
+- **Signatures follow the contracts.** The deliver events (`DeliverySent`, `DeliveryCancelled`, `DeliveryBounced`, `DeliveryDelivered`, `DeliveryOpened`, `DeliveryLinkRevoked`) type `delivery` as `Model&Contracts\Delivery` and `recipient` as `Model&Contracts\DeliveryRecipient` (were `Models\DeliveryRecord` and `Models\DeliveryRecipient`). Likewise `Delivery::customerResponse()` and `expiredResponse()`, `Finalized` and `Unfinalized` (`Model&Contracts\Finalization`), `Flow::applyExtras()`, and the media operations, `UploadTicket` and `UploadSigning` (`Model&Contracts\MediaUpload`). Also `WorkspaceNotes::canChange()`, `visible()` and `records()` (`Model&Contracts\Note`). An app that hasn't adopted still gets the kit's own classes, so a listener or closure typed against them keeps working. `FinalizesWithinTransaction` keeps `Models\Finalization` in its signature until a major release: an app that adopts finalize widens its implementation's parameter to `Contracts\Finalization`. A subclass of `WorkspaceNotes` that overrides `canChange()` with the kit's `Note` must widen it to `Model&Contracts\Note`.
+  Features affected: deliver, finalize, notes, session-ui
+- The kit's models keep their classes and tables; their behaviour moved into the traits, which set the timestamps, `$guarded` and casts the kit relies on.
+
+### Fixed
+
+- **Account and workspace deletion fail closed on a missing table (#967).** `DeleteAccount`, `DeleteWorkspace` (and `FinishWorkspaceDeletion`) and `UserState::forgetAll()` skipped a table that didn't exist. A rename that never ran, or a table that was never migrated, could leave that feature's personal data behind while the deletion reported success. A table is now skipped only when its feature is off. For a feature that is on, a missing table throws, the deletion's transaction rolls back, and nothing is deleted. `Kit::enabled()` reads the Registry's features (else `kit.features`).
+  Features affected: session-ui, workspaces
+  - **Tests.** `test:lifecycle-pages` (SQLite, and PostgreSQL in CI): with notes on and `kit_notes` renamed away, a workspace deletion is a 500 and keeps the workspace, its memberships and its note intents. With notes off, the same deletion succeeds. With session-ui on and `kit_security_events` renamed away, an account deletion is a 500 and keeps the user and their memberships. Each fails when the missing table is skipped silently, as before.
+
+### Deprecated
+
+- The kit's concrete domain models, for new code: `Deliver\Models\DeliveryRecord`, `DeliveryRecipient` and `DeliveryEvent`, `Finalize\Models\Finalization` and `Confirmation`, `Notes\Models\Note`, `SessionUi\Models\SecurityEvent` and `Media\Models\MediaUpload`. They stay, as the default for an app that hasn't adopted. Reach the model through `Kit::model()`.
+
+### Upgrading
+
+Nothing is required: `composer update` and the app runs as before. To make a feature's tables the app's, one feature at a time:
+
+1. **Run `php artisan kit:scaffold <feature> --adopt`** for each of the affected features you use: `deliver`, `finalize`, `notes`, `access` and `session-ui`. It writes the models, one migration and the `config/kit.php` entries, or refuses with the reason and writes nothing. A legacy `notes` table beside `kit_notes` is a conflict: import it first (`kit:notes:import --from=notes`), then drop or rename it.
+2. **Review the migration** it wrote, and the models. Commit them with `config/kit.php`.
+3. **Run `php artisan migrate`.** It renames the feature's tables (and creates them on a fresh database). Then `php artisan kit:scaffold <feature> --check` should report every table ok.
+4. Update your own code that names a renamed table (`Kit::table('delivery')`), types a closure, listener or `FinalizesWithinTransaction` implementation against the kit's class (`Contracts\...`), or overrides `WorkspaceNotes::canChange()`.
+
+To undo an adoption, roll its migration back, then remove its `kit.models` and `kit.tables` entries.
+
 ## v0.18.1
 
 Features affected: none.

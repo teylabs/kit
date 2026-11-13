@@ -15,7 +15,7 @@ use Illuminate\Support\Collection;
  * none of the package's twins, and an app's copy, edited or not, stays the one that runs. `migrate`, `migrate:status` and the rollbacks all
  * read this one list.
  *
- * It also keeps the 0.18 renames independent of their date (asWritten()).
+ * It also keeps the 0.18 renames independent of their date (asWritten()), and leaves out an adopted feature's domain tables (DOMAIN).
  */
 final class PackageMigrator extends Migrator
 {
@@ -24,6 +24,20 @@ final class PackageMigrator extends Migrator
         'access' => '2026_11_14_000304_rename_access_tables',
         'session-ui' => '2026_11_14_000506_rename_session_ui_tables',
         'mcp' => '2026_11_14_000605_rename_mcp_tables',
+    ];
+
+    /**
+     * The migrations that create and change each feature's domain tables, the first creating them (since 0.19 the app's own once it adopts the
+     * feature, DomainModels). For an adopted feature they are listed only where that first one has run: on a fresh database the app's adopt migration
+     * creates the tables under the app's names, and on one where the kit created them every one of them stays listed (a pending one runs, on the kit's
+     * names, before the adopt migration renames them; one that ran stays for the rollbacks).
+     */
+    public const DOMAIN = [
+        'access' => ['create_kit_access_tables.php'],
+        'session-ui' => ['create_kit_security_events_table.php', 'add_user_foreign_key_to_kit_security_events_table.php'],
+        'notes' => ['create_kit_notes_table.php'],
+        'finalize' => ['create_kit_finalize_tables.php', 'add_snapshot_to_kit_finalizations.php'],
+        'deliver' => ['create_kit_deliver_tables.php', 'add_finalization_ref_to_kit_deliveries.php'],
     ];
 
     /** @var array<string, string> feature id => the app's copies directory of that feature, for each feature registered */
@@ -74,7 +88,30 @@ final class PackageMigrator extends Migrator
             $files += array_filter(parent::getMigrationFiles([self::directory($id)]), fn (string $file): bool => ! in_array(self::name($file), $own, true));
         }
 
-        return (new Collection($files))->sortBy(fn (string $file, string $name): string => $name)->all();
+        return (new Collection($this->withoutAdopted($files)))->sortBy(fn (string $file, string $name): string => $name)->all();
+    }
+
+    /**
+     * $files less each adopted feature's domain migrations (DOMAIN) where the first of them never ran, from the package or the app's copies.
+     *
+     * @param  array<string, string>  $files
+     * @return array<string, string>
+     */
+    private function withoutAdopted(array $files): array
+    {
+        $adopted = array_values(array_filter(array_keys($this->copies), fn (string $id): bool => isset(self::DOMAIN[$id]) && DomainModels::adopted($id)));
+        if ($adopted === []) {
+            return $files;
+        }
+        $ran = $this->repositoryExists() ? array_map(fn (string $migration): string => self::name($migration.'.php'), $this->repository->getRan()) : [];
+        $names = [];
+        foreach ($adopted as $id) {
+            if (! in_array(self::DOMAIN[$id][0], $ran, true)) {
+                $names = [...$names, ...self::DOMAIN[$id]];
+            }
+        }
+
+        return array_filter($files, fn (string $file): bool => ! in_array(self::name($file), $names, true));
     }
 
     protected function runUp($file, $batch, $pretend)

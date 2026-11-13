@@ -11,6 +11,7 @@ use Tey\Kit\Features\Access\Console\SyncPermissionsCommand;
 use Tey\Kit\Features\Access\Policies\WorkspacePolicy;
 use Tey\Kit\Features\Core\Contributes;
 use Tey\Kit\Features\Core\Defaults;
+use Tey\Kit\Features\Core\Kit;
 use Tey\Kit\Features\Core\Registry;
 
 final class AccessProvider extends ServiceProvider implements Contributes
@@ -24,6 +25,8 @@ final class AccessProvider extends ServiceProvider implements Contributes
 
     public function register(): void
     {
+        // The kit's own domain models and tables, until the app names its own in kit.models and kit.tables (Kit::model(), Kit::table()).
+        Kit::defaults([], ['entitlement' => 'entitlements', 'complimentary_grant' => 'complimentary_grants']);
         Defaults::apply($this->app, 'pennant', 'laravel/pennant');
         // One instance per request, so its gate results are memoized for the request and no longer: the shell, the page's layout and the page share them.
         $this->app->scoped(Permissions::class);

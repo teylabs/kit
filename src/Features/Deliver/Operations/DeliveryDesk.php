@@ -12,6 +12,7 @@ use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
 use Tey\Kit\Features\Access\Access;
 use Tey\Kit\Features\Core\Data\Action;
+use Tey\Kit\Features\Core\Kit;
 use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\Deliver\Data\DeliverPreview;
@@ -29,14 +30,10 @@ use Tey\Kit\Features\Deliver\Events\DeliveryCancelled;
 use Tey\Kit\Features\Deliver\Events\DeliveryDelivered;
 use Tey\Kit\Features\Deliver\Events\DeliveryLinkRevoked;
 use Tey\Kit\Features\Deliver\Events\DeliveryOpened;
-use Tey\Kit\Features\Workspaces\Rls;
 use Tey\Kit\Features\Deliver\Events\DeliverySent;
-use Tey\Kit\Features\Deliver\Models\DeliveryEvent;
-use Tey\Kit\Features\Deliver\Models\DeliveryRecipient;
-use Tey\Kit\Features\Deliver\Models\DeliveryRecord;
 use Tey\Kit\Features\Deliver\SentMessages;
 use Tey\Kit\Features\Finalize\Flows;
-use Tey\Kit\Features\Finalize\Models\Finalization;
+use Tey\Kit\Features\Workspaces\Rls;
 use Tey\Kit\Features\Workspaces\Workspaces;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
@@ -115,7 +112,7 @@ final class DeliveryDesk
             $subject = $this->subject($delivery, $key, lock: true);
             $this->authorize($principal, $delivery, $subject, $resentFrom === null ? 'send' : 'resend');
             // The same claim key again is the same request: answer what it already did, never a second email.
-            $existing = DeliveryRecord::query()->where('claim_key', $claimKey)->first();
+            $existing = Kit::model('delivery')::query()->where('claim_key', $claimKey)->first();
             if ($existing !== null) {
                 if ($existing->definition !== $delivery->name || $existing->subject_key !== $delivery->keyOf($subject)) {
                     throw new RuntimeException('deliver_claim_key_reused');
@@ -138,7 +135,7 @@ final class DeliveryDesk
             // Built once before anything is written, so a Notification that cannot render refuses the send instead of recording one.
             $this->build($delivery, $subject, $draft, null, $test, null);
             $finalization = $delivery->finalizeFlowName() === null ? null : $this->finalizationOf($delivery, $subject);
-            $record = DeliveryRecord::query()->create([
+            $record = Kit::model('delivery')::query()->create([
                 'definition' => $delivery->name, 'subject_key' => $delivery->keyOf($subject), 'state' => $draft['sendAt'] === null ? 'sending' : 'scheduled', 'test' => $test,
                 'claim_key' => $claimKey, 'created_by' => $principal->actorId, 'channel' => $channel, 'created_at' => now(), 'send_at' => $draft['sendAt'],
                 'claimed_at' => $draft['sendAt'] === null ? now() : null, 'subject_line' => $draft['subject'], 'message' => $draft['message'],
@@ -146,12 +143,12 @@ final class DeliveryDesk
             ]);
             foreach (['to', 'cc', 'bcc'] as $role) {
                 foreach ($draft[$role] as $address) {
-                    DeliveryRecipient::query()->create(['delivery_id' => $record->getKey(), 'role' => $role, 'address' => $address, 'name' => $draft['names'][$address] ?? null]);
+                    Kit::model('delivery_recipient')::query()->create(['delivery_id' => $record->getKey(), 'role' => $role, 'address' => $address, 'name' => $draft['names'][$address] ?? null]);
                 }
             }
             // The definition's copies (CopiesSends) ride every real send, scheduled ones included; a test send has none.
             foreach ($test ? [] : $delivery->copiesFor($subject, [...$draft['to'], ...$draft['cc'], ...$draft['bcc']]) as $address) {
-                DeliveryRecipient::query()->create(['delivery_id' => $record->getKey(), 'role' => 'copy', 'address' => $address, 'name' => null]);
+                Kit::model('delivery_recipient')::query()->create(['delivery_id' => $record->getKey(), 'role' => 'copy', 'address' => $address, 'name' => null]);
             }
             if ($original !== null && $revokePrevious && $original->token_hash !== null && $original->token_revoked_at === null) {
                 $original->forceFill(['token_revoked_at' => now()])->save();
@@ -183,7 +180,7 @@ final class DeliveryDesk
             $this->fresh($delivery, $subject, $revision);
             $record = $this->record($delivery, $subject, $deliveryId);
             // Only while it is still scheduled: a row the sweep already claimed is on its way.
-            $updated = DeliveryRecord::query()->whereKey($record->getKey())->where('state', 'scheduled')
+            $updated = Kit::model('delivery')::query()->whereKey($record->getKey())->where('state', 'scheduled')
                 ->update(['state' => 'cancelled', 'cancelled_by' => $principal->actorId, 'cancelled_at' => now(), 'cancel_reason' => 'Cancelled.']);
             if ($updated !== 1) {
                 throw new RuntimeException('deliver_not_cancellable');
@@ -227,12 +224,12 @@ final class DeliveryDesk
     public function sweep(?CarbonImmutable $now = null): array
     {
         $now ??= CarbonImmutable::now();
-        $unknown = DB::table('kit_deliveries')->where('state', 'sending')->where('claimed_at', '<', $now->subMinutes(self::STUCK_MINUTES))
+        $unknown = DB::table(Kit::table('delivery'))->where('state', 'sending')->where('claimed_at', '<', $now->subMinutes(self::STUCK_MINUTES))
             ->update(['state' => 'unknown', 'error' => 'Stopped mid-send. Check with the mail provider before sending again.']);
         $counts = ['sent' => 0, 'cancelled' => 0, 'unknown' => $unknown];
-        $due = DB::table('kit_deliveries')->where('state', 'scheduled')->where('send_at', '<=', $now)->orderBy('id')->get(['id', 'workspace_id']);
+        $due = DB::table(Kit::table('delivery'))->where('state', 'scheduled')->where('send_at', '<=', $now)->orderBy('id')->get(['id', 'workspace_id']);
         foreach ($due as $row) {
-            if (DB::table('kit_deliveries')->where('id', $row->id)->where('state', 'scheduled')->update(['state' => 'sending', 'claimed_at' => $now]) !== 1) {
+            if (DB::table(Kit::table('delivery'))->where('id', $row->id)->where('state', 'scheduled')->update(['state' => 'sending', 'claimed_at' => $now]) !== 1) {
                 continue;
             }
             $outcome = Workspaces::run((int) $row->workspace_id, function () use ($row): string {
@@ -254,35 +251,35 @@ final class DeliveryDesk
         if (! in_array($event, ['delivered', 'bounced', 'complained'], true)) {
             throw new \InvalidArgumentException('A delivery event is delivered, bounced or complained.');
         }
-        $row = DB::table('kit_deliveries')->where('provider_message_id', $messageId)->first(['id', 'workspace_id', 'definition']);
+        $row = DB::table(Kit::table('delivery'))->where('provider_message_id', $messageId)->first(['id', 'workspace_id', 'definition']);
         if ($row === null) {
             return false;
         }
 
         return Workspaces::run((int) $row->workspace_id, function () use ($row, $address, $event, $providerEventId, $at): bool {
-            $recipient = DeliveryRecipient::query()->where('delivery_id', $row->id)->where('address', strtolower(trim($address)))->first();
+            $recipient = Kit::model('delivery_recipient')::query()->where('delivery_id', $row->id)->where('address', strtolower(trim($address)))->first();
             if ($recipient === null) {
                 return false;
             }
             $at ??= CarbonImmutable::now();
             try {
-                DeliveryEvent::query()->create(['recipient_id' => $recipient->getKey(), 'event' => $event, 'provider_event_id' => $providerEventId, 'occurred_at' => $at]);
+                Kit::model('delivery_event')::query()->create(['recipient_id' => $recipient->getKey(), 'event' => $event, 'provider_event_id' => $providerEventId, 'occurred_at' => $at]);
             } catch (QueryException) {
                 return false;
             }
             // A bounce or complaint is final for that address; a late "delivered" does not undo it. Only the first "delivered" moves the status, by a
             // conditional update, so two at once dispatch one DeliveryDelivered.
             if ($event === 'delivered') {
-                $first = DeliveryRecipient::query()->whereKey($recipient->getKey())->whereNotIn('status', ['delivered', 'bounced', 'complained'])->update(['status' => 'delivered', 'last_event_at' => $at]) === 1;
+                $first = Kit::model('delivery_recipient')::query()->whereKey($recipient->getKey())->whereNotIn('status', ['delivered', 'bounced', 'complained'])->update(['status' => 'delivered', 'last_event_at' => $at]) === 1;
                 if ($first) {
-                    [$record, $recipient] = [DeliveryRecord::query()->findOrFail($row->id), $recipient->refresh()];
+                    [$record, $recipient] = [Kit::model('delivery')::query()->findOrFail($row->id), $recipient->refresh()];
                     DB::connection(Rls::connection())->afterCommit(fn () => event(new DeliveryDelivered((string) $row->definition, $record, $recipient)));
                 } else {
-                    DeliveryRecipient::query()->whereKey($recipient->getKey())->where('status', 'delivered')->update(['last_event_at' => $at]);
+                    Kit::model('delivery_recipient')::query()->whereKey($recipient->getKey())->where('status', 'delivered')->update(['last_event_at' => $at]);
                 }
             } else {
                 $recipient->forceFill(['status' => $event, 'last_event_at' => $at])->save();
-                event(new DeliveryBounced((string) $row->definition, DeliveryRecord::query()->findOrFail($row->id), $recipient));
+                event(new DeliveryBounced((string) $row->definition, Kit::model('delivery')::query()->findOrFail($row->id), $recipient));
             }
 
             return true;
@@ -297,7 +294,7 @@ final class DeliveryDesk
             if ($delivery->finalizeFlowName() !== $flow) {
                 continue;
             }
-            foreach (DeliveryRecord::query()->where('definition', $delivery->name)->where('subject_key', $delivery->keyOf($subject))->where('state', 'scheduled')->get() as $record) {
+            foreach (Kit::model('delivery')::query()->where('definition', $delivery->name)->where('subject_key', $delivery->keyOf($subject))->where('state', 'scheduled')->get() as $record) {
                 $cancelled += $this->cancelAutomatically($delivery, $record, 'Un-finalized before it was sent.') ? 1 : 0;
             }
         }
@@ -313,7 +310,7 @@ final class DeliveryDesk
      */
     public function open(int $deliveryId, string $token, bool $signed = false, bool $signatureExpired = false, mixed $user = null): Response
     {
-        $row = DB::table('kit_deliveries')->where('id', $deliveryId)->first(['workspace_id', 'token_hash', 'token_expires_at', 'token_revoked_at']);
+        $row = DB::table(Kit::table('delivery'))->where('id', $deliveryId)->first(['workspace_id', 'token_hash', 'token_expires_at', 'token_revoked_at']);
         $matches = hash_equals(is_string($row?->token_hash) ? $row->token_hash : str_repeat('0', 64), hash('sha256', $token));
         if (! $signed || $row === null || $row->token_hash === null || $token === '' || ! $matches) {
             abort(404);
@@ -325,14 +322,14 @@ final class DeliveryDesk
         };
 
         return Workspaces::run((int) $row->workspace_id, function () use ($deliveryId, $why, $user): Response {
-            $record = DeliveryRecord::query()->findOrFail($deliveryId);
+            $record = Kit::model('delivery')::query()->findOrFail($deliveryId);
             $delivery = $this->deliveries->get($record->definition);
             $subject = $delivery->find($record->subject_key) ?? abort(404);
             if ($why !== null) {
                 $response = $this->memberRedirect($delivery, $subject, $user) ?? $delivery->expiredResponse($subject, $record, $why);
             } else {
                 // The link is per delivery, so an open names no recipient. Only the update that sets first_opened_at dispatches DeliveryOpened.
-                if ($record->first_opened_at === null && DeliveryRecord::query()->whereKey($deliveryId)->whereNull('first_opened_at')->update(['first_opened_at' => now()]) === 1) {
+                if ($record->first_opened_at === null && Kit::model('delivery')::query()->whereKey($deliveryId)->whereNull('first_opened_at')->update(['first_opened_at' => now()]) === 1) {
                     $opened = $record->fresh();
                     DB::connection(Rls::connection())->afterCommit(fn () => event(new DeliveryOpened($record->definition, $opened)));
                 }
@@ -367,11 +364,11 @@ final class DeliveryDesk
     /** One scheduled row the sweep claimed: re-check everything, then send or cancel. */
     private function runScheduled(int $id): string
     {
-        $record = DeliveryRecord::query()->findOrFail($id);
+        $record = Kit::model('delivery')::query()->findOrFail($id);
         try {
             $delivery = $this->deliveries->get($record->definition);
         } catch (RuntimeException) {
-            DeliveryRecord::query()->whereKey($id)->update(['state' => 'cancelled', 'cancelled_at' => now(), 'cancel_reason' => 'Its delivery is no longer defined.']);
+            Kit::model('delivery')::query()->whereKey($id)->update(['state' => 'cancelled', 'cancelled_at' => now(), 'cancel_reason' => 'Its delivery is no longer defined.']);
 
             return 'cancelled';
         }
@@ -394,9 +391,9 @@ final class DeliveryDesk
         return $record->refresh()->state === 'sent' ? 'sent' : 'unknown';
     }
 
-    private function cancelAutomatically(Delivery $delivery, DeliveryRecord $record, string $reason, string $from = 'scheduled'): bool
+    private function cancelAutomatically(Delivery $delivery, Model $record, string $reason, string $from = 'scheduled'): bool
     {
-        if (DeliveryRecord::query()->whereKey($record->getKey())->where('state', $from)->update(['state' => 'cancelled', 'cancelled_at' => now(), 'cancel_reason' => $reason]) !== 1) {
+        if (Kit::model('delivery')::query()->whereKey($record->getKey())->where('state', $from)->update(['state' => 'cancelled', 'cancelled_at' => now(), 'cancel_reason' => $reason]) !== 1) {
             return false;
         }
         event(new DeliveryCancelled($delivery->name, $record->refresh(), $reason, true));
@@ -405,7 +402,7 @@ final class DeliveryDesk
     }
 
     /** Sends a claimed row. A build failure is `failed` (nothing left); a transport failure is `unknown` (it may have left) and is never retried. */
-    private function deliver(Delivery $delivery, Model $subject, DeliveryRecord $record): void
+    private function deliver(Delivery $delivery, Model $subject, Model $record): void
     {
         $roles = $record->recipients()->get()->groupBy('role')->map(fn ($rows): array => $rows->pluck('address')->all());
         $link = null;
@@ -433,7 +430,7 @@ final class DeliveryDesk
         }
         DB::transaction(function () use ($record): void {
             $record->forceFill(['state' => 'sent', 'sent_at' => now(), 'provider_message_id' => $this->sent->pull((int) $record->getKey())])->save();
-            DeliveryRecipient::query()->where('delivery_id', $record->getKey())->where('status', 'pending')->update(['status' => 'sent']);
+            Kit::model('delivery_recipient')::query()->where('delivery_id', $record->getKey())->where('status', 'pending')->update(['status' => 'sent']);
         });
         event(new DeliverySent($delivery->name, $record->refresh()));
     }
@@ -510,7 +507,7 @@ final class DeliveryDesk
         return ['to' => $to, 'cc' => $cc, 'bcc' => $bcc, 'names' => $options->map(fn (array $option): ?string => $option['name'])->all(), 'subject' => $subjectLine, 'message' => $message, 'sendAt' => $sendAt];
     }
 
-    private function goneRecipient(Delivery $delivery, Model $subject, DeliveryRecord $record): ?string
+    private function goneRecipient(Delivery $delivery, Model $subject, Model $record): ?string
     {
         $options = collect($delivery->recipientOptions($subject))->pluck('address')->all();
         foreach ($record->recipients()->whereIn('role', ['to', 'cc'])->pluck('address') as $address) {
@@ -529,11 +526,11 @@ final class DeliveryDesk
         $revision = $this->revision($delivery, $subject);
         $canSend = $this->allowed($principal, $delivery, $subject, 'send');
         $canResend = $this->allowed($principal, $delivery, $subject, 'resend');
-        $records = DeliveryRecord::query()->with('recipients')->where('definition', $delivery->name)->where('subject_key', $key)->orderByDesc('id')->limit(50)->get();
+        $records = Kit::model('delivery')::query()->with('recipients')->where('definition', $delivery->name)->where('subject_key', $key)->orderByDesc('id')->limit(50)->get();
         $names = $this->names($records->pluck('created_by')->all());
         $current = $delivery->finalizeFlowName() === null ? null : $this->finalizationOf($delivery, $subject);
         $currentRef = $delivery->finalizationRefOf($subject);
-        $views = $records->map(function (DeliveryRecord $record) use ($delivery, $subject, $names, $current, $currentRef, $canSend, $canResend, $revision): DeliveryView {
+        $views = $records->map(function (Model $record) use ($delivery, $subject, $names, $current, $currentRef, $canSend, $canResend, $revision): DeliveryView {
             $actions = [];
             if ($record->state === 'scheduled' && $canSend) {
                 $actions[] = new Action('Cancel', $this->url($delivery, $subject, 'deliveries/'.$record->getKey().'/cancel', $revision), 'post', key: 'cancel-'.$record->getKey());
@@ -554,7 +551,7 @@ final class DeliveryDesk
 
             return new DeliveryView((int) $record->getKey(), (string) $record->state, (bool) $record->test, $names[$record->created_by] ?? 'Someone', (string) $record->channel,
                 $record->created_at->toIso8601String(), $record->send_at?->toIso8601String(), $record->sent_at?->toIso8601String(), (string) $record->subject_line,
-                (string) $record->attachment, $record->recipients->map(fn (DeliveryRecipient $r): DeliveryRecipientView => new DeliveryRecipientView((string) $r->role, (string) $r->address, $r->name, (string) $r->status))->all(),
+                (string) $record->attachment, $record->recipients->map(fn (Model $r): DeliveryRecipientView => new DeliveryRecipientView((string) $r->role, (string) $r->address, $r->name, (string) $r->status))->all(),
                 $this->stillFinal($delivery, $record, $current, $currentRef), $linkActive, $record->first_opened_at?->toIso8601String(), $note,
                 $record->resent_from_id, $actions);
         })->all();
@@ -577,8 +574,8 @@ final class DeliveryDesk
     private function revision(Delivery $delivery, Model $subject): string
     {
         $key = $delivery->keyOf($subject);
-        $history = DeliveryRecord::query()->where('definition', $delivery->name)->where('subject_key', $key)->orderBy('id')->get(['id', 'state', 'token_revoked_at'])
-            ->map(fn (DeliveryRecord $r): array => [$r->getKey(), $r->state, $r->token_revoked_at?->getTimestamp()])->all();
+        $history = Kit::model('delivery')::query()->where('definition', $delivery->name)->where('subject_key', $key)->orderBy('id')->get(['id', 'state', 'token_revoked_at'])
+            ->map(fn (Model $r): array => [$r->getKey(), $r->state, $r->token_revoked_at?->getTimestamp()])->all();
         $gate = $delivery->gateFor($subject);
 
         return hash('sha256', json_encode([$delivery->name, $key, $gate, $delivery->versionOf($subject), array_column($delivery->recipientOptions($subject), 'address'), $history], JSON_THROW_ON_ERROR));
@@ -591,14 +588,14 @@ final class DeliveryDesk
         }
     }
 
-    private function record(Delivery $delivery, Model $subject, int $id): DeliveryRecord
+    private function record(Delivery $delivery, Model $subject, int $id): Model
     {
-        return DeliveryRecord::query()->where('definition', $delivery->name)->where('subject_key', $delivery->keyOf($subject))->whereKey($id)->first()
+        return Kit::model('delivery')::query()->where('definition', $delivery->name)->where('subject_key', $delivery->keyOf($subject))->whereKey($id)->first()
             ?? throw new RuntimeException('deliver_not_found');
     }
 
     /** Null when the send recorded no finalization; with finalizationRef() the stored ref against the current one, else the kit finalization. */
-    private function stillFinal(Delivery $delivery, DeliveryRecord $record, ?Finalization $current, ?string $currentRef): ?bool
+    private function stillFinal(Delivery $delivery, Model $record, ?Model $current, ?string $currentRef): ?bool
     {
         if ($delivery->resolvesFinalization() && $record->finalization_ref !== null) {
             return $currentRef !== null && hash_equals($record->finalization_ref, $currentRef);
@@ -607,11 +604,11 @@ final class DeliveryDesk
         return $record->finalization_id === null ? null : $current?->getKey() === $record->finalization_id;
     }
 
-    private function finalizationOf(Delivery $delivery, Model $subject): ?Finalization
+    private function finalizationOf(Delivery $delivery, Model $subject): ?Model
     {
         $flow = (string) $delivery->finalizeFlowName();
 
-        return Finalization::query()->where('flow', $flow)->where('subject_key', app(Flows::class)->get($flow)->keyOf($subject))->whereNull('unfinalized_at')->orderByDesc('id')->first();
+        return Kit::model('finalization')::query()->where('flow', $flow)->where('subject_key', app(Flows::class)->get($flow)->keyOf($subject))->whereNull('unfinalized_at')->orderByDesc('id')->first();
     }
 
     private function subject(Delivery $delivery, string $key, bool $lock = false): Model

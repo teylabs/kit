@@ -7,6 +7,7 @@ use Illuminate\Mail\Events\MessageSent;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use Tey\Kit\Features\Core\Contributes;
+use Tey\Kit\Features\Core\Kit;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Deliver\Console\SweepDeliveriesCommand;
 use Tey\Kit\Features\Deliver\Integrations\Mcp\CancelDelivery;
@@ -15,6 +16,9 @@ use Tey\Kit\Features\Deliver\Integrations\Mcp\ReadDeliveries;
 use Tey\Kit\Features\Deliver\Integrations\Mcp\ResendDelivery;
 use Tey\Kit\Features\Deliver\Integrations\Mcp\RevokeDeliveryLink;
 use Tey\Kit\Features\Deliver\Integrations\Mcp\SendDelivery;
+use Tey\Kit\Features\Deliver\Models\DeliveryEvent;
+use Tey\Kit\Features\Deliver\Models\DeliveryRecipient;
+use Tey\Kit\Features\Deliver\Models\DeliveryRecord;
 use Tey\Kit\Features\Deliver\Operations\DeliveryDesk;
 use Tey\Kit\Features\Finalize\Events\Unfinalized;
 
@@ -54,12 +58,16 @@ final class DeliverProvider extends ServiceProvider implements Contributes
 
     public function register(): void
     {
+        // The kit's own domain models and tables, until the app names its own in kit.models and kit.tables (Kit::model(), Kit::table()).
+        Kit::defaults(['delivery' => DeliveryRecord::class, 'delivery_recipient' => DeliveryRecipient::class, 'delivery_event' => DeliveryEvent::class], []);
         $this->app->singleton(Deliveries::class);
         $this->app->singleton(SentMessages::class);
     }
 
     public function boot(): void
     {
+        // Stored rows name these models by alias, never by class, whichever class config names (kit.models).
+        Kit::aliases('delivery', 'delivery_recipient', 'delivery_event');
         Event::listen(MessageSent::class, fn (MessageSent $event) => $this->app->make(SentMessages::class)->record($event));
         // Un-finalizing a subject cancels its scheduled sends; what was already delivered stays as it is.
         Event::listen(Unfinalized::class, fn (Unfinalized $event) => $this->app->make(DeliveryDesk::class)->cancelForUnfinalized($event->flow, $event->subject));

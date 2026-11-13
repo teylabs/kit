@@ -9,6 +9,14 @@ use Illuminate\Database\Schema\Blueprint;
  */
 final class MediaUploads
 {
+    /** The upload model: `kit.models.media_upload`, else the kit's own (since 0.19; the table stays `kit.media.uploads_table`). @return class-string<Models\MediaUpload|Contracts\MediaUpload> */
+    public static function model(): string
+    {
+        $configured = config('kit.models.media_upload');
+
+        return is_string($configured) && $configured !== '' ? $configured : Models\MediaUpload::class;
+    }
+
     public static function table(): string
     {
         return (string) config('kit.media.uploads_table', 'kit_media_uploads');

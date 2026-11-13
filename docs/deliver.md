@@ -29,10 +29,10 @@ A definition can answer with its own page instead:
 ```php
 Delivery::define('report.deliver')
     // …
-    ->expiredPage(fn (Report $report, DeliveryRecord $delivery, string $why): Response => response()->view('reports.link-gone', ['why' => $why], 410));
+    ->expiredPage(fn (Report $report, \Tey\Kit\Features\Deliver\Contracts\Delivery $delivery, string $why): Response => response()->view('reports.link-gone', ['why' => $why], 410));
 ```
 
-`$why` is `'expired'` or `'revoked'`. The status is the page's own (return a 410 to keep the contract; a redirect is allowed). It runs inside the delivery's workspace. Keep what it shows to what anyone holding the old link may see: the link is still in the customer's mailbox.
+`$delivery` is the delivery model (`Tey\Kit\Features\Deliver\Contracts\Delivery`, the kit's `DeliveryRecord` until the app adopts deliver). `$why` is `'expired'` or `'revoked'`. The status is the page's own (return a 410 to keep the contract; a redirect is allowed). It runs inside the delivery's workspace. Keep what it shows to what anyone holding the old link may see: the link is still in the customer's mailbox.
 
 ### Signed-in members go to the subject
 
@@ -80,7 +80,7 @@ A definition without `copySends()` sends exactly as before.
 
 ## Finalizing through your own model
 
-`finalizeFlow()` records the kit finalization each send went out under (`finalization_id`) and reads `kit_finalizations` to tell whether it is still final. An app that finalizes through its own model (a `finalized_at` column, say) has no `kit_finalizations` row, so give the definition a `ResolvesFinalization` (or a closure of the same shape) that names what is final now, and gate it with `gate()`:
+`finalizeFlow()` records the kit finalization each send went out under (`finalization_id`) and reads the finalization table (`kit_finalizations`, or `finalizations` once the app adopted finalize: docs/domain-tables.md) to tell whether it is still final. An app that finalizes through its own model (a `finalized_at` column, say) has no `kit_finalizations` row, so give the definition a `ResolvesFinalization` (or a closure of the same shape) that names what is final now, and gate it with `gate()`:
 
 ```php
 use Tey\Kit\Features\Deliver\ResolvesFinalization;
@@ -103,7 +103,7 @@ A send, a resend and a scheduled send store the ref as `finalization_ref` on the
 `finalization_ref` is the column to backfill for rows sent before the definition had a ref, which otherwise read "Sent without finalizing.". For example, in a migration of your own:
 
 ```php
-DB::table('kit_deliveries')
+DB::table('kit_deliveries') // Kit::table('delivery') once adopted
     ->join('assignments', 'assignments.id', '=', 'kit_deliveries.subject_key')
     ->where('kit_deliveries.definition', 'assignment.deliver')
     ->where('kit_deliveries.test', false)
@@ -122,7 +122,7 @@ Build the ref exactly as `finalizationRef()` does, or a backfilled row reads as 
 
 ## Events
 
-Deliver dispatches these Laravel events from `Tey\Kit\Features\Deliver\Events`, for an app to tell people or mirror delivery activity into its own feed. Each carries `definition` (the definition's name) and `delivery`, the `DeliveryRecord`, whose `subject_key` is the subject's key.
+Deliver dispatches these Laravel events from `Tey\Kit\Features\Deliver\Events`, for an app to tell people or mirror delivery activity into its own feed. Each carries `definition` (the definition's name) and `delivery`, the delivery model (`Tey\Kit\Features\Deliver\Contracts\Delivery`: the kit's `DeliveryRecord`, or the app's own once it adopted deliver, docs/domain-tables.md), whose `subject_key` is the subject's key.
 
 | Event | When | Also carries |
 | --- | --- | --- |

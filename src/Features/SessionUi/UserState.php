@@ -3,7 +3,7 @@
 namespace Tey\Kit\Features\SessionUi;
 
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
+use Tey\Kit\Features\Core\Kit;
 
 /** What the kit remembers about a person (`user_state`): own state (workspace 0) or state that belongs to one workspace. Server-side, so it follows them across devices. */
 final class UserState
@@ -30,10 +30,10 @@ final class UserState
         DB::table('user_state')->where(['user_id' => $userId, 'workspace_id' => $workspaceId, 'key' => $key])->delete();
     }
 
-    /** Everything remembered about a person: it goes with their account. */
+    /** Everything remembered about a person: it goes with their account. Without session-ui there is nothing; with it, a missing table throws (#967). */
     public static function forgetAll(int $userId): void
     {
-        if (Schema::hasTable('user_state')) {
+        if (Kit::present('session-ui', 'user_state')) {
             DB::table('user_state')->where('user_id', $userId)->delete();
         }
     }

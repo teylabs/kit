@@ -1,0 +1,15 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Tey\Kit\Features\Finalize\Concerns\IsFinalization;
+use Tey\Kit\Features\Finalize\Contracts\Finalization as FinalizationContract;
+
+/** One finalization of a subject, and its undoing if it was undone. The kit's behaviour is IsFinalization; the table and the model are the app's (kit.models). */
+class Finalization extends Model implements FinalizationContract
+{
+    use IsFinalization;
+
+    protected $table = 'finalizations';
+}

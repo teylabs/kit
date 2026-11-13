@@ -14,6 +14,7 @@ use Tey\Concierge\Enums\AccountStatus;
 use Tey\Concierge\Enums\MembershipStatus;
 use Tey\Concierge\Support\ConciergeModels;
 use Tey\Concierge\Support\UserSessions;
+use Tey\Kit\Features\Core\Kit;
 use Tey\Kit\Features\SessionUi\Account\AnonymiseAccountRow;
 use Tey\Kit\Features\SessionUi\Contracts\DefersAccountPurge;
 use Tey\Kit\Features\SessionUi\Contracts\DeletesAccountRow;
@@ -172,7 +173,8 @@ class DeleteAccount
     }
 
     /**
-     * @internal The kit's and Concierge's rows for the person, then the user row (FinishAccountDeletion's too).
+     * @internal The kit's and Concierge's rows for the person, then the user row (FinishAccountDeletion's too). A table of a feature that is off is
+     * skipped; a missing table of a feature that is on throws, so the deletion rolls back rather than leave that feature's rows behind (#967).
      *
      * @param  list<int|string>  $membershipIds
      */
@@ -186,20 +188,18 @@ class DeleteAccount
             ConciergeModels::membership()::query()->whereKey($membershipIds)->delete();
         }
         ConciergeModels::account()::query()->where('user_id', $id)->delete();
-        foreach (['capability_overrides' => 'user_id', 'user_state' => 'user_id', 'kit_security_events' => 'user_id'] as $table => $column) {
-            if (Schema::hasTable($table)) {
-                DB::table($table)->where($column, $id)->delete();
+        foreach ([['access', 'capability_overrides'], ['session-ui', 'user_state'], ['session-ui', Kit::table('security_event')]] as [$feature, $table]) {
+            if (Kit::present($feature, $table)) {
+                DB::table($table)->where('user_id', $id)->delete();
             }
         }
-        if (Schema::hasTable('connections')) {
-            if (Schema::hasTable('mcp_intents')) {
-                DB::table('mcp_intents')->whereIn('connection_id', DB::table('connections')->where('actor_id', $id)->select('id'))->delete();
-            }
+        if (Kit::present('mcp', 'connections') && Kit::present('mcp', 'mcp_intents')) {
+            DB::table('mcp_intents')->whereIn('connection_id', DB::table('connections')->where('actor_id', $id)->select('id'))->delete();
             DB::table('connections')->where('actor_id', $id)->delete();
         }
         foreach (['model_has_roles', 'model_has_permissions'] as $key) {
             $table = (string) config('permission.table_names.'.$key, $key);
-            if (Schema::hasTable($table)) {
+            if (Kit::present('workspaces', $table)) {
                 DB::table($table)->where(config('permission.column_names.model_morph_key', 'model_id'), $id)->where('model_type', $user->getMorphClass())->delete();
             }
         }

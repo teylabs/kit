@@ -213,8 +213,26 @@ return [
         'crop_to_ratio' => true,
     ],
 
-    // The host's user model. Null uses the `users` auth provider's model.
-    'models' => ['user' => null],
+    // The models the kit reads and writes. `user`: the host's user model; null uses the `users` auth provider's model. `workspace`: null follows
+    // concierge.models.workspace and multitenancy.tenant_model (set there). The domain models (since 0.19) are the kit's own classes, on the kit_ tables, until
+    // the app adopts their feature: `php artisan kit:scaffold <feature> --adopt` writes the app's model (it uses the kit's trait and implements its contract),
+    // the migration that renames or creates its table, and these entries. A feature is adopted whole: every model of it, or none.
+    'models' => [
+        'user' => null,
+        'workspace' => null,
+        'delivery' => Tey\Kit\Features\Deliver\Models\DeliveryRecord::class,
+        'delivery_recipient' => Tey\Kit\Features\Deliver\Models\DeliveryRecipient::class,
+        'delivery_event' => Tey\Kit\Features\Deliver\Models\DeliveryEvent::class,
+        'finalization' => Tey\Kit\Features\Finalize\Models\Finalization::class,
+        'finalization_confirmation' => Tey\Kit\Features\Finalize\Models\Confirmation::class,
+        'note' => Tey\Kit\Features\Notes\Models\Note::class,
+        'security_event' => Tey\Kit\Features\SessionUi\Models\SecurityEvent::class,
+        'media_upload' => Tey\Kit\Media\Models\MediaUpload::class,
+    ],
+
+    // The domain tables the kit reads without a model (since 0.19). Null: the kit's own (`kit_note_intents`, and access's `entitlements` and
+    // `complimentary_grants`). `kit:scaffold notes --adopt` and `kit:scaffold access --adopt` set them to the app's tables.
+    'tables' => ['note_intent' => null, 'entitlement' => null, 'complimentary_grant' => null],
 
     // Workspace capabilities that are switched on.
     'capabilities' => ['workspace.dashboard' => true, 'workspace.settings' => true],
