@@ -65,8 +65,8 @@ Each kit table with a `workspace_id` key chooses what happens to its rows when t
 | --- | --- | --- | --- |
 | `entitlements` | access | restrict | Commercial records: deleting a workspace that has them is a deliberate act. |
 | `complimentary_grants` | access | restrict | Commercial records, as above. |
-| `kit_capability_overrides` | access | cascade | Settings of the workspace; they mean nothing without it. |
-| `kit_entitlements` | access | cascade | The workspace's derived capabilities. |
+| `capability_overrides` | access | cascade | Settings of the workspace; they mean nothing without it. |
+| `plan_entitlements` | access | cascade | The workspace's derived capabilities. |
 | `audit_events` | workspaces | set null | History outlives the workspace; `workspace_name` still says which one it was. |
 | `connections` | mcp | restrict | |
 | `kit_notes`, `kit_note_intents` | notes | restrict | |

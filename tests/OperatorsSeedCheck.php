@@ -117,7 +117,7 @@ try {
         $t->timestamps();
     });
     // The workspaces feature's own operators migration.
-    (require dirname(__DIR__).'/resources/features/workspaces/migrations/0001_01_02_000202_create_kit_operators_table.php.stub')->up();
+    (require dirname(__DIR__).'/database/migrations/workspaces/0001_01_02_000202_create_kit_operators_table.php')->up();
     $now = '2026-01-01 00:00:00';
     $owner = OperatorsUser::query()->create(['name' => 'Northwind Owner', 'email' => 'owner@northwind.test', 'email_verified_at' => $now]);
     $ops = OperatorsUser::query()->create(['name' => 'Acme Ops', 'email' => 'OPS@acme.test ', 'email_verified_at' => $now]);

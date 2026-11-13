@@ -245,14 +245,14 @@ try {
 
     // (a) Host permission tables without the configured teams column: the permission migration refuses them clearly.
     $config->set('permission.column_names.team_foreign_key', 'team_id');
-    adoptCheck(str_contains((string) adoptRefused(fn () => (require dirname(__DIR__).'/resources/features/workspaces/migrations/0001_01_02_000201_create_permission_tables.php.stub')->up()), 'have no team_id column') && ! Schema::hasTable(Adoptions::TABLE), 'host permission tables without the configured teams column are refused clearly, with nothing recorded');
+    adoptCheck(str_contains((string) adoptRefused(fn () => (require dirname(__DIR__).'/database/migrations/workspaces/0001_01_02_000201_create_permission_tables.php')->up()), 'have no team_id column') && ! Schema::hasTable(Adoptions::TABLE), 'host permission tables without the configured teams column are refused clearly, with nothing recorded');
     $config->set('permission.column_names.team_foreign_key', 'workspace_id');
 
     // (a) Migrate: Concierge's migrations, then every kit stub in order, over the host's schema.
     foreach (glob(dirname(__DIR__).'/vendor/tey/concierge/database/migrations/*.php') as $file) {
         (require $file)->up();
     }
-    foreach (glob(dirname(__DIR__).'/resources/features/*/migrations/*.stub') as $file) {
+    foreach (glob(dirname(__DIR__).'/database/migrations/*/*.php') as $file) {
         $stubs[basename($file)] = $file;
     }
     ksort($stubs);
@@ -268,12 +268,12 @@ try {
     adoptCheck(DB::table($config->get('permission.table_names.roles'))->where('name', 'host-role')->count() === 1, 'the host\'s permission tables and rows are kept');
     adoptCheck(Adoptions::adopted('workspaces') && Adoptions::added('workspaces') === ['provisioning_invitation_id', 'settings_version', 'admitted', 'slug', 'deleting_at', 'deleting_by'] && Adoptions::adopted($config->get('permission.table_names.roles')) && Adoptions::added($config->get('permission.table_names.roles')) === [], 'the adoption is recorded with the columns the kit added (none to the permission tables)');
     $up = function () use ($stubs): void {
-        foreach (['0001_01_02_000200_create_kit_workspaces_table.php.stub', '0001_01_02_000201_create_permission_tables.php.stub', '0001_01_02_000203_add_slug_to_kit_workspaces_table.php.stub'] as $name) {
+        foreach (['0001_01_02_000200_create_kit_workspaces_table.php', '0001_01_02_000201_create_permission_tables.php', '0001_01_02_000203_add_slug_to_kit_workspaces_table.php'] as $name) {
             (require $stubs[$name])->up();
         }
     };
     $down = function () use ($stubs): void {
-        foreach (['0001_01_02_000203_add_slug_to_kit_workspaces_table.php.stub', '0001_01_02_000201_create_permission_tables.php.stub', '0001_01_02_000200_create_kit_workspaces_table.php.stub'] as $name) {
+        foreach (['0001_01_02_000203_add_slug_to_kit_workspaces_table.php', '0001_01_02_000201_create_permission_tables.php', '0001_01_02_000200_create_kit_workspaces_table.php'] as $name) {
             (require $stubs[$name])->down();
         }
     };
@@ -298,11 +298,11 @@ try {
             $t->string('legacy_code')->nullable();
         });
         DB::table('workspaces')->insert(['name' => 'Northwind Farms', 'legacy_code' => 'N1']);
-        (require $stubs['0001_01_02_000200_create_kit_workspaces_table.php.stub'])->up();
-        (require $stubs['0001_01_02_000203_add_slug_to_kit_workspaces_table.php.stub'])->up();
+        (require $stubs['0001_01_02_000200_create_kit_workspaces_table.php'])->up();
+        (require $stubs['0001_01_02_000203_add_slug_to_kit_workspaces_table.php'])->up();
         Schema::table('workspaces', fn (Blueprint $t) => $t->dropColumn('legacy_code'));
-        (require $stubs['0001_01_02_000203_add_slug_to_kit_workspaces_table.php.stub'])->down();
-        (require $stubs['0001_01_02_000200_create_kit_workspaces_table.php.stub'])->down();
+        (require $stubs['0001_01_02_000203_add_slug_to_kit_workspaces_table.php'])->down();
+        (require $stubs['0001_01_02_000200_create_kit_workspaces_table.php'])->down();
         adoptCheck(Schema::hasTable('workspaces') && Schema::getColumnListing('workspaces') === ['id', 'name'] && DB::table('workspaces')->value('name') === 'Northwind Farms', 'an adopted table left with only the kit\'s own column names is still kept on rollback');
         Schema::drop('workspaces');
         $up();

@@ -9,7 +9,7 @@ use Tey\Kit\Features\Core\Workbench\WorkbenchKey;
 use Tey\Kit\Features\Core\Workbench\WorkbenchPreferences;
 
 /**
- * A person's Workbench layouts in `kit_user_state` (their own state, workspace 0), one row per workbench key holding `{ layout, version }`. A save names the version
+ * A person's Workbench layouts in `user_state` (their own state, workspace 0), one row per workbench key holding `{ layout, version }`. A save names the version
  * it read; a different stored version refuses it (stale), so two devices never silently overwrite each other's layout. Layout state only, never content.
  */
 final class UserWorkbenchPreferences implements WorkbenchPreferences
@@ -27,7 +27,7 @@ final class UserWorkbenchPreferences implements WorkbenchPreferences
 
         return DB::transaction(function () use ($userId, $key, $name, $layout, $version): array {
             // The row is locked while the version is compared, so two saves of one version cannot both win.
-            DB::table('kit_user_state')->where(['user_id' => $userId, 'workspace_id' => 0, 'key' => $name])->lockForUpdate()->value('id');
+            DB::table('user_state')->where(['user_id' => $userId, 'workspace_id' => 0, 'key' => $name])->lockForUpdate()->value('id');
             $stored = $this->stored($userId, $key);
             $current = $stored['version'] ?? 0;
             if ($version !== $current) {

@@ -13,7 +13,7 @@ use Tey\Kit\Features\SessionUi\Events\AccountDeleted;
  * Concierge's rows for the person and the user row (through DeletesAccountRow when bound: a host may anonymise it), in one short transaction, and
  * dispatches AccountDeleted after the commit. An anonymised row keeps its Concierge account deactivated and its record marked finished.
  *
- * Idempotent and retry-safe: a user already gone, or an account already finished (anonymised), is a no-op (false). Fails closed: a user whose account is not being deleted (no `kit_account_deletions` row) is
+ * Idempotent and retry-safe: a user already gone, or an account already finished (anonymised), is a no-op (false). Fails closed: a user whose account is not being deleted (no `account_deletions` row) is
  * refused with `account_not_deleting` and nothing is deleted.
  */
 final class FinishAccountDeletion
@@ -22,7 +22,7 @@ final class FinishAccountDeletion
     public function __invoke(int $userId): bool
     {
         return DB::transaction(function () use ($userId): bool {
-            $marker = DB::table('kit_account_deletions')->where('user_id', $userId)->lockForUpdate()->first();
+            $marker = DB::table('account_deletions')->where('user_id', $userId)->lockForUpdate()->first();
             if ($marker !== null && ($marker->finished_at ?? null) !== null) {
                 return false;
             }
@@ -34,7 +34,7 @@ final class FinishAccountDeletion
                 throw new RuntimeException('account_not_deleting');
             }
             if ($user === null) {
-                DB::table('kit_account_deletions')->where('user_id', $userId)->delete();
+                DB::table('account_deletions')->where('user_id', $userId)->delete();
 
                 return false;
             }
@@ -42,9 +42,9 @@ final class FinishAccountDeletion
             if (ConciergeModels::user()::query()->whereKey($userId)->exists()) {
                 // The host kept the row (anonymised): it stays closed, and the record stays, marked finished.
                 ConciergeModels::account()::query()->updateOrCreate(['user_id' => $userId], ['status' => AccountStatus::Deactivated, 'deactivated_at' => now(), 'deactivated_by_id' => $userId, 'deactivation_reason' => 'Account deleted.']);
-                DB::table('kit_account_deletions')->where('user_id', $userId)->update(['finished_at' => now()]);
+                DB::table('account_deletions')->where('user_id', $userId)->update(['finished_at' => now()]);
             } else {
-                DB::table('kit_account_deletions')->where('user_id', $userId)->delete();
+                DB::table('account_deletions')->where('user_id', $userId)->delete();
             }
             // ShouldDispatchAfterCommit: held until the transaction commits, dropped on a rollback.
             AccountDeleted::dispatch($userId, array_values(array_map('intval', json_decode((string) $marker->workspace_ids, true, 512, JSON_THROW_ON_ERROR))));

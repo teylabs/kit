@@ -136,19 +136,19 @@ class DeleteWorkspace
     /** @return list<string> the features' tables keyed by `workspace_id`, children first */
     protected function featureTables(): array
     {
-        return ['kit_note_intents', 'kit_notes', 'connections', 'settings_intents', 'complimentary_grants', 'entitlements', 'kit_entitlements', 'kit_capability_overrides', 'kit_user_state'];
+        return ['kit_note_intents', 'kit_notes', 'connections', 'settings_intents', 'complimentary_grants', 'entitlements', 'plan_entitlements', 'capability_overrides', 'user_state'];
     }
 
     /** @internal The kit's and Concierge's rows for the workspace, children first (FinishWorkspaceDeletion's too). A table a host did not migrate is skipped. */
     public function deleteRows(int $id): void
     {
         $where = fn (string $table, string $column = 'workspace_id') => Schema::hasTable($table) && Schema::hasColumn($table, $column) ? DB::table($table)->where($column, $id)->delete() : 0;
-        if (Schema::hasTable('connections') && Schema::hasTable('kit_mcp_intents')) {
-            DB::table('kit_mcp_intents')->whereIn('connection_id', DB::table('connections')->where('workspace_id', $id)->select('id'))->delete();
+        if (Schema::hasTable('connections') && Schema::hasTable('mcp_intents')) {
+            DB::table('mcp_intents')->whereIn('connection_id', DB::table('connections')->where('workspace_id', $id)->select('id'))->delete();
         }
         // Every installed feature's rows go here, explicitly, before the workspace row. On RESTRICT foreign keys: notes (`kit_note_intents`, `kit_notes`), mcp
-        // (`connections`, whose `kit_mcp_intents` cascade and were cleared above), settings (`settings_intents`) and access's commercial records
-        // (`complimentary_grants`, `entitlements`). `kit_entitlements` and `kit_capability_overrides` cascade, and are cleared too for a connection that does not
+        // (`connections`, whose `mcp_intents` cascade and were cleared above), settings (`settings_intents`) and access's commercial records
+        // (`complimentary_grants`, `entitlements`). `plan_entitlements` and `capability_overrides` cascade, and are cleared too for a connection that does not
         // enforce foreign keys. Each table is guarded, since features are optional.
         foreach ($this->featureTables() as $table) {
             $where($table);

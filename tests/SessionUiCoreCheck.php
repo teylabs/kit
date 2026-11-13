@@ -169,12 +169,12 @@ try {
     });
     // session-ui's avatars are medialibrary items (it requires spatie/laravel-medialibrary): the host runs its media migration.
     (require dirname(__DIR__).'/vendor/spatie/laravel-medialibrary/database/migrations/create_media_table.php.stub')->up();
-    $migrations = glob(dirname(__DIR__).'/resources/features/{core,shell,session-ui}/migrations/*.php.stub', GLOB_BRACE);
+    $migrations = glob(dirname(__DIR__).'/database/migrations/{core,shell,session-ui}/*.php', GLOB_BRACE);
     usort($migrations, fn (string $a, string $b): int => strcmp(basename($a), basename($b)));
     foreach ($migrations as $file) {
         (require $file)->up();
     }
-    check(Schema::hasTable('kit_security_events') && Schema::hasTable('kit_user_state') && ! Schema::hasTable('workspaces') && ! Schema::hasTable('roles'), 'migrate creates session-ui\'s tables and no workspace or permission table');
+    check(Schema::hasTable('kit_security_events') && Schema::hasTable('user_state') && ! Schema::hasTable('workspaces') && ! Schema::hasTable('roles'), 'migrate creates session-ui\'s tables and no workspace or permission table');
     $app['router']->getRoutes()->refreshNameLookups();
 
     $user = CoreUser::create(['name' => 'Ada Example', 'email' => 'ada@example.test', 'email_verified_at' => now(), 'password' => Hash::make('a long passphrase')]);

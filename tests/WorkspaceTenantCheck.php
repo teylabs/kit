@@ -257,7 +257,7 @@ try {
         $table->unsignedInteger('available_at');
         $table->unsignedInteger('created_at');
     });
-    foreach (glob(dirname(__DIR__).'/resources/features/*/migrations/*.stub') as $file) {
+    foreach (glob(dirname(__DIR__).'/database/migrations/*/*.php') as $file) {
         $stubs[basename($file)] = $file;
     }
     ksort($stubs);
@@ -462,7 +462,7 @@ try {
 
         return [$code, $output->fetch()];
     };
-    $state = fn (Workspace $at): ?bool => ($row = DB::table('kit_capability_overrides')->where('workspace_id', $at->id)->where('capability', 'workspace.settings')->where('user_id', 0)->first()) === null ? null : (bool) $row->enabled;
+    $state = fn (Workspace $at): ?bool => ($row = DB::table('capability_overrides')->where('workspace_id', $at->id)->where('capability', 'workspace.settings')->where('user_id', 0)->first()) === null ? null : (bool) $row->enabled;
     $change = ['--operator' => (string) $people['member']->id, '--reason' => 'synthetic check'];
 
     [$code, $out] = $capability(['workspace' => 'northwind', 'capability' => 'workspace.settings', 'state' => 'off'] + $change);
@@ -477,7 +477,7 @@ try {
     tenantCheck($code === 0 && str_contains($out, 'on  workspace.settings') && ! str_contains($out, 'Workspace '), 'kit:capability --tenant=<id> lists that workspace');
     [$code, $out] = $capability([]);
     tenantCheck($code === 0 && str_contains($out, 'Workspace northwind ('.$one->id.'):') && str_contains($out, 'Workspace acme ('.$two->id.'):'), "the overview with neither runs in every workspace (the trait's default), each listing headed by its workspace");
-    $overrides = fn (): int => DB::table('kit_capability_overrides')->count();
+    $overrides = fn (): int => DB::table('capability_overrides')->count();
     [$code, $out] = $capability(['workspace' => 'workspace.settings', 'capability' => 'off'] + $change);
     tenantCheck($code === 1 && str_contains($out, 'Changing a capability needs --tenant=<id>, or --all-tenants') && $overrides() === 0, 'a change with neither --tenant nor a slug is refused and changes nothing');
     [$code, $out] = $capability(['--all-tenants' => true, 'workspace' => 'workspace.settings', 'capability' => 'off'] + $change, 'no');

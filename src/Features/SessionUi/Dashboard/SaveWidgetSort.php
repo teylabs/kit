@@ -10,7 +10,7 @@ use Tey\Kit\Features\Core\Savepoint;
 use Tey\Kit\Features\SessionUi\UserState;
 
 /**
- * Saves one person's Sort by choice for one dashboard widget in one workspace (`kit_user_state`, keyed by person, workspace and widget). Authorises as the
+ * Saves one person's Sort by choice for one dashboard widget in one workspace (`user_state`, keyed by person, workspace and widget). Authorises as the
  * card is shown: the dashboard's ability, then the widget's own (a refusal throws, as `Access` does). The widget is built for the person and must still be
  * visible and declare the order. Call it inside the workspace's tenant context.
  */

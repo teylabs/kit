@@ -111,7 +111,7 @@ return function (string $root, array $features, string $user, array $providers, 
     });
     (require dirname(__DIR__, 2).'/vendor/spatie/laravel-medialibrary/database/migrations/create_media_table.php.stub')->up();
     $tables();
-    $migrations = glob(dirname(__DIR__, 2).'/resources/features/{'.implode(',', $features).'}/migrations/*.php.stub', GLOB_BRACE);
+    $migrations = glob(dirname(__DIR__, 2).'/database/migrations/{'.implode(',', $features).'}/*.php', GLOB_BRACE);
     usort($migrations, fn (string $a, string $b): int => strcmp(basename($a), basename($b)));
     foreach ($migrations as $file) {
         (require $file)->up();

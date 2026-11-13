@@ -5,7 +5,7 @@ namespace Tey\Kit\Features\Core\Workbench;
 use Tey\Kit\Features\Core\Data\WorkbenchLayout;
 
 /**
- * Where a person's Workbench layout is remembered. Core binds a null store (nothing is remembered on the server); session-ui binds one on `kit_user_state` with its
+ * Where a person's Workbench layout is remembered. Core binds a null store (nothing is remembered on the server); session-ui binds one on `user_state` with its
  * preference endpoint. `layout()` is what a WorkbenchViewModel hands its page.
  */
 interface WorkbenchPreferences

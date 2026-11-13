@@ -1,6 +1,6 @@
 <?php
 
-// The Workbench's server side: the WorkbenchViewModel's props, the per-person layout endpoint and its stale-write guard (session-ui, kit_user_state), the null
+// The Workbench's server side: the WorkbenchViewModel's props, the per-person layout endpoint and its stale-write guard (session-ui, user_state), the null
 // store without session-ui, and the WorkbenchReadTool base. SQLite memory, real Concierge and spatie teams, synthetic users; no network.
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -176,7 +176,7 @@ try {
         $table->timestamp('email_verified_at')->nullable();
         $table->timestamps();
     });
-    foreach (glob(dirname(__DIR__).'/resources/features/*/migrations/*.stub') as $file) {
+    foreach (glob(dirname(__DIR__).'/database/migrations/*/*.php') as $file) {
         $stubs[basename($file)] = $file;
     }
     ksort($stubs);
@@ -236,7 +236,7 @@ try {
 
         return [$response->getStatusCode(), json_decode((string) $response->getContent(), true)];
     };
-    $stored = fn (string $who) => DB::table('kit_user_state')->where(['user_id' => $people[$who]->id, 'key' => 'workbench.deck-editor'])->value('value');
+    $stored = fn (string $who) => DB::table('user_state')->where(['user_id' => $people[$who]->id, 'key' => 'workbench.deck-editor'])->value('value');
 
     // The ViewModel: typed props for the page, with the person's layout and where to save it.
     Auth::guard('web')->setUser($people['member']);
@@ -262,7 +262,7 @@ try {
     $layout = ['groups' => ['columns' => '{"navigator,stage,inspector":{"layout":[20,54,26]}}'], 'zoom' => ['fit' => 'page', 'zoom' => 1], 'tab' => 'stage'];
     [$status, $body] = $json('member', 'PUT', '/me/workbenches/deck-editor', ['layout' => $layout, 'version' => 0]);
     check($status === 200 && $body === ['layout' => $layout, 'version' => 1], 'the first save is version 1');
-    check(json_decode((string) $stored('member'), true) === ['layout' => $layout, 'version' => 1], 'kept in kit_user_state as the person\'s own state');
+    check(json_decode((string) $stored('member'), true) === ['layout' => $layout, 'version' => 1], 'kept in user_state as the person\'s own state');
     $older = ['tab' => 'inspector'];
     [$status, $body] = $json('member', 'PUT', '/me/workbenches/deck-editor', ['layout' => $older, 'version' => 0]);
     check($status === 409 && $body === ['error' => 'stale_write', 'layout' => $layout, 'version' => 1], 'a stale version is 409 stale_write, with the stored layout and version');

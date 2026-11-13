@@ -8,7 +8,7 @@ use Laravel\Fortify\Features;
 /**
  * "Add a passkey for next time", offered once after an invited sign-up, on Fortify's own passkey registration (`/user/passkeys/options`, `/user/passkeys`).
  * Only where the app has passkeys: Fortify's `passkeys` feature on and its User implementing PasskeyUser (session-ui's optional `passkeys` integration).
- * The offer is kept per person (kit_user_state) until they add a passkey or dismiss it.
+ * The offer is kept per person (user_state) until they add a passkey or dismiss it.
  */
 final class PasskeyOffer
 {

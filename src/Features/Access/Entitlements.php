@@ -11,7 +11,7 @@ use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
 /**
  * What a workspace's plan includes, per entitlement a feature declared (`Registry::entitlement`): whether the capability is included, and the limits it is capped at.
- * Precedence: the workspace's row in `kit_entitlements` (written by a billing integration or an operator), then the app's default (`kit.entitlements`), then not
+ * Precedence: the workspace's row in `plan_entitlements` (written by a billing integration or an operator), then the app's default (`kit.entitlements`), then not
  * included: a declared entitlement nobody configured fails closed. It is a third gate beside capabilities (is the feature on here) and permissions (may this person
  * do it), and it knows nothing about billing. A capability no entitlement gates is always included.
  */
@@ -90,9 +90,9 @@ final class Entitlements
         }
         $where = ['workspace_id' => $workspace->getKey(), 'entitlement' => $capability];
         if ($included === null) {
-            DB::table('kit_entitlements')->where($where)->delete();
+            DB::table('plan_entitlements')->where($where)->delete();
         } else {
-            DB::table('kit_entitlements')->upsert([$where + ['included' => $included, 'limits' => $limits === null ? null : json_encode($limits, JSON_THROW_ON_ERROR), 'created_at' => now(), 'updated_at' => now()]], ['workspace_id', 'entitlement'], ['included', 'limits', 'updated_at']);
+            DB::table('plan_entitlements')->upsert([$where + ['included' => $included, 'limits' => $limits === null ? null : json_encode($limits, JSON_THROW_ON_ERROR), 'created_at' => now(), 'updated_at' => now()]], ['workspace_id', 'entitlement'], ['included', 'limits', 'updated_at']);
         }
         $this->memo = $this->memo === null ? null : [];
     }
@@ -101,9 +101,9 @@ final class Entitlements
     private function row(string $capability, Workspace $workspace): ?array
     {
         $rows = $this->memo === null || $this->request !== spl_object_id(request())
-            ? DB::table('kit_entitlements')->where(['workspace_id' => $workspace->getKey(), 'entitlement' => $capability])->get(['entitlement', 'included', 'limits'])->all()
+            ? DB::table('plan_entitlements')->where(['workspace_id' => $workspace->getKey(), 'entitlement' => $capability])->get(['entitlement', 'included', 'limits'])->all()
             // In a request, the workspace's rows are read once, for every entitlement.
-            : ($this->memo['rows:'.$workspace->getKey()] ??= DB::table('kit_entitlements')->where('workspace_id', $workspace->getKey())->get(['entitlement', 'included', 'limits'])->all());
+            : ($this->memo['rows:'.$workspace->getKey()] ??= DB::table('plan_entitlements')->where('workspace_id', $workspace->getKey())->get(['entitlement', 'included', 'limits'])->all());
         foreach ($rows as $row) {
             if ($row->entitlement === $capability) {
                 return ['included' => (bool) $row->included, 'limits' => $row->limits === null ? null : json_decode($row->limits, true, flags: JSON_THROW_ON_ERROR)];

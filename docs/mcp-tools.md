@@ -213,7 +213,7 @@ use Tey\Kit\Features\Mcp\Models\McpIntent;
 Schedule::command('model:prune', ['--model' => [McpIntent::class]])->daily();
 ```
 
-Without the schedule, replay still honours the expiry, but expired rows stay in `kit_mcp_intents` until their key is reused or their connection is deleted. A hand-written tool gets the same behaviour from `ConsentGate::recall()` (before `confirm()`) and `ConsentGate::remember()` (around the operation).
+Without the schedule, replay still honours the expiry, but expired rows stay in `mcp_intents` until their key is reused or their connection is deleted. A hand-written tool gets the same behaviour from `ConsentGate::recall()` (before `confirm()`) and `ConsentGate::remember()` (around the operation).
 
 ## Slow tools: queued runs
 
@@ -257,7 +257,7 @@ The assistant reads the run back with **`runs_read`** (`{run}`). The kit serves 
 - **Progress text is yours.** `progress()` text is shown as is, so pass your own step names, never an exception message. It is ignored outside a running run.
 - **Expiry.** Runs can be read for `kit.mcp.run_ttl` seconds (24 hours). `kit.mcp.run_poll_after` (5) is the wait the assistant is told. An expired run's row is deleted the next time the same connection queues a run.
 
-**Setup.** Run a queue worker. With the `sync` queue the run completes inside the call: the call still answers `queued`, and the first read is `done`. Publish the `kit_mcp_runs` migration with the rest of the mcp feature's.
+**Setup.** Run a queue worker. With the `sync` queue the run completes inside the call: the call still answers `queued`, and the first read is `done`. The `mcp_runs` migration loads from the package with the rest of the mcp feature's: run `php artisan migrate`.
 
 **Not covered:** protocol-level MCP tasks (`tasks/get`, `tasks/result`), which wait for `laravel/mcp` support; streaming progress notifications; cancelling a run.
 

@@ -97,6 +97,15 @@ jobs:
           DB_DATABASE: kit_adopt_check
           DB_USERNAME: kit
           DB_PASSWORD: kit
+      # Package migrations and the 0.18 renames: its own kit_migrations_* schemas.
+      - run: composer test:migrations
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_DATABASE: kit_adopt_check
+          DB_USERNAME: kit
+          DB_PASSWORD: kit
       # Row-level security: its own kit_rls schema and two roles it creates and drops (the service's superuser is the admin connection).
       - run: composer test:rls
         env:

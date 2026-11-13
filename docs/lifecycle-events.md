@@ -119,7 +119,7 @@ final class PurgeWorkspaceJob implements ShouldQueue
 - Their Concierge account is deactivated, so sign-in is refused ("This account is deactivated.", Concierge's message) and `concierge.active` signs out any other session.
 - Database sessions are ended and the remember-me token cycled.
 - Passport access and refresh tokens are revoked, with any unexchanged authorization or device codes, and Sanctum tokens deleted.
-- A `kit_account_deletions` row records the workspaces they left.
+- A `account_deletions` row records the workspaces they left.
 
 The request signs them out. Your job ends with `app(FinishAccountDeletion::class)($userId)` (`Tey\Kit\Features\SessionUi\Operations\FinishAccountDeletion`), which deletes the kit's and Concierge's rows and the user row, then dispatches `AccountDeleted` after the commit. It's idempotent, and it refuses a user whose account isn't being deleted (`account_not_deleting`).
 
@@ -146,7 +146,7 @@ If your own tables keep history on RESTRICT foreign keys to `users`, a hard dele
 $this->app->bind(DeletesAccountRow::class, AnonymiseUser::class); // delete(Model $user): void, e.g. name "Deleted person", a placeholder email
 ```
 
-Both modes call it, inside the transaction, after the kit's and Concierge's rows for the person are gone. Unbound, the kit hard-deletes the row as before. A row that survives stays closed: its Concierge account is deactivated, so it never signs in. Its `kit_account_deletions` record is kept with `finished_at`, so `FinishAccountDeletion` returns `false` on a retry.
+Both modes call it, inside the transaction, after the kit's and Concierge's rows for the person are gone. Unbound, the kit hard-deletes the row as before. A row that survives stays closed: its Concierge account is deactivated, so it never signs in. Its `account_deletions` record is kept with `finished_at`, so `FinishAccountDeletion` returns `false` on a retry.
 
 ### Moving over from your own deletion page
 

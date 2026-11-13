@@ -159,7 +159,7 @@ abstract class Widget extends ViewModel
         return isset($this->declaredSorts()[$key]);
     }
 
-    /** Where the viewer's choice for one widget is kept in `kit_user_state` (with the workspace's id): the key fits the 60-character column whatever its length. */
+    /** Where the viewer's choice for one widget is kept in `user_state` (with the workspace's id): the key fits the 60-character column whatever its length. */
     public static function sortStateKey(string $widget): string
     {
         return strlen($widget) <= 48 ? 'widget.sort.'.$widget : 'widget.sort.#'.substr(hash('sha256', $widget), 0, 46);

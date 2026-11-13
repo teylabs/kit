@@ -129,7 +129,7 @@ try {
         $table->timestamp('email_verified_at')->nullable();
         $table->timestamps();
     });
-    foreach (glob(dirname(__DIR__).'/resources/features/*/migrations/*.stub') as $file) {
+    foreach (glob(dirname(__DIR__).'/database/migrations/*/*.php') as $file) {
         $stubs[basename($file)] = $file;
     }
     ksort($stubs);
@@ -281,7 +281,7 @@ try {
     httpCheck($row->secret === null && $row->owner_id === null && $row->provider === null && ! $row->confidential() && $row->redirect_uris === [$claudeRedirect] && $row->grant_types === ['authorization_code', 'refresh_token'] && ! $row->revoked, 'the row is a public authorization-code client with no owner, secret or provider, the shape laravel/mcp\'s registration stored');
     httpCheck($json($register(['redirect_uris' => [$claudeRedirect]]))['client_name'] === 'claude.ai', 'with no client_name, the first redirect host names the client');
     httpCheck($json($register(['redirect_uris' => [$claudeRedirect]]))['scope'] === 'mcp:use' && $json($register(['redirect_uris' => [$claudeRedirect], 'scope' => 'mcp:act mcp:use']))['scope'] === 'mcp:act mcp:use', 'the answer\'s scope is what the client asked to register with, else mcp:use; never every supported scope');
-    httpCheck(DB::table('kit_mcp_registrations')->where('oauth_client_id', $clientId)->where('application_type', 'web')->where('ip', '127.0.0.1')->whereNull('adopted_at')->exists(), 'the registration is recorded with its application type and IP');
+    httpCheck(DB::table('mcp_registrations')->where('oauth_client_id', $clientId)->where('application_type', 'web')->where('ip', '127.0.0.1')->whereNull('adopted_at')->exists(), 'the registration is recorded with its application type and IP');
     httpCheck(($json($register(['redirect_uris' => [$claudeRedirect], 'scope' => '']))['error'] ?? null) === 'invalid_client_metadata', 'an empty scope is refused');
 
     // Registration refusals (RFC 7591 §3.2.2): the redirect URI rules, and metadata the kit does not implement.
@@ -355,7 +355,7 @@ try {
     $legacy = Client::query()->forceCreate(['owner_type' => null, 'owner_id' => null, 'name' => 'Claude', 'secret' => null, 'provider' => null, 'redirect_uris' => [$claudeRedirect], 'grant_types' => ['authorization_code', 'refresh_token'], 'revoked' => false]);
     $legacyFlow = $connect((string) $legacy->getKey(), $claudeRedirect);
     httpCheck($legacyFlow['step'] === 'token' && $legacyFlow['status'] === 200 && is_string($legacyFlow['token']), 'a client registered before this feature, stored as laravel/mcp stored it, authorizes and exchanges a token unchanged: no migration, no re-registration');
-    httpCheck(! DB::table('kit_mcp_registrations')->where('oauth_client_id', $legacy->getKey())->exists(), 'it is not a recorded registration: the kit never marks a client on its own');
+    httpCheck(! DB::table('mcp_registrations')->where('oauth_client_id', $legacy->getKey())->exists(), 'it is not a recorded registration: the kit never marks a client on its own');
     httpCheck(Schema::getColumnListing('oauth_clients') === ['id', 'owner_type', 'owner_id', 'name', 'secret', 'provider', 'redirect_uris', 'grant_types', 'revoked', 'created_at', 'updated_at'], 'the oauth_clients table is Passport\'s as shipped: the kit adds no column');
 
     // PKCE: S256 or nothing, refused before league sees the request, with no redirect.
@@ -443,9 +443,9 @@ try {
     Token::query()->forceCreate(['id' => bin2hex(random_bytes(40)), 'user_id' => $owner->id, 'client_id' => $active->id, 'name' => null, 'scopes' => ['mcp:use'], 'revoked' => false, 'expires_at' => now()->addHour()]);
     $firstParty = Client::query()->forceCreate(['owner_type' => null, 'owner_id' => null, 'name' => 'First party', 'secret' => 'hashed', 'provider' => 'users', 'redirect_uris' => ['https://app.test/callback'], 'grant_types' => ['authorization_code', 'refresh_token'], 'revoked' => false, 'created_at' => now()->subDays(40), 'updated_at' => now()->subDays(40)]);
     foreach ([$stale, $active] as $adoptable) {
-        httpCheck($run(['--adopt' => (string) $adoptable->getKey()])[0] === 0 && DB::table('kit_mcp_registrations')->where('oauth_client_id', $adoptable->getKey())->whereNotNull('adopted_at')->exists(), 'adopting an earlier public client records it, marked adopted');
+        httpCheck($run(['--adopt' => (string) $adoptable->getKey()])[0] === 0 && DB::table('mcp_registrations')->where('oauth_client_id', $adoptable->getKey())->whereNotNull('adopted_at')->exists(), 'adopting an earlier public client records it, marked adopted');
     }
-    httpCheck($run(['--adopt' => (string) $stale->getKey()])[0] === 0 && DB::table('kit_mcp_registrations')->where('oauth_client_id', $stale->getKey())->count() === 1, 'adopting it again is a no-op');
+    httpCheck($run(['--adopt' => (string) $stale->getKey()])[0] === 0 && DB::table('mcp_registrations')->where('oauth_client_id', $stale->getKey())->count() === 1, 'adopting it again is a no-op');
     httpCheck($run(['--adopt' => (string) $firstParty->getKey()])[0] === 1 && $run(['--adopt' => (string) Str::uuid()])[0] === 1, 'a confidential client, or an unknown id, cannot be adopted');
     [$status, $dry] = $run(['--prune-unused' => '30', '--dry-run' => true]);
     httpCheck($status === 0 && str_contains($dry, 'Would revoke '.$stale->getKey()) && ! str_contains($dry, (string) $active->getKey()) && ! Client::query()->findOrFail($stale->getKey())->revoked, 'a dry run names the client with no token in 30 days and revokes nothing');

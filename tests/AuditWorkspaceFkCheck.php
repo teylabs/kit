@@ -153,7 +153,7 @@ try {
 
     // The workspace_id index: core creates it, but a database that reached the column another way may lack it. 000209 adds it only when nothing indexes the
     // column alone, never twice, and its down() leaves it.
-    $index = dirname(__DIR__).'/resources/features/workspaces/migrations/0001_01_02_000209_add_missing_audit_events_workspace_id_index.php.stub';
+    $index = dirname(__DIR__).'/database/migrations/workspaces/0001_01_02_000209_add_missing_audit_events_workspace_id_index.php';
     $alone = fn (): array => array_values(array_filter(Schema::getIndexes('audit_events'), fn (array $found): bool => $found['columns'] === ['workspace_id']));
     $reset();
     $migrate([$core, $workspaces, $constrain, ...$fix]);

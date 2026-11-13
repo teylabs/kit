@@ -169,7 +169,7 @@ function sharesHost(array $web, ?Closure $after = null): array
         $table->timestamps();
     });
     (require dirname(__DIR__).'/vendor/spatie/laravel-medialibrary/database/migrations/create_media_table.php.stub')->up();
-    foreach (glob(dirname(__DIR__).'/resources/features/session-ui/migrations/*.stub') as $file) {
+    foreach (glob(dirname(__DIR__).'/database/migrations/session-ui/*.php') as $file) {
         (require $file)->up();
     }
     $app['router']->getRoutes()->refreshNameLookups();

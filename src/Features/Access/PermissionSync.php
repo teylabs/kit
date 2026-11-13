@@ -9,7 +9,7 @@ use Tey\Kit\Features\Core\Registry;
 
 /**
  * Makes the database hold the declared permissions: creates the missing ones as global rows (like Concierge's roles)
- * and grants each its default roles. A default is granted once, when it is new: `kit_permission_defaults` records the
+ * and grants each its default roles. A default is granted once, when it is new: `permission_defaults` records the
  * ones applied, so a default someone removed is not granted again. A default role the app does not configure is reported, not granted. Re-running changes nothing. It never revokes:
  * grants beyond the defaults, and permissions no feature declares, are kept and reported.
  */
@@ -42,11 +42,11 @@ final class PermissionSync
                 if ($role === null) {
                     $report['missing_roles'][$roleName] = $roleName;
                     // A role that is gone took its grants with it: when it comes back, its defaults are new again.
-                    DB::table('kit_permission_defaults')->where('role', $roleName)->delete();
+                    DB::table('permission_defaults')->where('role', $roleName)->delete();
 
                     continue;
                 }
-                $applied = DB::table('kit_permission_defaults');
+                $applied = DB::table('permission_defaults');
                 if ($applied->clone()->where('permission', $name)->where('role', $roleName)->exists()) {
                     continue;
                 }

@@ -34,12 +34,12 @@ final class RunQueuedTool implements NotTenantAware, ShouldQueue
     public function handle(Registry $registry, ConsentGate $gate): void
     {
         // Claim the run: only one worker moves it from queued to running.
-        $claimed = DB::table('kit_mcp_runs')->where('id', $this->run)->where('status', Runs::QUEUED)->where('expires_at', '>', now())
+        $claimed = DB::table('mcp_runs')->where('id', $this->run)->where('status', Runs::QUEUED)->where('expires_at', '>', now())
             ->update(['status' => Runs::RUNNING, 'started_at' => now()]);
         if ($claimed !== 1) {
             return;
         }
-        $run = DB::table('kit_mcp_runs')->where('id', $this->run)->first();
+        $run = DB::table('mcp_runs')->where('id', $this->run)->first();
         $principal = new Principal((int) $run->actor_id, (int) $run->connection_id);
         try {
             if (! in_array($run->class, $registry->mcpTools(), true) || ! is_subclass_of($run->class, QueuedCapabilityTool::class)) {
@@ -57,11 +57,11 @@ final class RunQueuedTool implements NotTenantAware, ShouldQueue
             $result = Workspaces::run((int) $run->workspace_id, function () use ($tool, $principal, $run, $operation): array {
                 return $tool->runQueued($this->run, $principal, (int) $run->workspace_id, $operation, $run->intent_key);
             });
-            DB::table('kit_mcp_runs')->where('id', $this->run)->update(['status' => Runs::DONE, 'result' => json_encode($result, JSON_THROW_ON_ERROR), 'finished_at' => now()]);
+            DB::table('mcp_runs')->where('id', $this->run)->update(['status' => Runs::DONE, 'result' => json_encode($result, JSON_THROW_ON_ERROR), 'finished_at' => now()]);
             event(new ToolRunFinished($this->run, (string) $run->tool, $principal, (int) $run->workspace_id, Runs::DONE, null));
         } catch (Throwable $e) {
             $code = $gate->refusal($e)['error'];
-            DB::table('kit_mcp_runs')->where('id', $this->run)->update(['status' => Runs::FAILED, 'error' => $code, 'finished_at' => now()]);
+            DB::table('mcp_runs')->where('id', $this->run)->update(['status' => Runs::FAILED, 'error' => $code, 'finished_at' => now()]);
             event(new ToolRunFinished($this->run, (string) $run->tool, $principal, (int) $run->workspace_id, Runs::FAILED, $code));
         }
     }

@@ -3,7 +3,9 @@
 // The kit's migrations load from the package (database/migrations/<feature>) since 0.18, deferring to an app's own copies under
 // database/migrations/kit/<feature>: the package baselines are the stubs kit:add copied, byte for byte and by name; an app that ran its copies runs none
 // of them again (a stamped copy too), and an edited copy is the one that runs. The 0.18 renames move the infrastructure tables' rows intact, run on a
-// fresh database too, and refuse when both names exist. Synthetic apps on SQLite files in temp directories, synthetic rows; no network.
+// fresh database too, and refuse when both names exist. Synthetic apps in temp directories, synthetic rows; no network. SQLite files by default;
+// DB_CONNECTION=pgsql runs each app in its own kit_migrations_* schema of the PostgreSQL the DB_* variables name, dropped and recreated: point it only
+// at a throwaway database.
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Auth\User;
@@ -44,13 +46,20 @@ function host(array $files = []): Application
         mkdir($root.'/'.$dir, 0700, true);
     }
     touch($root.'/database/database.sqlite');
+    $connection = ['driver' => 'sqlite', 'database' => $root.'/database/database.sqlite', 'prefix' => '', 'foreign_key_constraints' => false];
+    if (getenv('DB_CONNECTION') === 'pgsql') {
+        $schema = 'kit_migrations_'.(++$GLOBALS['schemas']);
+        $connection = ['driver' => 'pgsql', 'host' => getenv('DB_HOST') ?: '127.0.0.1', 'port' => getenv('DB_PORT') ?: '5432', 'database' => getenv('DB_DATABASE') ?: 'kit_adopt_check', 'username' => getenv('DB_USERNAME') ?: 'postgres', 'password' => getenv('DB_PASSWORD') ?: '', 'charset' => 'utf8', 'prefix' => '', 'search_path' => $schema, 'sslmode' => 'prefer'];
+        $pdo = new PDO('pgsql:host='.$connection['host'].';port='.$connection['port'].';dbname='.$connection['database'], $connection['username'], $connection['password']);
+        $pdo->exec('drop schema if exists '.$schema.' cascade; create schema '.$schema);
+    }
     file_put_contents($root.'/database/migrations/0001_01_01_000000_create_users_table.php', "<?php\n\nreturn new class extends Illuminate\\Database\\Migrations\\Migration\n{\n    public function up(): void\n    {\n        Illuminate\\Support\\Facades\\Schema::create('users', fn (\$t) => \$t->id());\n    }\n};\n");
     foreach ($files as $path => $bytes) {
         @mkdir(dirname($root.'/'.$path), 0700, true);
         file_put_contents($root.'/'.$path, $bytes);
     }
     file_put_contents($root.'/config/kit.php', '<?php return '.var_export(['features' => FEATURES, 'models' => ['user' => User::class], 'routes' => ['mcp' => ['enabled' => false]]], true).';');
-    file_put_contents($root.'/config/database.php', '<?php return '.var_export(['default' => 'sqlite', 'migrations' => ['table' => 'migrations'], 'connections' => ['sqlite' => ['driver' => 'sqlite', 'database' => $root.'/database/database.sqlite', 'prefix' => '', 'foreign_key_constraints' => false]]], true).';');
+    file_put_contents($root.'/config/database.php', '<?php return '.var_export(['default' => 'kit', 'migrations' => ['table' => 'migrations'], 'connections' => ['kit' => $connection]], true).';');
     file_put_contents($root.'/config/cache.php', "<?php return ['default' => 'array', 'stores' => ['array' => ['driver' => 'array']]];");
     file_put_contents($root.'/config/app.php', '<?php return '.var_export(['env' => 'testing', 'key' => 'base64:'.base64_encode(random_bytes(32)), 'cipher' => 'AES-256-CBC'], true).';');
     file_put_contents($root.'/config/permission.php', '<?php return '.var_export(['teams' => false, 'table_names' => ['roles' => 'roles', 'permissions' => 'permissions', 'model_has_permissions' => 'model_has_permissions', 'model_has_roles' => 'model_has_roles', 'role_has_permissions' => 'role_has_permissions'], 'column_names' => ['role_pivot_key' => null, 'permission_pivot_key' => null, 'model_morph_key' => 'model_id', 'team_foreign_key' => 'team_id']], true).';');
@@ -93,24 +102,43 @@ function migrate017(Application $app): array
     return migrate($app, ['--path' => array_filter($paths, 'is_dir'), '--realpath' => true]);
 }
 
-/** Three synthetic rows for a table, every column filled with a value of its type that differs per row. */
+/** Runs $write with foreign keys unchecked: SQLite runs with them off; PostgreSQL skips their triggers for this session (the CI role is a superuser). */
+function unchecked(Closure $write): mixed
+{
+    $pgsql = Schema::getConnection()->getDriverName() === 'pgsql';
+    if ($pgsql) {
+        Schema::getConnection()->statement('set session_replication_role = replica');
+    }
+    try {
+        return $write();
+    } finally {
+        if ($pgsql) {
+            Schema::getConnection()->statement('set session_replication_role = origin');
+        }
+    }
+}
+
+/** Three synthetic rows for a table, every column filled with a value of its type that differs per row. Their keys point at no row. */
 function seed(string $table): void
 {
-    foreach ([1, 2, 3] as $row) {
-        $values = [];
-        foreach (Schema::getColumns($table) as $column) {
-            $type = strtolower((string) $column['type_name']);
-            $values[$column['name']] = match (true) {
-                str_contains($type, 'int') => $row * 7 + strlen($column['name']),
-                str_contains($type, 'bool') || $type === 'tinyint' => $row % 2,
-                str_contains($type, 'json') => json_encode(['row' => $row, 'column' => $column['name']]),
-                str_contains($type, 'date') || str_contains($type, 'time') => sprintf('2026-0%d-1%d 12:3%d:00', $row, $row, $row),
-                str_contains($type, 'float') || str_contains($type, 'double') || str_contains($type, 'numeric') || str_contains($type, 'decimal') => $row + 0.5,
-                default => substr($column['name'], 0, 20).'-'.$row,
-            };
+    unchecked(function () use ($table): void {
+        foreach ([1, 2, 3] as $row) {
+            $values = [];
+            foreach (Schema::getColumns($table) as $column) {
+                $type = strtolower((string) $column['type_name']);
+                $values[$column['name']] = match (true) {
+                    str_contains($type, 'int') => $row * 7 + strlen($column['name']),
+                    str_contains($type, 'bool') => $row % 2 === 1,
+                    str_contains($type, 'json') => json_encode(['row' => $row, 'column' => $column['name']]),
+                    str_contains($type, 'date') || str_contains($type, 'time') => sprintf('2026-0%d-1%d 12:3%d:00', $row, $row, $row),
+                    str_contains($type, 'float') || str_contains($type, 'double') || str_contains($type, 'numeric') || str_contains($type, 'decimal') => $row + 0.5,
+                    $type === 'uuid' => sprintf('00000000-0000-4000-8000-%012d', $row * 100 + strlen($column['name'])),
+                    default => substr(md5($column['name']), 0, 5).$row,
+                };
+            }
+            Schema::getConnection()->table($table)->insert($values);
         }
-        Schema::getConnection()->table($table)->insert($values);
-    }
+    });
 }
 
 /** @return list<array<string, mixed>> */
@@ -119,6 +147,7 @@ function rows(string $table): array
     return array_map(fn (object $row): array => (array) $row, Schema::getConnection()->table($table)->orderBy(Schema::getColumns($table)[0]['name'])->get()->all());
 }
 
+$schemas = 0;
 try {
     // The package baselines are the catalog's migration stubs: the same names kit:add gave its copies, the same bytes. Only new migrations are package-only.
     $stubs = [];
@@ -130,6 +159,7 @@ try {
         $package[basename(dirname($file)).'/'.basename($file)] = hash_file('sha256', $file);
     }
     $baselines = array_filter($package, fn (string $path): bool => str_contains($path, '/0001_01_02_'), ARRAY_FILTER_USE_KEY);
+    echo 'Database: '.(getenv('DB_CONNECTION') === 'pgsql' ? 'pgsql' : 'sqlite')."\n";
     check($stubs !== [] && $baselines === $stubs, 'every package baseline is a catalog stub at the same feature, name and bytes ('.count($stubs).')');
     $others = array_map(fn (string $path): string => basename($path, '.php'), array_keys(array_diff_key($package, $baselines)));
     sort($others);
@@ -158,6 +188,8 @@ try {
     foreach (RENAMES as $from => $to) {
         check(! Schema::hasTable($from) && rows($to) === $seeded[$from], $from.' is now '.$to.', with the same '.count($seeded[$from]).' rows, column for column');
     }
+    $id = unchecked(fn (): int => Schema::getConnection()->table('user_state')->insertGetId(['user_id' => $seeded['kit_user_state'][0]['user_id'], 'workspace_id' => 0, 'key' => 'after-rename', 'value' => 'v']));
+    check($id > 0 && ! in_array($id, array_column($seeded['kit_user_state'], 'id'), true), 'a renamed table still numbers new rows itself (its id sequence came along)');
     $names = $upgraded['db']->table('migrations')->pluck('migration')->all();
     check(count($names) === count(array_unique($names)), 'the migrations table names each migration once');
     $upgraded->make(Kernel::class)->call('migrate:rollback', ['--force' => true, '--step' => 3]);
@@ -195,7 +227,7 @@ try {
     }
     check($refusal !== null && str_contains($refusal, 'Both kit_user_state and user_state exist') && str_contains($refusal, 'never merges'), 'with both kit_user_state and user_state present, migrate refuses, naming both');
     check(rows('kit_user_state') === $kept && rows('user_state') === [], 'and neither table is changed');
-    echo "Package migrations and the 0.18 renames on SQLite files, synthetic apps and rows. PostgreSQL and a consumer app are not covered here.\n";
+    echo 'Package migrations and the 0.18 renames on '.(getenv('DB_CONNECTION') === 'pgsql' ? 'PostgreSQL (throwaway schemas)' : 'SQLite files').", synthetic apps and rows. A consumer app is not covered here.\n";
 } catch (Throwable $error) {
     fwrite(STDERR, 'FAIL '.$error->getMessage()."\n".$error->getTraceAsString()."\n");
     exit(1);

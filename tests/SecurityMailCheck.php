@@ -115,7 +115,7 @@ try {
         $t->string('password')->nullable();
         $t->timestamps();
     });
-    foreach (glob(dirname(__DIR__).'/resources/features/session-ui/migrations/*security_events*.stub') as $stub) {
+    foreach (glob(dirname(__DIR__).'/database/migrations/session-ui/*security_events*.php') as $stub) {
         (require $stub)->up();
     }
     $ada = SecurityUser::create(['name' => 'Ada', 'email' => 'ada@example.test']);
@@ -160,9 +160,10 @@ try {
     securityCheck(str_contains($html, '>Reset password<') && str_contains($html, 'https://acme.test/forgot-password') && ! str_contains($html, 'Manage notifications'), 'it offers a password reset and, as security mail, has no manage link');
 
     // A first password is set, not changed: no "your password was changed" mail, whether the account had none or was marked with awaitFirstPassword().
-    foreach (glob(dirname(__DIR__).'/resources/features/session-ui/migrations/*create_kit_user_state_table*.stub') as $stub) {
-        if (! Schema::hasTable('kit_user_state')) {
-            (require $stub)->up();
+    // The user state table, created under its 0.17 name and renamed as the package's migrations do.
+    if (! Schema::hasTable('user_state')) {
+        foreach (glob(dirname(__DIR__).'/database/migrations/session-ui/{*create_kit_user_state_table,*rename_session_ui_tables}.php', GLOB_BRACE) as $migration) {
+            (require $migration)->up();
         }
     }
     if (! $app['events']->hasListeners(PasswordReset::class)) {

@@ -120,7 +120,7 @@ final class Onboarding
     /** Whether any owner has confirmed this workspace's timezone: it is the workspace's, so once is enough. */
     private static function workspaceTimezoneConfirmed(?int $workspace): bool
     {
-        return $workspace !== null && DB::table('kit_user_state')->where('workspace_id', $workspace)->where('key', 'workspace.timezone.confirmed')->exists();
+        return $workspace !== null && DB::table('user_state')->where('workspace_id', $workspace)->where('key', 'workspace.timezone.confirmed')->exists();
     }
 
     private static function ownsWorkspace(int $user, ?int $workspace): bool

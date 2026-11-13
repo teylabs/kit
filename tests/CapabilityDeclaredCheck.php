@@ -170,7 +170,7 @@ try {
         $table->timestamp('email_verified_at')->nullable();
         $table->timestamps();
     });
-    foreach (glob(dirname(__DIR__).'/resources/features/*/migrations/*.stub') as $file) {
+    foreach (glob(dirname(__DIR__).'/database/migrations/*/*.php') as $file) {
         $stubs[basename($file)] = $file;
     }
     ksort($stubs);
@@ -330,7 +330,7 @@ try {
     // Permissions reach the database on a deploy's migrate (CatalogSync on NoPendingMigrations), and come back when a later migrate finds one missing.
     $permissionModel = app(PermissionRegistrar::class)->getPermissionClass();
     $permissionModel::query()->delete();
-    DB::table('kit_permission_defaults')->delete();
+    DB::table('permission_defaults')->delete();
     DB::table('kit_meta')->where('key', CatalogSync::KEY)->delete();
     httpCheck(in_array('workspace.members.manage', CatalogSync::unsynced(), true) && in_array('workspace.connections.manage', CatalogSync::unsynced(), true), 'unsynced lists the declared permissions the database lacks');
     // The console kernel would bootstrap the app again and reload its config: marked bootstrapped, it only collects the providers' commands.
