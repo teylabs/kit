@@ -30,6 +30,7 @@ import {
     filterGroups,
     flatOptions,
     fold,
+    freshQuery,
     interpolate,
     moveHighlight,
     resultsMessage,
@@ -154,16 +155,23 @@ const searchOn = computed(
         (props.creatable && props.searchable === null) ||
         searchEnabled(props.searchable, props.options, props.filter),
 );
+// Clearable by default unless the field is required (a caller's `required` or `aria-required`, or `nativeRequired`); `clearable` decides either way.
+const required = computed(
+    () =>
+        props.nativeRequired ||
+        (attrs.required !== undefined && attrs.required !== false) ||
+        String(attrs['aria-required']) === 'true',
+);
 const canClear = computed(
     () =>
-        (props.clearable ?? props.multiple) &&
+        (props.clearable ?? (props.multiple || !required.value)) &&
         !readOnly.value &&
         !props.disabled &&
         values.value.length > 0,
 );
 const interactive = computed(() => !props.disabled && !readOnly.value);
 
-// The text in the field: what was typed, else (single) the chosen label. `typed` turns on with the first keystroke and off on close or a choice.
+// The text in the field: what was typed, else (single) the chosen label. `typed` turns on with the first keystroke and off on close, a choice, focus or blur.
 const open = ref(false);
 // While closed the list is unmounted, so nothing may point into it: Reka keeps `aria-controls` (the content's id) and `aria-activedescendant` (the last highlighted
 // item) on the input after close, which axe flags as critical (aria-valid-attr-value). Bound only while closed, these override Reka's and drop both attributes
@@ -187,13 +195,11 @@ const fieldText = computed({
         typed.value || props.multiple ? query.value : singleLabel.value,
     set: (value: string) => {
         if (!interactive.value || !searchOn.value) return;
-        // Typing after the shown label (single) starts the search from the typed text, not the label.
-        if (
-            !typed.value &&
-            singleLabel.value &&
-            value.startsWith(singleLabel.value)
-        )
-            value = value.slice(singleLabel.value.length);
+        // The shown label (single) is never the search: the first edit starts it from what was typed, wherever the caret was.
+        if (!typed.value && singleLabel.value) {
+            if (value === singleLabel.value) return;
+            value = freshQuery(singleLabel.value, value);
+        }
         query.value = value;
         typed.value = true;
     },
@@ -412,6 +418,8 @@ const highlightedElement = () =>
 
 // The keys this component owns, caught before Reka's own handlers (InputSelect.md, Keyboard); the rest (arrows, Enter on a row) stay Reka's.
 function onKeydown(event: KeyboardEvent) {
+    // The clear button keeps its own keys (Enter and Space press it).
+    if (event.target !== inputEl()) return;
     const own = () => {
         event.stopPropagation();
         event.preventDefault();
@@ -459,7 +467,8 @@ function onKeydown(event: KeyboardEvent) {
             own();
             if (open.value) setOpen(false);
             else if (typed.value) resetText();
-            else if (canClear.value) clear();
+            else if (canClear.value && (props.clearable ?? props.multiple))
+                clear();
             return;
         case 'Tab':
             event.stopPropagation();
@@ -515,6 +524,35 @@ function onFieldPointerDown(event: PointerEvent) {
         event.preventDefault();
         focusInput();
     }
+}
+
+// The open list, found by its own data attribute: Reka gives the content its own id, over the one passed.
+const listEl = () => document.querySelector(`[data-kit-select-list="${uid}"]`);
+// Focus starts a fresh search, and focus leaving the field and its list closes it and drops the typed text. Not when the window itself lost focus
+// (relatedTarget null and the document unfocused): the search is still there on return.
+function onInputFocus() {
+    chip.value = null;
+    if (!open.value) resetText();
+}
+function onInputBlur(event: FocusEvent) {
+    const next = event.relatedTarget as Node | null;
+    if (
+        next
+            ? inputEl()?.closest('[popover]')?.contains(next) ||
+              listEl()?.contains(next)
+            : !document.hasFocus()
+    )
+        return;
+    setOpen(false);
+    resetText();
+}
+// Escape with focus in the list (after a press on its padding or its empty message): Reka's own dismissal is prevented, so the list closes here and focus
+// goes back to the field. Escape in the field never gets here (onKeydown owns it).
+function onListEscape(event: KeyboardEvent) {
+    event.preventDefault();
+    const inList = listEl()?.contains(document.activeElement);
+    setOpen(false);
+    if (inList) focusInput();
 }
 
 // The list is named by the field's label, read when it opens.
@@ -679,7 +717,8 @@ const layerTarget = useLayerTarget();
                         readOnly && 'cursor-default',
                         readOnly && chosen.length === 0 && 'sr-only',
                     ]"
-                    @focus="chip = null"
+                    @focus="onInputFocus"
+                    @blur="onInputBlur"
                 />
                 <div
                     v-if="interactive"
@@ -688,9 +727,9 @@ const layerTarget = useLayerTarget();
                     <button
                         v-if="canClear"
                         type="button"
-                        tabindex="-1"
                         :aria-label="multiple ? text.clear_all : text.clear"
-                        class="text-muted-foreground hover:text-foreground -my-2 inline-flex min-h-11 min-w-8 items-center justify-center sm:my-0 sm:min-h-0 sm:min-w-0"
+                        data-select-clear
+                        class="text-muted-foreground hover:text-foreground focus-visible:ring-ring -my-2 inline-flex min-h-11 min-w-8 items-center justify-center rounded-sm outline-none focus-visible:ring-2 sm:my-0 sm:min-h-0 sm:min-w-0"
                         @pointerdown.prevent
                         @click.stop="clear"
                     >
@@ -729,6 +768,7 @@ const layerTarget = useLayerTarget();
             <ComboboxPortal :to="layerTarget">
                 <ComboboxContent
                     :id="listId"
+                    :data-kit-select-list="uid"
                     position="popper"
                     side="bottom"
                     align="start"
@@ -744,7 +784,7 @@ const layerTarget = useLayerTarget();
                     }"
                     :class="popoverClass"
                     class="border-border bg-popover text-popover-foreground data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 z-[100] max-h-[min(18rem,var(--reka-combobox-content-available-height),calc(var(--kit-select-viewport,100dvh)-1rem))] w-max max-w-[min(24rem,calc(100vw-1rem))] min-w-(--reka-combobox-trigger-width) overflow-hidden rounded-md border p-1 shadow-lg data-[state=closed]:duration-75 data-[state=open]:duration-100 motion-reduce:animate-none"
-                    @escape-key-down.prevent
+                    @escape-key-down="onListEscape"
                 >
                     <ComboboxViewport class="max-h-[inherit] overflow-y-auto">
                         <div

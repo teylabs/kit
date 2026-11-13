@@ -171,6 +171,28 @@ export function showCreate(
     );
 }
 
+/**
+ * The search a first edit of the shown label starts: only what the edit put in, wherever the caret was (before, inside or after the label, or over a selection
+ * of it), so the label is never part of the query. An edit that only deleted starts an empty search.
+ */
+export function freshQuery(label: string, edited: string): string {
+    let start = 0;
+    while (
+        start < label.length &&
+        start < edited.length &&
+        label[start] === edited[start]
+    )
+        start++;
+    let end = 0;
+    while (
+        end < label.length - start &&
+        end < edited.length - start &&
+        label[label.length - 1 - end] === edited[edited.length - 1 - end]
+    )
+        end++;
+    return edited.slice(start, edited.length - end);
+}
+
 /** Remote filter: emit `search` only once the trimmed text is long enough (`0` emits for any text). */
 export const searchReady = (query: string, minLength: number): boolean =>
     query.trim().length >= minLength;

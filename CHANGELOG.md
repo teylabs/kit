@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased
+
+Features affected: core
+
+No lineage pin changed: `composer update` is enough.
+
+### Fixed
+
+- **InputSelect: typing on a chosen label searches for what was typed, never the label plus the keystroke.** On a searchable single select, typing anywhere but after the end of the shown label (the caret before it or inside it) made the label itself part of the query: a `For` field showing "Not a member (a public booking)" answered `f` with "No results for “fNot a member (a public booking)”". A press on the list (its padding or that message) then moved focus into the list, where Escape did nothing (InputSelect prevented Reka's dismissal and only the field handled Escape), so the list and the query stayed until a click outside or a reload. Now:
+  Features affected: core
+  - **The label is never the query.** The first edit of the shown label searches only for what it put in, wherever the caret was or whatever part of the label was selected (`freshQuery()`, new in `inputSelect.ts`); an edit that only deletes starts an empty search. Focusing the field starts a fresh one too.
+  - **Escape and a click outside** close the list, drop the typed text and show the chosen label again, also with focus in the list (focus then returns to the field), and inside the kit Modal, which stays open.
+  - **Focus leaving the field**, a choice and choosing the current option again each drop the typed text. A window that loses focus keeps it.
+  - **A Clear button by default on an optional field.** `clearable` `null` (the default) now shows it on a single select unless the field is required (a caller's `required` or `aria-required`, or `nativeRequired`); `clearable` true or false still decides. The button is in the tab order, after the field, with a focus ring, and Enter or Space press it. Escape on a closed single field still clears only with `clearable` set, as before. A single InputSelect a host leaves optional and unrequired gains the button: pass `:clearable="false"` to keep it off. mcp's Authorize workspace select is one such (clearing it disables Approve until a workspace is chosen again).
+  - **Tests.** `composer test:input-select`: `freshQuery()` for the reported case (`fNot a member (a public booking)` → `f`), the caret after and inside the label, a doubled letter, a selection replaced, the whole label replaced and a deletion. Browser (`?select-query`, `&modal`): the exact repro (Home, `f`: the query is `f` and the list shows Frances Allen), typing inside and after the label; Escape, Escape with focus in the list after a press on its message, and a click outside, each restoring the label with the value unchanged; the same in the kit Modal, which stays open; the Clear button reached by Tab and pressed with Enter and Space on the optional field, none on the required one, Escape not clearing a single field, axe clean; a choice, the current option chosen again, Tab away and a click on another field each leaving no query. Floor 316 → 321.
+  - **Not covered:** a consumer app; checked only in the kit's browser harness (Chromium).
+
 ## v0.18.0
 
 Features affected: core

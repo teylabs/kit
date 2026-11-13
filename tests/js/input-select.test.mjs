@@ -116,3 +116,16 @@ test('closed, the input points at nothing: no aria-controls or aria-activedescen
     assert.deepEqual(closedAria(true), {});
     assert.deepEqual(closedAria(false, { 'aria-controls': 'my-list' }), { 'aria-activedescendant': undefined }, 'a caller\'s own aria-controls still wins');
 });
+
+test('a first edit of the shown label searches for what was typed only, wherever the caret was: never label + keystroke', () => {
+    const label = 'Not a member (a public booking)';
+    assert.equal(s.freshQuery(label, `f${label}`), 'f', 'the reported case: the caret before the label gave "fNot a member (a public booking)"');
+    assert.equal(s.freshQuery(label, `${label}f`), 'f', 'after the label');
+    assert.equal(s.freshQuery(label, 'Not a member (a fpublic booking)'), 'f', 'inside it');
+    assert.equal(s.freshQuery(label, 'Not a member (a pubblic booking)'), 'b', 'a doubled letter: the insertion, not a slice of the label');
+    assert.equal(s.freshQuery(label, 'Not a gra (a public booking)'), 'gra', 'over a selected word (a paste or IME text)');
+    assert.equal(s.freshQuery(label, 'Ada'), 'Ada', 'over the whole label');
+    assert.equal(s.freshQuery(label, 'Not a member (a public bookin'), '', 'Backspace only deletes: an empty search, not the rest of the label');
+    assert.equal(s.freshQuery(label, ''), '');
+    assert.equal(s.freshQuery('Apple', 'Appple'), 'p');
+});
