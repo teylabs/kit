@@ -47,6 +47,8 @@ final class BrandMigrateCommand extends Command
             return self::FAILURE;
         }
         $kitBrand = is_array($kit) && is_array($kit['brand'] ?? null) ? $kit['brand'] : [];
+        // Ignored since 0.17 whatever it holds, so it is named for deletion even when every key in it is the kit's default and nothing is written from it.
+        $deleteKitBrand = $kitBrand === [] ? null : 'tey/kit ignores kit.brand in config/kit.php since 0.17. Delete its \'brand\' array';
         $fromKit = [];
         foreach (array_keys(BrandConfig::DEFAULTS) as $key) {
             $name = (string) BrandConfig::envName($key);
@@ -63,8 +65,8 @@ final class BrandMigrateCommand extends Command
                 continue;
             }
             // The process environment too: with a cached config, kit.brand_env is the snapshot from when the cache was built, and a deploy may set a variable
-            // only for this run. A key with a variable anywhere comes from env, never from config/kit.php.
-            if (! in_array($key, $fromEnv, true) && ! isset($lines[$name]) && ($name === '' || env($name) === null)) {
+            // only for this run. A key with a variable anywhere comes from env, never from config/kit.php: present, not env()'s value, which reads `null` as null.
+            if (! in_array($key, $fromEnv, true) && ! isset($lines[$name]) && ($name === '' || (getenv($name) === false && ! isset($_ENV[$name]) && ! isset($_SERVER[$name])))) {
                 // No variable: the value config/kit.php gave kit.brand before 0.17, already cast by that file, when it differs from the default. An empty
                 // string was unset then, so it is null now; an invalid colour or icon choice is flagged as null, never written (the next boot would refuse it).
                 if (! Arr::has($kitBrand, $key)) {
@@ -116,7 +118,10 @@ final class BrandMigrateCommand extends Command
         }
         $elsewhere = 'Only this environment was read (its environment, '.basename($envFile).' and config/kit.php). A brand value set only in another environment (production\'s environment, CI or deploy settings) is not seen here: copy it into config/brand.php by hand.';
         if ($values === [] && $flagged === [] && ! $normalised) {
-            $this->info('No KIT_BRAND_* values are set and config/kit.php sets no brand. Nothing written. Publish the commented stub with: php artisan vendor:publish --tag=kit-brand');
+            $this->info('No KIT_BRAND_* values are set and config/kit.php sets no brand'.($deleteKitBrand === null ? '' : ' other than the kit\'s defaults').'. Nothing written. Publish the commented stub with: php artisan vendor:publish --tag=kit-brand');
+            if ($deleteKitBrand !== null) {
+                $this->line($deleteKitBrand.'.');
+            }
             $this->warn($elsewhere);
 
             return self::SUCCESS;
@@ -147,8 +152,8 @@ final class BrandMigrateCommand extends Command
         if ($outside !== []) {
             $this->line('Set in the environment, not .env (remove them where they are set: CI, deploy settings, scripts): '.implode(', ', $outside));
         }
-        if ($fromKit !== []) {
-            $this->line('tey/kit ignores kit.brand in config/kit.php since 0.17. Delete its \'brand\' array (written above: '.implode(', ', $fromKit).').');
+        if ($deleteKitBrand !== null) {
+            $this->line($deleteKitBrand.($fromKit === [] ? ' (every key in it is the kit\'s default).' : ' (written above: '.implode(', ', $fromKit).').'));
         }
         $this->warn($elsewhere);
         $this->line('Then run php artisan config:clear (or config:cache) and check php artisan kit:status.');

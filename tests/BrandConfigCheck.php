@@ -239,11 +239,14 @@ KIT_BRAND_IDENTITY=
     // A variable set only in the process, after the config loaded (as with a cached config, whose kit.brand_env is the snapshot from the build), still wins over
     // config/kit.php. An invalid icon choice there is flagged as null, so the migrated app boots; a false that differs from the default is written.
     $roots[] = $root = host("APP_ENV=local\n");
-    file_put_contents($root.'/config/kit.php', "<?php return ['brand' => ['icon_colours' => 'rainbow', 'icon_padding' => 0.25, 'legal_name' => 'Kit Co', 'copyright' => false]];");
+    file_put_contents($root.'/config/kit.php', "<?php return ['brand' => ['icon_colours' => 'rainbow', 'icon_padding' => 0.25, 'legal_name' => 'Kit Co', 'postal_address' => 'Kit Street', 'copyright' => false]];");
     $kernel = boot_migrate($root);
-    putenv('KIT_BRAND_LEGAL_NAME=Deploy Co');
-    $_ENV['KIT_BRAND_LEGAL_NAME'] = $_SERVER['KIT_BRAND_LEGAL_NAME'] = 'Deploy Co';
-    check($kernel->call('kit:brand:migrate') === 0 && (require $root.'/config/brand.php') === ['icon_colours' => null, 'icon_padding' => 0.25, 'legal_name' => 'Deploy Co', 'copyright' => false], 'a process-only variable wins over config/kit.php, an invalid icon_colours there is written as null, and copyright false is kept');
+    // A literal `null`, which env() reads as null, is still a variable that is set.
+    foreach (['KIT_BRAND_LEGAL_NAME' => 'Deploy Co', 'KIT_BRAND_POSTAL_ADDRESS' => 'null'] as $name => $value) {
+        putenv($name.'='.$value);
+        $_ENV[$name] = $_SERVER[$name] = $value;
+    }
+    check($kernel->call('kit:brand:migrate') === 0 && (require $root.'/config/brand.php') === ['icon_colours' => null, 'icon_padding' => 0.25, 'legal_name' => 'Deploy Co', 'postal_address' => null, 'copyright' => false], 'process-only variables win over config/kit.php (a literal null one included, flagged as empty), an invalid icon_colours there is written as null, and copyright false is kept');
     check(str_contains($out = $kernel->output(), "FLAGGED kit.brand.icon_colours: kit.brand.icon_colours in config/kit.php is 'rainbow', not 'mono' or 'full'. null = the kit default") && str_contains($out, 'not .env (remove them where they are set: CI, deploy settings, scripts): KIT_BRAND_LEGAL_NAME'), 'migrate flags the icon choice and names the process-only variable');
     forgetEnv();
     boot($root);
@@ -252,6 +255,8 @@ KIT_BRAND_IDENTITY=
     $roots[] = $root = host("APP_ENV=local\n");
     $kernel = boot_migrate($root);
     check($kernel->call('kit:brand:migrate') === 0 && str_contains($out = $kernel->output(), 'Nothing written') && str_contains($out, 'copy it into config/brand.php by hand') && ! is_file($root.'/config/brand.php'), 'with nothing to migrate, migrate writes nothing and names other environments');
+    file_put_contents($root.'/config/kit.php', "<?php return ['brand' => ['logomark' => '/logomark.svg', 'accent' => '#52525B']];");
+    check($kernel->call('kit:brand:migrate') === 0 && str_contains($out = $kernel->output(), "sets no brand other than the kit's defaults. Nothing written") && str_contains($out, "Delete its 'brand' array.") && ! is_file($root.'/config/brand.php'), "a config/kit.php brand of only the kit's defaults writes nothing and is still named for deletion");
     file_put_contents($root.'/config/kit.php', "<?php throw new RuntimeException('broken kit config');");
     check($kernel->call('kit:brand:migrate') === 1 && str_contains($kernel->output(), 'broken kit config') && ! is_file($root.'/config/brand.php'), 'a config/kit.php that cannot be read fails migrate, with nothing written');
 
