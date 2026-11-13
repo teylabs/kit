@@ -247,15 +247,6 @@ final class FeaturesServiceProvider extends ServiceProvider
         $brandMail = config('kit.brand_mail');
         $branded = $brandMail === true || ($brandMail === null && in_array('session-ui', $features, true) && Brand::placeholders() === []);
         $placeholderCheck = $brandMail === true;
-        // The 0.18 renames the database has run run again once a migrate ends, before CatalogSync writes permission_defaults: an app's copy dated after
-        // a rename may have created an old name on a fresh database. A no-op once the old tables are gone; never under --pretend or on the way down.
-        if ($features !== []) {
-            Event::listen(MigrationsEnded::class, function (MigrationsEnded $event) use ($features): void {
-                if ($event->method === 'up' && ! ($event->options['pretend'] ?? false) && $this->app->resolved('migrator')) {
-                    $this->app->make('migrator')->renames($features);
-                }
-            });
-        }
         // The workspace columns found are cached across requests (IsKitWorkspace); any migration, up or down, may change them, so it forgets them.
         // A braced closure, never an arrow function: forget() answers false when nothing was cached, and a listener that returns false stops
         // the event, so CatalogSync (below) would never run after a migrate on a cold cache.

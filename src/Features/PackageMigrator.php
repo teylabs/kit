@@ -2,6 +2,7 @@
 
 namespace Tey\Kit\Features;
 
+use Closure;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Migrations\Migrator;
 use Illuminate\Support\Collection;
@@ -13,17 +14,19 @@ use Illuminate\Support\Collection;
  * kit:add's stamped `2026_03_04_050607_000502_x.php` are one migration. Laravel keys migrations by name, so an app that ran its copies runs
  * none of the package's twins, and an app's copy, edited or not, stays the one that runs. `migrate`, `migrate:status` and the rollbacks all
  * read this one list.
+ *
+ * It also keeps the 0.18 renames independent of their date (asWritten()).
  */
 final class PackageMigrator extends Migrator
 {
-    /** The 0.18 renames, by feature. FeaturesServiceProvider runs them again when a migrate ends (renames()), so their order does not matter. */
+    /** The 0.18 renames, by feature. An app's copy that sorts after its feature's rename runs with the rename undone around it (asWritten()). */
     public const RENAMES = [
         'access' => '2026_11_14_000304_rename_access_tables',
         'session-ui' => '2026_11_14_000506_rename_session_ui_tables',
         'mcp' => '2026_11_14_000605_rename_mcp_tables',
     ];
 
-    /** @var array<string, string> each package directory registered => the app's copies directory of that feature */
+    /** @var array<string, string> feature id => the app's copies directory of that feature, for each feature registered */
     private array $copies = [];
 
     /** The kit's migrator in place of $migrator, with the paths it already had. */
@@ -51,7 +54,7 @@ final class PackageMigrator extends Migrator
     {
         $this->path($copies);
         $this->path(self::directory($id));
-        $this->copies[self::directory($id)] = $copies;
+        $this->copies[$id] = $copies;
     }
 
     /**
@@ -61,32 +64,51 @@ final class PackageMigrator extends Migrator
     public function getMigrationFiles($paths)
     {
         $paths = (array) $paths;
-        $files = parent::getMigrationFiles(array_values(array_diff($paths, array_keys($this->copies))));
-        foreach (array_intersect_key($this->copies, array_flip($paths)) as $directory => $copies) {
+        $packages = array_map(self::directory(...), array_keys($this->copies));
+        $files = parent::getMigrationFiles(array_values(array_diff($paths, $packages)));
+        foreach ($this->copies as $id => $copies) {
+            if (! in_array(self::directory($id), $paths, true)) {
+                continue;
+            }
             $own = array_map(self::name(...), array_filter($files, fn (string $file): bool => dirname($file) === $copies));
-            $files += array_filter(parent::getMigrationFiles([$directory]), fn (string $file): bool => ! in_array(self::name($file), $own, true));
+            $files += array_filter(parent::getMigrationFiles([self::directory($id)]), fn (string $file): bool => ! in_array(self::name($file), $own, true));
         }
 
         return (new Collection($files))->sortBy(fn (string $file, string $name): string => $name)->all();
     }
 
-    /**
-     * Runs again each 0.18 rename of $features that the database has run (the migrations table names it): a no-op once its old tables are gone,
-     * and a refusal when both names of a table exist. An app's copy dated after a rename (kit:add stamped copies with the day it ran) creates an
-     * old name after it on a fresh database; this renames that too. A rename not run yet, or rolled back, is left to the migration.
-     *
-     * @param  list<string>  $features
-     */
-    public function renames(array $features): void
+    protected function runUp($file, $batch, $pretend)
     {
-        if (! $this->repositoryExists()) {
+        $this->asWritten($file, $pretend, fn () => parent::runUp($file, $batch, $pretend));
+    }
+
+    protected function runDown($file, $migration, $pretend)
+    {
+        $this->asWritten($file, $pretend, fn () => parent::runDown($file, $migration, $pretend));
+    }
+
+    /**
+     * Runs one migration, up or down. An app's copy that sorts after its feature's 0.18 rename once that rename has run (kit:add stamped copies with
+     * the day it ran, so on a fresh database they can follow it) was written for the old kit_ names: the rename is undone before it and done again
+     * after it, so the copy meets the tables it was written for and the database keeps the new names, whatever the order, on the way up and down.
+     * Both through the migrator's own connection handling, so `--database` applies.
+     */
+    private function asWritten(string $file, bool $pretend, Closure $run): void
+    {
+        $id = array_search(dirname($file), $this->copies, true);
+        $rename = $id === false ? null : (self::RENAMES[$id] ?? null);
+        if ($pretend || $rename === null || strcmp($this->getMigrationName($file), $rename) < 0 || ! in_array($rename, $this->repository->getRan(), true)) {
+            $run();
+
             return;
         }
-        $ran = $this->repository->getRan();
-        foreach (array_intersect_key(self::RENAMES, array_flip($features)) as $id => $name) {
-            if (in_array($name, $ran, true)) {
-                (require self::directory($id).'/'.$name.'.php')->up();
-            }
+        $migration = $this->resolvePath(self::directory($id).'/'.$rename.'.php');
+        $connection = $this->resolveConnection($migration->getConnection());
+        $this->runMethod($connection, $migration, 'down');
+        try {
+            $run();
+        } finally {
+            $this->runMethod($connection, $migration, 'up');
         }
     }
 

@@ -49,11 +49,15 @@ function host(array $files = [], array $kit = []): Application
     }
     touch($root.'/database/database.sqlite');
     $connection = ['driver' => 'sqlite', 'database' => $root.'/database/database.sqlite', 'prefix' => '', 'foreign_key_constraints' => false];
+    touch($root.'/database/other.sqlite');
+    $other = ['database' => $root.'/database/other.sqlite'] + $connection;
     if (getenv('DB_CONNECTION') === 'pgsql') {
         $schema = 'kit_migrations_'.(++$GLOBALS['schemas']);
         $connection = ['driver' => 'pgsql', 'host' => getenv('DB_HOST') ?: '127.0.0.1', 'port' => getenv('DB_PORT') ?: '5432', 'database' => getenv('DB_DATABASE') ?: 'kit_adopt_check', 'username' => getenv('DB_USERNAME') ?: 'postgres', 'password' => getenv('DB_PASSWORD') ?: '', 'charset' => 'utf8', 'prefix' => '', 'search_path' => $schema, 'sslmode' => 'prefer'];
         $pdo = new PDO('pgsql:host='.$connection['host'].';port='.$connection['port'].';dbname='.$connection['database'], $connection['username'], $connection['password']);
         $pdo->exec('drop schema if exists '.$schema.' cascade; create schema '.$schema);
+        $pdo->exec('drop schema if exists '.$schema.'_other cascade; create schema '.$schema.'_other');
+        $other = ['search_path' => $schema.'_other'] + $connection;
     }
     file_put_contents($root.'/database/migrations/0001_01_01_000000_create_users_table.php', "<?php\n\nreturn new class extends Illuminate\\Database\\Migrations\\Migration\n{\n    public function up(): void\n    {\n        Illuminate\\Support\\Facades\\Schema::create('users', fn (\$t) => \$t->id());\n    }\n};\n");
     foreach ($files as $path => $bytes) {
@@ -61,7 +65,7 @@ function host(array $files = [], array $kit = []): Application
         file_put_contents($root.'/'.$path, $bytes);
     }
     file_put_contents($root.'/config/kit.php', '<?php return '.var_export($kit + ['features' => FEATURES, 'models' => ['user' => User::class], 'routes' => ['mcp' => ['enabled' => false]]], true).';');
-    file_put_contents($root.'/config/database.php', '<?php return '.var_export(['default' => 'kit', 'migrations' => ['table' => 'migrations'], 'connections' => ['kit' => $connection]], true).';');
+    file_put_contents($root.'/config/database.php', '<?php return '.var_export(['default' => 'kit', 'migrations' => ['table' => 'migrations'], 'connections' => ['kit' => $connection, 'other' => $other]], true).';');
     file_put_contents($root.'/config/cache.php', "<?php return ['default' => 'array', 'stores' => ['array' => ['driver' => 'array']]];");
     file_put_contents($root.'/config/app.php', '<?php return '.var_export(['env' => 'testing', 'key' => 'base64:'.base64_encode(random_bytes(32)), 'cipher' => 'AES-256-CBC'], true).';');
     file_put_contents($root.'/config/permission.php', '<?php return '.var_export(['teams' => false, 'table_names' => ['roles' => 'roles', 'permissions' => 'permissions', 'model_has_permissions' => 'model_has_permissions', 'model_has_roles' => 'model_has_roles', 'role_has_permissions' => 'role_has_permissions'], 'column_names' => ['role_pivot_key' => null, 'permission_pivot_key' => null, 'model_morph_key' => 'model_id', 'team_foreign_key' => 'team_id']], true).';');
@@ -246,13 +250,28 @@ try {
     check(Schema::hasColumn('user_state', 'edited_by_the_app') && in_array('2026_03_04_050607_000502_create_kit_user_state_table', $ran, true)
         && ! in_array('0001_01_02_000502_create_kit_user_state_table', $ran, true) && count($ran) === count(array_unique($ran)), 'the edited stamped copy runs, once, and the package\'s twin does not; the rename still follows');
 
-    // A copy dated after the renames (kit:add stamped copies with the day it ran) creates the old names after them on a fresh database. The renames
-    // run again when the migrate ends, so it still ends with the new names only.
+    // A copy dated after the renames (kit:add stamped copies with the day it ran) was written for the old names, and on a fresh database runs after
+    // them: each such copy runs, up or down, with its feature's rename undone around it, so it meets the old names and the database keeps the new ones.
     $late = host(copies('2026_12_01_000000'));
     $ran = migrate($late);
     check(array_search('2026_11_14_000506_rename_session_ui_tables', $ran, true) < array_search('2026_12_01_000000_000502_create_kit_user_state_table', $ran, true), 'on a fresh database the late copies run after the renames');
     check(array_filter(RENAMES, fn (string $to, string $from): bool => Schema::hasTable($from) || ! Schema::hasTable($to), ARRAY_FILTER_USE_BOTH) === [], 'and migrate still ends with every infrastructure table under its new name only');
     check(migrate($late) === [] && ! Schema::hasTable('kit_user_state'), 'a second migrate runs nothing');
+    $newNamesOnly = fn (): bool => array_filter(RENAMES, fn (string $to, string $from): bool => Schema::hasTable($from) || ! Schema::hasTable($to), ARRAY_FILTER_USE_BOTH) === [];
+    seed('mcp_runs');
+    $kernel = $late->make(Kernel::class);
+    check($kernel->call('migrate:rollback', ['--force' => true, '--step' => 1]) === 0 && ! Schema::hasTable('mcp_runs') && ! Schema::hasTable('kit_mcp_runs') && Schema::hasTable('mcp_intents'), 'rolling back the last late copy drops the table it created, under its new name, and leaves the rest renamed');
+    check(migrate($late) === ['2026_12_01_000000_000604_create_kit_mcp_runs_table'] && $newNamesOnly(), 'migrating it again creates it, and the database ends with the new names only');
+    // Every late copy of the features with renames (the newest migrations here), rolled back: not migrate:reset, since on PostgreSQL the audit key
+    // onto workspaces blocks dropping it (README, Rolling back).
+    $steps = count(preg_grep('#/kit/(access|session-ui|mcp)/#', array_keys(copies('2026_12_01_000000'))));
+    check($kernel->call('migrate:rollback', ['--force' => true, '--step' => $steps]) === 0 && array_filter([...array_keys(RENAMES), ...RENAMES], fn (string $table): bool => Schema::hasTable($table)) === [], 'rolling back every late access, session-ui and mcp copy ('.$steps.') runs each down, and leaves no renamed table under either name');
+    check(count(migrate($late)) === $steps && $newNamesOnly(), 'migrating them again ends with the new names only');
+
+    // migrate --database runs the late copies' renames on that connection, not the default one.
+    $elsewhere = host(copies('2026_12_01_000000'));
+    check($elsewhere->make(Kernel::class)->call('migrate', ['--force' => true, '--database' => 'other']) === 0, 'migrate --database=other runs the late app');
+    check(array_filter(RENAMES, fn (string $to, string $from): bool => Schema::connection('other')->hasTable($from) || ! Schema::connection('other')->hasTable($to), ARRAY_FILTER_USE_BOTH) === [] && ! Schema::hasTable('migrations') && ! Schema::hasTable('user_state'), 'and the other connection ends with the new names only, the default untouched');
 
     // Both names present: the rename refuses, naming both, and changes nothing.
     $both = host(copies());

@@ -61,7 +61,7 @@ Not shipped:
   - An unknown feature, a duplicate or a missing requirement is refused.
 - For each adopted feature it:
   - registers the feature's provider;
-  - loads its migrations from the package's `database/migrations/<feature>`, less each one the app has a copy of in `database/migrations/kit/<feature>` (same name, or the stamped `<stamp>_<order>_<name>.php`), which loads instead, so `php artisan migrate` needs no app configuration. The kit's migrator (`PackageMigrator`) registers the directory and drops those files from its list, and runs each 0.18 rename again when a migrate ends, so an app's copy dated after a rename still ends with the new name;
+  - loads its migrations from the package's `database/migrations/<feature>`, less each one the app has a copy of in `database/migrations/kit/<feature>` (same name, or the stamped `<stamp>_<order>_<name>.php`), which loads instead, so `php artisan migrate` needs no app configuration. The kit's migrator (`PackageMigrator`) registers the directory and drops those files from its list, and undoes a 0.18 rename around each app copy dated after it (written for the old names), up or down, so the database keeps the new names whatever the order;
   - adds the feature's contributions to the shared `Registry`: routes, MCP tools, navigation, token scopes, abilities, capabilities, provisioning steps, the connection guard and error codes.
 - Optional integrations register only when both sides are adopted. For example, the settings MCP tools register only with mcp.
 - A delegated (MCP) principal is refused unless mcp is adopted.
