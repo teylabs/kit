@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## v0.18.4
+
+Features affected: settings, workspace-ui
 
 Features affected: core, workspaces, session-ui, workspace-ui, settings
 
