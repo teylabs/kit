@@ -486,6 +486,9 @@ jobs:
         run: composer test:adopt-fresh
       - name: Access and settings table adopt-in-place (SQLite)
         run: composer test:table-adopt
+      - name: kit:detach (config features and adopt flags from the records, file and migration reports, checklist)
+        timeout-minutes: 4
+        run: composer test:detach
       - name: Global search (client)
         timeout-minutes: 4
         run: composer test:search-js

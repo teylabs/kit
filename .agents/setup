@@ -1,74 +1,11 @@
 #!/usr/bin/env bash
-# Prepares a fresh checkout for a cloud agent: PHP 8.5 with the extensions CI uses, Composer, a PostgreSQL server
+# Prepares a fresh checkout for a cloud agent: PHP 8.5 (Debian's 8.4 where the PPA is unavailable) with the extensions CI uses, Composer, a PostgreSQL server
 # (the `kit` role and kit_adopt_check database the PostgreSQL checks expect), Node 24, then the PHP and Node dependencies
 # and Playwright Chromium for the browser suite. A package, so `composer update` (there is no lock file).
 set -euo pipefail
 
-PHP_EXTENSIONS=(mbstring xml curl zip pgsql pdo_pgsql sqlite3 pdo_sqlite intl gd imagick)
-# PHP 8.5 exactly: composer.json allows ~8.4.0 || ~8.5.0, and 8.5 is what the house uses.
-php_ready() {
-    command -v php >/dev/null && php -r 'exit(PHP_VERSION_ID >= 80500 && PHP_VERSION_ID < 80600 ? 0 : 1);' || return 1
-    local loaded
-    loaded=$(php -m | tr '[:upper:]' '[:lower:]')
-    for extension in "${PHP_EXTENSIONS[@]}"; do
-        grep -qx "$extension" <<<"$loaded" || return 1
-    done
-}
-if ! php_ready; then
-    sudo add-apt-repository -y ppa:ondrej/php
-    sudo apt-get update
-    sudo apt-get install -y php8.5-cli php8.5-mbstring php8.5-xml php8.5-curl php8.5-zip php8.5-pgsql php8.5-sqlite3 \
-        php8.5-intl php8.5-gd php8.5-imagick unzip
-    # Another PHP may already own `php`: select 8.5 and check before going on.
-    sudo update-alternatives --set php /usr/bin/php8.5
-    php_ready || { echo "setup: php is not PHP 8.5 with the required extensions" >&2; exit 1; }
-fi
-
-composer_ready() {
-    command -v composer >/dev/null || return 1
-    composer --version 2>/dev/null | grep -Eq 'Composer (version )?(2\.([2-9]|[1-9][0-9])|[3-9])\.'
-}
-if ! composer_ready; then
-    curl -sS https://getcomposer.org/installer | php -- --install-dir=/tmp
-    sudo mv /tmp/composer.phar /usr/local/bin/composer
-fi
-
-# Probe for the server, not the client: an image can ship psql without a server.
-if ! compgen -G '/usr/lib/postgresql/*/bin/postgres' >/dev/null; then
-    sudo apt-get update
-    sudo apt-get install -y postgresql
-fi
-sudo service postgresql start
-# What CI's PostgreSQL job uses: role kit, password kit, database kit_adopt_check. As in CI (POSTGRES_USER is a
-# superuser), kit is a superuser: tests/RlsCheck.php asserts its admin connection is one and creates a BYPASSRLS role.
-# It authenticates by password over localhost only (no trust rule), on a disposable single-user agent VM.
-sudo -u postgres psql -tc "select 1 from pg_roles where rolname = 'kit'" | grep -q 1 \
-    || sudo -u postgres psql -c "create role kit"
-sudo -u postgres psql -c "alter role kit login superuser password 'kit'"
-sudo -u postgres psql -tc "select 1 from pg_database where datname = 'kit_adopt_check'" | grep -q 1 \
-    || sudo -u postgres createdb -O kit kit_adopt_check
-sudo -u postgres psql -c "alter database kit_adopt_check owner to kit"
-# The PostgreSQL checks only use PostgreSQL when DB_CONNECTION=pgsql; the rest run on SQLite. Their connection, to source:
-#   set -a; . ~/.kit-pgsql.env; set +a; composer test:workspace-adopt
-(umask 077; printf 'DB_CONNECTION=pgsql\nDB_HOST=127.0.0.1\nDB_PORT=5432\nDB_DATABASE=kit_adopt_check\nDB_USERNAME=kit\nDB_PASSWORD=kit\n' > "$HOME/.kit-pgsql.env")
-chmod 600 "$HOME/.kit-pgsql.env"
-
-# Node 24 exactly, as CI runs the browser suite and the component type-check, with npm present.
-node_ready() {
-    command -v node >/dev/null && command -v npm >/dev/null || return 1
-    node -e 'process.exit(Number(process.versions.node.split(".")[0]) === 24 ? 0 : 1)'
-}
-if ! node_ready; then
-    curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
-    sudo apt-get install -y nodejs
-    node_ready || { echo "setup: node is not Node 24 with npm" >&2; exit 1; }
-fi
-
-composer update --prefer-dist --no-interaction --no-progress
-(cd browser && npm ci && npx playwright install --with-deps chromium)
-(cd typecheck && npm ci)
-
-# House rule: no AI attribution in commits. A repo-local commit-msg hook strips the trailers agents add (Amp-Thread-ID,
+# House rule: no AI attribution in commits. Installed first, before anything that can fail (a package mirror, a PPA), so a
+# failed setup never leaves an agent committing without it. A repo-local commit-msg hook strips the trailers agents add (Amp-Thread-ID,
 # Co-authored-by Amp/Claude/Anthropic, Claude-Session, "Generated with <AI tool>") and keeps human co-authors.
 # Squash-merging stays the backstop. Repo-local only: never write into a global core.hooksPath (it may be the machine's
 # own hooks). A commit-msg hook the repo already had is kept as commit-msg.local and still runs first.
@@ -124,3 +61,82 @@ awk '{
 }' "$1" > "$tmp" && mv "$tmp" "$1"
 HOOK
 chmod +x "$HOOKS_DIR/commit-msg"
+# End of the House rule block.
+
+PHP_EXTENSIONS=(mbstring xml curl zip pgsql pdo_pgsql sqlite3 pdo_sqlite intl gd imagick)
+# PHP 8.5 exactly where the PPA has it: composer.json allows ~8.4.0 || ~8.5.0, and 8.5 is what the house uses. `php_ready 80400` takes 8.4 too.
+php_ready() {
+    command -v php >/dev/null && php -r 'exit(PHP_VERSION_ID >= '"${1:-80500}"' && PHP_VERSION_ID < 80600 ? 0 : 1);' || return 1
+    local loaded
+    loaded=$(php -m | tr '[:upper:]' '[:lower:]')
+    for extension in "${PHP_EXTENSIONS[@]}"; do
+        grep -qx "$extension" <<<"$loaded" || return 1
+    done
+}
+# The ondrej PPA is Ubuntu's: on Ubuntu with add-apt-repository, PHP 8.5 from it. Anywhere else (a Debian orb: Debian 13 ships 8.4), or when the
+# PPA can't be added or can't deliver a working 8.5, the distribution's own php packages, accepted at 8.4 or 8.5 (composer.json's range); an older
+# one fails here with the version found.
+. /etc/os-release
+# Called as a condition, so a failing step returns nonzero instead of stopping the script.
+ppa_php() {
+    [ "${ID:-}" = ubuntu ] && command -v add-apt-repository >/dev/null || return 1
+    sudo add-apt-repository -y ppa:ondrej/php || return 1
+    # Another PHP may already own `php`: select 8.5 and check before going on.
+    if sudo apt-get update && sudo apt-get install -y php8.5-cli php8.5-mbstring php8.5-xml php8.5-curl php8.5-zip php8.5-pgsql \
+        php8.5-sqlite3 php8.5-intl php8.5-gd php8.5-imagick unzip && sudo update-alternatives --set php /usr/bin/php8.5 && php_ready; then
+        return 0
+    fi
+    # A PPA that can't deliver is removed, so it can't break the fallback's own apt-get update.
+    sudo add-apt-repository -y --remove ppa:ondrej/php || true
+    return 1
+}
+if ! php_ready && ! ppa_php; then
+    echo "setup: no PHP 8.5 from the ondrej PPA here; installing the distribution's php packages" >&2
+    sudo apt-get update
+    sudo apt-get install -y php-cli php-mbstring php-xml php-curl php-zip php-pgsql php-sqlite3 php-intl php-gd php-imagick unzip
+    php_ready 80400 || { echo "setup: php is not PHP 8.4 or 8.5 with the required extensions (found: $(php -r 'echo PHP_VERSION;' 2>/dev/null || echo none))" >&2; exit 1; }
+fi
+
+composer_ready() {
+    command -v composer >/dev/null || return 1
+    composer --version 2>/dev/null | grep -Eq 'Composer (version )?(2\.([2-9]|[1-9][0-9])|[3-9])\.'
+}
+if ! composer_ready; then
+    curl -sS https://getcomposer.org/installer | php -- --install-dir=/tmp
+    sudo mv /tmp/composer.phar /usr/local/bin/composer
+fi
+
+# Probe for the server, not the client: an image can ship psql without a server.
+if ! compgen -G '/usr/lib/postgresql/*/bin/postgres' >/dev/null; then
+    sudo apt-get update
+    sudo apt-get install -y postgresql
+fi
+sudo service postgresql start
+# What CI's PostgreSQL job uses: role kit, password kit, database kit_adopt_check. As in CI (POSTGRES_USER is a
+# superuser), kit is a superuser: tests/RlsCheck.php asserts its admin connection is one and creates a BYPASSRLS role.
+# It authenticates by password over localhost only (no trust rule), on a disposable single-user agent VM.
+sudo -u postgres psql -tc "select 1 from pg_roles where rolname = 'kit'" | grep -q 1 \
+    || sudo -u postgres psql -c "create role kit"
+sudo -u postgres psql -c "alter role kit login superuser password 'kit'"
+sudo -u postgres psql -tc "select 1 from pg_database where datname = 'kit_adopt_check'" | grep -q 1 \
+    || sudo -u postgres createdb -O kit kit_adopt_check
+sudo -u postgres psql -c "alter database kit_adopt_check owner to kit"
+# The PostgreSQL checks only use PostgreSQL when DB_CONNECTION=pgsql; the rest run on SQLite. Their connection, to source:
+#   set -a; . ~/.kit-pgsql.env; set +a; composer test:workspace-adopt
+(umask 077; printf 'DB_CONNECTION=pgsql\nDB_HOST=127.0.0.1\nDB_PORT=5432\nDB_DATABASE=kit_adopt_check\nDB_USERNAME=kit\nDB_PASSWORD=kit\n' > "$HOME/.kit-pgsql.env")
+chmod 600 "$HOME/.kit-pgsql.env"
+
+# Node 24 exactly, as CI runs the browser suite and the component type-check, with npm present.
+node_ready() {
+    command -v node >/dev/null && command -v npm >/dev/null || return 1
+    node -e 'process.exit(Number(process.versions.node.split(".")[0]) === 24 ? 0 : 1)'
+}
+if ! node_ready; then
+    curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
+    sudo apt-get install -y nodejs
+    node_ready || { echo "setup: node is not Node 24 with npm" >&2; exit 1; }
+fi
+
+composer update --prefer-dist --no-interaction --no-progress
+(cd browser && npm ci && npx playwright install --with-deps chromium)
+(cd typecheck && npm ci)

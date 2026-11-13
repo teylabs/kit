@@ -33,7 +33,7 @@ final class FeatureSwitch
             return ['changed' => [], 'attention' => $manual];
         }
         $before = (string) file_get_contents($path);
-        if (preg_match_all("/(['\"])features\\1\\s*=>\\s*\\[([^\\]]*)\\]/", $before, $matches, PREG_OFFSET_CAPTURE) !== 1 || ! preg_match("/\\A\\s*(?:(['\"])[a-z0-9-]+\\1\\s*,\\s*)*(?:(['\"])[a-z0-9-]+\\2\\s*,?\\s*)?\\z/", $matches[2][0][0])) {
+        if (preg_match_all("/(['\"])features\\1\\s*=>\\s*\\[([^\\]]*)\\]/", $before, $matches, PREG_OFFSET_CAPTURE) !== 1 || ($replacement = self::relist($matches[2][0][0], $wanted)) === null) {
             return ['changed' => [], 'attention' => $manual];
         }
         [$list, $offset] = $matches[2][0];
@@ -42,12 +42,6 @@ final class FeatureSwitch
             // The file is not where this process's config came from (cached, or overridden elsewhere).
             return ['changed' => [], 'attention' => $manual];
         }
-        $multiline = str_contains($list, "\n");
-        $closing = $multiline && preg_match('/\n([ \t]*)\z/', $list, $found) ? $found[1] : '';
-        // An empty multi-line list has no item to copy the indent from: one level in from its closing bracket.
-        $indent = $multiline && preg_match('/\n([ \t]*)[\'"]/', $list, $found) ? $found[1] : $closing.'    ';
-        $items = array_map(fn (string $id): string => "'".$id."'", $wanted);
-        $replacement = $multiline ? "\n".$indent.implode(",\n".$indent, $items).",\n".$closing : implode(', ', $items);
         $after = substr_replace($before, $replacement, $offset, strlen($list));
         file_put_contents($path, $after);
         try {
@@ -66,5 +60,25 @@ final class FeatureSwitch
         }
 
         return ['changed' => $missing, 'attention' => []];
+    }
+
+    /**
+     * The inside of a literal list of quoted ids (what sits between `[` and `]`) rewritten to `$ids`, keeping its layout: one line, or one id per line
+     * at the list's indent. Null when it is not such a list.
+     *
+     * @param  list<string>  $ids
+     */
+    public static function relist(string $list, array $ids): ?string
+    {
+        if (! preg_match("/\\A\\s*(?:(['\"])[a-z0-9-]+\\1\\s*,\\s*)*(?:(['\"])[a-z0-9-]+\\2\\s*,?\\s*)?\\z/", $list)) {
+            return null;
+        }
+        $multiline = str_contains($list, "\n");
+        $closing = $multiline && preg_match('/\n([ \t]*)\z/', $list, $found) ? $found[1] : '';
+        // An empty multi-line list has no item to copy the indent from: one level in from its closing bracket.
+        $indent = $multiline && preg_match('/\n([ \t]*)[\'"]/', $list, $found) ? $found[1] : $closing.'    ';
+        $items = array_map(fn (string $id): string => "'".$id."'", $ids);
+
+        return $multiline ? "\n".$indent.implode(",\n".$indent, $items).",\n".$closing : implode(', ', $items);
     }
 }

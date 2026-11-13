@@ -80,6 +80,9 @@ final class FeaturesServiceProvider extends ServiceProvider
         'deliver' => [DeliverProvider::class, ['workspaces', 'access', 'finalize']],
     ];
 
+    /** The `kit.<key>.adopt` flag => the host table kit:add records in the workspaces lineage's `adopt.tables` when the host owns it. */
+    private const ADOPT_TABLES = ['workspaces' => 'workspaces', 'access' => 'permission'];
+
     /** The order features contribute in, which orders their routes, tools and navigation; kept from the starter. */
     private const CONTRIBUTIONS = ['core', 'workspaces', 'access', 'mcp', 'settings', 'shell', 'session-ui', 'workspace-ui', 'notes', 'finalize', 'deliver'];
 
@@ -204,11 +207,22 @@ final class FeaturesServiceProvider extends ServiceProvider
             // No readable record: the flags stay null, and the migrations adopt only the tables the database already has.
             return;
         }
-        foreach (['workspaces' => 'workspaces', 'access' => 'permission'] as $key => $table) {
-            if (config('kit.'.$key.'.adopt') === null && in_array($table, $tables, true)) {
+        foreach (self::adopts($tables) as $key) {
+            if (config('kit.'.$key.'.adopt') === null) {
                 config(['kit.'.$key.'.adopt' => true]);
             }
         }
+    }
+
+    /**
+     * The adopt flags the recorded host tables turn on: `workspaces` (kit.workspaces.adopt) and `access` (kit.access.adopt).
+     *
+     * @param  list<string>|null  $tables
+     * @return list<string>
+     */
+    public static function adopts(?array $tables): array
+    {
+        return array_keys(array_filter(self::ADOPT_TABLES, fn (string $table): bool => in_array($table, $tables ?? [], true)));
     }
 
     /**
@@ -265,10 +279,24 @@ final class FeaturesServiceProvider extends ServiceProvider
         if ($cached === null) {
             return self::selected(self::carried($root, $appId, self::adopted($root, $appId, $override)));
         }
-        // The same answer from the record as cached by kit:cache, unchanged since (DiscoveryCache checks).
-        $ids = $override ?? $cached['lineages'];
 
-        return self::selected($cached['carry'] && self::mayCarry($ids) ? [...$ids, 'workspace-ui'] : $ids);
+        // The same answer from the record as cached by kit:cache, unchanged since (DiscoveryCache checks).
+        return self::boots($cached, $override);
+    }
+
+    /**
+     * The features the app boots from one discover() entry (live, or as kit:cache stored it): `$override` when set, else the lineages, with
+     * workspace-ui carried when the record carries it (see carried()), then selected(). kit:detach writes this list into config/kit.php.
+     *
+     * @param  array{lineages: list<string>, carry: bool, tables: list<string>|null}  $entry
+     * @param  list<string>|null  $override
+     * @return list<string>
+     */
+    public static function boots(array $entry, ?array $override = null): array
+    {
+        $ids = $override ?? $entry['lineages'];
+
+        return self::selected($entry['carry'] && self::mayCarry($ids) ? [...$ids, 'workspace-ui'] : $ids);
     }
 
     /**
