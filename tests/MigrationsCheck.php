@@ -214,6 +214,26 @@ try {
     $ran = migrate($stamped);
     check(preg_grep('/\A0001_01_02_/', $ran) === [] && count(preg_grep('/\A2026_03_04_050607_/', $ran)) === count(copies()), 'migrate on the stamped app runs its copies and no package baseline');
 
+    // A stamped app upgraded from 0.17: its stamped copies ran, with rows. migrate re-runs no create: only the renames, which keep the rows.
+    $stampedUpgrade = host(copies('2026_03_04_050607'));
+    $ran017 = migrate017($stampedUpgrade);
+    check(count(preg_grep('/\A2026_03_04_050607_/', $ran017)) === count(copies()) && preg_grep('/\A0001_01_02_/', $ran017) === [], 'the stamped 0.17 app ran its stamped copies ('.count($ran017).')');
+    seed('kit_user_state');
+    $stampedRows = rows('kit_user_state');
+    $ran = migrate($stampedUpgrade);
+    check($ran === RENAME_MIGRATIONS, 'after the upgrade the stamped app runs only the three renames: no create runs again ('.implode(', ', $ran).')');
+    check(! Schema::hasTable('kit_user_state') && rows('user_state') === $stampedRows, 'and kit_user_state\'s rows are in user_state, intact');
+    check(migrate($stampedUpgrade) === [], 'a second migrate on the stamped app runs nothing');
+
+    // An edited stamped copy is the one that runs, and its package twin never does.
+    $files = copies('2026_03_04_050607');
+    $edited = 'database/migrations/kit/session-ui/2026_03_04_050607_000502_create_kit_user_state_table.php';
+    $files[$edited] = str_replace("\$t->text('value')->nullable();", "\$t->text('value')->nullable();\n            \$t->string('edited_by_the_app')->nullable();", $files[$edited]);
+    check(str_contains($files[$edited], 'edited_by_the_app'), 'the fixture edits the app\'s stamped copy of the user state migration');
+    $ran = migrate(host($files));
+    check(Schema::hasColumn('user_state', 'edited_by_the_app') && in_array('2026_03_04_050607_000502_create_kit_user_state_table', $ran, true)
+        && ! in_array('0001_01_02_000502_create_kit_user_state_table', $ran, true) && count($ran) === count(array_unique($ran)), 'the edited stamped copy runs, once, and the package\'s twin does not; the rename still follows');
+
     // Both names present: the rename refuses, naming both, and changes nothing.
     $both = host(copies());
     migrate017($both);

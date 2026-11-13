@@ -112,23 +112,24 @@ final class FeaturesServiceProvider extends ServiceProvider
 
     /**
      * The package's migrations for one feature (database/migrations/<feature> in the kit), less each one the app has its own copy of in
-     * $appDirectory: the same file name, or for a baseline (`0001_01_02_<order>_<name>.php`) the name kit:add published it under for a host
-     * that adopts its own tables (`<stamp>_<order>_<name>.php`). Laravel's migrator keys migrations by name, so an app that ran its copies sees
-     * the package's as already run, and an app's copy, edited or not, stays the one that runs.
+     * $appDirectory under any stamp: the name after the timestamp prefix matches. kit:add published `0001_01_02_<order>_<name>.php` under
+     * that name, or as `<stamp>_<order>_<name>.php` for a host that adopts its own tables. Laravel's migrator keys migrations by name, so an
+     * app that ran its copies runs none of the package's twins, and an app's copy, edited or not, stays the one that runs.
      *
      * @return list<string> absolute paths, in name order
      */
     public static function packageMigrations(string $id, string $appDirectory): array
     {
         $package = glob(dirname(__DIR__, 2).'/database/migrations/'.$id.'/*.php') ?: [];
-        $own = is_dir($appDirectory) ? array_map('basename', glob($appDirectory.'/*.php') ?: []) : [];
-        $stamped = array_map(fn (string $name): string => (string) preg_replace('/\A\d{4}_\d{2}_\d{2}_\d{6}_(?=\d{6}_)/', '', $name), $own);
+        $own = is_dir($appDirectory) ? array_map(self::migrationName(...), glob($appDirectory.'/*.php') ?: []) : [];
 
-        return array_values(array_filter($package, function (string $file) use ($own, $stamped): bool {
-            $name = basename($file);
+        return array_values(array_filter($package, fn (string $file): bool => ! in_array(self::migrationName($file), $own, true)));
+    }
 
-            return ! in_array($name, $own, true) && ! (str_starts_with($name, '0001_01_02_') && in_array(substr($name, 11), $stamped, true));
-        }));
+    /** A migration file's name after its timestamp and any six-digit order: `create_kit_notes_table.php` for `0001_01_02_000701_…` and `2026_03_04_050607_000701_…` alike. */
+    private static function migrationName(string $file): string
+    {
+        return (string) preg_replace('/\A\d{4}_\d{2}_\d{2}_(?:\d{6}_)+/', '', basename($file));
     }
 
     /**
