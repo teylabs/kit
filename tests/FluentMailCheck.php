@@ -80,6 +80,10 @@ try {
     mailCheck(str_contains(tidy((new FluentMailMessage)->signoff()), '<em>The team</em>'), 'the composer is macroable');
     mailCheck(count(array_filter((array) config('mail.markdown.paths'), fn ($path) => str_ends_with($path, 'fluent-mail'))) === 1, 'registering twice adds the component path once');
 
+    $mail = (new FluentMailMessage)->line('One')->button('Verify', 'https://example.test/verify')->button('Other', 'https://example.test/other')->button('Help', 'https://example.test/help', 'secondary');
+    mailCheck($mail->actionText === 'Verify' && $mail->actionUrl === 'https://example.test/verify', 'the first filled button() is the mail\'s action (actionText and actionUrl, as Laravel\'s action() sets them); later buttons and plain links do not replace it');
+    $mail = (new FluentMailMessage)->button('Help', 'https://example.test/help', 'secondary');
+    mailCheck($mail->actionUrl === null, 'a plain-link (secondary) button is not the action');
     $mail = (new FluentMailMessage)->greeting('Hello!')->line('One')->action('Go', 'https://example.test/go');
     mailCheck($mail->actionUrl === 'https://example.test/go' && str_contains(tidy($mail), 'Hello!'), 'stock greeting, line and action keep working in order');
 

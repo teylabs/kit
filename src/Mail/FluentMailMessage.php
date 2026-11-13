@@ -219,6 +219,13 @@ class FluentMailMessage extends MailMessage
             return $this->compose('markdown', fn (Closure $e): string => '['.$e($text).']('.self::url($url).')');
         }
 
+        // The first filled button is the mail's action, as Laravel's MailMessage has it: actionText and actionUrl (read by tests, the
+        // plain-text fallback and anything else that asks a notification for its link) are set unless action() already set them.
+        if ($this->actionUrl === null) {
+            $this->actionText = $text;
+            $this->actionUrl = $url;
+        }
+
         return $this->block('button', $text, ['url' => $url, 'color' => $style]);
     }
 
