@@ -391,6 +391,9 @@ jobs:
       - name: Capability declared
         timeout-minutes: 4
         run: composer test:capability-declared
+      - name: Capability lazy
+        timeout-minutes: 4
+        run: composer test:capability-lazy
       - name: Capability tools
         timeout-minutes: 4
         run: composer test:capability-tool

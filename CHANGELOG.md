@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **Capabilities are defined in Pennant when Pennant is first used, not on every request (#949).** `AccessProvider::boot()` built the Registry, resolved Pennant's manager and defined every workspace capability on every request, then repeated the pass once every provider had booted, including on `/up`, which never checks a capability. Capabilities are now defined when Pennant's `FeatureManager` is first resolved, and again once every provider has booted only if it was resolved before then, so a capability declared in an app provider's `register()` or `boot()` is still defined, an app's own `Feature::define` is still kept (#943), and a capability checked before boot is still off. `SessionUiProvider` also no longer builds the Registry at boot when config is cached; it only needs it to set uncached Concierge defaults.
+  - **Numbers.** Starter on this release (all features adopted, 3 workspace capabilities), production, `optimize`, opcache on, `php -S`, `/up`, median of 30 requests in each of 3 rounds: `AccessProvider`'s boot and booted work went from 0.33 ms to 0.005 ms, and Pennant's manager is no longer resolved. Before, the Registry build was about 0.25 ms of that 0.33 ms. With `mcp` adopted, `McpProvider` still builds the Registry at boot for Passport's token scopes (`Passport::tokensCan` is static), so the net saving on this host is about 0.08 ms per request. Without `mcp`, `/up` builds no Registry. We did not reproduce the adopter's 9.8 ms under PHP-FPM, and 404s still build the Registry, because the kit's error page comes from it.
+  - **Tests.** `test:capability-lazy`: after `optimize` (route and config caches), `/up` through the HTTP kernel resolves no Pennant manager, with and without `mcp`, and builds no Registry without `mcp`. The first use of Pennant after boot defines the kit's capabilities and those a host declares in `register()` and `boot()`. With Pennant first used during boot, a host's own definition is kept. A capability checked in a host's `register()`, before boot, is off, and every declared capability is defined once booted. Fails without the change (Pennant resolved on `/up`).
+
 ## v0.17.5
 
 No lineage pin changed: `composer update` is enough.

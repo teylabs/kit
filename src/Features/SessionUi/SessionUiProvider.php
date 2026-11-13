@@ -136,7 +136,8 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
             config(['fortify.home' => (string) config('kit.home', '/')]);
         }
         // Likewise Concierge (with workspaces) sends a person with no workspace to the no-workspace page, which is workspace-ui's: auth-only, it is the app's home.
-        if ($this->app->make(Registry::class)->adopts('workspaces') && ! $this->app->make(Registry::class)->adopts('workspace-ui') && ! $this->app->configurationIsCached() && ! is_file($this->app->configPath('concierge.php'))) {
+        // The cached-config test first: after `optimize` it settles this without building the Registry (kit#949).
+        if (! $this->app->configurationIsCached() && ! is_file($this->app->configPath('concierge.php')) && $this->app->make(Registry::class)->adopts('workspaces') && ! $this->app->make(Registry::class)->adopts('workspace-ui')) {
             config(['concierge.workspaces.no_workspace_url' => (string) config('kit.home', '/')]);
         }
         // The one-click local sign-in is Concierge's to offer (LocalLogin decides the environment, the config and the route): null without Concierge.
