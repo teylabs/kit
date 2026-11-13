@@ -68,6 +68,19 @@ try {
     file_put_contents($root.'/resources/css/admin.css', "@import '../../../outside-".basename($root).".css';\n");
     check(array_filter($sheets(), fn (string $path): bool => str_contains($path, 'outside')) === [], 'an import outside the app root is not followed');
     unlink(dirname($root).'/outside-'.basename($root).'.css');
+    // A local import through a linked directory: the file's real path must be the path read, under the root, so no component of it is a link.
+    $outside = dirname($root).'/outside-'.basename($root);
+    mkdir($outside);
+    file_put_contents($outside.'/theme.css', ':root { --primary: #000000; }');
+    symlink($outside, $root.'/resources/css/vendor');
+    mkdir($root.'/resources/css/real');
+    file_put_contents($root.'/resources/css/real/theme.css', ':root { --ring: #000000; }');
+    symlink($root.'/resources/css/real', $root.'/resources/css/inside');
+    file_put_contents($root.'/resources/css/admin.css', "@import './vendor/theme.css';\n@import './inside/theme.css';\n@import './real/theme.css';\n");
+    check(! in_array('resources/css/vendor/theme.css', $sheets(), true), 'an import through a linked directory outside the app root is not read');
+    check(! in_array('resources/css/inside/theme.css', $sheets(), true) && in_array('resources/css/real/theme.css', $sheets(), true), 'nor one through a linked directory inside it; the same file by its real path is');
+    unlink($root.'/resources/css/vendor');
+    exec('rm -rf '.escapeshellarg($outside));
     echo "Theme checks on kit.css, the kit's stubs and synthetic stylesheets; no browser or host app.\n";
 } catch (Throwable $error) {
     fwrite(STDERR, 'FAIL '.$error->getMessage()."\n".$error->getTraceAsString()."\n");

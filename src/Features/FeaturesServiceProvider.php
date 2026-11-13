@@ -187,12 +187,13 @@ final class FeaturesServiceProvider extends ServiceProvider
         }
         // Every page route declares a breadcrumb, so gretel's route macro must exist whether or not the host's package discovery found it.
         $this->app->register(GretelServiceProvider::class);
-        // The migrator lists the package's migrations less the app's copies (PackageMigrator); built only when a command resolves it.
-        $this->app->extend('migrator', fn ($migrator, $app) => PackageMigrator::from($migrator, $app));
         $features = $this->features();
         if ($features === []) {
             return;
         }
+        // The migrator lists the package's migrations less the app's copies (PackageMigrator); built only when a command resolves it. With no
+        // feature listed, the app keeps its own.
+        $this->app->extend('migrator', fn ($migrator, $app) => PackageMigrator::from($migrator, $app));
         foreach ($features as $id) {
             $this->app->register(self::FEATURES[$id][0]);
         }

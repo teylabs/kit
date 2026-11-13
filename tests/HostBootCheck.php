@@ -5,6 +5,7 @@
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Database\Events\MigrationsEnded;
 use Illuminate\Database\Events\NoPendingMigrations;
+use Illuminate\Database\Migrations\Migrator;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Auth\User;
 use Illuminate\Foundation\Events\DiagnosingHealth;
@@ -16,11 +17,12 @@ use Laravel\Fortify\Fortify;
 use Laravel\Fortify\FortifyServiceProvider;
 use Tey\Kit\Blueprint;
 use Tey\Kit\Features\Access\AccessProvider;
-use Tey\Kit\Features\Core\Deploy\CatalogSync;
 use Tey\Kit\Features\CacheCommand;
 use Tey\Kit\Features\Core\CoreProvider;
+use Tey\Kit\Features\Core\Deploy\CatalogSync;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\FeaturesServiceProvider;
+use Tey\Kit\Features\PackageMigrator;
 use Tey\Kit\Features\SessionUi\SessionUiProvider;
 use Tey\Kit\Features\Shell\ShellProvider;
 use Tey\Kit\Features\Workspaces\WorkspacesProvider;
@@ -110,7 +112,6 @@ try {
     check($shell->getProvider(ShellProvider::class) !== null && $shell->getProvider(SessionUiProvider::class) === null && $shell->getProvider(WorkspacesProvider::class) === null && $shell->getProvider(AccessProvider::class) === null, 'core+shell: only the core and shell providers register');
     check(! str_contains((string) health($shell), 'workspaces') && array_map(fn ($route) => $route->uri(), $shell['router']->getRoutes()->getRoutes()) === array_map(fn ($route) => $route->uri(), $core['router']->getRoutes()->getRoutes()) && ! $shell->bound(LoginResponse::class), 'core+shell: no workspace table, no kit routes beyond core-only\'s, no Fortify');
 
-
     // kit.features is the only source. Unset, nothing registers, even beside install history and an app id (what 0.17 read), and the error is logged once per process.
     $log = fn (Application $app): string => (string) @file_get_contents($app->storagePath('logs/laravel.log'));
     $history = ['.mod-maintenance/installed/'.hash('sha256', 'tey/kit:core').'.json' => '{"name":"tey/kit:core"}', 'config/kit-lifecycle.php' => "<?php return ['app_id' => 'host'];"];
@@ -123,6 +124,8 @@ try {
     $none = host([]);
     check($none->getProvider(CoreProvider::class) === null && substr_count($log($none), FeaturesServiceProvider::UNSET) === 1, 'an empty kit.features is unset too: nothing registers, and the error is logged');
     check(health($none) === null && $none['config']->get('mail.reply_to') === null, 'no features: /up is healthy and mail is untouched');
+    check(get_class($unset->make('migrator')) === Migrator::class && get_class($none->make('migrator')) === Migrator::class, 'no features: the app keeps its own migrator, never the kit\'s');
+    check(host(['core'])->make('migrator') instanceof PackageMigrator, 'a listed feature: the migrator is the kit\'s');
 
     $config = host(['core', 'workspaces'], [], [], null, ['.mod-maintenance/installed/'.hash('sha256', 'tey/kit:access').'.json' => '{"name":"tey/kit:access"}']);
     check($config->getProvider(WorkspacesProvider::class) !== null && $config->getProvider(AccessProvider::class) === null && $config->make(Registry::class)->adopts('workspaces') && ! $config->make(Registry::class)->adopts('access'), 'kit.features alone decides: the listed features register and nothing else');

@@ -156,7 +156,7 @@ final class ThemeAdvisory
 
     /**
      * Each stylesheet's contents, by path relative to the host root, following local `@import`s (relative paths only; never a link, never outside the root, at most
-     * 50 files): a package or URL import is skipped.
+     * 50 files): a package or URL import is skipped. A file is read only when its real path is its path under the root's real path, so no component of it is a link.
      *
      * @param  list<string>  $files
      * @return array<string, string>
@@ -164,11 +164,12 @@ final class ThemeAdvisory
     private static function stylesheets(string $root, array $files): array
     {
         $read = [];
+        $real = realpath($root);
         $queue = $files;
         while ($queue !== [] && count($read) < 50) {
             $file = self::normalize(array_shift($queue));
             $path = $root.'/'.$file;
-            if ($file === null || isset($read[$file]) || is_link($path) || ! is_file($path)) {
+            if ($file === null || $real === false || isset($read[$file]) || realpath($path) !== $real.'/'.$file || ! is_file($path)) {
                 continue;
             }
             $read[$file] = (string) file_get_contents($path);
