@@ -1,12 +1,12 @@
 # Addresses
 
-`<AddressFieldset>` takes a postal address, `<RegionSelect>` picks a province, territory or state, and `<AddressText>` shows an address. They're part of core and exported from the kit barrel. There are no new dependencies: the region names ship as a small table in the kit, and country names come from the browser's `Intl.DisplayNames`.
+`<AddressFieldset>` takes a postal address, `<RegionSelect>` picks a province, territory or state, and `<TextAddress>` shows an address (one of the [Text family](text.md); `<AddressText>` is its old name, kept as a deprecated alias for one release). They're part of core and exported from the kit barrel. There are no new dependencies: the region names ship as a small table in the kit, and country names come from the browser's `Intl.DisplayNames`.
 
 ```vue
 <script setup lang="ts">
 import { Form } from '@inertiajs/vue3';
 import { ref } from 'vue';
-import { AddressFieldset, AddressText, Button, FormCard, type Address } from '@kit/ui';
+import { AddressFieldset, Button, FormCard, TextAddress, type Address } from '@kit/ui';
 
 const address = ref<Address>({ country: 'CA' });
 </script>
@@ -18,7 +18,7 @@ const address = ref<Address>({ country: 'CA' });
         </FormCard>
         <Button type="submit">Save</Button>
     </Form>
-    <AddressText :address="client.mailing" :map-url="(a) => `https://maps.example.test/?q=${encodeURIComponent(a.line1 ?? '')}`" />
+    <TextAddress :address="client.mailing" :map-url="(a) => `https://maps.example.test/?q=${encodeURIComponent(a.line1 ?? '')}`" />
 </template>
 ```
 
@@ -30,6 +30,6 @@ const address = ref<Address>({ country: 'CA' });
 - **Postal codes.** A Canadian postal code is written `A1A 1A1` in capitals on blur. A code that doesn't look right for Canada or the US shows a hint under the field, linked with `aria-describedby`. It never blocks the submit, because the server validates. Other countries are never second-guessed.
 - **Locale.** `locale`, else the app locale (`kitNumber.locale` when the host shares it), else the browser's language.
 - **Strings.** The labels, hints and placeholders are the `address.*` keys in the kit's `ui` lang file, shared as `kitUi`. Override them for the app in `lang/vendor/kit/{locale}/ui.php`, or per use with `messages`.
-- **`<AddressText>`.** It renders an `<address>` element with the street, unit, "City, Region Postal" and the country, dropping empty parts. `hideCountry` drops the country line. A map link appears only when you pass `mapUrl`, a function from the address to a URL of your choosing. The kit picks no map provider and makes no outside request.
+- **`<TextAddress>`.** It renders an `<address>` element with the street, unit, "City, Region Postal" and the country, dropping empty parts. `hideCountry` drops the country line. A map link appears only when you pass `mapUrl`, a function from the address to a URL of your choosing. The kit picks no map provider and makes no outside request. It also takes `lines` already written and a `size` ([text.md](text.md#textaddress)).
 
 `composer test:js` (`tests/js/address.test.mjs`) covers the region table, the postal rules, the labels, the messages and the display lines. The browser run (`browser/run.mjs`, `?address`) covers axe, the group name, the labels when the country changes, and the postal hint. The adoption inventory's `form.address` surface doesn't count `EmailAddress` or `IpAddress` components as postal addresses.

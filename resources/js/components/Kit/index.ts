@@ -208,7 +208,8 @@ export { DEFAULT_REACTIONS } from './Form/emojiTray';
 export type { EmojiReaction } from './Form/emojiTray';
 export { default as TimezoneSelect } from './Form/TimezoneSelect.vue';
 export { default as AddressFieldset } from './Form/AddressFieldset.vue';
-export { default as AddressText } from './Form/AddressText.vue';
+/** @deprecated Use TextAddress, which it is; removed in the next minor release. */
+export { default as AddressText } from './Text/TextAddress.vue';
 export { default as RegionSelect } from './Form/RegionSelect.vue';
 export {
     addressLines,
@@ -461,8 +462,46 @@ export {
     recordKind,
     type MailDnsRecord,
 } from './Data/mailSending';
-// A button that copies a value, claiming success only once the clipboard write resolves.
+// A button that copies a value, claiming success only once the clipboard write resolves: TextCopy's button form, under its own name.
 export { default as CopyButton } from './Action/CopyButton.vue';
+// The Text family (docs/text.md): read-only text on a page. Prose, raw code or output, tables, long and truncated text, copyable text and fields,
+// numbers, addresses, chips and tags, one clipboard helper behind every copy.
+export { default as TextProse } from './Text/TextProse.vue';
+export { default as TextCode } from './Text/TextCode.vue';
+export { default as TextTable } from './Text/TextTable.vue';
+export { default as TextLong } from './Text/TextLong.vue';
+export { default as TextTruncate } from './Text/TextTruncate.vue';
+export { default as TextCopy } from './Text/TextCopy.vue';
+export { default as CopyField } from './Text/CopyField.vue';
+export { default as TextNumeric } from './Text/TextNumeric.vue';
+export { default as TextAddress } from './Text/TextAddress.vue';
+export { default as TextChips } from './Text/TextChips.vue';
+export { default as TextTags } from './Text/TextTags.vue';
+export { copyText } from './Text/copy';
+export { useCopy, type CopyState } from './Text/useCopy';
+export {
+    badgeItems,
+    formatNumeric,
+    isNumeric,
+    longTextCut,
+    textLines,
+    type ClampLines,
+    type NumericOptions,
+    type TextChip,
+    type TextSize,
+} from './Text/text';
+/** @deprecated Use TextCode; removed in the next minor release. */
+export { default as ProseCode } from './Text/TextCode.vue';
+/** @deprecated Use TextTable; removed in the next minor release. */
+export { default as ProseTable } from './Text/TextTable.vue';
+/** @deprecated Use TextLong; removed in the next minor release. */
+export { default as LongText } from './Text/TextLong.vue';
+/** @deprecated Use TextCopy; removed in the next minor release. */
+export { default as ClickToCopy } from './Text/TextCopy.vue';
+/** @deprecated Use <TextCode card>, which it renders; removed in the next minor release. */
+export { default as RawOutputCard } from './Text/RawOutputCard.vue';
+/** @deprecated Use Amount for money, or TextNumeric; removed in the next minor release. */
+export { default as TextDollars } from './Text/TextDollars.vue';
 export { default as SortableList } from './Data/SortableList.vue';
 export { default as SortableHandle } from './Data/SortableHandle.vue';
 export {

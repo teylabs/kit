@@ -45,6 +45,23 @@ export function canvasFont(style: CSSStyleDeclaration): string {
     return `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
 }
 
+/**
+ * An element's unrounded content box: clientWidth and scrollWidth round, and a fraction of a pixel over is enough for the CSS ellipsis. MiddleTruncate fits
+ * its cut to it, and TextTruncate compares its text with it to know whether the end was cut.
+ */
+export function contentWidth(
+    el: HTMLElement,
+    style: CSSStyleDeclaration,
+): number {
+    return (
+        el.getBoundingClientRect().width -
+        parseFloat(style.paddingLeft) -
+        parseFloat(style.paddingRight) -
+        parseFloat(style.borderLeftWidth) -
+        parseFloat(style.borderRightWidth)
+    );
+}
+
 /** `auto` reads a scheme (`https://`) or a leading `www.` as a URL, a value with a `/` or `\` as a path, and anything else as a file name. */
 export function truncationKind(
     value: string,
