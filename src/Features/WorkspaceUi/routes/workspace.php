@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Route;
 use Tey\Concierge\ConciergeServiceProvider;
 use Tey\Kit\Features\Core\HomeRoute;
 use Tey\Kit\Features\SessionUi\Http\AccountDeletionController;
+use Tey\Kit\Features\SessionUi\Http\ClockController;
 use Tey\Kit\Features\SessionUi\Http\DashboardController;
 use Tey\Kit\Features\SessionUi\Http\DemoLoginController;
 use Tey\Kit\Features\SessionUi\Http\HomeController;
@@ -115,6 +116,10 @@ Route::middleware(['auth:web', 'concierge.active'])->controller(PersonalSections
 Route::middleware(['auth:web', 'concierge.active'])->group(function (): void {
     Route::controller(ProfileController::class)->prefix('me/profile')->group(function (): void {
         WorkspaceRoutes::personalPage(Route::get('', 'show')->name('me.profile'), 'Profile', ['session-ui', 'me.index']);
+    });
+    // The person's own clock (12h, 24h, or the workspace's), kept in user_state.
+    Route::controller(ClockController::class)->prefix('me/profile/clock')->group(function (): void {
+        Route::put('', 'update')->middleware('throttle:30,1');
     });
     Route::controller(PasswordController::class)->prefix('me/password')->group(function (): void {
         WorkspaceRoutes::personalPage(Route::get('', 'show')->name('me.password'), 'Password', ['session-ui', 'me.index']);

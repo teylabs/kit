@@ -12,6 +12,10 @@ return [
     // The ISO 4217 currency for kit money inputs and amounts (InputNumber kind="money", Amount) that don't pass one, such as 'CAD'. Null: no symbol, never a guess.
     'currency' => env('KIT_CURRENCY'),
 
+    // The clock times of day show in, under a person's own choice (Account › Profile) and the workspace's (Registry::workspaceClockUsing): 12h, 24h, or
+    // auto, the locale's own (en-US 3:30 PM, en-GB 15:30). Read by core's Clock and shared to pages as `kitClock` (docs/date-time.md).
+    'clock' => ['default' => env('KIT_CLOCK', 'auto')],
+
     // The font set <x-kit::fonts /> loads: instrument, instrument-inter, inter-serif or hanken.
     'fonts' => env('KIT_FONTS', 'instrument'),
     // Where the font set's faces come from: cdn (fonts.bunny.net) or self (the kit's files, published with vendor:publish --tag=kit-fonts and served from

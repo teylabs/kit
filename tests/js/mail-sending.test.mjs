@@ -54,3 +54,11 @@ test('Last checked is in the given timezone, never raw UTC, with the calendar da
     const afterSpringForward = new Date('2026-03-09T04:30:00Z');
     assert.equal(spaced(checkedAtLabel('2026-03-08 14:00:00', 'America/New_York', afterSpringForward, 'en-US')), 'Yesterday 10:00 AM', 'the day before a 23-hour day is still Yesterday');
 });
+
+test('Last checked follows the viewer\'s clock: 24h in a 12-hour locale, 12h in a 24-hour one, auto unchanged', () => {
+    assert.equal(spaced(checkedAtLabel('2026-11-06 20:37:08', 'America/Toronto', now, 'en-US', '24h')), 'Today 15:37');
+    assert.equal(spaced(checkedAtLabel('2026-11-06 02:00:00', 'America/Toronto', now, 'en-GB', '12h')), 'Yesterday 9:00 pm');
+    assert.equal(spaced(checkedAtLabel('2026-11-06 05:05:00', 'America/Toronto', now, 'en-US', '24h')), 'Today 00:05', 'h23, not 24:05');
+    assert.equal(spaced(checkedAtLabel('2026-11-06 20:37:08', 'America/Toronto', now, 'en-US', 'auto')), 'Today 3:37 PM');
+    assert.equal(spaced(checkedAtLabel('2026-11-06 20:37:08', 'America/Toronto', now, 'en-GB')), 'Today 15:37', 'no clock: the locale\'s own');
+});

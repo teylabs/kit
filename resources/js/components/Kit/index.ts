@@ -434,16 +434,18 @@ export {
     DEFAULT_ELEMENT_ATTRIBUTE,
     type WorkbenchStageContext,
 } from './Workbench/workbenchStage';
-// Dates and times shown to the viewer (docs/date-time.md): a calendar date never shifts between zones; an instant shows in the viewer's (kitTimezone).
+// Dates and times shown to the viewer (docs/date-time.md): a calendar date never shifts between zones; an instant shows in the viewer's (kitTimezone), a time of day on their clock (kitClock).
 export { default as DateTime } from './Data/DateTime.vue';
 export {
     formatDateTime,
     fullDateTime,
+    hourCycle,
     isCalendarDate,
+    type Clock,
     type DateTimeFormat,
     type DateTimeOptions,
 } from './Data/dateTime';
-export { useTimezone } from './Data/useTimezone';
+export { useClock, useTimezone } from './Data/useTimezone';
 // Settings › Email sending's labels: the From line, the live address preview, each DNS record's purpose and full name, and Last checked in the viewer's zone.
 export {
     checkedAtLabel,

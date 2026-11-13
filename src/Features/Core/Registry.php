@@ -568,6 +568,43 @@ final class Registry
         return $this->workspaceTimezone;
     }
 
+    /** @var array{get: callable, set: callable}|null */
+    private ?array $workspaceClock = null;
+
+    /** @var ?callable(int): ?string */
+    private $userClock = null;
+
+    /**
+     * How the workspace's clock (`12h`, `24h`, or null for none) is read and written, inside its tenant context, like workspaceTimezoneUsing: the app's own
+     * setting, which the kit falls back to under a person's own choice (Clock). One only.
+     */
+    public function workspaceClockUsing(callable $get, callable $set): self
+    {
+        $this->workspaceClock = ['get' => $get, 'set' => $set];
+
+        return $this;
+    }
+
+    /** @return array{get: callable, set: callable}|null */
+    public function workspaceClock(): ?array
+    {
+        return $this->workspaceClock;
+    }
+
+    /** How a person's own clock is read by their id (session-ui's user_state), so core's Clock resolves it without depending on session-ui. One only. */
+    public function userClockUsing(callable $get): self
+    {
+        $this->userClock = $get;
+
+        return $this;
+    }
+
+    /** @return ?callable(int): ?string */
+    public function userClock(): ?callable
+    {
+        return $this->userClock;
+    }
+
     /** A step run inside a newly provisioned workspace's tenant context, in registration order. */
     public function provisioning(callable $provision): self
     {

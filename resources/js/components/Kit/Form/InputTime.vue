@@ -14,12 +14,12 @@ import { parseTime, type Time } from '@internationalized/date';
 import { TimeFieldInput, TimeFieldRoot, type TimeValue } from 'reka-ui';
 import { useOptionalFormContext } from '@/components/Kit/Form/formContext';
 import Field from '@/components/Kit/Form/Field.vue';
-import { viewerLocale } from '@/components/Kit/Data/useTimezone';
+import { useClock, viewerLocale } from '@/components/Kit/Data/useTimezone';
 import { isTime, normalizeTime } from './dateInput';
 import { rowErrorsKey } from './repeaterState';
 import { useLocked } from './useLocked';
 
-// A time of day as a plain 24-hour `HH:MM`, typed segment by segment (arrows step each segment; the locale decides 12- or 24-hour display). It is a wall time, never
+// A time of day as a plain 24-hour `HH:MM`, typed segment by segment (arrows step each segment; the viewer's clock, `kitClock`, decides 12- or 24-hour display, else the locale). It is a wall time, never
 // converted between zones: an opening hour or a reminder time. Inside a locked LockedForm the segments are read-only; the hidden canonical input stays.
 defineOptions({ inheritAttrs: false });
 const props = withDefaults(
@@ -43,6 +43,11 @@ const id = props.id ?? useId();
 const lock = useLocked();
 const locked = computed(() => lock.locked && !props.disabled);
 const locale = viewerLocale();
+// The viewer's clock (`kitClock`): 12- or 24-hour, or the locale's own (auto). A caller's own `hour-cycle` wins.
+const clock = useClock();
+const hourCycle = computed(() =>
+    clock.value === '12h' ? 12 : clock.value === '24h' ? 24 : undefined,
+);
 const toTime = (value: string | undefined) =>
     value && isTime(value) ? parseTime(normalizeTime(value)) : undefined;
 const value = shallowRef<Time | undefined>(toTime(props.defaultValue));
@@ -103,6 +108,7 @@ const segment =
             <TimeFieldRoot
                 :id="id"
                 v-slot="{ segments }"
+                :hour-cycle="hourCycle"
                 v-bind="$attrs"
                 :model-value="value"
                 :locale="locale"

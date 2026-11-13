@@ -3,15 +3,27 @@
  * - a calendar date, `YYYY-MM-DD`: a day on the calendar, never converted between zones (the 1st of November is the 1st everywhere, through any DST change);
  * - an instant, RFC 3339 with its offset (`2026-10-29T18:20:00-03:00` or `…Z`): shown in the viewer's timezone (`kitTimezone`, see useTimezone).
  * An instant without an offset is ambiguous, so it is not guessed: it is shown as given.
+ * A time of day shows on the viewer's clock (`kitClock`, see useClock): `12h`, `24h`, or `auto`, the locale's own, which sets nothing.
  */
 export type DateTimeFormat =
     'relative' | 'local' | 'datetime' | 'date' | 'time' | 'ymd';
+export type Clock = '12h' | '24h' | 'auto';
 export type DateTimeOptions = {
     timezone?: string;
     locale?: string;
     now?: Date | number;
     relativeUntilDays?: number;
+    clock?: Clock;
 };
+
+/** Intl's `hourCycle` for a clock: h12 for 12h, h23 for 24h, nothing for auto (the locale decides). */
+export function hourCycle(clock: Clock | undefined): {
+    hourCycle?: 'h12' | 'h23';
+} {
+    if (clock === '12h') return { hourCycle: 'h12' };
+    if (clock === '24h') return { hourCycle: 'h23' };
+    return {};
+}
 
 const CALENDAR_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 const INSTANT =
@@ -114,6 +126,7 @@ export function formatDateTime(
             return new Intl.DateTimeFormat(locale, {
                 timeStyle: 'short',
                 timeZone: timezone,
+                ...hourCycle(options.clock),
             }).format(instant);
         case 'relative': {
             const seconds = (instant.getTime() - now) / 1000;
@@ -126,6 +139,7 @@ export function formatDateTime(
                 dateStyle: 'medium',
                 timeStyle: 'short',
                 timeZone: timezone,
+                ...hourCycle(options.clock),
             }).format(instant);
     }
 }
@@ -146,5 +160,6 @@ export function fullDateTime(
         dateStyle: 'full',
         timeStyle: 'long',
         timeZone: options.timezone ?? 'UTC',
+        ...hourCycle(options.clock),
     }).format(new Date(value));
 }

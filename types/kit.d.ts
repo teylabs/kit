@@ -818,6 +818,8 @@ readonly email_verified: boolean,
 readonly profile_url: string,
 readonly notice: string | null,
 readonly verify_url: string,
+readonly clock: 'workspace' | '12h' | '24h',
+readonly clock_url: string,
 };
 export type RegisterViewModel = {
 readonly title: string,
