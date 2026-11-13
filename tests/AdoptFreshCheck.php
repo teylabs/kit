@@ -484,6 +484,14 @@ try {
     file_put_contents($records[0], $bytes);
     check(DiscoveryCache::entry($app, 'host') === null, 'restoring the bytes still misses (the fingerprint holds ctime), until kit:cache runs again');
     check($app->make(Kernel::class)->call('kit:cache') === 0 && DiscoveryCache::entry($app, 'host') !== null, 'kit:cache re-caches the restored record');
+    // The root and its parents change whenever anything in them does (a log, a session, the home directory): that must not miss.
+    sleep(1);
+    file_put_contents($root.'/.kit-cache-churn', 'x');
+    touch(dirname($root));
+    DiscoveryCache::forget();
+    check(DiscoveryCache::entry($app, 'host') !== null, 'a new file in the app root, or a touched parent directory, still hits the cache (their times are not fingerprinted, only what they are)');
+    @unlink($root.'/.kit-cache-churn');
+    DiscoveryCache::forget();
     // Copilot's review of #940, one check each.
     $cacheFile = DiscoveryCache::path($app);
     $rewriteEntry = function (Closure $change) use ($cacheFile): void {

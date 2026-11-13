@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **`kit:cache` now hits in production.** v0.17.3's fingerprint included the modified and changed times of the app root and every parent directory. Those change whenever anything in them does (a log, a session file, the home directory), so most requests missed the cache and read the installed record live again (68 ms instead of 1.5 ms, measured under PHP-FPM; 25 of 40 requests missed right after a fresh `kit:cache`). The root and its parents are now fingerprinted by identity only (a link or not, device, inode and mode), which is all the live read checks of them. The `.mod-maintenance` tree, the records and the kit's own files keep their full fingerprint. The cache format version is bumped, so a v0.17.3 cache file is a miss until `optimize` (or `kit:cache`) runs again.
+  - **Tests.** `test:adopt-fresh`: a new file in the app root and a touched parent directory still hit the cache. The check fails against v0.17.3.
+
 ## v0.17.3
 
 No lineage pin changed: `composer update` is enough.
