@@ -101,7 +101,8 @@ final class SecurityLog
         // invitee choosing a password through the reset link would otherwise be told "your password was changed".
         $events->listen('eloquent.updating: '.Users::model(), function ($user): void {
             if ($user->isDirty('password') && trim((string) $user->getOriginal('password')) === '') {
-                self::$firstPassword[(string) $user->getAuthIdentifier()] = true;
+                self::$firstPassword ??= new \WeakMap;
+                self::$firstPassword[$user] = true;
             }
         });
         $events->listen(PasswordReset::class, fn (PasswordReset $e) => self::record($e->user->getAuthIdentifier(), self::passwordEvent($e->user)));
@@ -116,8 +117,12 @@ final class SecurityLog
         $events->listen('Laravel\\Passkeys\\Events\\PasskeyDeleted', fn ($e) => self::record($e->user->getAuthIdentifier(), 'passkey_removed'));
     }
 
-    /** @var array<string, true> users whose password was just set for the first time, until their password event is recorded */
-    private static array $firstPassword = [];
+    /**
+     * @var ?\WeakMap<object, true> user models whose password was just set for the first time, until their password event is recorded. Keyed by the model
+     * instance the password was saved on, which the password event carries, so the flag goes with that model: a first password set without the event never
+     * reaches a later request's model of the same user in a long-lived worker (Octane). Without the flag, the change is logged and mailed as a change.
+     */
+    private static ?\WeakMap $firstPassword = null;
 
     private const string AWAITING_FIRST_PASSWORD = 'security.awaiting_first_password';
 
@@ -136,8 +141,8 @@ final class SecurityLog
     {
         $id = (string) $user->getAuthIdentifier();
         $marked = UserState::has((int) $id, self::AWAITING_FIRST_PASSWORD);
-        if ($marked || isset(self::$firstPassword[$id])) {
-            unset(self::$firstPassword[$id]);
+        if ($marked || isset(self::$firstPassword[$user])) {
+            unset(self::$firstPassword[$user]);
             if ($marked) {
                 UserState::forget((int) $id, self::AWAITING_FIRST_PASSWORD);
             }

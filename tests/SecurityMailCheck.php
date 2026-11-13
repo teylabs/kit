@@ -30,6 +30,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Translation\TranslationServiceProvider;
 use Illuminate\Validation\ValidationServiceProvider;
 use Illuminate\View\ViewServiceProvider;
+use Laravel\Fortify\Events\PasswordUpdatedViaController;
 use Monolog\Handler\NullHandler;
 use Symfony\Component\HttpFoundation\Response;
 use Tey\Kit\Features\SessionUi\Account\SecurityLog;
@@ -192,6 +193,30 @@ try {
     $kept = SecurityUser::create(['name' => 'Kim', 'email' => 'kim@example.test', 'password' => 'hashed:existing']);
     $resetTo($kept, 'new-password-1');
     securityCheck(Notification::sent($kept, SecurityNotice::class)->count() === 1 && $types($kept->id) === ['password_changed'], 'an account that had a password, unmarked, is still mailed on a reset');
+
+    // Two requests in one process, as a long-lived worker (Octane) runs them, forgetting scoped instances between them. Each loads its own model of the user.
+    // The first sets an account's first password with no password event (a seeder, an admin tool); the second is the person's real change, which is mailed.
+    Notification::fake();
+    $seeded = SecurityUser::create(['name' => 'Sam', 'email' => 'sam@example.test', 'password' => null]);
+    $app['router']->put('seed-password/{id}', function (string $id) {
+        SecurityUser::query()->findOrFail($id)->forceFill(['password' => 'hashed:seeded'])->save();
+
+        return '';
+    });
+    $app['router']->put('user/password/{id}', function (string $id) {
+        $user = SecurityUser::query()->findOrFail($id);
+        $user->forceFill(['password' => 'hashed:chosen'])->save();
+        event(new PasswordUpdatedViaController($user));
+
+        return '';
+    });
+    foreach (['seed-password', 'user/password'] as $path) {
+        $app->forgetScopedInstances();
+        $app->instance('request', $call = Request::create("https://acme.test/{$path}/{$seeded->id}", 'PUT', server: ['REMOTE_ADDR' => '203.0.113.9']));
+        $app['router']->dispatch($call);
+    }
+    $app->instance('request', $request);
+    securityCheck(Notification::sent($seeded, SecurityNotice::class)->map(fn (SecurityNotice $n) => $n->type)->all() === ['password_changed'] && $types($seeded->id) === ['password_changed'], 'a first password set without its event in one request does not make the next request\'s change a silent password_set');
 
     Notification::fake();
     config(['kit.security_mail' => false]);

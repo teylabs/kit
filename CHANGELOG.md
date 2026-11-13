@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **No per-user state outlives a request in a long-lived worker (#941).** Two values about one person were kept in static properties, which Octane keeps from one request to the next:
+  - **Onboarding's person and workspace.** The Dashboard, Welcome and WelcomeSkip controllers set them with `Onboarding::context()` and nothing reset them, so code that read `Onboarding::workspaceId()` without calling `context()` first got the previous request's workspace. They are now held by a scoped binding of `Onboarding` (session-ui registers it), which Octane and the queue worker forget between requests and jobs. Until `context()` runs, `workspaceId()` is null. Fails closed: without the binding, `Onboarding` refuses (`LogicException`) rather than asking its steps about nobody.
+  - **SecurityLog's first-password flag.** It was set on `eloquent.updating` by user id and cleared only by `PasswordReset` or `PasswordUpdatedViaController`. A first password set without either event left it in the worker, so that user's next real change was logged as `password_set` and the security mail was skipped. The flag is now kept on the model instance the password was saved on (a `WeakMap`) and is read from the instance the event carries, so it goes with that model. Fails closed: when the flag is missing, the change is logged as `password_changed` and mailed.
+
+  No public signature changed. PHP-FPM was never affected. Not changed: Deliver's `SentMessages` singleton, which the issue notes as lower risk (its map grows if a message is recorded and never pulled).
+  - **Upgrading.** A host that sets an account's first password and then dispatches `PasswordReset` or `PasswordUpdatedViaController` with a model fetched again, not the one it saved, now gets "Password changed" and the mail. Dispatch the event with the model you saved, as Fortify does, or mark the account with `SecurityLog::awaitFirstPassword()` before the password is set. Nothing else to do. Only `src/`, docs, tests and the changelog changed, so nothing to re-pin.
+  - **Tests.** Each check runs two requests in one process and forgets scoped instances between them, as Octane does. `test:dashboard`: after a dashboard request sets the onboarding context, the next request's `Onboarding::workspaceId()` is null. `test:security-mail`: one request sets an account's first password with no password event, and the next request's real change, made on its own model of the user, is logged as `password_changed` and mailed. Both fail against v0.17.4.
+
 ## v0.17.4
 
 No lineage pin changed: `composer update` is enough.

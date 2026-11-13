@@ -31,20 +31,34 @@ final class Onboarding
     /** @var array<string, array{id: string, label: string, hint: string, order: int, optional: bool, scope: 'person'|'workspace', done: Closure, applies: Closure, save: ?Closure, confirm: ?Closure, value: ?Closure}> */
     private static array $steps = [];
 
-    /** The person and workspace the steps are asked about: set by the request that walks them. */
-    private static ?int $user = null;
+    /**
+     * The person and workspace the steps are asked about: set by the request that walks them, and held by a scoped instance (session-ui binds it), never a
+     * static, so a long-lived worker (Octane, a queue worker) forgets them between requests and jobs. Until `context()` runs, there is neither.
+     */
+    private ?int $user = null;
 
-    private static ?int $workspace = null;
+    private ?int $workspace = null;
 
     public static function context(int $userId, ?int $workspaceId = null): void
     {
-        self::$user = $userId;
-        self::$workspace = $workspaceId;
+        $context = self::current();
+        $context->user = $userId;
+        $context->workspace = $workspaceId;
     }
 
     public static function workspaceId(): ?int
     {
-        return self::$workspace;
+        return self::current()->workspace;
+    }
+
+    /** The request's context. Fails closed: unbound, each call would build a fresh one and the steps would be asked about nobody, so it is refused. */
+    private static function current(): self
+    {
+        if (! app()->bound(self::class)) {
+            throw new \LogicException('Onboarding needs its scoped binding (session-ui registers it).');
+        }
+
+        return app(self::class);
     }
 
     /**
@@ -125,8 +139,9 @@ final class Onboarding
     public static function steps(): array
     {
         self::defaults();
-        $user = self::$user ?? 0;
-        $steps = array_values(array_filter(self::$steps, fn (array $step): bool => ($step['applies'])($user, self::$workspace)));
+        $context = self::current();
+        $user = $context->user ?? 0;
+        $steps = array_values(array_filter(self::$steps, fn (array $step): bool => ($step['applies'])($user, $context->workspace)));
         usort($steps, fn (array $a, array $b): int => $a['order'] <=> $b['order']);
 
         return array_map(fn (array $step): array => ['id' => $step['id'], 'label' => $step['label'], 'order' => $step['order'], 'optional' => $step['optional']], $steps);
@@ -140,14 +155,14 @@ final class Onboarding
     /** The current answer of a step, or null. */
     public static function value(int $userId, string $id): ?string
     {
-        return isset(self::$steps[$id]['value']) ? (self::$steps[$id]['value'])($userId, self::$workspace) : null;
+        return isset(self::$steps[$id]['value']) ? (self::$steps[$id]['value'])($userId, self::workspaceId()) : null;
     }
 
     /** Saves an answer as it changes. */
     public static function save(int $userId, string $id, string $value): void
     {
         if (isset(self::$steps[$id]['save'])) {
-            (self::$steps[$id]['save'])($userId, self::$workspace, $value);
+            (self::$steps[$id]['save'])($userId, self::workspaceId(), $value);
         }
     }
 
@@ -155,7 +170,7 @@ final class Onboarding
     public static function confirm(int $userId, string $id): void
     {
         if (isset(self::$steps[$id]['confirm'])) {
-            (self::$steps[$id]['confirm'])($userId, self::$workspace);
+            (self::$steps[$id]['confirm'])($userId, self::workspaceId());
         }
     }
 
@@ -193,7 +208,7 @@ final class Onboarding
     {
         self::defaults();
 
-        return (self::$steps[$id]['scope'] ?? 'person') === 'workspace' ? (self::$workspace ?? 0) : 0;
+        return (self::$steps[$id]['scope'] ?? 'person') === 'workspace' ? (self::workspaceId() ?? 0) : 0;
     }
 
     public static function finished(int $userId): bool
@@ -206,7 +221,7 @@ final class Onboarding
     {
         self::defaults();
 
-        return (self::$steps[$id]['done'])($userId, self::$workspace) ? 'done' : (UserState::has($userId, 'onboarding.skipped.'.$id, self::skipWorkspace($id)) ? 'skipped' : 'pending');
+        return (self::$steps[$id]['done'])($userId, self::workspaceId()) ? 'done' : (UserState::has($userId, 'onboarding.skipped.'.$id, self::skipWorkspace($id)) ? 'skipped' : 'pending');
     }
 
     /**
