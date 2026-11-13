@@ -56,12 +56,12 @@ v0.16 swaps the two names. The props, slots and look of each card are unchanged;
 | `ActionCard` | `SummaryCard` | The header-band card: muted header, `#icon`, `#actions`, `#body`, sticky `#footer` |
 | `SummaryCard` | `ActionCard` | The plain panel: `title`, `#description`, `#actions`, default slot below |
 
-1. Run `kit:update plan|apply` for `core`.
-2. Run `php artisan kit:status`. It names each `.vue` file under `resources/js` that still uses an old name: an `<ActionCard>` with `#icon`, `#body`, `#footer` or an `editUrl`, or a `<SummaryCard>` with `#description`. These are attention items, not blocking.
-3. In each file it names, rename the tag and its import: old `ActionCard` becomes `SummaryCard`, and old `SummaryCard` becomes `ActionCard`. Do it in one pass, for example by renaming the old `ActionCard` to a placeholder first, so the two renames don't overwrite each other.
+1. Get core's renamed cards into the app on 0.16 or 0.17: since 0.18 the kit writes no files into an app.
+2. Find each `.vue` file under `resources/js` that still uses an old name: an `<ActionCard>` with `#icon`, `#body`, `#footer` or an `editUrl`, or a `<SummaryCard>` with `#description`. Since 0.18 no kit command lists them.
+3. In each such file, rename the tag and its import: old `ActionCard` becomes `SummaryCard`, and old `SummaryCard` becomes `ActionCard`. Do it in one pass, for example by renaming the old `ActionCard` to a placeholder first, so the two renames don't overwrite each other.
 4. Coming from an app where ActionCard already meant the panel, keep `ActionCard`. It is that panel now, with `tone="danger"` and `align` added.
-5. Run `kit:status` again until the card-names step is met.
+5. Search again until no file uses an old name.
 
-`kit:status` matches on slots and props, so it cannot catch a card that uses only `title` and the default slot. Check those by eye.
+A search on slots and props cannot catch a card that uses only `title` and the default slot. Check those by eye.
 
-Tests: the parts are typechecked with the other components. `tests/js/card-names.test.mjs` covers both cards' API and SummaryCard's empty body; the browser suite (`?card-names`, light and dark, 1280 and 390px) covers ActionCard's layout, its phone stack, SummaryCard's empty body and axe with colour contrast on the danger tone. `test:status` covers the old-name check. The other parts have no rendered test yet.
+Tests: the parts are typechecked with the other components. `tests/js/card-names.test.mjs` covers both cards' API and SummaryCard's empty body; the browser suite (`?card-names`, light and dark, 1280 and 390px) covers ActionCard's layout, its phone stack, SummaryCard's empty body and axe with colour contrast on the danger tone. The other parts have no rendered test yet.

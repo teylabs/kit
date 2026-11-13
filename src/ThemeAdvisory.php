@@ -118,4 +118,109 @@ final class ThemeAdvisory
     {
         return '#'.implode('', array_map(fn (float $c): string => str_pad(dechex((int) round(max(0, min(1, $c)) * 255)), 2, '0', STR_PAD_LEFT), [$r, $g, $b]));
     }
+
+    /** The host's theme stylesheets (resources/css/app.css and the Vite CSS entries, with their local imports), by path relative to the root. */
+    public static function themeStylesheets(string $root): array
+    {
+        return self::stylesheets($root, ['resources/css/app.css', ...self::viteEntries($root, 'css')]);
+    }
+
+    /** The host's Vite config, relative to the root: vite.config.ts, .js or .mjs, the first that exists; null when none does. */
+    private static function viteConfig(string $root): ?string
+    {
+        foreach (['vite.config.ts', 'vite.config.js', 'vite.config.mjs'] as $name) {
+            if (! is_link($root.'/'.$name) && is_file($root.'/'.$name)) {
+                return $name;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * The files of the given extensions (`css`, `ts|js`) a Vite config names as inputs (`input: [...]`, `laravel([...])`): each quoted, relative path with one of
+     * them in the config. Text only: the config is never run.
+     *
+     * @return list<string>
+     */
+    private static function viteEntries(string $root, string $extensions): array
+    {
+        $config = self::viteConfig($root);
+        if ($config === null) {
+            return [];
+        }
+        preg_match_all('/[\'"]([^\'"\s]+\.(?:'.$extensions.'))[\'"]/', (string) file_get_contents($root.'/'.$config), $matches);
+
+        return array_values(array_unique(array_filter($matches[1], fn (string $entry): bool => self::relative($entry) && ! str_starts_with($entry, 'vite.config.'))));
+    }
+
+    /**
+     * Each stylesheet's contents, by path relative to the host root, following local `@import`s (relative paths only; never a link, never outside the root, at most
+     * 50 files): a package or URL import is skipped. No folder or file from the root down may be a link; the root itself, or a folder above it, may (a
+     * Forge or Envoyer-style `current` deploy).
+     *
+     * @param  list<string>  $files
+     * @return array<string, string>
+     */
+    private static function stylesheets(string $root, array $files): array
+    {
+        $read = [];
+        $queue = $files;
+        while ($queue !== [] && count($read) < 50) {
+            $file = self::normalize(array_shift($queue));
+            $path = $root.'/'.$file;
+            if ($file === null || isset($read[$file]) || self::linked($root, $file) || ! is_file($path)) {
+                continue;
+            }
+            $read[$file] = (string) file_get_contents($path);
+            preg_match_all('/@import\s+(?:url\()?[\'"](\.{1,2}\/[^\'"]+\.css)[\'"]/', $read[$file], $imports);
+            foreach ($imports[1] as $import) {
+                $queue[] = dirname($file).'/'.$import;
+            }
+        }
+
+        return $read;
+    }
+
+    /** Whether a folder or the file on the way from the root down to $file (relative, normalized) is a link. */
+    private static function linked(string $root, string $file): bool
+    {
+        $current = $root;
+        foreach (explode('/', $file) as $segment) {
+            $current .= '/'.$segment;
+            if (is_link($current)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** A relative path with `.` and `..` resolved, or null when it would leave the host root. */
+    private static function normalize(string $path): ?string
+    {
+        $parts = [];
+        foreach (explode('/', $path) as $part) {
+            if ($part === '' || $part === '.') {
+                continue;
+            }
+            if ($part === '..') {
+                if ($parts === []) {
+                    return null;
+                }
+                array_pop($parts);
+
+                continue;
+            }
+            $parts[] = $part;
+        }
+
+        return $parts === [] ? null : implode('/', $parts);
+    }
+
+    /** A plain relative path inside the app: no leading slash, dot segment or backslash. */
+    private static function relative(mixed $path): bool
+    {
+        return is_string($path) && $path !== '' && ! str_starts_with($path, '/') && ! str_contains($path, '\\') && array_filter(explode('/', $path), fn (string $segment): bool => in_array($segment, ['', '.', '..'], true)) === [];
+    }
 }

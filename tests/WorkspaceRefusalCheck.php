@@ -193,7 +193,7 @@ try {
         $table->timestamp('email_verified_at')->nullable();
         $table->timestamps();
     });
-    foreach (glob(dirname(__DIR__).'/resources/features/*/migrations/*.stub') as $file) {
+    foreach (glob(dirname(__DIR__).'/database/migrations/*/*.php') as $file) {
         $stubs[basename($file)] = $file;
     }
     ksort($stubs);
@@ -274,7 +274,7 @@ try {
     $people['elsewhere'] = HttpUser::create(['name' => 'Elsewhere', 'email' => 'elsewhere@example.test', 'email_verified_at' => now()]);
     ConciergeModels::membership()::query()->create(['workspace_id' => $beta->id, 'user_id' => $people['elsewhere']->id, 'status' => MembershipStatus::Active, 'joined_at' => now()]);
     $memberships = fn (): array => ConciergeModels::membership()::query()->orderBy('id')->get(['id', 'workspace_id', 'user_id', 'status'])->map(fn ($row) => [$row->id, $row->workspace_id, $row->user_id, (string) ($row->status->value ?? $row->status)])->all();
-    $states = fn (): int => DB::table('kit_user_state')->where('key', 'welcome.dismissed')->count();
+    $states = fn (): int => DB::table('user_state')->where('key', 'welcome.dismissed')->count();
     foreach (['outsider', 'elsewhere'] as $who) {
         foreach (['/workspaces/'.$workspace->id.'/settings', '/workspaces/acme/settings'] as $old) {
             [$status, $body] = $request($who, 'GET', $old);

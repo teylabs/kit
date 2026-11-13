@@ -4,29 +4,7 @@ What a kit host commits, and how to set up a fresh checkout.
 
 ## Lineage records
 
-Each adopted feature has an installed lineage record at `.mod-maintenance/installed/<hash>.json` (and older installs have `.mod-maintenance/installed.json`). The record embeds every file the lineage owns, base64-encoded, with the artifact's identity and metadata. That's why it's large: a core record can be around 750K.
-
-The bodies are there so the kit can work offline. A plan diffs the app's files against the bytes it installed, and a re-apply needs those bytes, without fetching the old release.
-
-Commit the records. They're portable since tey/mod 0.11.3, and without them a fresh clone or a CI run loses the adoption.
-
-Keep the local parts ignored:
-
-- `journal-*.json`, the recovery journal of an apply in progress;
-- `lock`, the maintenance lock;
-- `owner.json`, which records this checkout's absolute root;
-- `.mod-maintenance-stage-*`, a short-lived staging directory.
-
-The recommended `.gitignore` lines:
-
-```gitignore
-/.mod-maintenance/journal-*.json
-/.mod-maintenance/lock
-/.mod-maintenance/owner.json
-/.mod-maintenance-stage-*
-```
-
-If your `.gitignore` has `/.mod-maintenance`, replace it with these lines, then commit `.mod-maintenance/installed/`.
+Since 0.18 the kit reads no lineage record. `.mod-maintenance/` (its lineage records, `installed.json`, journals, the lock and `owner.json`) and `.mod-maintenance-stage-*` belonged to the install and update tooling 0.18 removed, so a fresh clone or a CI run needs none of them. Once an app is on 0.18 (after `kit:detach` on 0.17.8 and the changelog's 0.18 "Upgrading" steps), it can delete them and drop their `.gitignore` lines.
 
 ## A fresh checkout or CI
 

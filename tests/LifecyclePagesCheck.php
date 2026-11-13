@@ -195,7 +195,7 @@ final class DeferredAccountPurge implements DefersAccountPurge
 
     public function begin(Model $user): void
     {
-        self::$begun[] = [(int) $user->getKey(), DB::transactionLevel(), DB::table('kit_account_deletions')->where('user_id', $user->getKey())->exists()];
+        self::$begun[] = [(int) $user->getKey(), DB::transactionLevel(), DB::table('account_deletions')->where('user_id', $user->getKey())->exists()];
     }
 }
 
@@ -298,7 +298,7 @@ try {
         $table->rememberToken();
         $table->timestamps();
     });
-    foreach (glob(dirname(__DIR__).'/resources/features/*/migrations/*.stub') as $file) {
+    foreach (glob(dirname(__DIR__).'/database/migrations/*/*.php') as $file) {
         $stubs[basename($file)] = $file;
     }
     ksort($stubs);
@@ -419,12 +419,12 @@ try {
         $settings->save();
     });
     DB::table('kit_notes')->insert(['workspace_id' => $doomed->id, 'author_id' => $people['owner']->id, 'body' => 'A note', 'colour' => 'yellow', 'pinned' => false, 'version' => 1, 'created_at' => now(), 'updated_at' => now()]);
-    DB::table('kit_capability_overrides')->insert(['workspace_id' => $doomed->id, 'user_id' => $people['member']->id, 'capability' => 'workspace.dashboard', 'enabled' => true]);
+    DB::table('capability_overrides')->insert(['workspace_id' => $doomed->id, 'user_id' => $people['member']->id, 'capability' => 'workspace.dashboard', 'enabled' => true]);
     // Commercial records: RESTRICT foreign keys, so the deletion removes them itself, before the workspace row.
     DB::table('entitlements')->insert(['workspace_id' => $doomed->id, 'kind' => 'synthetic-plan']);
     DB::table('complimentary_grants')->insert(['workspace_id' => $doomed->id, 'granted_by' => $people['owner']->id, 'intent_key' => 'grant-1', 'fingerprint' => 'synthetic', 'reason' => 'synthetic', 'expires_at' => now()->addMonth()]);
     DB::table('audit_events')->insert(['actor_id' => $people['owner']->id, 'workspace_id' => $doomed->id, 'event' => 'synthetic.audit', 'details' => '{}', 'created_at' => now()]);
-    $counts = fn (): array => [Workspace::query()->whereKey($doomed->id)->count(), ConciergeModels::membership()::query()->where('workspace_id', $doomed->id)->count(), ConciergeModels::ownership()::query()->whereKey($doomed->id)->count(), DB::table('kit_notes')->where('workspace_id', $doomed->id)->count(), DB::table('settings')->where('group', 'workspace.'.$doomed->id)->count() > 0 ? 1 : 0, DB::table('kit_capability_overrides')->where('workspace_id', $doomed->id)->count(), DB::table('entitlements')->where('workspace_id', $doomed->id)->count(), DB::table('complimentary_grants')->where('workspace_id', $doomed->id)->count()];
+    $counts = fn (): array => [Workspace::query()->whereKey($doomed->id)->count(), ConciergeModels::membership()::query()->where('workspace_id', $doomed->id)->count(), ConciergeModels::ownership()::query()->whereKey($doomed->id)->count(), DB::table('kit_notes')->where('workspace_id', $doomed->id)->count(), DB::table('settings')->where('group', 'workspace.'.$doomed->id)->count() > 0 ? 1 : 0, DB::table('capability_overrides')->where('workspace_id', $doomed->id)->count(), DB::table('entitlements')->where('workspace_id', $doomed->id)->count(), DB::table('complimentary_grants')->where('workspace_id', $doomed->id)->count()];
     $refused = false;
     try {
         DB::transaction(fn () => DB::table('workspaces')->where('id', $doomed->id)->delete());
@@ -555,16 +555,16 @@ try {
         'access' => function (int $id) use ($people): array {
             DB::table('entitlements')->insert(['workspace_id' => $id, 'kind' => 'synthetic-plan']);
             DB::table('complimentary_grants')->insert(['workspace_id' => $id, 'granted_by' => $people['owner']->id, 'intent_key' => 'grant-'.$id, 'fingerprint' => 'synthetic', 'reason' => 'synthetic', 'expires_at' => now()->addMonth()]);
-            DB::table('kit_entitlements')->insert(['workspace_id' => $id, 'entitlement' => 'synthetic', 'included' => true, 'created_at' => now(), 'updated_at' => now()]);
-            DB::table('kit_capability_overrides')->insert(['workspace_id' => $id, 'user_id' => $people['member']->id, 'capability' => 'workspace.dashboard', 'enabled' => true]);
+            DB::table('plan_entitlements')->insert(['workspace_id' => $id, 'entitlement' => 'synthetic', 'included' => true, 'created_at' => now(), 'updated_at' => now()]);
+            DB::table('capability_overrides')->insert(['workspace_id' => $id, 'user_id' => $people['member']->id, 'capability' => 'workspace.dashboard', 'enabled' => true]);
 
-            return ['entitlements', 'complimentary_grants', 'kit_entitlements', 'kit_capability_overrides'];
+            return ['entitlements', 'complimentary_grants', 'plan_entitlements', 'capability_overrides'];
         },
         'mcp' => function (int $id) use ($people): array {
             $connection = DB::table('connections')->insertGetId(['workspace_id' => $id, 'actor_id' => $people['owner']->id, 'scopes' => '[]', 'intent_key' => 'connect-'.$id]);
-            DB::table('kit_mcp_intents')->insert(['actor_id' => $people['owner']->id, 'connection_id' => $connection, 'intent_key' => 'intent-'.$id, 'fingerprint' => 'synthetic', 'result' => '{}', 'created_at' => now(), 'expires_at' => now()->addDay()]);
+            DB::table('mcp_intents')->insert(['actor_id' => $people['owner']->id, 'connection_id' => $connection, 'intent_key' => 'intent-'.$id, 'fingerprint' => 'synthetic', 'result' => '{}', 'created_at' => now(), 'expires_at' => now()->addDay()]);
 
-            return ['connections', 'kit_mcp_intents' => $connection];
+            return ['connections', 'mcp_intents' => $connection];
         },
         'notes' => function (int $id) use ($people): array {
             DB::table('kit_notes')->insert(['workspace_id' => $id, 'author_id' => $people['owner']->id, 'body' => 'A note', 'colour' => 'yellow', 'pinned' => false, 'version' => 1, 'created_at' => now(), 'updated_at' => now()]);
@@ -607,8 +607,8 @@ try {
     $app['cache']->store()->clear();
     [$closing, $cm] = $workspace('Closing Co', 'closing', ['owner' => 'owner', 'admin' => 'admin', 'member' => 'member']);
     DB::table('kit_notes')->insert(['workspace_id' => $closing->id, 'author_id' => $people['owner']->id, 'body' => 'A note', 'colour' => 'yellow', 'pinned' => false, 'version' => 1, 'created_at' => now(), 'updated_at' => now()]);
-    DB::table('kit_capability_overrides')->insert(['workspace_id' => $closing->id, 'user_id' => $people['member']->id, 'capability' => 'workspace.dashboard', 'enabled' => true]);
-    $closingRows = fn (): array => [Workspace::query()->whereKey($closing->id)->count(), ConciergeModels::membership()::query()->where('workspace_id', $closing->id)->count(), ConciergeModels::ownership()::query()->whereKey($closing->id)->count(), DB::table('kit_notes')->where('workspace_id', $closing->id)->count(), DB::table('kit_capability_overrides')->where('workspace_id', $closing->id)->count()];
+    DB::table('capability_overrides')->insert(['workspace_id' => $closing->id, 'user_id' => $people['member']->id, 'capability' => 'workspace.dashboard', 'enabled' => true]);
+    $closingRows = fn (): array => [Workspace::query()->whereKey($closing->id)->count(), ConciergeModels::membership()::query()->where('workspace_id', $closing->id)->count(), ConciergeModels::ownership()::query()->whereKey($closing->id)->count(), DB::table('kit_notes')->where('workspace_id', $closing->id)->count(), DB::table('capability_overrides')->where('workspace_id', $closing->id)->count()];
     $admits = fn (string $who, Workspace $at): ?string => refusal(fn () => Workspaces::run((int) $at->id, fn () => app(Access::class)->authorize(new Principal((int) $people[$who]->id), 'dashboard.read')));
     check($admits('member', $closing) === null && $closing->conciergeAcceptsMembers() && in_array((int) $closing->id, Workspace::query()->memberOf($people['member'])->pluck('id')->map(fn ($id): int => (int) $id)->all(), true), 'before its deletion the workspace admits its members, accepts members and is listed');
     $app->bind(PurgesWorkspaceData::class, DeferredWorkspacePurge::class);
@@ -712,7 +712,7 @@ try {
     DB::table('oauth_device_codes')->insert(['id' => str_repeat('f', 80), 'user_id' => $closerId, 'client_id' => '00000000-0000-0000-0000-000000000000', 'user_code' => strtoupper(str_repeat('f', 8)), 'scopes' => '[]', 'revoked' => false, 'user_approved_at' => now(), 'expires_at' => now()->addMinutes(10)]);
     [$status, $body] = $http('closer', 'DELETE', '/me/delete', ['password' => 'secret-closer']);
     check($status === 200 && str_contains($body, '"deleting":true') && HttpUser::query()->whereKey($closerId)->exists(), 'deferred: the account deletion answers deleting and the user row stays for the host\'s job');
-    check(! ConciergeModels::account()::query()->find($closerId)?->isActive() && DB::table('kit_account_deletions')->where('user_id', $closerId)->exists(), 'deferred: the account is closed at once (its Concierge account deactivated, a kit_account_deletions row)');
+    check(! ConciergeModels::account()::query()->find($closerId)?->isActive() && DB::table('account_deletions')->where('user_id', $closerId)->exists(), 'deferred: the account is closed at once (its Concierge account deactivated, a account_deletions row)');
     check(ConciergeModels::membership()::query()->where('user_id', $closerId)->where('status', MembershipStatus::Active)->doesntExist() && (bool) DB::table('oauth_access_tokens')->where('user_id', $closerId)->value('revoked') && Auth::guard('web')->guest(), 'deferred: their workspaces are left, their API tokens revoked and the session signed out');
     check((bool) DB::table('oauth_auth_codes')->where('id', str_repeat('f', 80))->value('revoked') && (bool) DB::table('oauth_device_codes')->where('id', str_repeat('f', 80))->value('revoked'), 'deferred: their unexchanged authorization and approved device codes are revoked too');
     check(DeferredAccountPurge::$begun === [[$closerId, 0, true]] && array_column($seen, 0) === ['deleting'], 'deferred: begin() ran once after the commit, with the account already closed; AccountDeleting at the close, AccountDeleted not yet');
@@ -725,7 +725,7 @@ try {
     check(is_string($signIn) && Auth::guard('web')->guest(), 'closed: signing in is refused with a message ('.$signIn.')');
     check(refusal(fn () => app(FinishAccountDeletion::class)((int) $people['member']->id)) === 'account_not_deleting' && HttpUser::query()->whereKey($people['member']->id)->exists(), 'the account finish hook refuses an account that is not being deleted, and deletes nothing');
     $seen = [];
-    check(app(FinishAccountDeletion::class)($closerId) === true && ! HttpUser::query()->whereKey($closerId)->exists() && ConciergeModels::membership()::query()->where('user_id', $closerId)->count() === 0 && ConciergeModels::account()::query()->whereKey($closerId)->doesntExist() && DB::table('kit_account_deletions')->where('user_id', $closerId)->doesntExist(), 'the account finish hook deletes the user, their memberships, Concierge account and the deletion record');
+    check(app(FinishAccountDeletion::class)($closerId) === true && ! HttpUser::query()->whereKey($closerId)->exists() && ConciergeModels::membership()::query()->where('user_id', $closerId)->count() === 0 && ConciergeModels::account()::query()->whereKey($closerId)->doesntExist() && DB::table('account_deletions')->where('user_id', $closerId)->doesntExist(), 'the account finish hook deletes the user, their memberships, Concierge account and the deletion record');
     check(array_column($seen, 0) === ['deleted'] && $seen[0][1] === 0 && $seen[0][3] === $closerId && $seen[0][4] === [(int) $acme->id] && Queue::pushed(CallQueuedListener::class, fn (CallQueuedListener $job): bool => $job->class === PurgeAccountData::class)->count() === $accountsBefore + 1, 'AccountDeleted follows the finish hook\'s commit, with the workspaces they left');
     $seen = [];
     check(app(FinishAccountDeletion::class)($closerId) === false && $seen === [], 'calling the account finish hook twice is a no-op');
@@ -737,10 +737,10 @@ try {
     $join($acme, 'anon', 'member');
     $anonId = (int) $people['anon']->id;
     $app->bind(DeletesAccountRow::class, AnonymisingAccountRow::class);
-    check($http('anon', 'DELETE', '/me/delete', ['password' => 'secret-anon'])[0] === 200 && DB::table('kit_account_deletions')->where('user_id', $anonId)->exists(), 'deferred: the account to anonymise is closed');
+    check($http('anon', 'DELETE', '/me/delete', ['password' => 'secret-anon'])[0] === 200 && DB::table('account_deletions')->where('user_id', $anonId)->exists(), 'deferred: the account to anonymise is closed');
     $seen = [];
     check(app(FinishAccountDeletion::class)($anonId) === true && HttpUser::query()->whereKey($anonId)->value('name') === 'Deleted person' && ConciergeModels::membership()::query()->where('user_id', $anonId)->doesntExist(), 'with DeletesAccountRow bound the finish hook anonymises the user row instead of deleting it, and the kit\'s rows go');
-    check(! ConciergeModels::account()::query()->find($anonId)?->isActive() && DB::table('kit_account_deletions')->where('user_id', $anonId)->whereNotNull('finished_at')->exists() && array_column($seen, 0) === ['deleted'], 'the anonymised row stays closed (Concierge account deactivated), its record is marked finished, and AccountDeleted is dispatched');
+    check(! ConciergeModels::account()::query()->find($anonId)?->isActive() && DB::table('account_deletions')->where('user_id', $anonId)->whereNotNull('finished_at')->exists() && array_column($seen, 0) === ['deleted'], 'the anonymised row stays closed (Concierge account deactivated), its record is marked finished, and AccountDeleted is dispatched');
     $refused = false;
     try {
         Auth::guard('web')->attempt(['email' => HttpUser::query()->whereKey($anonId)->value('email'), 'password' => 'secret-anon']);
@@ -807,7 +807,7 @@ try {
     $keptId = (int) $people['kept']->id;
     DB::table('oauth_access_tokens')->insert(['id' => str_repeat('c', 80), 'user_id' => $keptId, 'client_id' => '00000000-0000-0000-0000-000000000000', 'name' => 'synthetic', 'scopes' => '[]', 'revoked' => false, 'created_at' => now(), 'updated_at' => now(), 'expires_at' => now()->addDay()]);
     DB::table('sessions')->insert(['id' => 'kept-session', 'user_id' => $keptId, 'payload' => '', 'last_activity' => time()]);
-    check($http('kept', 'DELETE', '/me/delete', ['password' => 'secret-kept'])[0] === 200 && HttpUser::query()->whereKey($keptId)->value('name') === 'Deleted user' && DB::table('kit_account_deletions')->where('user_id', $keptId)->doesntExist(), 'immediate + anonymise: the row is kept, anonymised, in the request');
+    check($http('kept', 'DELETE', '/me/delete', ['password' => 'secret-kept'])[0] === 200 && HttpUser::query()->whereKey($keptId)->value('name') === 'Deleted user' && DB::table('account_deletions')->where('user_id', $keptId)->doesntExist(), 'immediate + anonymise: the row is kept, anonymised, in the request');
     check(! ConciergeModels::account()::query()->find($keptId)?->isActive() && ConciergeModels::account()::query()->whereKey($keptId)->exists(), 'immediate + anonymise: its Concierge account is kept, deactivated, rather than deleted');
     check((bool) DB::table('oauth_access_tokens')->where('id', str_repeat('c', 80))->value('revoked') && DB::table('sessions')->where('user_id', $keptId)->doesntExist(), 'immediate + anonymise: its API tokens are revoked and its sessions ended');
     Auth::guard('web')->logout();

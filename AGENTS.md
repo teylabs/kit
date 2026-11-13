@@ -15,10 +15,10 @@ composer update --prefer-dist --no-interaction
 composer test:scaffold
 composer test:features
 composer test:catalog
-composer test:lifecycle
+composer test:host-boot
+composer test:migrations
 composer test:resources
 composer test:library
-composer test:adopt
 sh bin/privacy-check.sh
 ```
 
@@ -26,7 +26,7 @@ CI runs every `composer test:*` script on PHP 8.4 and 8.5, plus the Privacy job.
 
 ## Conventions
 
-- Match the surrounding code: names, comment density, idiom. Class names stay `Blueprint`, `Catalog`, `Lifecycle` and so on; the namespace is `Tey\Kit`.
+- Match the surrounding code: names, comment density, idiom. Class names stay `Blueprint`, `Catalog` and so on; the namespace is `Tey\Kit`.
 - Commit as Jasper Tey <jasper@teylabs.com>. Commits and PRs carry no attribution lines or trailers. Stage explicit paths only.
 - Work on a branch and open a pull request. Never push to `main`, merge, tag or release.
 - Never commit private project names, internal tooling references or local paths. `bin/privacy-check.sh` runs in CI.

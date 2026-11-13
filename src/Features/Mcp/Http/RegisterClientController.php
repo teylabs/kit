@@ -21,7 +21,7 @@ use Throwable;
  * registered by another route keeps working. The answer carries no secret and no management credentials (RFC 7592 is not offered, so not advertised).
  * Refusals are RFC 7591 §3.2.2: 400 with `invalid_redirect_uri` or `invalid_client_metadata`; the host's policy refuses with 403 `access_denied`, and a policy
  * that fails (a bad class name, an exception) is reported and refuses the same way, never lets a registration through. Each client made here is recorded in
- * `kit_mcp_registrations`, which is what tells it apart from a host's own public clients.
+ * `mcp_registrations`, which is what tells it apart from a host's own public clients.
  */
 final class RegisterClientController
 {
@@ -72,7 +72,7 @@ final class RegisterClientController
             $granted = $asked;
         }
         if (! Registrations::available()) {
-            report(new RuntimeException('Dynamic client registration needs the kit_mcp_registrations table: run the mcp feature\'s migrations.'));
+            report(new RuntimeException('Dynamic client registration needs the mcp_registrations table: run the mcp feature\'s migrations.'));
 
             return self::refuse('server_error', 'Registration is not available.', 500);
         }

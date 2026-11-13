@@ -241,7 +241,7 @@ try {
         BrandAssets::configuredAccent($host);
         check(false, 'an empty accent with no theme accent is refused');
     } catch (RuntimeException $error) {
-        check(str_contains($error->getMessage(), "'accent' in config/brand.php") && str_contains($error->getMessage(), '--primary'), 'an empty accent with no theme accent is refused, naming what to set');
+        check(str_contains($error->getMessage(), "'accent' in config/brand.php") && str_contains($error->getMessage(), '--primary') && str_contains($error->getMessage(), 'Vite'), 'an empty accent with no theme accent is refused, naming what to set and where it looked');
     }
     $brand([]);
     check(BrandAssets::configuredAccent($host) === '#52525b', 'no accent key: unchanged, the neutral default');

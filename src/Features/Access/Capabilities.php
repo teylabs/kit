@@ -11,7 +11,7 @@ use Tey\Kit\Features\Core\Registry;
 
 /**
  * Whether a capability (a feature of the app) is on for a person in a workspace. Precedence: the person's own override in that workspace, then the workspace's (both set by
- * an operator and kept in `kit_capability_overrides`), then the capability's own default (`kit.capabilities`, or a plan's, through Pennant). What is off is absent everywhere it would appear: a 404, no navigation link, no
+ * an operator and kept in `capability_overrides`), then the capability's own default (`kit.capabilities`, or a plan's, through Pennant). What is off is absent everywhere it would appear: a 404, no navigation link, no
  * settings section, no MCP tool. It is a gate separate from permissions: a page needs both the capability on and the permission.
  */
 final class Capabilities
@@ -41,9 +41,9 @@ final class Capabilities
     private function decide(string $capability, Workspace $workspace, ?Model $user): bool
     {
         $rows = $this->memo === null || $this->request !== spl_object_id(request())
-            ? DB::table('kit_capability_overrides')->where(['workspace_id' => $workspace->getKey(), 'capability' => $capability])->whereIn('user_id', array_filter([0, $user?->getKey()], fn ($id) => $id !== null))->pluck('enabled', 'user_id')
+            ? DB::table('capability_overrides')->where(['workspace_id' => $workspace->getKey(), 'capability' => $capability])->whereIn('user_id', array_filter([0, $user?->getKey()], fn ($id) => $id !== null))->pluck('enabled', 'user_id')
             // In a request, the workspace's overrides are read once, for every capability and person.
-            : collect($this->memo['overrides:'.$workspace->getKey()] ??= DB::table('kit_capability_overrides')->where('workspace_id', $workspace->getKey())->get(['capability', 'user_id', 'enabled'])->all())
+            : collect($this->memo['overrides:'.$workspace->getKey()] ??= DB::table('capability_overrides')->where('workspace_id', $workspace->getKey())->get(['capability', 'user_id', 'enabled'])->all())
                 ->where('capability', $capability)->whereIn('user_id', array_filter([0, $user?->getKey()], fn ($id) => $id !== null))->pluck('enabled', 'user_id');
         if ($user !== null && $rows->has($user->getKey())) {
             return (bool) $rows[$user->getKey()];
@@ -78,9 +78,9 @@ final class Capabilities
         $this->assertKnown($capability);
         $where = ['workspace_id' => $workspace->getKey(), 'user_id' => $userId, 'capability' => $capability];
         if ($enabled === null) {
-            DB::table('kit_capability_overrides')->where($where)->delete();
+            DB::table('capability_overrides')->where($where)->delete();
         } else {
-            DB::table('kit_capability_overrides')->upsert([$where + ['enabled' => $enabled, 'created_at' => now(), 'updated_at' => now()]], ['workspace_id', 'user_id', 'capability'], ['enabled', 'updated_at']);
+            DB::table('capability_overrides')->upsert([$where + ['enabled' => $enabled, 'created_at' => now(), 'updated_at' => now()]], ['workspace_id', 'user_id', 'capability'], ['enabled', 'updated_at']);
         }
         $this->memo = $this->memo === null ? null : [];
     }
@@ -88,7 +88,7 @@ final class Capabilities
     /** @return list<array{capability: string, workspace: bool, people: array<int, bool>}> what is set explicitly in a workspace, for an operator to read */
     public function overview(Workspace $workspace): array
     {
-        $rows = DB::table('kit_capability_overrides')->where('workspace_id', $workspace->getKey())->get()->groupBy('capability');
+        $rows = DB::table('capability_overrides')->where('workspace_id', $workspace->getKey())->get()->groupBy('capability');
 
         return array_map(fn (string $capability): array => [
             'capability' => $capability,

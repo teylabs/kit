@@ -183,7 +183,7 @@ try {
         $table->timestamp('email_verified_at')->nullable();
         $table->timestamps();
     });
-    foreach (glob(dirname(__DIR__).'/resources/features/*/migrations/*.stub') as $file) {
+    foreach (glob(dirname(__DIR__).'/database/migrations/*/*.php') as $file) {
         $stubs[basename($file)] = $file;
     }
     ksort($stubs);
@@ -303,9 +303,9 @@ try {
     httpCheck($read(['run' => 'run_'.str_repeat('a', 26)]) === ['error', 'not_found'] && $read(['run' => '../etc']) === ['error', 'not_found'], 'a made-up or malformed token is not_found');
     httpCheck($read(['run' => $run, 'more' => 1]) === ['error', 'unknown_arguments'], 'an argument besides run is unknown_arguments');
     $other = Workspace::create(['name' => 'Other', 'slug' => 'other']);
-    DB::table('kit_mcp_runs')->where('id', $run)->update(['workspace_id' => $other->id]);
+    DB::table('mcp_runs')->where('id', $run)->update(['workspace_id' => $other->id]);
     httpCheck($read(['run' => $run]) === ['error', 'not_found'], 'a run is read only in the workspace it was queued in');
-    DB::table('kit_mcp_runs')->where('id', $run)->update(['workspace_id' => $workspace->id]);
+    DB::table('mcp_runs')->where('id', $run)->update(['workspace_id' => $workspace->id]);
 
     // Run it: progress is readable mid-run, the result matches, the events fire once, and the workspace is the run's.
     $midRun = null;
@@ -320,7 +320,7 @@ try {
     httpCheck(count($fired) === 1 && $fired[0]->tool === 'workspace_settings' && $fired[0]->arguments === ['id' => 7] && count($finished) === 1 && $finished[0]->status === 'done' && $finished[0]->error === null, 'ToolCalled fires once when call() runs, then ToolRunFinished(done)');
     $work($run);
     httpCheck(count($fired) === 1 && count($finished) === 1, 'a second worker on the same run does nothing');
-    DB::table('kit_mcp_runs')->where('id', $run)->update(['step' => 'Late']);
+    DB::table('mcp_runs')->where('id', $run)->update(['step' => 'Late']);
     $late = new class extends SlowReport
     {
         public function late(string $run): void
@@ -329,19 +329,19 @@ try {
         }
     };
     $late->late($run);
-    httpCheck(DB::table('kit_mcp_runs')->where('id', $run)->value('step') === 'Late', 'progress outside a running run writes nothing');
+    httpCheck(DB::table('mcp_runs')->where('id', $run)->value('step') === 'Late', 'progress outside a running run writes nothing');
 
     // Replay: the same intent_key and arguments get the same run, not a second job.
     [, $first] = $call(['id' => 8, 'intent_key' => 'report-8']);
     [, $again] = $call(['id' => 8, 'intent_key' => 'report-8']);
-    httpCheck($first['run'] === $again['run'] && DB::table('kit_mcp_runs')->where('intent_key', 'report-8')->count() === 1, 'a retry with the same intent_key gets the same run token and queues nothing new');
+    httpCheck($first['run'] === $again['run'] && DB::table('mcp_runs')->where('intent_key', 'report-8')->count() === 1, 'a retry with the same intent_key gets the same run token and queues nothing new');
     httpCheck($call(['id' => 9, 'intent_key' => 'report-8']) === ['error', 'intent_conflict'], 'the key reused for other arguments is intent_conflict');
 
     // Failures: a code only, never the message; tenant context restored after a throw.
     $finished = [];
     [, $failing] = $call(['id' => 500]);
     $work($failing['run']);
-    $row = (array) DB::table('kit_mcp_runs')->where('id', $failing['run'])->first();
+    $row = (array) DB::table('mcp_runs')->where('id', $failing['run'])->first();
     httpCheck($read(['run' => $failing['run']]) === ['ok', ['run' => $failing['run'], 'status' => 'failed', 'error' => 'operation_failed']] && ! str_contains(json_encode($row), 'hunter2'), 'an uncoded failure is failed with operation_failed, and its message is stored nowhere');
     httpCheck(Workspaces::current() === null && $finished[0]->status === 'failed' && $finished[0]->error === 'operation_failed', 'after a failed run no workspace is current, and ToolRunFinished(failed) carries the code');
     [, $coded] = $call(['id' => 409]);
@@ -353,10 +353,10 @@ try {
     [, $narrowRun] = $call(['id' => 12]);
     DB::table('connections')->where('id', $connection)->update(['scopes' => json_encode(['notes.read'])]);
     $work($narrowRun['run']);
-    httpCheck(DB::table('kit_mcp_runs')->where('id', $narrowRun['run'])->value('error') === 'connection_denied', 'a connection narrowed after queueing fails the run with connection_denied');
+    httpCheck(DB::table('mcp_runs')->where('id', $narrowRun['run'])->value('error') === 'connection_denied', 'a connection narrowed after queueing fails the run with connection_denied');
     DB::table('connections')->where('id', $connection)->update(['scopes' => json_encode(['mcp:act']), 'revoked_at' => now()]);
     $work($revokedRun['run']);
-    httpCheck(DB::table('kit_mcp_runs')->where('id', $revokedRun['run'])->value('error') === 'connection_denied', 'a connection revoked after queueing fails the run with connection_denied');
+    httpCheck(DB::table('mcp_runs')->where('id', $revokedRun['run'])->value('error') === 'connection_denied', 'a connection revoked after queueing fails the run with connection_denied');
     httpCheck($read(['run' => $revokedRun['run']]) === ['error', 'connection_denied'], 'and reading it on the revoked connection is refused');
     DB::table('connections')->where('id', $connection)->update(['revoked_at' => null]);
 
@@ -368,9 +368,9 @@ try {
     Carbon::setTestNow(now()->addSeconds(86401));
     try {
         $work($stale['run']);
-        httpCheck($read(['run' => $stale['run']]) === ['ok', ['run' => $stale['run'], 'status' => 'expired']] && DB::table('kit_mcp_runs')->where('id', $stale['run'])->value('status') === 'queued', 'past kit.mcp.run_ttl the run reads expired and its job does not run');
+        httpCheck($read(['run' => $stale['run']]) === ['ok', ['run' => $stale['run'], 'status' => 'expired']] && DB::table('mcp_runs')->where('id', $stale['run'])->value('status') === 'queued', 'past kit.mcp.run_ttl the run reads expired and its job does not run');
         $call(['id' => 14]);
-        httpCheck(DB::table('kit_mcp_runs')->where('id', $stale['run'])->doesntExist(), 'queueing the next run on the connection deletes expired ones');
+        httpCheck(DB::table('mcp_runs')->where('id', $stale['run'])->doesntExist(), 'queueing the next run on the connection deletes expired ones');
     } finally {
         Carbon::setTestNow();
     }

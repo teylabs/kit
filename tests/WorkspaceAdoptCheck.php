@@ -1,9 +1,10 @@
 <?php
 
 // A host that already has its own workspaces table, its own workspace model and spatie/laravel-permission's tables (with teams) adopts the kit's
-// workspaces and access features in place: the plan lists adoptions, not collisions; the migrations add only the kit's missing columns (every existing
-// row admitted, at settings version 1) and create no second table; the kit resolves the host's model everywhere; a mismatched binding is refused; and
-// nothing under src/ names the kit's own model except the model, its resolver and the default config. SQLite memory, synthetic workspaces and people.
+// workspaces and access features in place: the migrations add only the kit's missing columns (every existing row admitted, at settings version 1),
+// create no second table and refuse permission tables without the configured teams column; the kit resolves the host's model everywhere; a mismatched
+// binding is refused; and nothing under src/ names the kit's own model except the model, its resolver and the default config. SQLite memory, synthetic
+// workspaces and people.
 use Illuminate\Auth\AuthServiceProvider;
 use Illuminate\Bus\BusServiceProvider;
 use Illuminate\Cache\CacheServiceProvider;
@@ -55,7 +56,6 @@ use Tey\Kit\Features\Workspaces\Concerns\IsKitWorkspace;
 use Tey\Kit\Features\Workspaces\MemberWorkspaces;
 use Tey\Kit\Features\Workspaces\Models\Workspace as KitWorkspace;
 use Tey\Kit\Features\Workspaces\Workspaces;
-use Tey\Kit\HostRequirements;
 use Tey\Mod\ModServiceProvider;
 
 $loader = require $argv[1];
@@ -243,30 +243,16 @@ try {
     $hostRows = DB::table('workspaces')->orderBy('id')->get(['id', 'name', 'accepts_members', 'created_at', 'updated_at'])->map(fn ($row) => (array) $row)->all();
     $tablesBefore = array_column(Schema::getTables(), 'name');
 
-    // (a) The plan: the workspaces and permission migrations adopt the host's tables; another migration creating a host table still collides.
-    $dir = dirname(__DIR__).'/resources/features/workspaces/migrations';
-    $paths = ['database/migrations/kit/workspaces/0001_01_02_000200_create_kit_workspaces_table.php' => $dir.'/0001_01_02_000200_create_kit_workspaces_table.php.stub', 'database/migrations/kit/workspaces/0001_01_02_000201_create_permission_tables.php' => $dir.'/0001_01_02_000201_create_permission_tables.php.stub'];
-    $files = array_map(fn () => ['state' => 'create'], $paths);
-    $bytes = array_map(fn (string $stub): string => (string) file_get_contents($stub), $paths);
-    $adoptions = HostRequirements::adoptions($files, $bytes);
-    adoptCheck(HostRequirements::collisions($files, $bytes) === [], 'the host\'s workspaces and permission tables are not collisions');
-    adoptCheck(count($adoptions) === 2 && str_contains($adoptions[0], 'adopt the host\'s workspaces table in place') && str_contains($adoptions[0], 'add admitted, settings_version, provisioning_invitation_id') && str_contains($adoptions[1], 'adopt the host\'s permission tables in place'), 'the plan lists both as adoptions, naming the columns the kit adds');
-    $other = ['database/migrations/2026_01_01_000000_create_workspaces_again.php' => ['state' => 'create']];
-    adoptCheck(count(HostRequirements::collisions($other, ['database/migrations/2026_01_01_000000_create_workspaces_again.php' => "Schema::create('workspaces', fn (\$t) => \$t->id());"])) === 1, 'any other migration creating the host\'s workspaces table still collides');
-    // A host's own config/permission.php is the whole truth for the plan (the kit's defaults step aside), naming another teams column.
-    mkdir($base.'/config');
-    file_put_contents($base.'/config/permission.php', "<?php\n\nreturn [];\n");
+    // (a) Host permission tables without the configured teams column: the permission migration refuses them clearly.
     $config->set('permission.column_names.team_foreign_key', 'team_id');
-    adoptCheck(count($blocking = HostRequirements::collisions($files, $bytes)) === 1 && str_contains($blocking[0], 'no team_id teams column'), 'host permission tables without the configured teams column block the plan');
-    adoptCheck(str_contains((string) adoptRefused(fn () => (require $paths[array_key_last($paths)])->up()), 'have no team_id column'), 'and the permission migration refuses them clearly');
+    adoptCheck(str_contains((string) adoptRefused(fn () => (require dirname(__DIR__).'/database/migrations/workspaces/0001_01_02_000201_create_permission_tables.php')->up()), 'have no team_id column') && ! Schema::hasTable(Adoptions::TABLE), 'host permission tables without the configured teams column are refused clearly, with nothing recorded');
     $config->set('permission.column_names.team_foreign_key', 'workspace_id');
-    unlink($base.'/config/permission.php');
 
     // (a) Migrate: Concierge's migrations, then every kit stub in order, over the host's schema.
     foreach (glob(dirname(__DIR__).'/vendor/tey/concierge/database/migrations/*.php') as $file) {
         (require $file)->up();
     }
-    foreach (glob(dirname(__DIR__).'/resources/features/*/migrations/*.stub') as $file) {
+    foreach (glob(dirname(__DIR__).'/database/migrations/*/*.php') as $file) {
         $stubs[basename($file)] = $file;
     }
     ksort($stubs);
@@ -282,12 +268,12 @@ try {
     adoptCheck(DB::table($config->get('permission.table_names.roles'))->where('name', 'host-role')->count() === 1, 'the host\'s permission tables and rows are kept');
     adoptCheck(Adoptions::adopted('workspaces') && Adoptions::added('workspaces') === ['provisioning_invitation_id', 'settings_version', 'admitted', 'slug', 'deleting_at', 'deleting_by'] && Adoptions::adopted($config->get('permission.table_names.roles')) && Adoptions::added($config->get('permission.table_names.roles')) === [], 'the adoption is recorded with the columns the kit added (none to the permission tables)');
     $up = function () use ($stubs): void {
-        foreach (['0001_01_02_000200_create_kit_workspaces_table.php.stub', '0001_01_02_000201_create_permission_tables.php.stub', '0001_01_02_000203_add_slug_to_kit_workspaces_table.php.stub'] as $name) {
+        foreach (['0001_01_02_000200_create_kit_workspaces_table.php', '0001_01_02_000201_create_permission_tables.php', '0001_01_02_000203_add_slug_to_kit_workspaces_table.php'] as $name) {
             (require $stubs[$name])->up();
         }
     };
     $down = function () use ($stubs): void {
-        foreach (['0001_01_02_000203_add_slug_to_kit_workspaces_table.php.stub', '0001_01_02_000201_create_permission_tables.php.stub', '0001_01_02_000200_create_kit_workspaces_table.php.stub'] as $name) {
+        foreach (['0001_01_02_000203_add_slug_to_kit_workspaces_table.php', '0001_01_02_000201_create_permission_tables.php', '0001_01_02_000200_create_kit_workspaces_table.php'] as $name) {
             (require $stubs[$name])->down();
         }
     };
@@ -312,11 +298,11 @@ try {
             $t->string('legacy_code')->nullable();
         });
         DB::table('workspaces')->insert(['name' => 'Northwind Farms', 'legacy_code' => 'N1']);
-        (require $stubs['0001_01_02_000200_create_kit_workspaces_table.php.stub'])->up();
-        (require $stubs['0001_01_02_000203_add_slug_to_kit_workspaces_table.php.stub'])->up();
+        (require $stubs['0001_01_02_000200_create_kit_workspaces_table.php'])->up();
+        (require $stubs['0001_01_02_000203_add_slug_to_kit_workspaces_table.php'])->up();
         Schema::table('workspaces', fn (Blueprint $t) => $t->dropColumn('legacy_code'));
-        (require $stubs['0001_01_02_000203_add_slug_to_kit_workspaces_table.php.stub'])->down();
-        (require $stubs['0001_01_02_000200_create_kit_workspaces_table.php.stub'])->down();
+        (require $stubs['0001_01_02_000203_add_slug_to_kit_workspaces_table.php'])->down();
+        (require $stubs['0001_01_02_000200_create_kit_workspaces_table.php'])->down();
         adoptCheck(Schema::hasTable('workspaces') && Schema::getColumnListing('workspaces') === ['id', 'name'] && DB::table('workspaces')->value('name') === 'Northwind Farms', 'an adopted table left with only the kit\'s own column names is still kept on rollback');
         Schema::drop('workspaces');
         $up();
@@ -367,7 +353,7 @@ try {
     adoptCheck(Workspaces::refusal() !== null, 'the live config check refuses the mismatch too');
     $config->set('multitenancy.tenant_model', HostWorkspace::class);
 
-    echo 'Adopt-in-place on '.($pgsql ? 'PostgreSQL' : 'in-memory SQLite')." with a synthetic host schema; no MySQL run, no kit:add command run end to end, no HTTP.\n";
+    echo 'Adopt-in-place on '.($pgsql ? 'PostgreSQL' : 'in-memory SQLite')." with a synthetic host schema; no MySQL run, no HTTP.\n";
 } catch (Throwable $error) {
     fwrite(STDERR, $error::class.': '.$error->getMessage().' in '.$error->getFile().':'.$error->getLine()."\n");
     exit(1);

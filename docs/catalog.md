@@ -1,19 +1,19 @@
 # The starter catalog
 
-tey/kit ships the starter's features as its package catalog, `Catalog::package()`: `core`, `workspaces`, `access`, `settings`, `shell`, `session-ui`, `workspace-ui`, `mcp` and `notes`, in that canonical order. `notes` is opt-in (a host adopts it with `kit:add notes`), and `session-ui` alone (without `workspace-ui`) is the sign-in only, needing just `core` and `shell`. Each feature has a manifest at `resources/features/<feature>/feature.json` and its stubs beside it. Its identity is pinned in `Catalog::FEATURES` (and checked again in `tests/StarterCatalogCheck.php`).
+tey/kit ships the starter's features as its package catalog, `Catalog::package()`: `core`, `workspaces`, `access`, `settings`, `shell`, `session-ui`, `workspace-ui`, `mcp` and `notes`, in that canonical order. `notes` is opt-in (a host lists it in `kit.features`), and `session-ui` alone (without `workspace-ui`) is the sign-in only, needing just `core` and `shell`. Each feature has a manifest at `resources/features/<feature>/feature.json` and its stubs beside it. Its identity is pinned in `Catalog::FEATURES` (and checked again in `tests/StarterCatalogCheck.php`).
 
 The v0.1 `foundation` and `defaults` features and the A–D releases are regression fixtures only (`tests/fixtures/v01`, `resources/releases`). They are not in this catalog.
 
 ## Library or generated
 
-Under Mod 0.9, any edit to a generated file is a conflict on that feature's next update, even when the update leaves that file unchanged. So the rule is: **library by default; generate only what an app is not expected to edit, or what must live in the app to work at all.**
+A generated file becomes the app's own once written, and since 0.18 nothing updates it, so a later fix to its stub never reaches it. So the rule is: **library by default; generate only what an app is not expected to edit, or what must live in the app to work at all.**
 
 | Kind | Where | Why |
 |---|---|---|
 | Classes: models, operations, controllers, middleware, MCP tools, data objects, providers, the registry | Library: `src/Features/<Feature>`, `Tey\Kit\Features\...` | Apps extend them (models, controllers and operations aren't `final`) or configure them. Updates arrive through Composer. |
-| Routes | Library: `src/Features/<Feature>/routes/*.php` | Routes are what apps tweak most. A generated route file would block every later update of its feature. Configure them through `kit.routes.<feature>`. |
+| Routes | Library: `src/Features/<Feature>/routes/*.php` | Routes are what apps tweak most. A generated route file would miss every later fix. Configure them through `kit.routes.<feature>`. |
 | Config defaults | Library: `config/kit.php` and `config/defaults/<package>.php` | Apps customise config all the time, so no feature generates any. `FeaturesServiceProvider` merges `kit.php`; each feature's provider lays its package defaults over the package's own (`Core\Defaults`). |
-| Migrations | Generated: `database/migrations/kit/<feature>` | Migrations have to exist in the app to be run and recorded. Apps don't edit them. Each is prefixed `0001_01_02_000NXX_`, where N is the feature's place in the requires order (core 1, workspaces 2, access 3, settings 4, session-ui 5, mcp 6, notes 7), so they run after the host's `0001_01_01_*` migrations and a later feature can never reorder foreign keys. |
+| Migrations | Library: `database/migrations/<feature>` in the package (since 0.18) | Laravel runs them from the package. An app's copy in `database/migrations/kit/<feature>` under the same name, or under a stamped `<stamp>_<order>_<name>.php` name, loads in place of the package's. A released migration is never edited; a fix is a new migration. Each is prefixed `0001_01_02_000NXX_`, where N is the feature's place in the requires order (core 1, workspaces 2, access 3, settings 4, session-ui 5, mcp 6, notes 7), so they run after the host's `0001_01_01_*` migrations and a later feature can never reorder foreign keys. |
 | Vue pages and components | Generated: `resources/js/pages/<Resource>/<Action>/Page.vue`, with PascalCase folders and `Partials/` for page-local pieces | Unstyled starting points that the app's Vite build compiles: native elements, no authored class names, no `<style>`. Copy them rather than editing them. |
 
 ### Per feature
@@ -29,43 +29,26 @@ Under Mod 0.9, any edit to a generated file is a conflict on that feature's next
 | workspace-ui | workspaces, access, shell, session-ui | 1: WorkspaceUiProvider (its controllers and view models keep their `SessionUi` names) | `pages/Workspace/` Index, Error, Dashboard, Search, Sections, Placeholder, Account, `Settings/Layout.vue`, `Settings/People`, `Settings/Placeholder`, and `pages/Provision/NoWorkspace` (22 files, moved from session-ui byte for byte); since 0.6.0 also `pages/Auth/Invitation/Show` and `pages/Welcome/WorkspaceTimezone` (moved from session-ui byte for byte, with the invitation and demo sign-in routes) |
 | mcp | workspaces, access | 6: WorkspaceServer, Context, WorkspaceConnection, ConnectionController, BindMcpConnection, McpProvider | migration `000600_create_kit_mcp_tables` (connections) |
 
-That's 57 library classes plus the composition root `FeaturesServiceProvider`, and 16 generated files: 9 migrations and 7 Vue files. No config, route or `app/` file is generated. Migration names are shortened above; each carries the `0001_01_02_` prefix.
+That's 57 library classes plus the composition root `FeaturesServiceProvider`, and 16 generated files: 9 migrations and 7 Vue files. Since 0.18 the migrations load from the package (above). No config, route or `app/` file is generated. Migration names are shortened above; each carries the `0001_01_02_` prefix.
 
 ### What the host does by hand
 
-Plans print these, and verify them where the kit can. The kit never writes them (see the README's catalog section for the plan output).
+Each feature's manifest declares these (`host_steps`, `requires.npm`, `optional`). The kit never makes them, and since 0.18 no kit command checks them.
 
-| Feature | Host step or requirement | Checked |
+| Feature | Host step or requirement | Met when |
 |---|---|---|
-| core | npm: `@inertiaui/modal-vue`, `@lucide/vue`, `@tanstack/vue-table`, `reka-ui >=2.11.0`, and `@tiptap/core`, `@tiptap/extension-code`, `@tiptap/extension-placeholder`, `@tiptap/pm`, `@tiptap/starter-kit`, `@tiptap/vue-3` `^3.32.0` (InputRichText) | the declared range in `package.json`, and the installed version |
-| core | optional: register `ExplanationTypesExtension` in the typescript-transformer config | manual |
-| workspaces | `user_model`: the user model implements the Member contract and uses `HasWorkspaces` | by reflection, and it blocks |
-| workspaces | `workspace_model`: `concierge.models.workspace` and `multitenancy.tenant_model` name one model that implements the Workspace contract and `IsTenant` and uses `IsKitWorkspace` | by reflection, and it blocks |
-| mcp | env: `PASSPORT_PRIVATE_KEY`, `PASSPORT_PUBLIC_KEY` (or keep the `passport:keys` files) | documented in `.env.example`, or `storage/oauth-private.key` / `oauth-public.key` exists (never read) |
-| mcp | schedule: `model:prune --model=Tey\Kit\Features\Mcp\Models\McpIntent` | the scheduled events |
-| shell | mention: the `@kit/shell` alias in `vite.config.ts` and in `tsconfig.json` paths | the file mentions `@kit/shell`, as attention |
-| shell | mention: the `@kit/ui` alias in `vite.config.ts` and in `tsconfig.json` paths (the shell's pages import the kit's components through it) | the file mentions `@kit/ui`, as attention |
-| shell | mention: the kit's `Tey.Kit.*` types, `vendor/tey/kit/types/kit.d.ts` in `tsconfig.json`'s `include` | the file mentions `tey/kit/types/kit.d.ts`, as attention (leave it out if your own transformer writes the `Tey.Kit` namespaces) |
-| shell | mention: the layout callback in `resources/js/app.ts` imports the kit's PublicShell (`pages/Workspace/Partials/PublicShell`) | the file mentions `PublicShell`, as attention |
+| core | npm: `@inertiaui/modal-vue`, `@lucide/vue`, `@tanstack/vue-table`, `reka-ui >=2.11.0`, and `@tiptap/core`, `@tiptap/extension-code`, `@tiptap/extension-placeholder`, `@tiptap/pm`, `@tiptap/starter-kit`, `@tiptap/vue-3` `^3.32.0` (InputRichText) | `package.json` declares a range that allows no older version, and it is installed |
+| core | optional: register `ExplanationTypesExtension` in the typescript-transformer config | you register it |
+| workspaces | `user_model`: the user model implements the Member contract and uses `HasWorkspaces` | the model implements and uses them |
+| workspaces | `workspace_model`: `concierge.models.workspace` and `multitenancy.tenant_model` name one model that implements the Workspace contract and `IsTenant` and uses `IsKitWorkspace` | the model implements and uses them |
+| mcp | env: `PASSPORT_PRIVATE_KEY`, `PASSPORT_PUBLIC_KEY` (or keep the `passport:keys` files) | set and documented in `.env.example`, or `storage/oauth-private.key` / `oauth-public.key` exists |
+| mcp | schedule: `model:prune --model=Tey\Kit\Features\Mcp\Models\McpIntent` | a scheduled event runs it |
+| shell | mention: the `@kit/shell` alias in `vite.config.ts` and in `tsconfig.json` paths | the file mentions `@kit/shell` |
+| shell | mention: the `@kit/ui` alias in `vite.config.ts` and in `tsconfig.json` paths (the shell's pages import the kit's components through it) | the file mentions `@kit/ui` |
+| shell | mention: the kit's `Tey.Kit.*` types, `vendor/tey/kit/types/kit.d.ts` in `tsconfig.json`'s `include` | the file mentions `tey/kit/types/kit.d.ts` (leave it out if your own transformer writes the `Tey.Kit` namespaces) |
+| shell | mention: the layout callback in `resources/js/app.ts` imports the kit's PublicShell (`pages/Workspace/Partials/PublicShell`) | the file mentions `PublicShell` |
 
-`kit:status` checks the adopted features' host steps and npm requirements again, so a step that has since gone unmet shows there too.
-
-With core adopted, `kit:status` also checks that `StartKitRequest` is in the `web` middleware group. Core adds it only when `web` exists as core boots; when it is missing (no `web` group, or one defined later), status reports attention: request memos are off and the kit's Inertia props can be lost after a flush. Define `web` before the kit's providers boot, or add the middleware first in `web`.
-
-Two checks apply to every host, whatever it adopts:
-
-- **Case conflicts** (blocking). A declared path whose segment the host has under another case, such as a Laravel starter-kit app's `resources/js/pages/auth` against session-ui's `pages/Auth`. The plan lists each in `case_conflicts` (the feature, the `declared` path, the `existing` host path and its `kind`), the feature's row is not executable, and a host step names both paths. The kit finds them itself, before Mod plans, so the plan never throws. `kit:add <features> --adopt-case` lists the renames and render-name rewrites without writing. With `--apply`, it renames each directory to the declared case (`git mv` in a git checkout, in two steps so a case-insensitive filesystem takes it), rewrites `Inertia::render('auth/…')`, `inertia('auth/…')` and `Route::inertia(…, 'auth/…')` under `routes/` and `app/Http/`, and stops: nothing is installed. It prints what it changed and the next commands: the usual `kit:add <features>` preview, now executable, and its apply with `--expected-plan`, so the host reviews the plan as for any apply. It refuses a file conflict, and a directory whose declared case already exists beside it. Page names built at runtime, or in other files (Wayfinder output, tests, the frontend), are not rewritten: search for `auth/` after the rename.
-- **An ignored `.mod-maintenance/installed/`** (attention, never blocking). The installed lineage records are portable and must be committed, with `.mod-maintenance/installed.json`, or a fresh clone and CI lose the adoption. Only the journals, the lock and `owner.json` (it holds an absolute root) stay local. Replace a `/.mod-maintenance` line with:
-
-  ```gitignore
-  /.mod-maintenance/journal-*.json
-  /.mod-maintenance/lock
-  /.mod-maintenance/owner.json
-  ```
-
-  In a git checkout, git decides (`git check-ignore`); elsewhere the root `.gitignore`'s plain lines for `.mod-maintenance` and `.mod-maintenance/installed` are read.
-
-  In a git checkout the same step also fires when `.mod-maintenance/installed/` holds records git does not track (never committed, not ignored): another checkout of the host then has no lifecycle records, and `kit:update` says so. Commit `.mod-maintenance/installed/` from the checkout that ran `kit:add`. `kit:update` names this cause first when it finds kit files but no records, before the `kit:adopt` route.
+Core adds `StartKitRequest` to the `web` middleware group only when `web` exists as core boots. When it is missing (no `web` group, or one defined later), request memos are off and the kit's Inertia props can be lost after a flush. Define `web` before the kit's providers boot, or add the middleware first in `web`.
 
 Not shipped:
 - the users table, which the host owns;
@@ -74,18 +57,17 @@ Not shipped:
 
 ## How a generated file reaches the library
 
-- `FeaturesServiceProvider` is auto-discovered. It finds the adopted features in `config('kit.features')`. When that is null, it reads the `blueprint_features` of the kit's installed record (`.mod-maintenance/installed.json`). An explicit `kit.features` list overrides the lineages, so `kit:add` and `kit:adopt` add each feature they adopt to it, in canonical order. They edit only a literal list of quoted ids in `config/kit.php`, check the result by reading the file back, and undo the edit if it doesn't read back the same. A list they can't edit safely (computed, from `env()`, or a symlinked file) is left alone, and they print the edit to make as attention.
-  - An unknown feature, a duplicate, a missing requirement or a malformed record is refused.
-  - No record means nothing is adopted.
+- `FeaturesServiceProvider` is auto-discovered. It registers the features `config('kit.features')` lists, in canonical order. Since 0.18 that is the only source: unset or empty registers no feature and logs an error once per process. A list that names session-ui without shell gets shell.
+  - An unknown feature, a duplicate or a missing requirement is refused.
 - For each adopted feature it:
   - registers the feature's provider;
-  - loads `database/migrations/kit/<feature>`, so `php artisan migrate` needs no app configuration;
+  - loads its migrations from the package's `database/migrations/<feature>`, less each one the app has a copy of in `database/migrations/kit/<feature>` (same name, or the stamped `<stamp>_<order>_<name>.php`), which loads instead, so `php artisan migrate` needs no app configuration. The kit's migrator (`PackageMigrator`) registers the directory and drops those files from its list, and undoes a 0.18 rename around each app copy dated after it (written for the old names), up or down, so the database keeps the new names whatever the order;
   - adds the feature's contributions to the shared `Registry`: routes, MCP tools, navigation, token scopes, abilities, capabilities, provisioning steps, the connection guard and error codes.
 - Optional integrations register only when both sides are adopted. For example, the settings MCP tools register only with mcp.
 - A delegated (MCP) principal is refused unless mcp is adopted.
 - Error codes render through the exception handler. session-ui shares its Inertia props (`kitPassword`, `passkeyOffer`, `environment`) from its provider as lazy closures, so they sit beside the host's own `HandleInertiaRequests` shares, and the kit never flushes shared props. Core adds `StartKitRequest` first in `web` on every host that adopts core, with or without session-ui (the request's memos begin and the kit's props are put back before any host middleware or route-model binding); session-ui adds `PrepareKitRequest` (the registry's late, session-dependent hooks) after the host's middleware, through the HTTP kernel, and its plain Inertia middleware only when the host's `web` group has none. The host's `bootstrap/` is never edited.
 - **A host's own landing page stays its own.**
-  - Session-ui owns only its welcome steps under `pages/Welcome` (`Welcome/Timezone`, `Welcome/Photo`, `Welcome/WorkspaceTimezone`), not the folder, so a host's `Welcome/Page.vue` (or `Welcome.vue`) and its partials are never planned, claimed or touched.
+  - Session-ui owns only its welcome steps under `pages/Welcome` (`Welcome/Timezone`, `Welcome/Photo`, `Welcome/WorkspaceTimezone`), not the folder, so a host's `Welcome/Page.vue` (or `Welcome.vue`) and its partials are never touched.
   - The kit's home route is `kit.home` (`KIT_HOME`, `/` by default), served by workspace-ui. Sign-in and the home crumb land there. A person with one workspace sees its dashboard there; a person with several is sent to the workspace they last used, while they are still an active member and may open it, else to the workspace list (`/me/workspaces`). Without workspace-ui the kit serves nothing there: it is the app's own page, and sign-in lands on it. An app that serves its own landing at `/` sets it to another path, such as `/app`: the kit's home, and the breadcrumbs' root, move there, and the app's `/` is left alone.
   - If the app already names its landing `home`, set `kit.home_name` (`KIT_HOME_NAME`), for example `app.home`. Only the kit's home route is renamed, and its breadcrumbs follow it. To rename every kit route instead, set a prefix with `kit.routes.session-ui.name`.
 - **session-ui's route groups** can be switched off one at a time, while the rest of its routes stay: `kit.routes.session-ui.<group> => false`. Every group is on by default.
@@ -110,10 +92,10 @@ No feature generates config. Defaults resolve from the library with no file in t
   - settings: `settings`;
   - session-ui: `fortify`, `inertia` (`fortify.home` defaults to `kit.home`).
 
-To customise, publish into the app: `php artisan vendor:publish --tag=kit-config` writes `config/kit.php`. For a package, publish the package's own config with its own tag, then apply the kit keys listed in `config/defaults/<package>.php`. A published file is host-owned (`config` is in core's host-owned set). No feature owns it, `kit:update` never touches it, and once it exists it is the whole truth for its key: the kit's defaults for that key stop applying. Cached config is used as it is.
+To customise, publish into the app: `php artisan vendor:publish --tag=kit-config` writes `config/kit.php`. For a package, publish the package's own config with its own tag, then apply the kit keys listed in `config/defaults/<package>.php`. A published file is host-owned (`config` is in core's host-owned set). No feature owns it, the kit never writes it, and once it exists it is the whole truth for its key: the kit's defaults for that key stop applying. Cached config is used as it is.
 
 `config/kit.php` holds:
-- `features`: the adoption override;
+- `features`: the features the app turns on, the only source since 0.18;
 - `models.user`;
 - `capabilities`;
 - `routes.<feature>`: `enabled`, `prefix`, `middleware`, `name`;
@@ -122,19 +104,15 @@ To customise, publish into the app: `php artisan vendor:publish --tag=kit-config
 
 ## Customising without conflicts
 
-Editing a generated file makes that feature's next kit update a conflict: Mod refuses it, and the app keeps its bytes. Only migrations and Vue files are generated. To avoid a conflict:
+Since 0.18 nothing updates a file in the app, so an edit conflicts with nothing: a generated file is the app's own, and a later fix to its stub does not reach it (the release notes name the features affected). Still:
 - **Config:** edit freely. Config is never generated, and a published config file is the app's own.
-- **Vue:** copy the page into your own path and render that name instead, rather than editing `resources/js/pages/**` files the kit generated.
+- **Vue:** the generated pages under `resources/js/pages/**` are the app's to edit.
 - **Classes:** extend the library class in `app/` and point config at it, for example `multitenancy.tenant_model` or `kit.models.user`.
-- **Migrations:** add a new migration of your own; never edit a kit migration.
+- **Migrations:** add a new migration of your own rather than editing a kit migration. An edited copy in `database/migrations/kit/<feature>` runs in place of the package's under the same name, but only on a database that hasn't run that migration yet.
 
 ## Removing a feature
 
-An app that sets `kit.features` to a list, and leaves a feature out of it, has switched that feature off, but its lineage record stays in `.mod-maintenance/installed/`. `kit:update` skips that lineage: `kit:update plan --lineage=<feature>` refuses it, and the update order lists it as `WARNING: skipped <feature>`, naming `kit:remove`. It never re-creates the removed feature's pages, widgets or migrations from the stale record. With `kit.features` null the lineages are the truth, and nothing is skipped.
-
-`php artisan kit:remove <feature>` lists the feature's recorded files: `would delete` for each file whose bytes are still the kit's, `kept` for each file the app changed since (it is the app's now), and `already gone`. It writes nothing. With `--force` it drops the lineage record and the lineage's finished journals, then deletes the unchanged files, each checked against the kit's hash again just before. Changed files are never deleted. Tables a deleted migration created stay; drop them with a migration of the app's own. `--json` prints the same lists.
-
-It refuses a feature that isn't installed, one `kit.features` still names (take it out first), one another installed lineage requires (remove that first), any lineage with an unfinished update, and a lineage still held in the single 0.8 record. `composer test:remove-feature` covers it.
+Take the feature out of `kit.features`. Its provider, routes and contributions no longer register, and its package migrations no longer load. Its tables, and any of its files in the app, stay: drop the tables with a migration of the app's own, and delete the files yourself. A feature another listed feature requires can't be taken out alone.
 
 ## Ownership
 
@@ -150,17 +128,8 @@ It refuses a feature that isn't installed, one `kit.features` still names (take 
 
 - Kit migration ids are new (`0001_01_02_*`), not the starter template's. The template's move onto tey/kit has to map its applied ids.
 - The Vue stubs aren't compiled in CI: the kit has no `vue-tsc` or `@vue/compiler-sfc`. The tests check page placement and casing, no `<style>`, no authored class names, no layout imports, and that every relative import stays inside its page folder. TypeScript for the ViewModels is generated in the host.
-- Nothing here applies a feature to an app (`kit:add` is kit #2; per-feature lineages are kit #4). Package providers aren't booted in the tests, so the routes, HTTP, MCP and tenant behaviour are covered by the starter's suites once the template adopts tey/kit.
-
-## Lineage record metadata
-
-An installed lineage record (`.mod-maintenance/installed/<hash>.json`) carries the artifact's files and its `metadata`. Besides `feature`, two keys say which files the app keeps:
-
-- `kept`: path => the sha256 of the release bytes the app's edit was made against. `kit:adopt` writes it for a file the app had edited. The file stays out of the lineage until a release changes it; it is then a conflict, and it's claimed once the app takes the release's bytes.
-- `held`: path => the sha256 of the kit's bytes the app last saw. `kit:update keep` writes it. The file stays out of every update for good. A plan reports, as attention, when the kit's bytes differ from the recorded hash, and the next apply records the new hash. `kit:update claim` removes the entry and owns the file again, with the app's current bytes as the original.
-
-A path is in at most one of `files`, `kept` and `held`. A kept or held file the app deletes, or the kit drops, leaves the metadata at the next update.
+- Package providers aren't booted in the tests, so the routes, HTTP, MCP and tenant behaviour are covered by the starter's suites once the template adopts tey/kit.
 
 ## Kit files and the host's Mod layout
 
-Kit-owned files always use their canonical paths (`app/Kit/`, `resources/js/pages/`, `resources/js/components/Kit/`, `database/migrations/kit/<feature>/` and so on), whatever `mod.layout` the host chooses. `kit:install`, `kit:add`, `kit:adopt`, `kit:update` and `kit:status` write and read the paths in each feature's manifest, never through the host's layout, and the kit generates nothing through `Mod::current()`. A host with its own layout (a modules layout, say) keeps its module tree for its own code. Only the legacy v0.1 `kit:foundation` scaffold places files through the host's layout, so it refuses any layout but `laravel` when it is run. `composer test:layout` checks a layout extending `modules` against `laravel`.
+Kit-owned files always use their canonical paths (`app/Kit/`, `resources/js/pages/`, `resources/js/components/Kit/`, `database/migrations/kit/<feature>/` and so on), whatever `mod.layout` the host chooses: each feature's manifest names them, and the kit generates nothing through `Mod::current()`. A host with its own layout (a modules layout, say) keeps its module tree for its own code.

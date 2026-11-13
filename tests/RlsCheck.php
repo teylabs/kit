@@ -270,7 +270,7 @@ try {
     });
     // Foreign keys are enforced here, so the workspaces table comes before Concierge's tables that reference it.
     $stubs = [];
-    foreach (glob(dirname(__DIR__).'/resources/features/{core,workspaces}/migrations/*.stub', GLOB_BRACE) as $file) {
+    foreach (glob(dirname(__DIR__).'/database/migrations/{core,workspaces}/*.php', GLOB_BRACE) as $file) {
         $stubs[basename($file)] = $file;
     }
     ksort($stubs);

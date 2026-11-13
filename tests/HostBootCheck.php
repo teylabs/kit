@@ -1,22 +1,28 @@
 <?php
 
-// What the composition root boots for a host that adopted only some features; synthetic SQLite memory, no network.
+// What the composition root boots for a host that adopted only some features, from kit.features alone (an unset list fails closed, logged once), and
+// that kit:cache and kit:clear are no-ops; synthetic SQLite memory, no network.
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Database\Events\MigrationsEnded;
 use Illuminate\Database\Events\NoPendingMigrations;
+use Illuminate\Database\Migrations\Migrator;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Auth\User;
 use Illuminate\Foundation\Events\DiagnosingHealth;
 use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Facade;
+use Illuminate\Support\ServiceProvider;
 use Laravel\Fortify\Contracts\LoginResponse;
 use Laravel\Fortify\Fortify;
 use Laravel\Fortify\FortifyServiceProvider;
 use Tey\Kit\Blueprint;
 use Tey\Kit\Features\Access\AccessProvider;
+use Tey\Kit\Features\CacheCommand;
+use Tey\Kit\Features\Core\CoreProvider;
 use Tey\Kit\Features\Core\Deploy\CatalogSync;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\FeaturesServiceProvider;
+use Tey\Kit\Features\PackageMigrator;
 use Tey\Kit\Features\SessionUi\SessionUiProvider;
 use Tey\Kit\Features\Shell\ShellProvider;
 use Tey\Kit\Features\Workspaces\WorkspacesProvider;
@@ -33,7 +39,7 @@ function check(bool $ok, string $message): void
     echo 'PASS '.$message."\n";
 }
 /** A booted synthetic host that adopted the named features (an explicit `kit.features`). */
-function host(array $features, array $config = [], array $providers = [], ?string $appName = null): Application
+function host(?array $features, array $config = [], array $providers = [], ?string $appName = null, array $files = []): Application
 {
     $root = sys_get_temp_dir().'/kit-boot-'.bin2hex(random_bytes(8));
     foreach (['bootstrap/cache', 'storage/framework/views', 'storage/logs', 'config'] as $dir) {
@@ -43,6 +49,10 @@ function host(array $features, array $config = [], array $providers = [], ?strin
     if (isset($config['brand'])) {
         file_put_contents($root.'/config/brand.php', '<?php return '.var_export($config['brand'], true).';');
         unset($config['brand']);
+    }
+    foreach ($files as $path => $bytes) {
+        @mkdir(dirname($root.'/'.$path), 0700, true);
+        file_put_contents($root.'/'.$path, $bytes);
     }
     file_put_contents($root.'/config/kit.php', '<?php return '.var_export(['features' => $features, 'models' => ['user' => User::class]] + $config, true).';');
     file_put_contents($root.'/config/database.php', "<?php return ['default' => 'sqlite', 'connections' => ['sqlite' => ['driver' => 'sqlite', 'database' => ':memory:', 'prefix' => '']]];");
@@ -102,9 +112,31 @@ try {
     check($shell->getProvider(ShellProvider::class) !== null && $shell->getProvider(SessionUiProvider::class) === null && $shell->getProvider(WorkspacesProvider::class) === null && $shell->getProvider(AccessProvider::class) === null, 'core+shell: only the core and shell providers register');
     check(! str_contains((string) health($shell), 'workspaces') && array_map(fn ($route) => $route->uri(), $shell['router']->getRoutes()->getRoutes()) === array_map(fn ($route) => $route->uri(), $core['router']->getRoutes()->getRoutes()) && ! $shell->bound(LoginResponse::class), 'core+shell: no workspace table, no kit routes beyond core-only\'s, no Fortify');
 
+    // kit.features is the only source. Unset, nothing registers, even beside install history and an app id (what 0.17 read), and the error is logged once per process.
+    $log = fn (Application $app): string => (string) @file_get_contents($app->storagePath('logs/laravel.log'));
+    $history = ['.mod-maintenance/installed/'.hash('sha256', 'tey/kit:core').'.json' => '{"name":"tey/kit:core"}', 'config/kit-lifecycle.php' => "<?php return ['app_id' => 'host'];"];
+    $unset = host(null, ['app_id' => 'host'], [], null, $history);
+    check($unset->getProvider(CoreProvider::class) === null && ! $unset->bound(Registry::class), 'kit.features unset: no feature registers, beside install history and an app id');
+    check(substr_count($log($unset), FeaturesServiceProvider::UNSET) === 1 && str_contains($log($unset), '.ERROR: '), 'kit.features unset: the error is logged');
+    check($log(host(null)) === '', 'it is logged once per process: a second unset app logs nothing');
+    (new ReflectionProperty(FeaturesServiceProvider::class, 'unsetLogged'))->setValue(null, false);
     // Nothing adopted: no health listener at all.
     $none = host([]);
+    check($none->getProvider(CoreProvider::class) === null && substr_count($log($none), FeaturesServiceProvider::UNSET) === 1, 'an empty kit.features is unset too: nothing registers, and the error is logged');
     check(health($none) === null && $none['config']->get('mail.reply_to') === null, 'no features: /up is healthy and mail is untouched');
+    check(get_class($unset->make('migrator')) === Migrator::class && get_class($none->make('migrator')) === Migrator::class, 'no features: the app keeps its own migrator, never the kit\'s');
+    check(host(['core'])->make('migrator') instanceof PackageMigrator, 'a listed feature: the migrator is the kit\'s');
+
+    $config = host(['core', 'workspaces'], [], [], null, ['.mod-maintenance/installed/'.hash('sha256', 'tey/kit:access').'.json' => '{"name":"tey/kit:access"}']);
+    check($config->getProvider(WorkspacesProvider::class) !== null && $config->getProvider(AccessProvider::class) === null && $config->make(Registry::class)->adopts('workspaces') && ! $config->make(Registry::class)->adopts('access'), 'kit.features alone decides: the listed features register and nothing else');
+    check($config['config']->get('kit.workspaces.adopt') === null && $config['config']->get('kit.access.adopt') === null && host(['core'], ['workspaces' => ['adopt' => true], 'access' => ['adopt' => true]])['config']->get('kit.workspaces.adopt') === true, 'the adopt flags are kit.workspaces.adopt and kit.access.adopt as configured, never read from a record');
+
+    // kit:cache and kit:clear stay registered, still run by optimize and optimize:clear, and do nothing.
+    $before = scandir($config->bootstrapPath('cache'));
+    $kernel = $config->make(Kernel::class);
+    check($kernel->call('kit:cache') === 0 && str_contains($kernel->output(), CacheCommand::NOTHING) && $kernel->call('kit:clear') === 0 && str_contains($kernel->output(), CacheCommand::NOTHING), 'kit:cache and kit:clear succeed and say there is nothing to cache since 0.18');
+    check(scandir($config->bootstrapPath('cache')) === $before, 'kit:cache writes nothing');
+    check((ServiceProvider::$optimizeCommands['kit'] ?? null) === 'kit:cache' && (ServiceProvider::$optimizeClearCommands['kit'] ?? null) === 'kit:clear', 'optimize runs kit:cache and optimize:clear runs kit:clear');
 
     // The explicit opt-in applies the brand without session-ui.
     $opt = host(['core'], ['brand_mail' => true]);

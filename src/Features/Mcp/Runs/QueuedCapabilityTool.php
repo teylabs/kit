@@ -10,7 +10,7 @@ use Tey\Kit\Features\Mcp\CapabilityTool;
 
 /**
  * A capability tool for an operation too slow to answer in the call (a report, an import). Admission is CapabilityTool's, unchanged: consent, arguments, confirmation,
- * intent replay. Then, instead of running `call()`, it stores a run (`kit_mcp_runs`), queues `RunQueuedTool` and answers at once with
+ * intent replay. Then, instead of running `call()`, it stores a run (`mcp_runs`), queues `RunQueuedTool` and answers at once with
  * `{status: "queued", run, poll_after_seconds, expires_at}`. The assistant reads the run back with `runs_read`. A retry with the same `intent_key` replays that answer, so
  * it gets the same run, not a second job. `call()` keeps its signature and runs in the job, in the run's workspace; it may report its step with `progress()`.
  */
@@ -28,8 +28,8 @@ abstract class QueuedCapabilityTool extends CapabilityTool
         $id = 'run_'.strtolower((string) Str::ulid());
         $expires = now()->addSeconds(Runs::ttl());
         // An expired run is gone: its rows go when the same connection queues the next one.
-        DB::table('kit_mcp_runs')->where('actor_id', $principal->actorId)->where('connection_id', $principal->connectionId)->where('expires_at', '<=', now())->delete();
-        DB::table('kit_mcp_runs')->insert([
+        DB::table('mcp_runs')->where('actor_id', $principal->actorId)->where('connection_id', $principal->connectionId)->where('expires_at', '<=', now())->delete();
+        DB::table('mcp_runs')->insert([
             'id' => $id, 'tool' => $this->name(), 'class' => static::class, 'ability' => (string) $ability, 'actor_id' => $principal->actorId,
             'connection_id' => $principal->connectionId, 'workspace_id' => $workspace, 'arguments' => json_encode($operation, JSON_THROW_ON_ERROR),
             'intent_key' => isset($validated['intent_key']) ? (string) $validated['intent_key'] : null, 'status' => Runs::QUEUED, 'created_at' => now(), 'expires_at' => $expires,
@@ -49,7 +49,7 @@ abstract class QueuedCapabilityTool extends CapabilityTool
         if ($this->runningRun === null) {
             return;
         }
-        DB::table('kit_mcp_runs')->where('id', $this->runningRun)->where('status', Runs::RUNNING)
+        DB::table('mcp_runs')->where('id', $this->runningRun)->where('status', Runs::RUNNING)
             ->update(['step' => Str::limit($step, 117), 'done' => $done === null ? null : max(0, $done), 'total' => $total === null ? null : max(0, $total)]);
     }
 

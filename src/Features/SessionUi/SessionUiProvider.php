@@ -160,7 +160,7 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
         $this->app->singleton(PasswordConfirmedResponse::class, PasswordConfirmed::class);
         // A page's layout (section navigation, heading, document title, breadcrumbs) is built for the request in the shell.
         $this->app->bind(PageLayouts::class, SessionUiPageLayouts::class);
-        // A Workbench's layout is remembered per person and workbench key (kit_user_state), saved through the kit's endpoint.
+        // A Workbench's layout is remembered per person and workbench key (user_state), saved through the kit's endpoint.
         $this->app->bind(WorkbenchPreferences::class, UserWorkbenchPreferences::class);
         Gate::policy(UserAvatar::class, UserAvatarPolicy::class);
         // The account pages use Fortify's actions: its profile and password updates are the kit's, and the guest pages it asks for are the kit's.

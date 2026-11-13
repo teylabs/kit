@@ -37,7 +37,7 @@ The kit's browser check (`browser/run.mjs`, "kitImports") serves the dashboard g
 
 ## Migrating an app
 
-1. Update `tey/kit` and the `core` lineage: `composer update tey/kit`, then `php artisan kit:update plan --lineage=core`. Review the plan (it adds `resources/js/components/Kit/kitImports.js` and `kitImports.d.ts`), then run `php artisan kit:update apply --lineage=core` with that plan's `--intent` and `--expected-plan`.
+1. Load the shared components from the package ([kit-components.md](kit-components.md)). The plugin ships with them, at `vendor/tey/kit/resources/js/components/Kit/kitImports.js` and `kitImports.d.ts`, so there is nothing to copy. A copy an earlier kit wrote to `resources/js/components/Kit/` goes when you delete that folder.
 2. In `vite.config.ts`, import the plugin and add it after `vue()`:
 
    ```ts

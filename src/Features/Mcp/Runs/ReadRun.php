@@ -69,7 +69,7 @@ final class ReadRun extends Tool implements ServedBeside
             if (! $principal instanceof Principal || $principal->connectionId === null || $workspace === null) {
                 throw new RuntimeException('connection_denied');
             }
-            $run = DB::table('kit_mcp_runs')->where('id', $arguments['run'])->where('actor_id', $principal->actorId)->where('connection_id', $principal->connectionId)
+            $run = DB::table('mcp_runs')->where('id', $arguments['run'])->where('actor_id', $principal->actorId)->where('connection_id', $principal->connectionId)
                 ->where('workspace_id', (int) $workspace->getKey())->first();
             if ($run === null) {
                 throw new RuntimeException('not_found');

@@ -28,7 +28,7 @@ A collapsed navigator, inspector or footer keeps a slim bar (2rem) with its labe
 
 Pane sizes, collapsed panes (navigator, inspector and footer), the zoom and the phone tab are remembered per person and per `workbench-key`. The key names a kind of workbench, such as `deck-editor`, not a record. It uses lowercase letters, digits, `.`, `_` and `-`, up to 48 characters.
 
-- **Where it's stored:** session-ui stores the layout in `kit_user_state` as the person's own state, so it follows them across devices. It's saved through `PUT /me/workbenches/{key}` with `{ layout, version }`.
+- **Where it's stored:** session-ui stores the layout in `user_state` as the person's own state, so it follows them across devices. It's saved through `PUT /me/workbenches/{key}` with `{ layout, version }`.
 - **What's validated:** the endpoint only accepts the layout's known shape (`groups`, `zoom`, `tab`) and size (8 KB), never content.
 - **Stale writes:** a stale `version` gets 409 `stale_write` with the stored layout and version. The page then takes the server's copy, puts its own change back on top, and saves once more. That way, two devices never silently overwrite each other.
 - **Without session-ui,** or when saving fails, the layout is kept in the browser's localStorage.

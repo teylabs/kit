@@ -362,7 +362,7 @@ try {
         $table->timestamp('email_verified_at')->nullable();
         $table->timestamps();
     });
-    foreach (glob(dirname(__DIR__).'/resources/features/*/migrations/*.stub') as $file) {
+    foreach (glob(dirname(__DIR__).'/database/migrations/*/*.php') as $file) {
         $stubs[basename($file)] = $file;
     }
     ksort($stubs);
@@ -588,7 +588,7 @@ try {
     $here = [Onboarding::state($owner_id, 'branding'), Onboarding::state($owner_id, 'profile')];
     Onboarding::context($owner_id, $workspace->id + 1000);
     check($here === ['skipped', 'skipped'] && Onboarding::state($owner_id, 'branding') === 'pending' && Onboarding::state($owner_id, 'profile') === 'skipped', 'a skipped workspace step stays pending in another workspace; a skipped personal step is skipped everywhere');
-    DB::table('kit_user_state')->where('user_id', $owner_id)->where('key', 'like', 'onboarding.skipped.%')->delete();
+    DB::table('user_state')->where('user_id', $owner_id)->where('key', 'like', 'onboarding.skipped.%')->delete();
     // Two requests in one process, as a long-lived worker (Octane) runs them, forgetting scoped instances between them. The dashboard sets the welcome steps'
     // person and workspace; the next request reads the workspace without setting its own, and gets none rather than the dashboard's.
     $app['router']->get('/onboarding-probe', fn () => response()->json(['workspace' => Onboarding::workspaceId()]));
@@ -681,7 +681,7 @@ try {
         return [$response->getStatusCode(), $response->headers->get('Location'), array_keys($app['session.store']->get('errors')?->getBag('default')->toArray() ?? [])];
     };
     $sorted = fn (array $page, string $key = 'app.sorted') => array_column($page['props']['widgets'], null, 'key')[$key] ?? null;
-    $stored = fn (string $who, int $in, string $key = 'app.sorted') => DB::table('kit_user_state')->where(['user_id' => $people[$who]->id, 'workspace_id' => $in, 'key' => Widget::sortStateKey($key)])->value('value');
+    $stored = fn (string $who, int $in, string $key = 'app.sorted') => DB::table('user_state')->where(['user_id' => $people[$who]->id, 'workspace_id' => $in, 'key' => Widget::sortStateKey($key)])->value('value');
     [, $fresh] = $page('owner');
     $control = $sorted($fresh)['sortBy'];
     check(array_map(fn (array $o) => [$o['key'], $o['label']], $control['options']) === [['opened', 'Newest'], ['touched', 'Last touched'], ['due', 'Due soonest'], ['30', 'Thirty days']], 'a widget\'s Sort by offers its declared orders in order, and drops a malformed key or an empty label');
@@ -700,7 +700,7 @@ try {
     check($sorted($chosen)['sortBy']['current'] === 'due' && $sorted($chosen)['rows'] === ['sorted by due'], 'the saved order is current next time, and the query is given it');
     $refusals = [$put('owner', $control['url'], ['sort' => 'Bad Key']), $put('owner', $control['url'], ['sort' => 'priority']), $put('owner', $control['url'], ['sort' => ['due']]), $put('owner', $control['url'], [])];
     check(array_map(fn (array $r) => $r[2], $refusals) === [['sort'], ['sort'], ['sort'], ['sort']] && $stored('owner', $workspace->id) === 'due', 'an order the widget does not declare (malformed, unknown, not a string or missing) is refused as a validation error on `sort`, and the saved choice stands');
-    DB::table('kit_user_state')->where(['user_id' => $people['owner']->id, 'workspace_id' => $workspace->id, 'key' => Widget::sortStateKey('app.sorted')])->update(['value' => "priority'; drop table users;--"]);
+    DB::table('user_state')->where(['user_id' => $people['owner']->id, 'workspace_id' => $workspace->id, 'key' => Widget::sortStateKey('app.sorted')])->update(['value' => "priority'; drop table users;--"]);
     [, $forged] = $page('owner');
     check($sorted($forged)['sortBy']['current'] === 'touched' && $sorted($forged)['rows'] === ['sorted by touched'], 'a stored order the widget no longer declares falls back to the default (fail closed): it never reaches the query');
     $put('owner', '/@acme/widgets/app.sorted/sort', ['sort' => 'due']);
@@ -737,7 +737,7 @@ try {
     [$status] = $put('owner', '/@acme/widgets/app.nowhere/sort', ['sort' => 'due']);
     check($status === 404, 'an order for a widget no one registered is a 404');
     [$status] = $put('outsider', '/@acme/widgets/app.sorted/sort', ['sort' => 'opened']);
-    check($status !== 303 && $status < 500 && DB::table('kit_user_state')->where('user_id', $people['outsider']->id)->doesntExist(), 'someone outside the workspace cannot save an order there, and nothing is stored');
+    check($status !== 303 && $status < 500 && DB::table('user_state')->where('user_id', $people['outsider']->id)->doesntExist(), 'someone outside the workspace cannot save an order there, and nothing is stored');
 
     // Per workspace: the owner of two workspaces keeps a separate order in each; a choice in one never leaks into the other.
     $other = Workspace::create(['name' => 'Northwind', 'slug' => 'northwind']);
@@ -770,7 +770,7 @@ try {
     check($status !== 303 && $stored('member', $other->id) === null, 'a member of one workspace cannot save an order in a workspace they do not belong to');
     check(Widget::sortStateKey(str_repeat('a', 80)) !== Widget::sortStateKey(str_repeat('a', 81)) && strlen(Widget::sortStateKey(str_repeat('a.b', 40))) <= 60, 'a long widget key still fits the state column, and stays distinct');
     Tey\Kit\Features\SessionUi\UserState::forgetAll((int) $people['owner']->id);
-    check(DB::table('kit_user_state')->where('user_id', $people['owner']->id)->doesntExist(), 'a person\'s saved orders go with their account');
+    check(DB::table('user_state')->where('user_id', $people['owner']->id)->doesntExist(), 'a person\'s saved orders go with their account');
 
     // Removed in 0.17: WelcomeCardData, the `welcome` argument and the welcome() prop. The 0.15.41 order is the only one; a card in the sixth place is a TypeError.
     check(! class_exists('Tey\\Kit\\Features\\SessionUi\\Data\\WelcomeCardData') && ! method_exists(Tey\Kit\Features\SessionUi\ViewModels\DashboardViewModel::class, 'welcome'), 'WelcomeCardData and the welcome prop are gone');

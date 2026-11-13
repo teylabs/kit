@@ -1,7 +1,6 @@
 <?php
 
-// A host app booted from its installed kit lineages (kit.app_id `host`, no kit.features), its kit migrations run from the app's own
-// database/migrations/kit, then the sign-in over HTTP: GET /login renders the kit's Auth/Login, a wrong password is refused, the right one
+// A host app booted from kit.features, the kit migrations of those features run, then the sign-in over HTTP: GET /login renders the kit's Auth/Login, a wrong password is refused, the right one
 // authenticates the session. Returns [app, user, login page body]. SQLite memory, real Fortify and Inertia; a synthetic user.
 use Illuminate\Auth\AuthServiceProvider;
 use Illuminate\Auth\Middleware\Authenticate;
@@ -49,12 +48,13 @@ use Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests;
 use Tey\Mod\ModServiceProvider;
 
 /**
+ * @param  list<string>  $features  kit.features
  * @param  class-string  $user  the host's user model
  * @param  list<class-string>  $providers  service providers beyond the framework, Fortify, Inertia, laravel-data and the kit's
  * @param  Closure(): void  $tables  the host's own tables beyond users, password resets and media (run before the kit migrations)
  * @param  callable(bool, string): void  $check
  */
-return function (string $root, string $user, array $providers, Closure $tables, callable $check, string $label): array {
+return function (string $root, array $features, string $user, array $providers, Closure $tables, callable $check, string $label): array {
     @mkdir($root.'/storage/framework/views', 0700, true);
     @mkdir($root.'/bootstrap/cache', 0700, true);
     $app = new Application($root);
@@ -70,7 +70,7 @@ return function (string $root, string $user, array $providers, Closure $tables, 
         'session' => ['driver' => 'array', 'lifetime' => 120, 'cookie' => 's', 'path' => '/', 'domain' => null, 'secure' => false, 'http_only' => true, 'same_site' => 'lax', 'partitioned' => false, 'lottery' => [0, 100], 'expire_on_close' => false, 'encrypt' => false],
         'view' => ['paths' => [], 'compiled' => $root.'/storage/framework/views'],
         'database' => ['default' => 'testing', 'connections' => ['testing' => ['driver' => 'sqlite', 'database' => ':memory:', 'prefix' => '', 'foreign_key_constraints' => false]]],
-        'kit' => ['app_id' => 'host', 'models' => ['user' => $user]],
+        'kit' => ['features' => $features, 'models' => ['user' => $user]],
         'queue' => ['default' => 'sync', 'connections' => ['sync' => ['driver' => 'sync']]], 'mail' => ['default' => 'array', 'mailers' => ['array' => ['transport' => 'array']], 'from' => ['address' => 'kit@example.test', 'name' => 'Kit']],
         'logging' => ['default' => 'null', 'channels' => ['null' => ['driver' => 'monolog', 'handler' => NullHandler::class]]],
     ]));
@@ -111,7 +111,7 @@ return function (string $root, string $user, array $providers, Closure $tables, 
     });
     (require dirname(__DIR__, 2).'/vendor/spatie/laravel-medialibrary/database/migrations/create_media_table.php.stub')->up();
     $tables();
-    $migrations = glob($root.'/database/migrations/kit/*/*.php');
+    $migrations = glob(dirname(__DIR__, 2).'/database/migrations/{'.implode(',', $features).'}/*.php', GLOB_BRACE);
     usort($migrations, fn (string $a, string $b): int => strcmp(basename($a), basename($b)));
     foreach ($migrations as $file) {
         (require $file)->up();

@@ -1,9 +1,9 @@
 <?php
 
-// The public pages' server side: PublicMarkdown renders legal markdown and sanitizes it (raw HTML stripped, unsafe links refused), and the shell's `mention` host
-// step points out a layout callback that does not use the PublicShell (attention, never blocking). No database, no HTTP.
+// The public pages' server side: PublicMarkdown renders legal markdown and sanitizes it (raw HTML stripped, unsafe links refused), and the shell's manifest
+// declares its `mention` host step for the layout callback (a malformed step is refused). No database, no HTTP.
+use Tey\Kit\Blueprint;
 use Tey\Kit\Features\Shell\PublicMarkdown;
-use Tey\Kit\HostRequirements;
 
 $loader = require $argv[1];
 $loader->addPsr4('Tey\\Kit\\', dirname(__DIR__).'/src', true);
@@ -22,52 +22,19 @@ try {
     publicCheck(! str_contains($html, '<script') && ! str_contains($html, 'onerror') && ! str_contains($html, '<img'), 'raw HTML in the source is stripped (no script, no event handler)');
     publicCheck(! str_contains(strtolower($html), 'javascript:'), 'a javascript: link is refused');
 
-    // The shell's host step: a layout callback that does not mention PublicShell is pointed out, never blocking.
+    // The shell's host step: the manifest declares where the layout callback must mention PublicShell, and Blueprint refuses a malformed step.
     $manifest = json_decode((string) file_get_contents(dirname(__DIR__).'/resources/features/shell/feature.json'), true, 512, JSON_THROW_ON_ERROR);
-    HostRequirements::validate('shell', $manifest);
+    publicCheck(in_array('shell', Blueprint::all()->selection(), true), 'the package catalog, shell included, passes Blueprint\'s manifest validation');
     publicCheck(($manifest['host_steps']['mention'][0]['file'] ?? null) === 'resources/js/app.ts' && $manifest['host_steps']['mention'][0]['contains'] === 'pages/Workspace/Partials/PublicShell', 'shell declares the mention step for the layout callback, on the kit\'s import path');
-    $root = sys_get_temp_dir().'/kit-public-shell-'.bin2hex(random_bytes(4));
-    mkdir($root.'/resources/js', 0777, true);
-    register_shutdown_function(fn () => exec('rm -rf '.escapeshellarg($root)));
-    $step = fn () => array_values(array_filter(HostRequirements::of($root, ['shell' => ['host_steps' => ['mention' => $manifest['host_steps']['mention']]]])['steps'], fn (array $step) => $step['kind'] === 'mention'))[0];
-    $missing = $step();
-    publicCheck($missing['status'] === 'unmet' && $missing['blocking'] === false && str_contains($missing['message'], 'No resources/js/app.ts here'), 'no app.ts: unmet, attention only');
-    file_put_contents($root.'/resources/js/app.ts', "layout: name => name.startsWith('Auth/') ? GuestShell : Layout,\n");
-    $unmet = $step();
-    publicCheck($unmet['status'] === 'unmet' && $unmet['blocking'] === false && str_contains($unmet['message'], 'does not mention pages/Workspace/Partials/PublicShell'), 'a callback without PublicShell: unmet, never blocking');
-    // A layout of the host's own named PublicShell is not the kit's: the step matches the kit's import path, not the word.
-    file_put_contents($root.'/resources/js/app.ts', "import PublicShell from '@/layouts/PublicShell.vue';\nlayout: name => name.startsWith('Public/') ? PublicShell : Layout,\n");
-    publicCheck($step()['status'] === 'unmet', 'a host-owned @/layouts/PublicShell.vue: unmet (it is not the kit\'s PublicShell)');
-    file_put_contents($root.'/resources/js/app.ts', "import PublicShell from '@/pages/Workspace/Partials/PublicShell.vue';\nlayout: name => name.startsWith('Public/') || name === 'Workspace/Error/Page' ? PublicShell : Layout,\n");
-    publicCheck($step()['status'] === 'met', 'a callback that imports the kit\'s PublicShell and routes to it: met');
-    file_put_contents($root.'/resources/js/app.ts', "import PublicShell from './pages/Workspace/Partials/PublicShell';\n");
-    publicCheck($step()['status'] === 'met', 'a relative import without .vue: met');
-    // The app's entry is whatever its Vite config names (next.ts), and the config may be vite.config.js or .mjs: the steps read those, not only app.ts and .ts.
-    // One step per file: the @kit/shell alias and the layout callback (the @kit/ui alias and the types steps share those files and are status's checks).
-    $steps = fn (): array => array_column(array_filter(HostRequirements::of($root, ['shell' => ['host_steps' => ['mention' => $manifest['host_steps']['mention']]]])['steps'], fn (array $step) => $step['kind'] === 'mention' && ! str_contains($step['why'], '@kit/ui alias') && ! str_contains($step['why'], 'tey/kit/types')), null, 'step');
-    unlink($root.'/resources/js/app.ts');
-    file_put_contents($root.'/vite.config.js', "export default defineConfig({ plugins: [laravel({ input: ['resources/css/app.css', 'resources/js/next.ts'] })], resolve: { alias: { '@kit/ui': 'x' } } });\n");
-    file_put_contents($root.'/resources/js/next.ts', "import PublicShell from '@/pages/Workspace/Partials/PublicShell.vue';\nlayout: name => name.startsWith('Public/') ? PublicShell : Layout,\n");
-    $found = $steps();
-    publicCheck($found['resources/js/app.ts']['status'] === 'met' && $found['resources/js/app.ts']['message'] === 'resources/js/next.ts mentions pages/Workspace/Partials/PublicShell', 'no app.ts: the Vite entry next.ts that routes to PublicShell meets it, and is named');
-    publicCheck($found['vite.config.ts']['status'] === 'unmet' && str_contains($found['vite.config.ts']['message'], 'vite.config.js does not mention @kit/shell'), 'the alias check reads vite.config.js when there is no .ts config, and names it');
-    file_put_contents($root.'/vite.config.js', "export default defineConfig({ plugins: [laravel({ input: ['resources/js/next.ts'] })], resolve: { alias: { '@kit/shell': 'x' } } });\n");
-    publicCheck($steps()['vite.config.ts']['status'] === 'met', 'and is met by @kit/shell there');
-    rename($root.'/vite.config.js', $root.'/vite.config.mjs');
-    publicCheck($steps()['vite.config.ts']['status'] === 'met' && $steps()['resources/js/app.ts']['status'] === 'met', 'vite.config.mjs too, entries included');
-    file_put_contents($root.'/resources/js/next.ts', "createInertiaApp({});\n");
-    publicCheck($steps()['resources/js/app.ts']['status'] === 'unmet' && str_contains($steps()['resources/js/app.ts']['message'], 'resources/js/next.ts does not mention pages/Workspace/Partials/PublicShell'), 'an entry without it: unmet, naming the file it read');
-    unlink($root.'/vite.config.mjs');
-    unlink($root.'/resources/js/next.ts');
     foreach ([[['file' => '/etc/passwd', 'contains' => 'x', 'why' => 'y']], [['file' => 'a.ts', 'contains' => '', 'why' => 'y']], [['file' => 'a.ts', 'why' => 'y']]] as $bad) {
         try {
-            HostRequirements::validate('x', ['host_steps' => ['mention' => $bad]]);
+            Blueprint::validateFeatures(['x' => ['format' => 1, 'id' => 'x', 'owns' => [], 'files' => [], 'requires' => ['features' => [], 'packages' => []], 'conflicts' => [], 'host_owned' => [], 'host_steps' => ['mention' => $bad]]], ['x']);
             throw new LogicException('a malformed mention step was accepted');
         } catch (RuntimeException $error) {
             publicCheck(str_contains($error->getMessage(), 'Invalid host step'), 'a malformed mention step is refused ('.json_encode($bad[0]).')');
         }
     }
-    echo "Public shell server checks: markdown sanitizing and the host step. The shell's markup is tests/js/public-shell.test.mjs.\n";
+    echo "Public shell server checks: markdown sanitizing and the host step declaration. The shell's markup is tests/js/public-shell.test.mjs.\n";
 } catch (Throwable $error) {
     fwrite(STDERR, (string) $error."\n");
     exit(1);

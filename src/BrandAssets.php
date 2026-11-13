@@ -75,8 +75,8 @@ final class BrandAssets
             return Brand::accent();
         }
 
-        return ThemeAdvisory::primary(HostRequirements::themeStylesheets($root ?? base_path()))
-            ?? throw new RuntimeException('kit.brand.accent (config/brand.php) is '.($accent === null ? 'null' : 'empty').' and the theme resolves to no accent (no readable --primary in :root of resources/css/app.css or its imports). Set \'accent\' in config/brand.php to a #rrggbb colour, then run kit:brand again.');
+        return ThemeAdvisory::primary(ThemeAdvisory::themeStylesheets($root ?? base_path()))
+            ?? throw new RuntimeException('kit.brand.accent (config/brand.php) is '.($accent === null ? 'null' : 'empty').' and the theme resolves to no accent (no readable --primary in :root of resources/css/app.css, the CSS entries your Vite config names, or their imports). Set \'accent\' in config/brand.php to a #rrggbb colour, then run kit:brand again.');
     }
 
     /**

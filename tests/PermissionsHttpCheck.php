@@ -89,7 +89,7 @@ try {
         $table->timestamp('email_verified_at')->nullable();
         $table->timestamps();
     });
-    foreach (glob(dirname(__DIR__).'/resources/features/*/migrations/*.stub') as $file) {
+    foreach (glob(dirname(__DIR__).'/database/migrations/*/*.php') as $file) {
         $stubs[basename($file)] = $file;
     }
     ksort($stubs);
@@ -220,7 +220,7 @@ try {
     }
     $snapshot = fn () => Workspace::query()->orderBy('id')->get(['id', 'name', 'settings_version'])->toArray();
     $before = $snapshot();
-    $adopt = require dirname(__DIR__).'/resources/features/settings/migrations/0001_01_02_000402_adopt_display_name_as_workspace_name.php.stub';
+    $adopt = require dirname(__DIR__).'/database/migrations/settings/0001_01_02_000402_adopt_display_name_as_workspace_name.php';
     $adopt->up();
     $after = $snapshot();
     [$status, $read] = $raw([], 'GET');

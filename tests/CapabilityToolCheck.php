@@ -353,7 +353,7 @@ try {
         $table->timestamp('email_verified_at')->nullable();
         $table->timestamps();
     });
-    foreach (glob(dirname(__DIR__).'/resources/features/*/migrations/*.stub') as $file) {
+    foreach (glob(dirname(__DIR__).'/database/migrations/*/*.php') as $file) {
         $stubs[basename($file)] = $file;
     }
     ksort($stubs);
@@ -508,7 +508,7 @@ try {
         }
     })())));
     httpCheck($readers === [], 'no tool reads intent_key from its validated arguments, which never carry it: '.implode(', ', $readers));
-    httpCheck(DB::table('kit_mcp_intents')->count() === 2, 'only calls carrying an intent_key are stored');
+    httpCheck(DB::table('mcp_intents')->count() === 2, 'only calls carrying an intent_key are stored');
     // A destructive call with an intent: confirm, run, then a retry replays rather than asking again or running twice.
     $fired = [];
     $prompt = $call(['id' => 9, 'intent_key' => 'purge-1'], null, 'owner', PurgeNote::class)[1];
@@ -520,16 +520,16 @@ try {
     httpCheck($call(['id' => 10, 'intent_key' => 'purge-1'], null, 'owner', PurgeNote::class) === ['error', 'intent_conflict'], "the destructive call's key reused for other arguments is intent_conflict");
     httpCheck($call(['id' => 9, 'intent_key' => 'copy-1'], null, 'owner', PurgeNote::class) === ['error', 'intent_conflict'], 'a key reused across tools is intent_conflict');
     // A failed call stores nothing, so a retry runs it.
-    DB::table('kit_mcp_intents')->delete();
+    DB::table('mcp_intents')->delete();
     $gate = $app->make(Tey\Kit\Features\Mcp\ConsentGate::class);
     $me = new Principal((int) $owner->id, $connection);
     try {
         $gate->remember('notes_copy', $me, ['id' => 1, 'intent_key' => 'fails'], fn (): array => throw new RuntimeException('limit_reached'));
     } catch (RuntimeException) {
     }
-    httpCheck(DB::table('kit_mcp_intents')->count() === 0 && $gate->recall('notes_copy', $me, ['id' => 1, 'intent_key' => 'fails']) === null, 'a call that fails stores nothing, so its retry runs');
+    httpCheck(DB::table('mcp_intents')->count() === 0 && $gate->recall('notes_copy', $me, ['id' => 1, 'intent_key' => 'fails']) === null, 'a call that fails stores nothing, so its retry runs');
     // A race: the second call's row hits the unique index, its work rolls back, and it returns the first call's result.
-    DB::table('kit_mcp_intents')->insert(['actor_id' => $owner->id, 'connection_id' => $connection, 'intent_key' => 'race', 'fingerprint' => hash('sha256', json_encode([CopyNote::class, ['id' => 2, 'intent_key' => 'race']])), 'result' => json_encode(['winner' => true]), 'created_at' => now(), 'expires_at' => now()->addHour()]);
+    DB::table('mcp_intents')->insert(['actor_id' => $owner->id, 'connection_id' => $connection, 'intent_key' => 'race', 'fingerprint' => hash('sha256', json_encode([CopyNote::class, ['id' => 2, 'intent_key' => 'race']])), 'result' => json_encode(['winner' => true]), 'created_at' => now(), 'expires_at' => now()->addHour()]);
     $raced = $gate->remember('notes_copy', $me, ['id' => 2, 'intent_key' => 'race'], function (): array {
         DB::table('audit_events')->insert(['actor_id' => 0, 'workspace_id' => 0, 'event' => 'race.loser', 'details' => '{}', 'created_at' => now()]);
 
@@ -538,37 +538,37 @@ try {
     httpCheck($raced === ['winner' => true] && ! DB::table('audit_events')->where('event', 'race.loser')->exists(), "a racing call that loses the unique index rolls its work back and returns the winner's result");
 
     // Expiry: a stored intent lasts kit.mcp.intent_ttl (24 hours by default); after that its key is new again, and model:prune deletes it.
-    DB::table('kit_mcp_intents')->delete();
+    DB::table('mcp_intents')->delete();
     $runs = CopyNote::$runs;
     $kept = $call(['id' => 8, 'intent_key' => 'ttl'], null, 'owner', CopyNote::class);
-    $row = DB::table('kit_mcp_intents')->where('intent_key', 'ttl')->first();
+    $row = DB::table('mcp_intents')->where('intent_key', 'ttl')->first();
     httpCheck(Illuminate\Support\Carbon::parse($row->expires_at)->equalTo(Illuminate\Support\Carbon::parse($row->created_at)->addDay()), 'a stored intent expires 24 hours after the call by default');
     httpCheck($call(['id' => 8, 'intent_key' => 'ttl'], null, 'owner', CopyNote::class) === $kept && CopyNote::$runs === $runs + 1, 'within its lifetime a retry still replays');
     // Expire it (the clock is left alone: the test's access token lasts an hour).
-    DB::table('kit_mcp_intents')->where('intent_key', 'ttl')->update(['expires_at' => now()->subSecond()]);
+    DB::table('mcp_intents')->where('intent_key', 'ttl')->update(['expires_at' => now()->subSecond()]);
     httpCheck($call(['id' => 8, 'intent_key' => 'ttl'], null, 'owner', CopyNote::class)[1]['copy'] === $runs + 2, 'after it expires, the same call runs again instead of replaying');
-    DB::table('kit_mcp_intents')->where('intent_key', 'ttl')->update(['expires_at' => now()->subSecond()]);
+    DB::table('mcp_intents')->where('intent_key', 'ttl')->update(['expires_at' => now()->subSecond()]);
     $fresh = $call(['id' => 9, 'intent_key' => 'ttl'], null, 'owner', CopyNote::class);
     httpCheck($fresh[0] === 'ok' && $fresh[1]['of'] === 9 && CopyNote::$runs === $runs + 3, 'an expired key is treated as new: other arguments run instead of intent_conflict');
-    httpCheck(DB::table('kit_mcp_intents')->where('intent_key', 'ttl')->count() === 1 && DB::table('kit_mcp_intents')->where('intent_key', 'ttl')->value('fingerprint') !== $row->fingerprint, 'the expired row is replaced by the new call');
+    httpCheck(DB::table('mcp_intents')->where('intent_key', 'ttl')->count() === 1 && DB::table('mcp_intents')->where('intent_key', 'ttl')->value('fingerprint') !== $row->fingerprint, 'the expired row is replaced by the new call');
     $config->set('kit.mcp.intent_ttl', 60);
     $call(['id' => 1, 'intent_key' => 'short'], null, 'owner', CopyNote::class);
-    $short = DB::table('kit_mcp_intents')->where('intent_key', 'short')->first();
+    $short = DB::table('mcp_intents')->where('intent_key', 'short')->first();
     httpCheck(Illuminate\Support\Carbon::parse($short->expires_at)->equalTo(Illuminate\Support\Carbon::parse($short->created_at)->addSeconds(60)), 'kit.mcp.intent_ttl sets the lifetime');
     $config->set('kit.mcp.intent_ttl', 86400);
     // Pruning: model:prune on McpIntent deletes only expired rows.
-    DB::table('kit_mcp_intents')->delete();
-    DB::table('kit_mcp_intents')->insert([
+    DB::table('mcp_intents')->delete();
+    DB::table('mcp_intents')->insert([
         ['actor_id' => $owner->id, 'connection_id' => $connection, 'intent_key' => 'old', 'fingerprint' => 'x', 'result' => '{}', 'created_at' => now()->subDays(2), 'expires_at' => now()->subDay()],
         ['actor_id' => $owner->id, 'connection_id' => $connection, 'intent_key' => 'live', 'fingerprint' => 'x', 'result' => '{}', 'created_at' => now(), 'expires_at' => now()->addHour()],
     ]);
     $pruned = (new Tey\Kit\Features\Mcp\Models\McpIntent)->pruneAll();
-    httpCheck($pruned === 1 && DB::table('kit_mcp_intents')->pluck('intent_key')->all() === ['live'], 'pruning deletes expired intents and keeps live ones');
+    httpCheck($pruned === 1 && DB::table('mcp_intents')->pluck('intent_key')->all() === ['live'], 'pruning deletes expired intents and keeps live ones');
     $command = new Illuminate\Database\Console\PruneCommand;
     $command->setLaravel($app);
-    DB::table('kit_mcp_intents')->update(['expires_at' => now()->subSecond()]);
+    DB::table('mcp_intents')->update(['expires_at' => now()->subSecond()]);
     $command->run(new Symfony\Component\Console\Input\ArrayInput(['--model' => [Tey\Kit\Features\Mcp\Models\McpIntent::class]]), new Symfony\Component\Console\Output\NullOutput);
-    httpCheck(DB::table('kit_mcp_intents')->count() === 0, 'the scheduled `model:prune --model=McpIntent` the docs give prunes them');
+    httpCheck(DB::table('mcp_intents')->count() === 0, 'the scheduled `model:prune --model=McpIntent` the docs give prunes them');
 
     // 0.4.3: per-call destructive, control arguments kept from call(), a tool's own not-found code, and unexpected failures reported.
     $handler = new RecordingHandler;

@@ -156,7 +156,7 @@ try {
     foreach (glob(dirname(__DIR__).'/vendor/laravel/passkeys/database/migrations/*.php') as $file) {
         (require $file)->up();
     }
-    foreach (glob(dirname(__DIR__).'/resources/features/*/migrations/*.stub') as $file) {
+    foreach (glob(dirname(__DIR__).'/database/migrations/*/*.php') as $file) {
         $stubs[basename($file)] = $file;
     }
     ksort($stubs);

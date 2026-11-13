@@ -15,7 +15,7 @@ const upload = async (intent: FileIntent) => { /* upload intent.files, then add 
 </template>
 ```
 
-Core lists the tiptap packages under `requires.npm` (`@tiptap/core`, `@tiptap/extension-code`, `@tiptap/extension-placeholder`, `@tiptap/pm`, `@tiptap/starter-kit`, `@tiptap/vue-3`, `^3.32.0`). Add them to `package.json`; `kit:add` and `kit:update` flag any that are missing.
+Core lists the tiptap packages under `requires.npm` (`@tiptap/core`, `@tiptap/extension-code`, `@tiptap/extension-placeholder`, `@tiptap/pm`, `@tiptap/starter-kit`, `@tiptap/vue-3`, `^3.32.0`). Add them to `package.json`; the kit installs no npm packages.
 
 ## Props and events
 

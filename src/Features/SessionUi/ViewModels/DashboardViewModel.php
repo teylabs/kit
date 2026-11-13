@@ -25,7 +25,7 @@ final class DashboardViewModel extends PageViewModel
 
     /**
      * The 0.15.41 argument order (…, $greeting, $widgets, $lists, $aside). The pre-0.15.41 `welcome` argument (WelcomeCardData) was removed in 0.17: passing a
-     * card in the sixth place is a TypeError, and `welcome:` an unknown named argument. kit:status names an app file that still uses it.
+     * card in the sixth place is a TypeError, and `welcome:` an unknown named argument.
      *
      * @param  array<string, mixed>  $lists
      */

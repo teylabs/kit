@@ -6,17 +6,24 @@ A public site is a host whose pages are mostly public: a landing, help and legal
 
 ```sh
 composer require tey/kit
-php artisan kit:install
-php artisan kit:add core shell session-ui
-php artisan kit:add core shell session-ui --apply --expected-plan=<the plan the preview printed>
+php artisan vendor:publish --tag=kit-config
+```
+
+List the three features in `config/kit.php`, then migrate:
+
+```php
+'features' => ['core', 'shell', 'session-ui'],
+```
+
+```sh
 php artisan migrate
 ```
 
-Don't add `workspace-ui`, `workspaces` or `access`. Since 0.6.0 session-ui needs only core and shell, so `kit:add` brings nothing else: no workspace or permission tables, no Concierge, Pennant or multitenancy. Your `App\Models\User` stays a plain Laravel user. Without workspace-ui the kit serves no home, dashboard, settings, People, account pages under `/me` or invitation page. See [Auth-only session-ui and workspace-ui](../README.md#auth-only-session-ui-and-workspace-ui).
+Don't list `workspace-ui`, `workspaces` or `access`. Since 0.6.0 session-ui needs only core and shell, so nothing else comes with it: no workspace or permission tables, no Concierge, Pennant or multitenancy. Your `App\Models\User` stays a plain Laravel user. Without workspace-ui the kit serves no home, dashboard, settings, People, account pages under `/me` or invitation page. See [Auth-only session-ui and workspace-ui](../README.md#auth-only-session-ui-and-workspace-ui).
 
 session-ui's avatars are Media Library items, so run spatie/laravel-medialibrary's `media` migration if your app doesn't have it yet.
 
-An app that adopted this recipe before 0.6.0 has workspaces and access installed. They keep working, and can stay.
+An app that adopted this recipe before 0.6.0 has workspaces and access. They keep working while its `kit.features` lists them, and can stay.
 
 ## Config
 
@@ -38,8 +45,8 @@ layout: (name: string, page) =>
 
 Pass the CTA's URLs (`sign-in-url="/login"`, and `workspace-url` set to your `kit.home`). See [docs/public-shell.md](public-shell.md) for the slots, widths and PublicMeta.
 
-The shell's host steps apply too: the `@kit/shell` alias in `vite.config.ts` and `tsconfig.json`, and the kit's classes in the TypeScript transformer. `kit:add` and `kit:status` name any you lack.
+The shell's host steps apply too: the `@kit/shell` alias in `vite.config.ts` and `tsconfig.json`, and the kit's classes in the TypeScript transformer. The shell feature's manifest lists them; no kit command checks them since 0.18.
 
 ## Checking it
 
-`php artisan kit:status` lists the adopted features (core, shell, session-ui) and any unmet host step.
+`php artisan route:list` shows session-ui's sign-in routes and no workspace routes. With `kit.features` unset or empty the kit registers no feature and logs an error.

@@ -4,17 +4,16 @@ namespace Tey\Kit\Features;
 
 use Illuminate\Console\Command;
 
-/** Removes the kit's discovery cache (see DiscoveryCache). Runs with `php artisan optimize:clear`. */
+/** A no-op since 0.18, the pair of kit:cache. Kept, and still run by `php artisan optimize:clear`, so deploys that call it keep working. */
 final class ClearCommand extends Command
 {
     protected $signature = 'kit:clear';
 
-    protected $description = 'Remove the cached kit lineages and tables';
+    protected $description = 'Nothing to clear since kit 0.18 (kept for deploys that run it)';
 
     public function handle(): int
     {
-        DiscoveryCache::clear($this->laravel);
-        $this->components->info('Kit features cache cleared.');
+        $this->components->info(CacheCommand::NOTHING);
 
         return self::SUCCESS;
     }

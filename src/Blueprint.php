@@ -2,7 +2,9 @@
 
 namespace Tey\Kit;
 
+use Composer\Semver\VersionParser;
 use RuntimeException;
+use Throwable;
 
 final readonly class Blueprint
 {
@@ -13,6 +15,15 @@ final readonly class Blueprint
         'D' => 'sha256:0bab54b840743e0fb61273223b8e808e0db06a76c279418aa9765e75d1783672',
         'E' => 'sha256:5c353100ab7dea9e497e01f7c1bef3ef1922fae8c5fd39e549c5a103ab5331c6',
     ];
+
+    /** Host step kinds the kit can verify, beyond the blocking `user_model` and `workspace_model`. */
+    private const LISTED = ['env' => 'key', 'provider' => 'class', 'schedule' => 'command', 'config' => 'key', 'legacy_table' => 'table', 'theme' => 'file', 'mention' => 'file', 'vite_global_types' => 'file'];
+
+    /** Fields a listed step may add: an env key may instead be kept as a file the host has (checked for existence only, never read); a config key names the value it must `not` have. */
+    private const EXTRA = ['env' => ['or_file' => true], 'config' => ['not' => true], 'mention' => ['contains' => true, 'or_file' => true], 'vite_global_types' => ['contains' => true]];
+
+    /** A host UI primitive: a shadcn-vue component name (`dropdown-menu`, met by its index.ts) or one file in it (`spinner/Spinner.vue`). */
+    private const HOST_UI = '/\A[a-z][a-z0-9-]*(?:\/[A-Za-z][A-Za-z0-9]*\.(?:vue|ts))?\z/';
 
     /** @param array<string, string> $directories stub name => directory that holds it */
     private function __construct(public array $manifest, private array $directories, private ?string $release, private array $features = [], private ?Catalog $catalog = null) {}
@@ -141,7 +152,7 @@ final readonly class Blueprint
                 throw new RuntimeException('Feature id does not match its manifest: '.$id);
             }
             // Optional: what the host must change itself, its npm requirements and optional integrations. Only kinds the kit can check.
-            HostRequirements::validate($id, $feature);
+            self::validateHost($id, $feature);
             foreach ($feature['owns'] as $prefix) {
                 foreach ($owned as $other => $others) {
                     foreach ($others as $existing) {
@@ -507,5 +518,56 @@ final readonly class Blueprint
     public function stub(string $stub): string
     {
         return file_get_contents($this->stubPath($stub));
+    }
+
+    /** Refuses a malformed `host_steps`, `optional`, `requires.npm` or `requires.host_ui` in a feature manifest; every field is optional. */
+    private static function validateHost(string $id, array $feature): void
+    {
+        foreach ($feature['host_steps'] ?? [] as $kind => $step) {
+            $field = self::LISTED[$kind] ?? null;
+            $valid = match (true) {
+                in_array($kind, ['user_model', 'workspace_model'], true) => is_array($step) && array_diff_key($step, ['implements' => true, 'uses' => true]) === [] && is_string($step['implements'] ?? null) && is_string($step['uses'] ?? null),
+                $field !== null => is_array($step) && $step !== [] && array_is_list($step) && array_filter($step, fn ($entry): bool => ! is_array($entry) || array_diff_key($entry, [$field => true, 'why' => true] + (self::EXTRA[$kind] ?? [])) !== [] || ! is_string($entry[$field] ?? null) || $entry[$field] === '' || ! is_string($entry['why'] ?? null)) === [],
+                default => false,
+            };
+            if (! $valid || ($kind === 'env' && array_filter($step, fn (array $entry): bool => ! preg_match('/\A[A-Z][A-Z0-9_]*\z/', $entry['key']) || (array_key_exists('or_file', $entry) && ! self::hostRelative($entry['or_file']))) !== [])
+                || ($kind === 'config' && array_filter($step, fn (array $entry): bool => ! is_string($entry['not'] ?? null)) !== [])
+                || (in_array($kind, ['mention', 'vite_global_types'], true) && array_filter($step, fn (array $entry): bool => ! self::hostRelative($entry['file']) || ! is_string($entry['contains'] ?? null) || $entry['contains'] === '' || (array_key_exists('or_file', $entry) && ! self::hostRelative($entry['or_file']))) !== [])) {
+                throw new RuntimeException('Invalid host step: '.$id.'.'.$kind);
+            }
+        }
+        $optional = $feature['optional'] ?? [];
+        if (! is_array($optional) || ! array_is_list($optional) || array_filter($optional, fn ($entry): bool => ! is_array($entry) || array_keys($entry) !== ['id', 'title', 'do'] || array_filter($entry, fn ($value): bool => ! is_string($value) || $value === '') !== []) !== []) {
+            throw new RuntimeException('Invalid optional integration: '.$id);
+        }
+        foreach ($feature['requires']['npm'] ?? [] as $package => $constraint) {
+            if (! is_string($package) || $package === '' || ! is_string($constraint) || ! self::range($constraint)) {
+                throw new RuntimeException('Invalid npm requirement: '.$id.'.'.$package);
+            }
+        }
+        $ui = $feature['requires']['host_ui'] ?? [];
+        if (! is_array($ui) || ! array_is_list($ui) || array_filter($ui, fn ($entry): bool => ! is_string($entry) || preg_match(self::HOST_UI, $entry) !== 1) !== []) {
+            throw new RuntimeException('Invalid host UI requirement: '.$id);
+        }
+    }
+
+    /** A plain relative path inside the app: no leading slash, dot segment or backslash. */
+    private static function hostRelative(mixed $path): bool
+    {
+        return is_string($path) && $path !== '' && ! str_starts_with($path, '/') && ! str_contains($path, '\\') && array_filter(explode('/', $path), fn (string $segment): bool => in_array($segment, ['', '.', '..'], true)) === [];
+    }
+
+    private static function range(string $range): bool
+    {
+        if (preg_match('/[:\/]|\A\s*\z|\A[a-z]/i', $range) && ! preg_match('/\A[x*]\z/i', trim($range))) {
+            return false;
+        }
+        try {
+            (new VersionParser)->parseConstraints($range);
+
+            return true;
+        } catch (Throwable) {
+            return false;
+        }
     }
 }

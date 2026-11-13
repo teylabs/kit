@@ -34,7 +34,7 @@ use Tey\Kit\Features\Workspaces\Workspaces;
  * runs inside the transaction, after the workspaces are left and before the kit's rows and the user row go.
  *
  * Deferred, when the bound handler implements DefersAccountPurge: the workspaces are left and the account closed at once (its Concierge account deactivated, so
- * sign-in is refused; database sessions ended, the remember-me token cycled, API tokens revoked; a `kit_account_deletions` row recorded), AccountDeleting
+ * sign-in is refused; database sessions ended, the remember-me token cycled, API tokens revoked; a `account_deletions` row recorded), AccountDeleting
  * dispatched, then after the commit the handler's begin() queues the host's job, which ends by calling FinishAccountDeletion. Nothing else is deleted here.
  */
 class DeleteAccount
@@ -95,21 +95,21 @@ class DeleteAccount
     /** The deferred mode: leaves the workspaces and closes the account now; the host's job purges, then calls FinishAccountDeletion. */
     private function close(Model $user, DefersAccountPurge $purger): array
     {
-        if (! Schema::hasTable('kit_account_deletions')) {
-            throw new RuntimeException('Deferred account deletion needs the kit_account_deletions table: run `php artisan kit:update apply`, then migrate. Nothing was deleted.');
+        if (! Schema::hasTable('account_deletions')) {
+            throw new RuntimeException('Deferred account deletion needs the account_deletions table: run `php artisan migrate`. Nothing was deleted.');
         }
         $left = DB::transaction(function () use ($user): array {
             $id = (int) $user->getKey();
             if (self::ownedWorkspaces($user) !== []) {
                 throw ValidationException::withMessages(['account' => 'You own a workspace. Transfer ownership or delete it first.']);
             }
-            if (DB::table('kit_account_deletions')->where('user_id', $id)->exists()) {
-                return json_decode((string) DB::table('kit_account_deletions')->where('user_id', $id)->value('workspace_ids'), true, 512, JSON_THROW_ON_ERROR);
+            if (DB::table('account_deletions')->where('user_id', $id)->exists()) {
+                return json_decode((string) DB::table('account_deletions')->where('user_id', $id)->value('workspace_ids'), true, 512, JSON_THROW_ON_ERROR);
             }
             $left = $this->leave($user);
             AccountDeleting::dispatch($id, $left);
             ConciergeModels::account()::query()->updateOrCreate(['user_id' => $id], ['status' => AccountStatus::Deactivated, 'deactivated_at' => now(), 'deactivated_by_id' => $id, 'deactivation_reason' => 'Account deletion in progress.']);
-            DB::table('kit_account_deletions')->insert(['user_id' => $id, 'workspace_ids' => json_encode($left, JSON_THROW_ON_ERROR), 'started_at' => now()]);
+            DB::table('account_deletions')->insert(['user_id' => $id, 'workspace_ids' => json_encode($left, JSON_THROW_ON_ERROR), 'started_at' => now()]);
             // Closed at once: no session or token outlives the request.
             self::endAccess($user);
 
@@ -186,14 +186,14 @@ class DeleteAccount
             ConciergeModels::membership()::query()->whereKey($membershipIds)->delete();
         }
         ConciergeModels::account()::query()->where('user_id', $id)->delete();
-        foreach (['kit_capability_overrides' => 'user_id', 'kit_user_state' => 'user_id', 'kit_security_events' => 'user_id'] as $table => $column) {
+        foreach (['capability_overrides' => 'user_id', 'user_state' => 'user_id', 'kit_security_events' => 'user_id'] as $table => $column) {
             if (Schema::hasTable($table)) {
                 DB::table($table)->where($column, $id)->delete();
             }
         }
         if (Schema::hasTable('connections')) {
-            if (Schema::hasTable('kit_mcp_intents')) {
-                DB::table('kit_mcp_intents')->whereIn('connection_id', DB::table('connections')->where('actor_id', $id)->select('id'))->delete();
+            if (Schema::hasTable('mcp_intents')) {
+                DB::table('mcp_intents')->whereIn('connection_id', DB::table('connections')->where('actor_id', $id)->select('id'))->delete();
             }
             DB::table('connections')->where('actor_id', $id)->delete();
         }

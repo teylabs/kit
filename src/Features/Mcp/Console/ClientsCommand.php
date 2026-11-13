@@ -8,7 +8,7 @@ use Laravel\Passport\Passport;
 use Tey\Kit\Features\Mcp\Registration\Registrations;
 
 /**
- * The dynamically registered clients: those `POST /oauth/register` recorded in `kit_mcp_registrations`, never a host's own public clients, however alike their rows.
+ * The dynamically registered clients: those `POST /oauth/register` recorded in `mcp_registrations`, never a host's own public clients, however alike their rows.
  * Lists them with their last token; `--revoke=<id>` revokes one and every token it holds; `--prune-unused=<days>` revokes those with no token issued in that many
  * days (an assistant registers a new client per fresh connection, so they accumulate); `--adopt=<id>` records a client registered before the kit kept this record
  * (laravel/mcp's registration made the same public, owner-less, secret-less rows), one at a time and by hand. Nothing is deleted: a revoked client stays as the record
@@ -23,7 +23,7 @@ final class ClientsCommand extends Command
     public function handle(ClientRepository $clients): int
     {
         if (! Registrations::available()) {
-            $this->error('The kit_mcp_registrations table is missing: run the mcp feature\'s migrations.');
+            $this->error('The mcp_registrations table is missing: run the mcp feature\'s migrations.');
 
             return self::FAILURE;
         }

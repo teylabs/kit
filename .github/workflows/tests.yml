@@ -88,7 +88,8 @@ jobs:
           DB_DATABASE: kit_adopt_check
           DB_USERNAME: kit
           DB_PASSWORD: kit
-      - run: composer test:adopt-fresh
+      # Its own kit_table_* schemas; the check prints "Database: pgsql" and fails unless every step ran.
+      - run: composer test:table-adopt
         env:
           DB_CONNECTION: pgsql
           DB_HOST: 127.0.0.1
@@ -96,8 +97,8 @@ jobs:
           DB_DATABASE: kit_adopt_check
           DB_USERNAME: kit
           DB_PASSWORD: kit
-      # Its own kit_table_* schemas; the check prints "Database: pgsql" and fails unless every step ran.
-      - run: composer test:table-adopt
+      # Package migrations and the 0.18 renames: its own kit_migrations_* schemas.
+      - run: composer test:migrations
         env:
           DB_CONNECTION: pgsql
           DB_HOST: 127.0.0.1
@@ -189,26 +190,15 @@ jobs:
       - name: Show installed Mod
         run: |
           composer show tey/mod | grep -E '^versions : \* v0\.11\.'
-      - name: Scaffold checks
-        run: |
-          composer test:scaffold
-          for release in A B C D; do php tests/ScaffoldCheck.php vendor/autoload.php "$release"; done
-          php tests/ScaffoldCheck.php vendor/autoload.php C misplace-defaults
-          php tests/ScaffoldCheck.php vendor/autoload.php features:foundation
-          php tests/ScaffoldCheck.php vendor/autoload.php features:foundation,defaults
-          php tests/ScaffoldCheck.php vendor/autoload.php features:foundation,defaults misplace-defaults
+      - name: kit:scaffold (writes a feature's pages once, never overwrites, refuses linked folders)
+        timeout-minutes: 4
+        run: composer test:scaffold
       - name: Feature manifests and selections
         timeout-minutes: 4
         run: composer test:features
       - name: Feature catalogs and stub trees
         timeout-minutes: 4
         run: composer test:catalog
-      - name: Lifecycle on released Mod
-        timeout-minutes: 4
-        run: composer test:lifecycle
-      - name: Host contract at PHPStan level max
-        timeout-minutes: 4
-        run: composer test:host-contract
       - name: PHP stubs are Pint-clean (Laravel preset)
         timeout-minutes: 4
         run: composer test:pint-stubs
@@ -221,9 +211,6 @@ jobs:
       - name: TypeScript literal types (fixtures)
         timeout-minutes: 3
         run: composer test:typescript-literals
-      - name: Read-only installed status
-        timeout-minutes: 4
-        run: composer test:status
       - name: Settings ViewModel (extendable General page)
         timeout-minutes: 3
         run: composer test:settings-view-model
@@ -254,30 +241,9 @@ jobs:
       - name: Public shell
         timeout-minutes: 4
         run: composer test:public-shell
-      - name: Per-feature lineages and kit:add
-        timeout-minutes: 4
-        run: composer test:adopt
-      - name: Host steps and requirements in plans
-        timeout-minutes: 4
-        run: composer test:plan-steps
-      - name: kit:update skips a removed feature; kit:remove
-        timeout-minutes: 4
-        run: composer test:remove-feature
-      - name: kit:add refuses a host without a feature's packages
-        timeout-minutes: 4
-        run: composer test:add-refused
       - name: Operators seed and the empty-operators warning
         timeout-minutes: 4
         run: composer test:operators-seed
-      - name: Adopt in place (pre-lifecycle apps)
-        timeout-minutes: 4
-        run: composer test:adopt-in-place
-      - name: Starter-kit hosts (case conflicts, --adopt-case, kit:adopt --json, gitignore step)
-        timeout-minutes: 4
-        run: composer test:starter-case
-      - name: kit:install on a fresh app
-        timeout-minutes: 4
-        run: composer test:install
       - name: Invited sign-up, password policy and passkey offer
         run: |
           composer test:onboarding
@@ -308,9 +274,6 @@ jobs:
       - name: The kit's request start is core's, on a host without session-ui
         timeout-minutes: 4
         run: composer test:core-request-start
-      - name: Kit under a host's own Mod layout
-        timeout-minutes: 4
-        run: composer test:layout
       - name: Font sets
         timeout-minutes: 4
         run: composer test:fonts
@@ -359,6 +322,9 @@ jobs:
       - name: Kit token contrast
         timeout-minutes: 4
         run: composer test:token-contrast
+      - name: Theme tokens, theming advice and theme stylesheets
+        timeout-minutes: 3
+        run: composer test:theme
       - name: Environment indicator
         timeout-minutes: 4
         run: composer test:environment
@@ -415,6 +381,9 @@ jobs:
       - name: Host boot
         timeout-minutes: 4
         run: composer test:host-boot
+      - name: Package migrations, app copies and the 0.18 renames
+        timeout-minutes: 4
+        run: composer test:migrations
       - name: session-ui route groups and kit.home_name
         timeout-minutes: 4
         run: composer test:route-groups
@@ -481,14 +450,8 @@ jobs:
       - name: Audit workspace key (SQLite)
         timeout-minutes: 4
         run: composer test:audit-workspace-fk
-      - name: Adopting host on a fresh database (SQLite)
-        timeout-minutes: 4
-        run: composer test:adopt-fresh
       - name: Access and settings table adopt-in-place (SQLite)
         run: composer test:table-adopt
-      - name: kit:detach (config features and adopt flags from the records, file and migration reports, checklist)
-        timeout-minutes: 4
-        run: composer test:detach
       - name: Global search (client)
         timeout-minutes: 4
         run: composer test:search-js

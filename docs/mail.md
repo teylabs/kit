@@ -33,7 +33,7 @@ return [
 - **Size.** It's shown 220px wide, with the height kept to the image's aspect ratio (a 1152x208 PNG shows at 220x55 on its plate, below). Use 2x that width or more so it's sharp on a high-density screen. Draw it for a light background.
 - **Dark mode.** The lockup is sent on its own white plate, baked into the image, so dark ink reads on a dark header in every client. The Gmail apps ignore `prefers-color-scheme` and recolour the message but never an image's pixels, so a second dark image would not show there. The plate needs GD; without it the lockup is sent as drawn.
 - **Alt text** is the product's name (`APP_NAME`).
-- **With no lockup** (unset, a missing file, or a file that isn't a PNG), the header is the product's name, centred, as in Laravel's default. It's never a broken image. `kit:status` reports a configured path that isn't a PNG as attention, not blocking.
+- **With no lockup** (unset, a missing file, or a file that isn't a PNG), the header is the product's name, centred, as in Laravel's default. It's never a broken image.
 
 ## Dark mode and the button
 
