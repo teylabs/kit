@@ -248,6 +248,30 @@ try {
     }
     check($refusal !== null && str_contains($refusal, 'Both kit_user_state and user_state exist') && str_contains($refusal, 'never merges'), 'with both kit_user_state and user_state present, migrate refuses, naming both');
     check(rows('kit_user_state') === $kept && rows('user_state') === [], 'and neither table is changed');
+    // Every pair is checked before any table is renamed, so a database without transactional DDL is never left half renamed. up() and down() are
+    // called directly here, with no transaction to roll a partial rename back.
+    $partial = host(copies());
+    migrate017($partial);
+    $rename = require PACKAGE.'/session-ui/2026_11_14_000506_rename_session_ui_tables.php';
+    Schema::create('account_deletions', fn ($t) => $t->id());
+    $refusal = null;
+    try {
+        $rename->up();
+    } catch (Throwable $error) {
+        $refusal = $error->getMessage();
+    }
+    check(str_contains((string) $refusal, 'Both kit_account_deletions and account_deletions exist') && Schema::hasTable('kit_user_state') && ! Schema::hasTable('user_state'), 'a conflict on the second table refuses before the first is renamed');
+    Schema::drop('account_deletions');
+    $rename->up();
+    check(Schema::hasTable('user_state') && Schema::hasTable('account_deletions') && ! Schema::hasTable('kit_user_state') && ! Schema::hasTable('kit_account_deletions'), 'with the conflict gone, both tables are renamed');
+    Schema::create('kit_user_state', fn ($t) => $t->id());
+    $refusal = null;
+    try {
+        $rename->down();
+    } catch (Throwable $error) {
+        $refusal = $error->getMessage();
+    }
+    check(str_contains((string) $refusal, 'Both user_state and kit_user_state exist') && Schema::hasTable('account_deletions') && ! Schema::hasTable('kit_account_deletions'), 'down checks every pair first too: a conflict on its last table leaves the first unrenamed');
     // The adopt flags come from config alone. On, with the host's table not there yet, the kit's migration refuses to create it, and says why.
     foreach (['workspaces' => 'workspaces', 'access' => 'roles'] as $flag => $table) {
         $adopting = host([], [$flag => ['adopt' => true]]);
