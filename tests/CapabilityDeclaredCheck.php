@@ -1,7 +1,7 @@
 <?php
 
 // Every capability an ability is gated on is declared by an adopted feature: a host with workspace-ui and mcp but not settings has People for its
-// owner (and its owner may manage MCP connections), the registry refuses an undeclared mapping at boot, a capability declared twice is kept once, and a deploy's migrate puts back a declared permission the
+// owner (and its owner may manage MCP connections), a capability the host re-defines in its own boot() keeps that definition, the registry refuses an undeclared mapping at boot, a capability declared twice is kept once, and a deploy's migrate puts back a declared permission the
 // database lost. SQLite memory, real Concierge, spatie teams and Pennant, synthetic users.
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\Access\Response;
@@ -103,6 +103,20 @@ class LateCapabilityProvider extends Illuminate\Support\ServiceProvider
     }
 }
 
+/** A host module that declares its capability in register() and re-defines its Pennant feature in boot(), to follow its own workspace feature rather than kit.capabilities. */
+class FollowingCapabilityProvider extends Illuminate\Support\ServiceProvider
+{
+    public function register(): void
+    {
+        $this->app->make(Registry::class)->capabilities(['workspace.followed']);
+    }
+
+    public function boot(): void
+    {
+        Feature::define('workspace.followed', fn (Tey\Concierge\Contracts\Workspace $workspace): bool => true);
+    }
+}
+
 // The kit's concierge defaults name the host's App\Models\User.
 class_alias(HttpUser::class, 'App\Models\User');
 
@@ -139,7 +153,7 @@ try {
         BusServiceProvider::class, HashServiceProvider::class, PipelineServiceProvider::class, QueueServiceProvider::class,
         ModServiceProvider::class, PermissionServiceProvider::class, MultitenancyServiceProvider::class, LaravelSettingsServiceProvider::class, LaravelDataServiceProvider::class,
         PennantServiceProvider::class, FeaturesServiceProvider::class, ConciergeServiceProvider::class, PassportServiceProvider::class, FortifyServiceProvider::class, ServiceProvider::class, ModalServiceProvider::class,
-        LateCapabilityProvider::class,
+        LateCapabilityProvider::class, FollowingCapabilityProvider::class,
     ] as $provider) {
         $app->register($provider);
     }
@@ -224,6 +238,8 @@ try {
     httpCheck(in_array('workspace.late', Feature::defined(), true), 'a capability a host provider declares in boot(), after the kit boots, is still defined in Pennant');
     $config->set('kit.capabilities', [...$config->get('kit.capabilities'), 'workspace.late' => true]);
     httpCheck($workspace->execute(fn (): bool => app(Capabilities::class)->active('workspace.late', $workspace, $owner)), 'and it resolves from kit.capabilities (on)');
+    // A capability the host re-defines in its provider's boot() keeps the host's definition: the kit's pass once every provider has booted does not replace it.
+    httpCheck(! array_key_exists('workspace.followed', (array) $config->get('kit.capabilities')) && $workspace->execute(fn (): bool => app(Capabilities::class)->active('workspace.followed', $workspace, $owner)), 'a capability the host re-defines in boot() resolves from its definition (on), not from kit.capabilities (unset, off)');
     [$status] = $workspaceGet('settings/people');
     httpCheck($status === 200, 'without settings: the owner opens People ('.$status.')');
     [$status, $body] = $workspaceGet('settings');

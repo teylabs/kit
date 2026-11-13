@@ -235,6 +235,16 @@ final class BrandConfig
         return self::CHOICES[$key] ?? ($key === 'icon_background' ? "a #rgb or #rrggbb colour, or 'none'" : 'a #rgb or #rrggbb colour');
     }
 
+    /** Whether config/brand.php may set the key to this value: a colour or CHOICES key is checked as it resolves (null included); any other key takes any value. */
+    public static function valid(string $key, mixed $value): bool
+    {
+        return match (true) {
+            isset(self::CHOICES[$key]) => self::choice($key, $value) !== false,
+            in_array($key, self::COLOURS, true) => self::colour($key, $value) !== false,
+            default => true,
+        };
+    }
+
     /** A CHOICES key's value as kit:brand reads it (`icon_padding` as a float), null (unset: the kit default), or false (invalid). */
     private static function choice(string $key, mixed $value): string|float|null|false
     {
