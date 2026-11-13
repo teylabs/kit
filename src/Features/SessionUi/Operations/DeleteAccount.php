@@ -188,7 +188,12 @@ class DeleteAccount
             ConciergeModels::membership()::query()->whereKey($membershipIds)->delete();
         }
         ConciergeModels::account()::query()->where('user_id', $id)->delete();
-        foreach ([['access', 'capability_overrides'], ['session-ui', 'user_state'], ['session-ui', Kit::table('security_event')]] as [$feature, $table]) {
+        $tables = [['access', 'capability_overrides'], ['session-ui', 'user_state']];
+        // Named only when session-ui is on: an app without it never registers the security log's model.
+        if (Kit::enabled('session-ui')) {
+            $tables[] = ['session-ui', Kit::table('security_event')];
+        }
+        foreach ($tables as [$feature, $table]) {
             if (Kit::present($feature, $table)) {
                 DB::table($table)->where('user_id', $id)->delete();
             }

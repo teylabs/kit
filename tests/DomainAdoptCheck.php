@@ -11,10 +11,13 @@ use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Auth\User;
 use Illuminate\Support\Facades\Schema;
+use Tey\Concierge\Contracts\Member as MemberContract;
 use Tey\Kit\Features\Core\Kit;
 use Tey\Kit\Features\DomainModels;
 use Tey\Kit\Features\FeaturesServiceProvider;
 use Tey\Kit\Features\Notes\Models\Note;
+use Tey\Kit\Features\SessionUi\Operations\DeleteAccount;
+use Tey\Kit\Features\Workspaces\Concerns\HasWorkspaces;
 use Tey\Kit\KitServiceProvider;
 
 $loader = require $argv[1];
@@ -33,6 +36,16 @@ const BASELINES = ['create_kit_deliver_tables', 'add_finalization_ref_to_kit_del
 
 /** A model that is not the kit's note: no contract, no trait. */
 final class NotANote extends Model {}
+
+/** A synthetic member of workspaces, for an account deletion. */
+final class Member extends User implements MemberContract
+{
+    use HasWorkspaces;
+
+    public $timestamps = false;
+
+    protected $table = 'users';
+}
 
 function check(bool $ok, string $message): void
 {
@@ -220,6 +233,21 @@ function refusal(Closure $run): ?string
 }
 
 $schemas = 0;
+// Run in a process of its own (by the check below), so no feature registered before it: an app without session-ui deletes an account.
+if (($argv[2] ?? null) === 'without-session-ui') {
+    $schemas = 100;
+    $app = boot(root("<?php\n\nreturn ['features' => ['core', 'workspaces', 'access'], 'models' => ['user' => Member::class]];\n"));
+    config(['concierge.models.user' => Member::class, 'permission' => array_replace_recursive(require dirname(__DIR__).'/vendor/spatie/laravel-permission/config/permission.php', (array) config('permission'))]);
+    migrate($app);
+    foreach (glob(dirname(__DIR__).'/vendor/tey/concierge/database/migrations/*.php') ?: [] as $file) {
+        (require $file)->up();
+    }
+    $user = new Member;
+    $user->save();
+    DeleteAccount::deleteRows($user, []);
+    echo Member::query()->whereKey($user->getKey())->exists() ? 'kept' : 'deleted';
+    exit(0);
+}
 try {
     $pgsql = getenv('DB_CONNECTION') === 'pgsql';
     echo 'Database: '.($pgsql ? 'pgsql' : 'sqlite')."\n";
@@ -335,6 +363,27 @@ try {
     check($drift === [] && in_array('deliveries', array_column(Schema::getForeignKeys('delivery_recipients'), 'foreign_table'), true), 'the created tables have the kit\'s columns exactly, and their foreign keys');
     [$code] = artisan($fresh, 'migrate:rollback', ['--force' => true, '--path' => glob($rootB.'/database/migrations/*_adopt_*.php'), '--realpath' => true]);
     check($code === 0 && array_filter(PAIRS, fn (string $to): bool => Schema::hasTable($to)) === [] && Schema::hasTable('workspaces'), 'rolling the adopt migrations back on the fresh database drops the tables they created, and nothing else');
+
+    // A table the app already had under the app's name, which the kit never created here: up() leaves it, and so does down(), rows and all. down() drops
+    // only what up() created, by up()'s record in kit_meta; without that record it refuses rather than guess.
+    $adoptPaths = ['--force' => true, '--path' => glob($rootB.'/database/migrations/*_adopt_*.php'), '--realpath' => true];
+    foreach (['notes', 'entitlements'] as $table) {
+        Schema::create($table, fn ($t) => $t->id());
+        Schema::getConnection()->table($table)->insert(['id' => 42]);
+    }
+    migrate($fresh);
+    [$code] = artisan($fresh, 'migrate:rollback', $adoptPaths);
+    $kept = fn (string $table): bool => Schema::hasTable($table) && rows($table) === [['id' => 42]];
+    check($code === 0 && $kept('notes') && $kept('entitlements') && ! Schema::hasTable('note_intents') && ! Schema::hasTable('complimentary_grants') && ! Schema::hasTable('deliveries'), 'an app table that was there before adoption (notes, entitlements) survives the rollback with its rows; the tables up() created are dropped');
+    migrate($fresh);
+    Schema::getConnection()->table('kit_meta')->where('key', 'adopt:notes')->delete();
+    $refused = refusal(fn () => artisan($fresh, 'migrate:rollback', $adoptPaths));
+    check($refused !== null && str_contains($refused, 'adopt:notes') && $kept('notes') && Schema::hasTable('note_intents'), 'without kit_meta\'s record of what up() did, down() refuses and leaves the notes tables as they are');
+
+    // Account deletion in an app without session-ui, which never registers the security log's model: the log is skipped, not resolved.
+    $child = proc_open([PHP_BINARY, __FILE__, $argv[1], 'without-session-ui'], [1 => ['pipe', 'w'], 2 => ['redirect', 1]], $pipes);
+    $out = (string) stream_get_contents($pipes[1]);
+    check(proc_close($child) === 0 && str_ends_with($out, 'deleted'), 'an app without session-ui deletes an account: the security log it never registered is skipped'.(str_ends_with($out, 'deleted') ? '' : ': '.substr($out, 0, 400)));
 
     // Both names present: kit:scaffold refuses and writes nothing; the migration refuses before renaming any table. A pre-0.19 config (one-line models).
     $rootC = root(kitConfig('old'));

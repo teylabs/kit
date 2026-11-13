@@ -8,7 +8,8 @@ use Illuminate\Support\Facades\Schema;
 // The access feature's billing tables: entitlements and complimentary grants. Their names do not change; on a fresh database this creates them.
 // Written by `php artisan kit:scaffold access --adopt` (tey/kit 0.19), and the app's own from then on. On a database where the kit created the tables,
 // up() renames them, with their indexes, keys and sequences, and keeps every row; on a fresh one it creates them under the app's names. With both names of
-// a table present it refuses before changing anything: it never merges two tables. down() renames them back, or drops them when up() created them.
+// a table present it refuses before changing anything: it never merges two tables. up() records in kit_meta which tables it renamed and which it
+// created; down() undoes exactly that, so a table the app had before adopting stays as it is, rows and all.
 return new class extends Migration
 {
     /** The kit's name => the app's, parents first. */
@@ -17,30 +18,43 @@ return new class extends Migration
         'complimentary_grants' => 'complimentary_grants',
     ];
 
-    /** The kit's migration that created them (database/migrations/access in tey/kit). */
-    private const BASELINE = 'create_kit_access_tables';
+    /** Where up() records what it changed, so down() undoes that and nothing else: a row of kit_meta (the kit's core). */
+    private const RECORD = 'adopt:access';
 
     public function up(): void
     {
-        $this->rename(self::TABLES);
-        $this->create();
+        if (! Schema::hasTable('kit_meta')) {
+            throw new RuntimeException('kit_meta is missing, and this migration records there what it changes so that its rollback undoes only that. Run the core migrations of the kit first.');
+        }
+        $done = ['renamed' => $this->rename(self::TABLES), 'created' => $this->create()];
+        DB::table('kit_meta')->updateOrInsert(['key' => self::RECORD], ['value' => json_encode($done), 'updated_at' => now()]);
     }
 
     public function down(): void
     {
-        if ($this->baselineRan()) {
-            $this->rename(array_flip(array_reverse(self::TABLES, true)));
-
-            return;
+        $value = Schema::hasTable('kit_meta') ? DB::table('kit_meta')->where('key', self::RECORD)->value('value') : null;
+        $done = is_string($value) ? json_decode($value, true) : null;
+        if (! is_array($done) || ! is_array($done['renamed'] ?? null) || ! is_array($done['created'] ?? null)) {
+            throw new RuntimeException('kit_meta has no record ('.self::RECORD.') of what this migration changed, so its rollback changes nothing: it cannot tell a table it created from one that was there before. Put the tables back by hand, then delete the row of this migration from the migrations table.');
         }
+        // Renamed back first: the rename checks every pair before it changes anything.
+        $this->rename(array_flip(array_reverse(array_filter(self::TABLES, fn (string $table): bool => in_array($table, $done['renamed'], true)), true)));
         foreach (array_reverse(self::TABLES) as $table) {
-            Schema::dropIfExists($table);
+            if (in_array($table, $done['created'], true)) {
+                Schema::dropIfExists($table);
+            }
         }
+        DB::table('kit_meta')->where('key', self::RECORD)->delete();
     }
 
-    /** Each table not there under the app's name, as the kit's migrations leave it. */
-    private function create(): void
+    /**
+     * Each table not there under the app's name, as the kit's migrations leave it.
+     *
+     * @return list<string> the tables it created
+     */
+    private function create(): array
     {
+        $missing = array_values(array_filter(self::TABLES, fn (string $table): bool => ! Schema::hasTable($table)));
         if (! Schema::hasTable('entitlements')) {
             Schema::create('entitlements', function (Blueprint $t): void {
                 $t->id();
@@ -64,6 +78,8 @@ return new class extends Migration
                 $t->timestamp('revoked_at')->nullable();
             });
         }
+
+        return $missing;
     }
 
     /**
@@ -72,20 +88,25 @@ return new class extends Migration
      * is left as it is.
      *
      * @param  array<string, string>  $tables  from => to
+     * @return list<string> the new names of the tables it renamed
      */
-    private function rename(array $tables): void
+    private function rename(array $tables): array
     {
         foreach ($tables as $from => $to) {
             if ($from !== $to && Schema::hasTable($from) && Schema::hasTable($to)) {
                 throw new RuntimeException('Both '.$from.' and '.$to.' exist, so this migration will not rename '.$from.' to '.$to.': it never merges two tables. Keep the one that holds the data, drop or rename the other, then migrate again.');
             }
         }
+        $renamed = [];
         foreach ($tables as $from => $to) {
             if ($from !== $to && Schema::hasTable($from)) {
                 Schema::rename($from, $to);
                 $this->renameKeys($from, $to);
+                $renamed[] = $to;
             }
         }
+
+        return $renamed;
     }
 
     /** The indexes, and on PostgreSQL the foreign keys and the id sequence, named after the old table take the new table's name. */
@@ -114,14 +135,5 @@ return new class extends Migration
         if ($name !== null) {
             $connection->statement('alter sequence '.$sequence.' rename to '.$grammar->wrap($name));
         }
-    }
-
-    /** Whether the kit's migration that created these tables ran here: when it did, down() renames them back; when not, this migration created them. */
-    private function baselineRan(): bool
-    {
-        $migrations = config('database.migrations');
-        $table = is_array($migrations) ? (string) ($migrations['table'] ?? 'migrations') : (is_string($migrations) ? $migrations : 'migrations');
-
-        return DB::table($table)->pluck('migration')->contains(fn (mixed $name): bool => is_string($name) && str_ends_with($name, '_'.self::BASELINE));
     }
 };

@@ -8,7 +8,7 @@ use Tey\Kit\Features\Finalize\Contracts\Confirmation as ConfirmationContract;
 
 /**
  * The kit's finalization confirmation model, on `kit_finalize_confirmations`: the default for `kit.models.finalization_confirmation` until the app
- * adopts finalize. Deprecated since 0.19 for new code: reach it through `Tey\Kit\Kit::model('finalization_confirmation')`. The behaviour is
+ * adopts finalize. Deprecated since 0.19 for new code: reach it through `Tey\Kit\Features\Core\Kit::model('finalization_confirmation')`. The behaviour is
  * Concerns\IsConfirmation.
  */
 class Confirmation extends Model implements ConfirmationContract

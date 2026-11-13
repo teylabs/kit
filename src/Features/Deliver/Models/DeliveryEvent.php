@@ -8,7 +8,7 @@ use Tey\Kit\Features\Deliver\Contracts\DeliveryEvent as DeliveryEventContract;
 
 /**
  * The kit's delivery event model, on `kit_delivery_events`: the default for `kit.models.delivery_event` until the app adopts deliver.
- * Deprecated since 0.19 for new code: reach it through `Tey\Kit\Kit::model('delivery_event')`. The behaviour is Concerns\IsDeliveryEvent.
+ * Deprecated since 0.19 for new code: reach it through `Tey\Kit\Features\Core\Kit::model('delivery_event')`. The behaviour is Concerns\IsDeliveryEvent.
  */
 class DeliveryEvent extends Model implements DeliveryEventContract
 {
