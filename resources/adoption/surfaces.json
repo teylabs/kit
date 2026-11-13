@@ -3541,6 +3541,18 @@
       "reason": "Helper behind FileList."
     },
     {
+      "ref": "@/components/Kit:MiddleTruncate",
+      "reason": "Display primitive: a long file name, path or URL cut in the middle, rendered inside a host page or a kit component."
+    },
+    {
+      "ref": "@/components/Kit:middleTruncate",
+      "reason": "Helper behind MiddleTruncate."
+    },
+    {
+      "ref": "@/components/Kit:truncationKind",
+      "reason": "Helper behind MiddleTruncate."
+    },
+    {
       "ref": "@/components/Kit:RowSaveStatus",
       "reason": "Row autosave helper."
     },

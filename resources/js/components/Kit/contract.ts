@@ -1024,3 +1024,10 @@ export interface DateTimeProps {
     /** `12h`, `24h` or `auto` (the locale's own): overrides the viewer's clock (`kitClock`). */
     clock?: import('./Data/dateTime').Clock;
 }
+
+/** A long file name, path or URL cut in the middle to fit its width: a file keeps its extension, a path or URL its last segment. `kind`: file, path, url or auto (default); `minTail` keeps at least that many characters at the end. The whole value is the accessible name, the copied text and the title. */
+export interface MiddleTruncateProps {
+    value: string;
+    kind?: 'file' | 'path' | 'url' | 'auto';
+    minTail?: number;
+}
