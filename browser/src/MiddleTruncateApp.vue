@@ -1,9 +1,11 @@
 <script setup lang="ts">
+import { ref } from 'vue';
 import MiddleTruncate from '@/components/Kit/Data/MiddleTruncate.vue';
 
 // MiddleTruncate in boxes run.mjs resizes (?middle-truncate): a file name as a link, a URL, a path, a short name, an RTL name, an emoji name and a
-// minTail, each in a [data-box] whose width the test sets. ?middle-truncate=dark under .dark.
+// minTail, each in a [data-box] whose width the test sets, and a row whose value [data-swap] replaces. ?middle-truncate=dark under .dark.
 if (new URLSearchParams(window.location.search).get('middle-truncate') === 'dark') document.documentElement.classList.add('dark');
+const swapped = ref(false);
 const rows = [
     { key: 'file', value: 'paraframe-brand-guidelines-2026-client-review-final.pdf', kind: 'file' as const },
     { key: 'url', value: 'https://cdn.paraframe.studio/clients/acme/2026/brand/guidelines/final-v3.pdf?download=1', kind: 'auto' as const },
@@ -24,6 +26,10 @@ const rows = [
             <li data-row="tail" data-box class="w-80 rounded-md border border-border p-2">
                 <MiddleTruncate value="quarterly-board-report-appendix-b.xlsx" :min-tail="16" />
             </li>
+            <li data-row="swap" data-box class="w-80 rounded-md border border-border p-2">
+                <MiddleTruncate :value="swapped ? 'quarterly-board-report-2026-final.pdf' : 'Ω-annual-client-report-with-every-appendix-and-the-board-minutes.pdf'" kind="file" />
+            </li>
         </ul>
+        <button type="button" data-swap @click="swapped = true">Swap</button>
     </main>
 </template>

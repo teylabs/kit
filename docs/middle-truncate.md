@@ -12,18 +12,18 @@
 
 | `kind` | Head | Tail |
 | --- | --- | --- |
-| `file` | the start of the name | the whole extension (`.pdf`, `.tar.gz`) |
-| `path` | the root (`/`, `C:`) and what follows | the last segment, with its extension |
+| `file` | the start of the name | the whole extension, of any length (`.pdf`, `.tar.gz`, `.webmanifest`) |
+| `path` | the root (`/`, or `C:\`, whose drive letter and colon are never cut) and what follows | the last segment, with its extension |
 | `url` | the scheme and the start of the host | the last path segment; a query or fragment is cut first, down to its `?` or `#` |
 | `auto` (the default) | read from the value: a scheme (`https://`) or a leading `www.` is a URL, a `/` or `\` a path, anything else a file name | |
 
 Room left over goes two thirds to the head, one third to the tail. `min-tail` keeps at least that many characters at the end. A value that fits is shown whole, with no ellipsis. In a box too narrow for one character, the ellipsis and the extension, that much is shown and clipped.
 
-Characters are graphemes: an emoji sequence, a flag or a letter with its accents is never split. Right-to-left text is cut in logical order, and the element takes its direction from the value (`dir="auto"`).
+Characters are graphemes: an emoji sequence, a flag or a letter with its accents is never split. They come from `Intl.Segmenter`, or, in a runtime without it, from a pattern that keeps the same sequences together. Right-to-left text is cut in logical order, and the element takes its direction from the value (`dir="auto"`).
 
 ## Width, not a character count
 
-It fits the width it is given. It measures the text with a canvas in the element's own font (size, weight, family and letter spacing), and measures again when the box resizes (a `ResizeObserver`) or a web font finishes loading. After it paints, any overflow left by the browser's own shaping (an Arabic letter's joining form at the cut, kerning across it) is taken off the width and the value is cut again.
+It fits the width it is given. It measures the text with a canvas in the element's own font (size, weight, family and letter spacing), and measures again when the box resizes (a `ResizeObserver`) or a web font finishes loading. After it paints, any overflow left by the browser's own shaping (an Arabic letter's joining form at the cut, kerning across it) is taken off the width and the value is cut again. A new `value`, `kind` or `min-tail` starts again with no correction.
 
 It is a block element: give it a bounded width, as a flex child with `min-w-0`, in a table cell, or in a box of fixed width.
 

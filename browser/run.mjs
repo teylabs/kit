@@ -8775,6 +8775,42 @@ test('MiddleTruncate: a URL keeps its host start and last segment with its query
     });
 });
 
+test('MiddleTruncate: a new value at the same width drops the overflow correction measured for the old one', async () => {
+    const context = await browser.newContext({ viewport: { width: 1024, height: 800 } });
+    try {
+        const tab = await context.newPage();
+        // The canvas under-reports any text with an Ω by 40px, so the first value always overflows once painted and the component corrects for it.
+        await tab.addInitScript(() => {
+            const measure = CanvasRenderingContext2D.prototype.measureText;
+            CanvasRenderingContext2D.prototype.measureText = function (text) {
+                const metrics = measure.call(this, text);
+                return text.includes('Ω') ? { width: metrics.width - 40 } : metrics;
+            };
+        });
+        await tab.goto(`${url}?middle-truncate`);
+        await tab.waitForSelector(`${truncateRow('swap')}[data-truncated]`);
+        // A box 10px wider than the second value, in this runner's own font.
+        const next = 'quarterly-board-report-2026-final.pdf';
+        const width = await tab.evaluate((text) => {
+            const probe = Object.assign(document.createElement('span'), { textContent: text });
+            document.querySelector('[data-row="swap"] [data-slot="middle-truncate"]').after(probe);
+            const measured = probe.getBoundingClientRect().width;
+            probe.remove();
+            return Math.ceil(measured) + 10 + 18;
+        }, next);
+        await setBox(tab, 'swap', width);
+        const before = await truncateState(tab, 'swap');
+        assert.equal(before.truncated, true, 'the first value is cut');
+        assert.equal(before.overflows, false, `corrected: ${before.shown}`);
+        await tab.click('[data-swap]');
+        await tab.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+        const after = await truncateState(tab, 'swap');
+        assert.deepEqual([after.truncated, after.shown, after.overflows], [false, next, false], 'the new value fits whole: no correction is left from the old one');
+    } finally {
+        await context.close();
+    }
+});
+
 test('MiddleTruncate: the accessible name, the title and a copied selection are the whole value; axe passes, light and dark', async () => {
     for (const query of ['middle-truncate', 'middle-truncate=dark']) {
         await middleTruncate(query, async (tab) => {

@@ -1,5 +1,12 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, onUpdated, ref } from 'vue';
+import {
+    computed,
+    onBeforeUnmount,
+    onMounted,
+    onUpdated,
+    ref,
+    watch,
+} from 'vue';
 import {
     type MiddleTruncateKind,
     canvasFont,
@@ -61,6 +68,14 @@ function update(): void {
         slack.value = 0;
     }
 }
+
+// The correction belongs to the text it was measured on: a new value, kind or minTail starts again from none.
+watch(
+    () => [props.value, props.kind, props.minTail],
+    () => {
+        slack.value = 0;
+    },
+);
 
 const parts = computed(() => {
     const el = root.value;

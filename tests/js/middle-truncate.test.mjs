@@ -68,7 +68,13 @@ test('extensions: a dotfile has none, .tar.gz is one, a dot inside a directory n
     assert.equal(extensionStart('backup.tar.gz'), 6);
     assert.equal(extensionStart('photo.jpeg'), 5);
     assert.equal(extensionStart('name.with spaces'), -1, 'an "extension" with a space is part of the name');
-    assert.equal(extensionStart('.env.production'), -1, 'a ten-letter suffix is a name, not an extension');
+    assert.equal(extensionStart('site.webmanifest'), 4, 'an extension of any length (eleven letters)');
+    assert.equal(extensionStart('.env.production'), 4, 'after a leading dotfile name, the last dot starts one');
+    assert.equal(extensionStart('report.final version'), -1, 'a suffix with a space is part of the name');
+    for (let width = 'brand-kit-2026.webmanifest'.length - 1; width >= 14; width--) {
+        const r = cut('brand-kit-2026.webmanifest', width);
+        assert.ok(r.tail.endsWith('.webmanifest') && measure(shown(r)) <= width, `${width}: ${shown(r)}`);
+    }
     const plain = cut('a-very-long-name-without-an-extension', 12);
     assert.ok(plain.head.length > plain.tail.length && plain.tail.length >= 1, `a name without an extension cuts with more head than tail: ${shown(plain)}`);
 });
@@ -110,8 +116,13 @@ test('a URL\'s query and fragment are cut first, down to the ? or #, and kept in
 test('a path keeps its root and its last segment', () => {
     const posix = cut('/srv/projects/paraframe/brand/guidelines/final.pdf', 30);
     assert.equal(shown(posix), '/srv/projects…elines/final.pdf');
-    const windows = cut('C:\\Projects\\Paraframe\\Brand\\guidelines-final.docx', 20);
-    assert.ok(shown(windows).startsWith('C') && shown(windows).endsWith('.docx'), shown(windows));
+    const drive = 'C:\\Projects\\Paraframe\\Brand\\guidelines-final.docx';
+    assert.ok(shown(cut(drive, 20)).startsWith('C:\\') && shown(cut(drive, 20)).endsWith('.docx'), shown(cut(drive, 20)));
+    for (let width = drive.length - 1; width >= 4; width--) {
+        assert.ok(cut(drive, width).head.startsWith('C:'), `the drive letter and its colon stay at ${width}: ${shown(cut(drive, width))}`);
+    }
+    assert.equal(shown(cut(drive, 8)), 'C:….docx', 'narrower than the anchors: the drive, the ellipsis and the extension');
+    assert.equal(cut('/srv/projects/paraframe/final.pdf', 8).head, '/', 'a POSIX root is one character');
     assert.ok(cut('/var/log/app/', 8).tail.endsWith('/'), 'a trailing separator is kept with the last segment');
 });
 
@@ -139,6 +150,21 @@ test('emoji, flags and combining marks are never split, and wide ones are measur
     }
     const cjk = cut('二〇二六年度ブランドガイドライン最終版.pdf', 16);
     assert.ok(measure(shown(cjk)) <= 16 && cjk.tail.endsWith('.pdf'), shown(cjk));
+});
+
+test('without Intl.Segmenter, the fallback still keeps emoji sequences, flags and accents whole', () => {
+    const values = ['👨‍👩‍👧‍👦👨‍👩‍👧‍👦🇨🇦🇨🇦é́é́é́-family-photo.jpeg', '👍🏽-ok-✌️-peace', '\u0301stray-mark-first.txt', 'plain-ascii.pdf'];
+    const native = values.map((value) => graphemes(value));
+    const segmenter = Intl.Segmenter;
+    delete Intl.Segmenter;
+    try {
+        assert.equal('Segmenter' in Intl, false);
+        assert.deepEqual(values.map((value) => graphemes(value)), native, 'the same characters as Intl.Segmenter');
+        const r = cut(values[0], 10);
+        assert.deepEqual([...graphemes(r.head), ...graphemes(r.middle), ...graphemes(r.tail)], native[0], shown(r));
+    } finally {
+        Intl.Segmenter = segmenter;
+    }
 });
 
 test('RTL text is cut in logical order: its first letters stay in the head and the extension in the tail', () => {

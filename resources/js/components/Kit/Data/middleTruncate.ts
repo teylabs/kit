@@ -17,6 +17,13 @@ export interface MiddleTruncation {
 
 export const MIDDLE_ELLIPSIS = '…';
 
+/**
+ * Where `Intl.Segmenter` is missing: a flag (two regional indicators), or a character with its marks, variation selectors and skin tones and any emoji
+ * joined to it by a zero-width joiner. The last branch takes anything else alone (a stray mark), so the pieces always join back into the text.
+ */
+const GRAPHEME =
+    /\p{Regional_Indicator}{2}|\P{M}(?:[\p{M}\u{FE0F}\u{1F3FB}-\u{1F3FF}]|\u200D\p{Extended_Pictographic})*|[\s\S]/gu;
+
 /** The value's user-perceived characters: an emoji sequence, a flag or a letter with its accents is one, never split. */
 export function graphemes(text: string): string[] {
     if (typeof Intl !== 'undefined' && 'Segmenter' in Intl) {
@@ -28,7 +35,7 @@ export function graphemes(text: string): string[] {
         );
     }
 
-    return Array.from(text);
+    return text.match(GRAPHEME) ?? [];
 }
 
 /** A canvas font matching an element's computed one, from the longhands: Firefox may serialise the computed `font` shorthand as ''. */
@@ -51,9 +58,12 @@ export function truncationKind(
     return /[/\\]/.test(value) ? 'path' : 'file';
 }
 
-/** Where a file name's extension starts (its dot), or -1. `.tar.gz` is one extension; a leading dot (`.env`) is a name, not an extension. */
+/**
+ * Where a file name's extension starts (its dot), or -1: the last dot followed only by letters and digits, of any length (`.webmanifest`). `.tar.gz` is
+ * one extension; a leading dot (`.env`) is a name, not an extension, and so is a suffix with a space or punctuation in it.
+ */
 export function extensionStart(name: string): number {
-    const match = /(?:\.tar)?\.[\p{L}\p{N}]{1,8}$/u.exec(name);
+    const match = /(?:\.tar)?\.[\p{L}\p{N}]+$/u.exec(name);
 
     return match && match.index > 0 && !/[/\\]/.test(name[match.index - 1])
         ? match.index
@@ -76,13 +86,14 @@ function lastSeparator(value: string, from: number, to: number): number {
 }
 
 /**
- * The anchors, as code-unit offsets: the head keeps at least `head` (the URL's scheme and the start of its host), the tail prefers to keep from `tail`
- * (a file's extension, a path's or URL's last segment) and never gives up what is from `floor` (the extension the tail ends with).
+ * The anchors, as code-unit offsets: the head prefers to keep `head` (the URL's scheme and the start of its host, a drive's root) and never gives up
+ * `lead` (one character, or a drive letter and its colon); the tail prefers to keep from `tail` (a file's extension, a path's or URL's last segment) and
+ * never gives up what is from `floor` (the extension the tail ends with).
  */
 function anchors(
     value: string,
     kind: Exclude<MiddleTruncateKind, 'auto'>,
-): { head: number; tail: number; floor: number } {
+): { head: number; lead: number; tail: number; floor: number } {
     const length = value.length;
     const extension = (segmentStart: number) => {
         const dot = extensionStart(value.slice(segmentStart));
@@ -106,6 +117,7 @@ function anchors(
 
         return {
             head: scheme + Math.min(8, host - scheme),
+            lead: 1,
             tail,
             floor: dot === -1 ? length : tail + 1 + dot,
         };
@@ -113,8 +125,12 @@ function anchors(
     if (kind === 'path') {
         const separator = lastSeparator(value, 0, length);
         if (separator > 0) {
+            // `C:\` or `C:/`: the drive letter and its colon are the root, never cut.
+            const drive = /^[a-z]:[/\\]?/i.exec(value)?.[0].length ?? 0;
+
             return {
-                head: 1,
+                head: Math.max(1, drive),
+                lead: drive ? 2 : 1,
                 tail: separator,
                 floor: /[/\\]$/.test(value) ? length : extension(separator + 1),
             };
@@ -124,6 +140,7 @@ function anchors(
 
     return {
         head: 1,
+        lead: 1,
         tail: dot === -1 ? length : dot,
         floor: dot === -1 ? length : dot,
     };
@@ -182,10 +199,17 @@ function cut(
         starts.filter((start) => start < offset).length;
     const from = (offset: number) => count - before(offset);
     const anchor = anchors(value, kind);
-    // The most the anchors may take: one character always goes to the middle, one always stays in the head.
-    const floor = Math.min(count - 2, Math.max(1, from(anchor.floor), minTail));
-    const tail = Math.min(count - 2, Math.max(floor, from(anchor.tail)));
-    const head = Math.max(1, Math.min(before(anchor.head), count - 1 - tail));
+    // The most the anchors may take: one character always goes to the middle, and `lead` (at least one) always stays in the head.
+    const lead = Math.max(1, Math.min(before(anchor.lead), count - 2));
+    const floor = Math.min(
+        count - 1 - lead,
+        Math.max(1, from(anchor.floor), minTail),
+    );
+    const tail = Math.min(count - 1 - lead, Math.max(floor, from(anchor.tail)));
+    const head = Math.max(
+        lead,
+        Math.min(before(anchor.head), count - 1 - tail),
+    );
     const text = (h: number, t: number) =>
         parts.slice(0, h).join('') +
         MIDDLE_ELLIPSIS +
@@ -218,10 +242,10 @@ function cut(
             tail + step - Math.ceil((step * 2) / 3),
         ]);
     } else {
-        // Too narrow for the anchors: give up the head beyond its first character and the tail beyond its floor together, in proportion.
-        const steps = Math.max(head - 1, tail - floor);
+        // Too narrow for the anchors: give up the head beyond its lead and the tail beyond its floor together, in proportion.
+        const steps = Math.max(head - lead, tail - floor);
         [h, t] = largest(steps, (step) => [
-            1 + Math.round((step * (head - 1)) / (steps || 1)),
+            lead + Math.round((step * (head - lead)) / (steps || 1)),
             floor + Math.round((step * (tail - floor)) / (steps || 1)),
         ]);
     }
