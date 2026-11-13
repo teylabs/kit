@@ -5,7 +5,8 @@ use Tey\Kit\BrandConfig;
 // tey/kit's defaults. Publish them with `php artisan vendor:publish --tag=kit-config`;
 // the published config/kit.php is the app's own file, and kit updates never touch it.
 return [
-    // The adopted features. Null reads them from the kit's installed record.
+    // The adopted features, the only source of which are on (since 0.18), such as ['core', 'workspaces', 'access']. Null or empty registers none
+    // and logs an error. kit:detach on 0.17.8 writes the app's list here.
     'features' => null,
 
     // The ISO 4217 currency for kit money inputs and amounts (InputNumber kind="money", Amount) that don't pass one, such as 'CAD'. Null: no symbol, never a guess.
@@ -242,7 +243,7 @@ return [
 
     // How a person gets a workspace: `invite_only` (default) means only an invitation does, so a person with none sees the no-workspace page without a create action.
     // `adopt`: the host owns its workspaces table, so the kit's migration never creates one, on a fresh database too (it only adds the kit's missing columns).
-    // Null reads it from the workspaces lineage's installed record, which kit:add writes when it plans the adoption.
+    // Null adopts only a workspaces table the database already has.
     // move_ability: what MoveToWorkspace requires in BOTH the source and the target workspace (an Access ability).
     'workspaces' => ['provisioning' => env('KIT_WORKSPACES_PROVISIONING', 'invite_only'), 'adopt' => env('KIT_WORKSPACES_ADOPT'), 'move_ability' => 'members.manage'],
 
@@ -259,7 +260,7 @@ return [
         'account_user_row' => env('KIT_ACCOUNT_USER_ROW', 'delete'),
     ],
 
-    // `adopt`: the host owns spatie/laravel-permission's tables, so the kit's permission migration never creates them. Null reads the installed record, as above.
+    // `adopt`: the host owns spatie/laravel-permission's tables, so the kit's permission migration never creates them. Null adopts only tables the database already has.
     'access' => ['adopt' => env('KIT_ACCESS_ADOPT')],
 
     // The hands-free deploy: the role and permission syncs run when migrations end. They skip under unit tests unless a test turns this on.
