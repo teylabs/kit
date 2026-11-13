@@ -7,10 +7,10 @@ import { pathToFileURL } from 'node:url';
 
 // Kit Deliver, headless history: deliveryEvents() (deliveryEvents.ts, type-only imports, plain TypeScript) runs here; DeliverPanel's card surface, `history` prop and exposed resend()
 // are checked by source and typechecked with the kit's clients.
-const kit = new URL('../../resources/features/core/components/Kit/', import.meta.url);
+const kit = new URL('../../resources/js/components/Kit/', import.meta.url);
 const read = path => readFileSync(new URL(path, kit), 'utf8');
 const dir = mkdtempSync(join(tmpdir(), 'kit-deliver-'));
-writeFileSync(join(dir, 'deliveryEvents.ts'), read('Deliver/deliveryEvents.ts.stub'));
+writeFileSync(join(dir, 'deliveryEvents.ts'), read('Deliver/deliveryEvents.ts'));
 const { deliveryEvents } = await import(pathToFileURL(join(dir, 'deliveryEvents.ts')).href);
 
 const recipient = (address, status = 'delivered') => ({ role: 'to', address, name: null, status });
@@ -51,7 +51,7 @@ test('the event carries the entry and its actions, so the app can hand a Resend 
 });
 
 test('DeliverPanel: the form sits on a kit Card, the history is optional, and resend() is exposed', () => {
-    const panel = read('Deliver/DeliverPanel.vue.stub');
+    const panel = read('Deliver/DeliverPanel.vue');
     assert.match(panel, /<Card data-deliver-card>\s*<CardBody>\s*<form\s[^>]*data-deliver-form/);
     assert.match(panel, /history\?: boolean/);
     assert.match(panel, /\{ history: true \}/);

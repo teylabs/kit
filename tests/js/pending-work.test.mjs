@@ -6,13 +6,13 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 // The pending-work registry (Kit/Form/pendingWork.ts) the leave-page guard reads, over a stand-in for vue: ref is a box, computed a getter box, readonly the identity.
-const kit = new URL('../../resources/features/core/components/Kit/', import.meta.url);
+const kit = new URL('../../resources/js/components/Kit/', import.meta.url);
 const dir = mkdtempSync(join(tmpdir(), 'kit-pending-work-'));
 const vue = join(dir, 'node_modules', 'vue');
 mkdirSync(vue, { recursive: true });
 writeFileSync(join(vue, 'package.json'), JSON.stringify({ name: 'vue', type: 'module', main: 'index.js' }));
 writeFileSync(join(vue, 'index.js'), 'export const ref = (value) => ({ value });\nexport const computed = (get) => ({ get value() { return get(); } });\nexport const readonly = (value) => value;\n');
-copyFileSync(new URL('Form/pendingWork.ts.stub', kit), join(dir, 'pendingWork.ts'));
+copyFileSync(new URL('Form/pendingWork.ts', kit), join(dir, 'pendingWork.ts'));
 const { createPendingWork, usePendingWork } = await import(pathToFileURL(join(dir, 'pendingWork.ts')).href);
 
 test('begin() counts a task until its end() is called; end() twice ends it once', () => {

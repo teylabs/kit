@@ -7,8 +7,8 @@ import { fileURLToPath } from 'node:url';
 // Kit stubs style with utility classes only: a `style=` or `:style` may set nothing but `--*` custom properties, which a class then reads
 // (`w-(--kit-form-progress)`). A host's Tailwind-only conventions then hold for every kit file. A caller's own `style` reaches a kit component only through
 // `customProperties(...)` (inputSelect.ts), which keeps its `--*` properties and drops the rest. There are no exemptions.
-const root = fileURLToPath(new URL('../../resources/features', import.meta.url));
-const stubs = readdirSync(root, { recursive: true }).filter((path) => path.endsWith('.vue.stub'));
+const root = fileURLToPath(new URL('../../resources', import.meta.url));
+const stubs = readdirSync(root, { recursive: true }).filter((path) => path.endsWith('.vue.stub') || path.endsWith('.vue'));
 
 export function styleViolations(source) {
     const template = source.replace(/<script[\s\S]*?<\/script>/g, '').replace(/<style[\s\S]*?<\/style>/g, '');

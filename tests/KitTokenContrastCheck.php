@@ -83,7 +83,7 @@ $grounds = [...$themes, 'tinted sample' => $tintedLight, 'tinted sample dark' =>
 check(! str_contains($css, '--kit-ground'), 'kit.css declares no ground: the default is white, where no ground card is drawn');
 check(($tintedLight['kit-ground'] ?? null) === 'tinted', 'the sample theme declares --kit-ground: tinted');
 check($tintedLight['background'] === '#f3f5e7', 'the sample tinted ground is #f3f5e7');
-$surface = file_get_contents(__DIR__.'/../resources/features/core/components/Kit/Surface/surface.ts.stub');
+$surface = file_get_contents(__DIR__.'/../resources/js/components/Kit/Surface/surface.ts');
 check(preg_match("/export const groundCard =\s*'bg-card text-card-foreground rounded-xl border';/", $surface) === 1, 'the ground card is bg-card text-card-foreground rounded-xl border: a --border edge, as a dashboard widget');
 foreach ($grounds as $theme => $tokens) {
     $ground = $tokens['shell-ground'] ?? $tokens['background'];

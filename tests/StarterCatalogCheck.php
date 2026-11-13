@@ -21,7 +21,7 @@ $loader->addPsr4('Tey\\Kit\\', dirname(__DIR__).'/src', true);
 
 /** Kept in step with Catalog::FEATURES; a changed manifest or stub must be repinned in both places on purpose. */
 const PINS = [
-    'core' => 'sha256:c05cf9ee5fe1a690462001ab556fa3507faa6f1215d60a53a8ee2c68e7ee3019',
+    'core' => 'sha256:c89c790de3034096b2e5e82e0f593e33a0b63a487222ec14b7b255b03342fdfd',
     'workspaces' => 'sha256:bbf33a40f7a70cd24b99d270cbca71f088265243e03d679ba35b588eb50a99f4',
     'access' => 'sha256:98af2e26dd12f50c7e65dcf10e9692afdbc611248571e12d379e0cc7405a2de6',
     'settings' => 'sha256:3f397272979367216f01cd7afb823f022af01b67b24e11432128f0008542d5be',
@@ -131,8 +131,14 @@ try {
 
     // Stubs.
     $snapshot = $all->snapshot()['files'];
-    $flat = array_map(fn ($source) => is_string($source) ? kitFlat($source) : $source, $snapshot);
     starterCheck(count($snapshot) === count($files), 'the whole catalog generates '.count($files).' files');
+    starterCheck(array_filter(array_keys($snapshot), fn (string $path): bool => str_starts_with($path, 'resources/js/components/Kit/')) === [], 'no shared component is generated: they load from the package');
+    // The shared components, at the path an app's `@/components/Kit` alias resolves to, are checked with the generated files.
+    $components = dirname(__DIR__).'/resources/js/components/Kit';
+    foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($components, FilesystemIterator::SKIP_DOTS)) as $component) {
+        $snapshot['resources/js/components/Kit/'.substr($component->getPathname(), strlen($components) + 1)] = (string) file_get_contents($component->getPathname());
+    }
+    $flat = array_map(fn ($source) => is_string($source) ? kitFlat($source) : $source, $snapshot);
     $temp = sys_get_temp_dir().'/kit-starter-catalog-'.bin2hex(random_bytes(6));
     foreach ($snapshot as $path => $bytes) {
         @mkdir(dirname($temp.'/'.$path), 0700, true);

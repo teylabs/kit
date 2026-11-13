@@ -91,7 +91,7 @@ try {
     // Pages use only the theme's variables: no font-family but font-sans, font-serif, font-mono and font-display, and no inline families.
     $tokens = [];
     foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator(dirname(__DIR__).'/resources', FilesystemIterator::SKIP_DOTS)) as $file) {
-        if (preg_match('/\.(vue\.stub|blade\.php)$/', $file->getFilename())) {
+        if (preg_match('/\.(vue|vue\.stub|blade\.php)$/', $file->getFilename())) {
             $source = file_get_contents($file->getPathname());
             check(! preg_match('/font-family|fontFamily|font-\[/', $source), 'no inline or arbitrary font family in '.substr($file->getPathname(), strlen(dirname(__DIR__)) + 1));
             preg_match_all('/(?<![\w-])font-([a-z]+)(?![\w-])/', $source, $matches);

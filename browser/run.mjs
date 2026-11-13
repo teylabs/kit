@@ -56,7 +56,10 @@ import { build, createServer, preview } from 'vite';
 const here = import.meta.dirname;
 const kit = path.join(here, '.kit');
 rmSync(kit, { recursive: true, force: true });
-cpSync(path.join(here, '../resources/features/core/components/Kit'), path.join(kit, 'Kit'), { recursive: true });
+// The shared components load from the package, as in an app: .kit/vendor/tey/kit stands in for the app's vendor/tey/kit, and vite.config.js aliases
+// `@/components/Kit` to its resources/js/components/Kit (docs/kit-components.md).
+const kitComponents = path.join(kit, 'vendor/tey/kit/resources/js/components/Kit');
+cpSync(path.join(here, '../resources/js/components/Kit'), kitComponents, { recursive: true });
 cpSync(path.join(here, '../resources/features/core/css/kit.css.stub'), path.join(kit, 'kit.css'));
 // session-ui's guest pages (?auth=), which import the kit barrel as `@kit/ui` and Inertia's <Form> (the stand-in in src/inertia.js).
 cpSync(path.join(here, '../resources/features/session-ui/pages'), path.join(kit, 'Pages'), { recursive: true });
@@ -5952,9 +5955,9 @@ test('the lockup on the page: a padded or cropped mark is at least 80% of the wo
 // kitImports (docs/kit-imports.md), the dev-server plugin, over the real barrel: the dashboard grid loads only the kit files it uses, never index.ts, and still
 // renders (without the plugin the whole barrel loads, 216 kit files, and stops at a shadcn piece the stand-ins lack). Every kit page here keeps no `@kit/ui` import.
 test('kitImports: in dev the dashboard grid requests only the kit files it uses, never the barrel, and every kit page imports no name through it', async () => {
-    const { kitImports } = await import(path.join(kit, 'Kit/kitImports.js'));
+    const { kitImports } = await import(path.join(kitComponents, 'kitImports.js'));
     const base = (await import(path.join(here, 'vite.auth.config.js'))).default;
-    const barrel = path.join(kit, 'Kit/index.ts');
+    const barrel = path.join(kitComponents, 'index.ts');
     const alias = [{ find: /^@kit\/ui$/, replacement: barrel }, ...base.resolve.alias.filter((entry) => String(entry.find) !== String(/^@kit\/ui$/))];
     const dev = await createServer({
         ...base, configFile: false, root: here, logLevel: 'error', cacheDir: path.join(here, 'node_modules/.vite-kit-imports'),
@@ -5972,9 +5975,9 @@ test('kitImports: in dev the dashboard grid requests only the kit files it uses,
         await devPage.getByText('Ben Sample').waitFor({ timeout: 30000 });
         await devPage.waitForLoadState('networkidle');
         await devPage.close();
-        const kitFiles = requested.filter((pathname) => pathname.startsWith('/.kit/Kit/'));
+        const kitFiles = requested.filter((pathname) => pathname.startsWith('/.kit/vendor/tey/kit/resources/js/components/Kit/'));
         assert.deepEqual(errors, []);
-        assert.ok(!kitFiles.includes('/.kit/Kit/index.ts'), 'the barrel is never requested');
+        assert.ok(!kitFiles.includes('/.kit/vendor/tey/kit/resources/js/components/Kit/index.ts'), 'the barrel is never requested');
         assert.ok(kitFiles.length > 0 && kitFiles.length < 100, `the grid requests ${kitFiles.length} kit files, not the barrel's ~216`);
         const pages = readdirSync(path.join(kit, 'Pages'), { recursive: true }).filter((file) => file.endsWith('.vue'));
         let rewritten = 0;
@@ -5982,7 +5985,7 @@ test('kitImports: in dev the dashboard grid requests only the kit files it uses,
             const source = readFileSync(path.join(kit, 'Pages', file), 'utf8');
             if (!/from ['"]@kit\/ui['"]/.test(source)) continue;
             const { code } = await dev.transformRequest(`/.kit/Pages/${file}`);
-            assert.ok(!code.includes('/.kit/Kit/index.ts'), `${file} still imports through the barrel`);
+            assert.ok(!code.includes('/.kit/vendor/tey/kit/resources/js/components/Kit/index.ts'), `${file} still imports through the barrel`);
             rewritten++;
         }
         assert.ok(rewritten >= 10, `${rewritten} kit pages checked`);

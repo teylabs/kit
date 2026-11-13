@@ -7,10 +7,10 @@ import { pathToFileURL } from 'node:url';
 
 // Typed confirmation: the match that gates Confirm and the `confirmation` a visit sends run here without Vue; Dialog, RowActions, BulkBar and ActionBar are
 // checked by source (no browser runner). The server re-check is tests/TypedConfirmationCheck.php.
-const kit = new URL('../../resources/features/core/components/Kit/', import.meta.url);
+const kit = new URL('../../resources/js/components/Kit/', import.meta.url);
 const read = path => readFileSync(new URL(path, kit), 'utf8');
 const dir = mkdtempSync(join(tmpdir(), 'kit-typed-confirm-'));
-writeFileSync(join(dir, 'confirmText.ts'), read('Overlay/confirmText.ts.stub'));
+writeFileSync(join(dir, 'confirmText.ts'), read('Overlay/confirmText.ts'));
 const { typedMatches, confirmationData } = await import(pathToFileURL(join(dir, 'confirmText.ts')).href);
 
 test('Confirm is gated on the exact text, case-sensitive by default', () => {

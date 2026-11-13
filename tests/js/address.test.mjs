@@ -7,9 +7,9 @@ import { pathToFileURL } from 'node:url';
 
 // AddressFieldset, RegionSelect and AddressText: the region table, postal rules, labels, messages and display lines, from the stub (types stripped by node).
 const dir = mkdtempSync(join(tmpdir(), 'kit-address-'));
-copyFileSync(new URL('../../resources/features/core/components/Kit/Form/address.ts.stub', import.meta.url), join(dir, 'address.ts'));
+copyFileSync(new URL('../../resources/js/components/Kit/Form/address.ts', import.meta.url), join(dir, 'address.ts'));
 const { addressAutocomplete, addressLabels, addressLines, addressMessages, countryName, normalizePostal, postalLooksValid, regionName, regionOptions, regions } = await import(pathToFileURL(join(dir, 'address.ts')).href);
-const source = name => readFileSync(new URL(`../../resources/features/core/components/Kit/Form/${name}.vue.stub`, import.meta.url), 'utf8');
+const source = name => readFileSync(new URL(`../../resources/js/components/Kit/Form/${name}.vue`, import.meta.url), 'utf8');
 
 test('the region table: 13 Canadian provinces and territories and the 50 states plus DC, unique codes, French names for a French locale', () => {
     assert.equal(regions.CA.length, 13);

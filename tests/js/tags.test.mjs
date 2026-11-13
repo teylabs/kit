@@ -7,9 +7,9 @@ import { pathToFileURL } from 'node:url';
 
 // InputTags: splitting, tidying, duplicates in the locale, the limits and their messages, from the stub (types stripped by node), and the component's wiring.
 const dir = mkdtempSync(join(tmpdir(), 'kit-tags-'));
-copyFileSync(new URL('../../resources/features/core/components/Kit/Form/tags.ts.stub', import.meta.url), join(dir, 'tags.ts'));
+copyFileSync(new URL('../../resources/js/components/Kit/Form/tags.ts', import.meta.url), join(dir, 'tags.ts'));
 const { addTags, rejectionMessage, splitTags, tagKey, tagsMessages, tidyTag } = await import(pathToFileURL(join(dir, 'tags.ts')).href);
-const component = readFileSync(new URL('../../resources/features/core/components/Kit/Form/InputTags.vue.stub', import.meta.url), 'utf8');
+const component = readFileSync(new URL('../../resources/js/components/Kit/Form/InputTags.vue', import.meta.url), 'utf8');
 
 test('pasted or typed text splits on the separators, line breaks and tabs; pieces are tidied and empty ones drop out', () => {
     assert.deepEqual(splitTags('red, green;  blue  ,,'), ['red', 'green', 'blue']);

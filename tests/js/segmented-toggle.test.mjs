@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { flat, members } from './shape.mjs';
 
 // SegmentedToggle (a neutral view switch) and PaneTabs, which takes its look. Checked by source and by kit.css's tokens; the browser job (browser/run.mjs,
 // ?segmented) renders it, drives the keys and runs axe.
-const kit = new URL('../../resources/features/core/components/Kit/', import.meta.url);
+const kit = new URL('../../resources/js/components/Kit/', import.meta.url);
 const read = path => readFileSync(new URL(path, kit), 'utf8');
-const css = readFileSync(new URL('../../css/kit.css.stub', kit), 'utf8');
+const css = readFileSync(new URL('../../../features/core/css/kit.css.stub', kit), 'utf8');
 
 function block(selector) {
     const start = css.indexOf(`${selector} {`);
@@ -39,12 +39,11 @@ test('the selected border keeps 3:1 against the track and the segment, light and
 });
 
 test('SegmentedToggle is exported, typed in the contract and delivered by core', () => {
-    assert.ok(read('index.ts.stub').includes("export { default as SegmentedToggle } from './Form/SegmentedToggle.vue';"));
-    assert.ok(read('index.ts.stub').includes("export type { SegmentedToggleOption } from './Form/SegmentedToggle.vue';"));
-    const props = members(read('contract.ts.stub'), 'SegmentedToggleProps');
+    assert.ok(read('index.ts').includes("export { default as SegmentedToggle } from './Form/SegmentedToggle.vue';"));
+    assert.ok(read('index.ts').includes("export type { SegmentedToggleOption } from './Form/SegmentedToggle.vue';"));
+    const props = members(read('contract.ts'), 'SegmentedToggleProps');
     assert.equal(props.get('options'), "options: {value: string; label: string; icon?: import('vue').Component; disabled?: boolean}[]");
     assert.equal(props.get('label'), 'label: string');
     assert.equal(props.get('size'), "size?: 'default' | 'sm'");
-    const feature = readFileSync(new URL('../../feature.json', kit), 'utf8');
-    assert.ok(feature.includes('"resources/js/components/Kit/Form/SegmentedToggle.vue"'));
+    assert.ok(existsSync(new URL('Form/SegmentedToggle.vue', kit)));
 });

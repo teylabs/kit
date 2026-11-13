@@ -53,7 +53,7 @@ try {
     typeScriptCheck(! str_contains($types, 'undefined'), 'no Explanation prop is emitted as undefined');
 
     // Every name mapped is a type the kit's generated file exports, and every type it exports is mapped.
-    $stub = file_get_contents(__DIR__.'/../resources/features/core/components/Kit/Explanation/explanation.generated.ts.stub');
+    $stub = file_get_contents(__DIR__.'/../resources/js/components/Kit/Explanation/explanation.generated.ts');
     preg_match_all('/^export type (\w+) =/m', $stub, $exported);
     $mapped = ExplanationTypesExtension::names();
     $exportedNames = $exported[1];

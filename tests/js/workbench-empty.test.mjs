@@ -8,10 +8,10 @@ import { pathToFileURL } from 'node:url';
 // The Workbench stage's empty state: with no items yet the stage renders the host's `#empty` slot in place of `#stage`, ONLY when the host gives one; without it `#stage` renders as before (a stage-only
 // Workbench, such as a presenter console with no navigator, keeps its stage). The empty test
 // runs here from workbench.ts; the wiring through useWorkbench and Workbench is checked by source (the kit has no browser test runner).
-const kit = new URL('../../resources/features/core/components/Kit/', import.meta.url);
+const kit = new URL('../../resources/js/components/Kit/', import.meta.url);
 const read = path => readFileSync(new URL(path, kit), 'utf8');
 const dir = mkdtempSync(join(tmpdir(), 'kit-wb-empty-'));
-writeFileSync(join(dir, 'workbench.ts'), read('Workbench/workbench.ts.stub'));
+writeFileSync(join(dir, 'workbench.ts'), read('Workbench/workbench.ts'));
 const wb = await import(pathToFileURL(join(dir, 'workbench.ts')).href);
 const item = { id: 'a', label: 'First' };
 

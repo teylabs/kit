@@ -61,8 +61,8 @@ test('the old --destructive as text would fail, so the test can tell the tokens 
 test('every destructive text colour in the kit stubs uses text-destructive-text, never raw text-destructive', () => {
     const raw = stubs(features).flatMap(file => [...readFileSync(file, 'utf8').matchAll(/(?:^|[\s"'`:])((?:[\w-]+:)*text-destructive)(?![\w-])/g)].map(match => `${path.relative(features, file)}: ${match[1]}`));
     assert.deepEqual(raw, []);
-    for (const file of ['core/components/Kit/Action/ActionMenuItems.vue.stub', 'core/components/Kit/Table/RowActions.vue.stub']) {
+    for (const file of ['../js/components/Kit/Action/ActionMenuItems.vue', '../js/components/Kit/Table/RowActions.vue']) {
         assert.match(readFileSync(path.join(features, file), 'utf8'), /'text-destructive-text focus:text-destructive-text'/, file);
     }
-    assert.match(flat(readFileSync(path.join(features, 'core/components/Kit/Form/Repeater.vue.stub'), 'utf8')), /variant="destructive" class="text-destructive-text focus:text-destructive-text"/, 'the host DropdownMenuItem in Repeater is recoloured too');
+    assert.match(flat(readFileSync(path.join(features, '../js/components/Kit/Form/Repeater.vue'), 'utf8')), /variant="destructive" class="text-destructive-text focus:text-destructive-text"/, 'the host DropdownMenuItem in Repeater is recoloured too');
 });

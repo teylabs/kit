@@ -6,8 +6,8 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 // Every TypeScript stub must parse: the kit has no typecheck of its own, so a broken stub otherwise surfaces only in a host's vue-tsc.
-const root = fileURLToPath(new URL('../../resources/features', import.meta.url));
-const stubs = readdirSync(root, { recursive: true }).filter((path) => path.endsWith('.ts.stub'));
+const root = fileURLToPath(new URL('../../resources', import.meta.url));
+const stubs = readdirSync(root, { recursive: true }).filter((path) => path.endsWith('.ts.stub') || path.endsWith('.ts'));
 
 test('the kit ships TypeScript stubs', () => assert.ok(stubs.length > 10));
 

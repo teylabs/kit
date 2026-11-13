@@ -7,10 +7,10 @@ import { pathToFileURL } from 'node:url';
 
 // ActionBar's fit, the stage-anchored toolbar's position and client toolbar actions run here without Vue; the components are checked by source (the kit has no
 // browser test runner, so nothing here renders, lays out or observes a resize).
-const kit = new URL('../../resources/features/core/components/Kit/', import.meta.url);
+const kit = new URL('../../resources/js/components/Kit/', import.meta.url);
 const read = path => readFileSync(new URL(path, kit), 'utf8');
 const dir = mkdtempSync(join(tmpdir(), 'kit-editor-gaps-'));
-for (const [name, path] of [['actionFit', 'Action/actionFit.ts.stub'], ['toolbarAnchor', 'Layout/toolbarAnchor.ts.stub'], ['toolbarAction', 'Layout/toolbarAction.ts.stub']]) {
+for (const [name, path] of [['actionFit', 'Action/actionFit.ts'], ['toolbarAnchor', 'Layout/toolbarAnchor.ts'], ['toolbarAction', 'Layout/toolbarAction.ts']]) {
     writeFileSync(join(dir, `${name}.ts`), read(path));
 }
 const { fitActions } = await import(pathToFileURL(join(dir, 'actionFit.ts')).href);

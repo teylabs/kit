@@ -4,8 +4,8 @@ import { readFileSync } from 'node:fs';
 
 // Alert alignment, checked by source (no browser runner): the icon and the dismiss button each sit in a box one text line tall on an items-start row, so
 // they line up with the first line of text in every variant, at any length and padding. The title, body and actions share the text column.
-const alert = readFileSync(new URL('../../resources/features/core/components/Kit/Feedback/Alert.vue.stub', import.meta.url), 'utf8');
-const variants = readFileSync(new URL('../../resources/features/core/components/Kit/Feedback/alertVariants.ts.stub', import.meta.url), 'utf8');
+const alert = readFileSync(new URL('../../resources/js/components/Kit/Feedback/Alert.vue', import.meta.url), 'utf8');
+const variants = readFileSync(new URL('../../resources/js/components/Kit/Feedback/alertVariants.ts', import.meta.url), 'utf8');
 
 test('the title, body and actions share one text column beside the icon', () => {
     const column = alert.match(/<div class="min-w-0 flex-1 space-y-1">([\s\S]*?)\n {8}<\/div>/);

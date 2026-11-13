@@ -7,7 +7,7 @@ import { pathToFileURL } from 'node:url';
 
 // The stubs are TypeScript with a .stub suffix; node strips types from a plain .ts copy.
 const dir = mkdtempSync(join(tmpdir(), 'kit-menu-'));
-copyFileSync(new URL('../../resources/features/core/components/Kit/Menu/menuAlign.ts.stub', import.meta.url), join(dir, 'menuAlign.ts'));
+copyFileSync(new URL('../../resources/js/components/Kit/Menu/menuAlign.ts', import.meta.url), join(dir, 'menuAlign.ts'));
 const { alignThatFits } = await import(pathToFileURL(join(dir, 'menuAlign.ts')).href);
 
 // A 256px menu in a 390px viewport.

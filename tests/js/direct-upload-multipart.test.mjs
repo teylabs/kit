@@ -9,7 +9,7 @@ import { pathToFileURL } from 'node:url';
 // at once, one failed part is retried, a missing ETag fails closed, and the complete payload carries every part's ETag and checksum. The transport
 // is faked: no network.
 const dir = mkdtempSync(join(tmpdir(), 'kit-direct-multipart-'));
-copyFileSync(new URL('../../resources/features/core/components/Kit/Form/directUpload.ts.stub', import.meta.url), join(dir, 'directUpload.ts'));
+copyFileSync(new URL('../../resources/js/components/Kit/Form/directUpload.ts', import.meta.url), join(dir, 'directUpload.ts'));
 const { directUpload, partSlices, PART_CONCURRENCY, DirectUploadError } = await import(pathToFileURL(join(dir, 'directUpload.ts')).href);
 
 const routes = { request: '/uploads', confirm: '/uploads/confirm', complete: '/uploads/complete', abort: '/uploads/abort' };

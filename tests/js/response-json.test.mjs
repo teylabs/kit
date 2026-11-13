@@ -7,7 +7,7 @@ import { pathToFileURL } from 'node:url';
 
 // responseJson: Inertia v3's XHR client resolves `data` as the raw responseText string, so kit code parses bodies through this helper, never `response.data.x`.
 const dir = mkdtempSync(join(tmpdir(), 'kit-http-'));
-copyFileSync(new URL('../../resources/features/core/components/Kit/http.ts.stub', import.meta.url), join(dir, 'http.ts'));
+copyFileSync(new URL('../../resources/js/components/Kit/http.ts', import.meta.url), join(dir, 'http.ts'));
 const { responseJson, errorJson, ResponseJsonError } = await import(pathToFileURL(join(dir, 'http.ts')).href);
 
 test('a string JSON body with a JSON content type parses to the object', () => {

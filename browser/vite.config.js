@@ -5,7 +5,7 @@ import path from 'node:path';
 
 const here = (p) => path.resolve(import.meta.dirname, p);
 
-// The kit's stubs are copied (".stub" dropped) into .kit by run.mjs. Inertia and the shadcn pieces the tested components import are stand-ins (the menus are reka's own),
+// The kit's page stubs are copied (".stub" dropped) into .kit by run.mjs, and the shared components to .kit/vendor/tey/kit as an app's vendor has them. Inertia and the shadcn pieces the tested components import are stand-ins (the menus are reka's own),
 // except the real shadcn-vue Button (src/button), so a variant's real classes (primary is bg-primary) paint in the browser, and the real Checkbox (src/shadcn).
 export default defineConfig({
     plugins: [vue({ script: { globalTypeFiles: [here('../types/kit.d.ts')] } }), tailwind()],
@@ -20,7 +20,8 @@ export default defineConfig({
             { find: /^@\/components\/ui\/checkbox$/, replacement: here('src/shadcn/checkbox/index.ts') },
             { find: /^cn$/, replacement: here('src/shadcn/cn.ts') },
             { find: /^@\/components\/ui\/.*$/, replacement: here('src/ui.js') },
-            { find: /^@\/components\/Kit/, replacement: here('.kit/Kit') },
+            // The shared components from the package, the alias an app adds (docs/kit-components.md); run.mjs puts the package at .kit/vendor/tey/kit.
+            { find: /^@\/components\/Kit/, replacement: here('.kit/vendor/tey/kit/resources/js/components/Kit') },
             // session-ui's guest pages (auth.html, vite.auth.config.js) and the part of the kit barrel they import.
             { find: /^@kit\/ui$/, replacement: here('src/kit-ui.ts') },
             // The Workspace shell's partials barrel (shell.html), as an app aliases it.

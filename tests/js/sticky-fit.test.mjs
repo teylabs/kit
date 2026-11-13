@@ -5,9 +5,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-const layout = new URL('../../resources/features/core/components/Kit/Layout/', import.meta.url);
+const layout = new URL('../../resources/js/components/Kit/Layout/', import.meta.url);
 const dir = mkdtempSync(join(tmpdir(), 'kit-sticky-'));
-copyFileSync(new URL('stickyFit.ts.stub', layout), join(dir, 'stickyFit.ts'));
+copyFileSync(new URL('stickyFit.ts', layout), join(dir, 'stickyFit.ts'));
 const { fitsViewport } = await import(pathToFileURL(join(dir, 'stickyFit.ts')).href);
 
 test('sticky only while the content fits below the header (13rem reserved at 16px)', () => {

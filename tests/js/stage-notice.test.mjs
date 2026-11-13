@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 // StageNotice's placement and tone run here without Vue; the component is checked by source (the kit has no browser test runner).
-const kit = new URL('../../resources/features/core/components/Kit/', import.meta.url);
+const kit = new URL('../../resources/js/components/Kit/', import.meta.url);
 const dir = mkdtempSync(join(tmpdir(), 'kit-stage-notice-'));
 // A stand-in for class-variance-authority that keeps the compound class for a variant and tier, as the real cva does.
 const cva = join(dir, 'node_modules', 'class-variance-authority');
@@ -14,10 +14,10 @@ mkdirSync(cva, { recursive: true });
 writeFileSync(join(cva, 'package.json'), JSON.stringify({ name: 'class-variance-authority', type: 'module', main: 'index.js' }));
 writeFileSync(join(cva, 'index.js'), 'export const cva = (base, { compoundVariants, defaultVariants }) => (props = {}) => { const p = { ...defaultVariants, ...props }; return [base, ...compoundVariants.filter(c => c.variant === p.variant && c.tier === p.tier).map(c => c.class)].join(" "); };\n');
 for (const name of ['alertVariants', 'stageNotice']) {
-    writeFileSync(join(dir, `${name}.ts`), readFileSync(new URL(`Feedback/${name}.ts.stub`, kit), 'utf8').replace("from './alertVariants';", "from './alertVariants.ts';"));
+    writeFileSync(join(dir, `${name}.ts`), readFileSync(new URL(`Feedback/${name}.ts`, kit), 'utf8').replace("from './alertVariants';", "from './alertVariants.ts';"));
 }
 const notice = await import(pathToFileURL(join(dir, 'stageNotice.ts')).href);
-const source = readFileSync(new URL('Feedback/StageNotice.vue.stub', kit), 'utf8');
+const source = readFileSync(new URL('Feedback/StageNotice.vue', kit), 'utf8');
 
 test('placement: top, bottom and the four corners, inset in container units; an unknown one is top', () => {
     assert.deepEqual(notice.STAGE_NOTICE_PLACEMENTS, ['top', 'bottom', 'top-left', 'top-right', 'bottom-left', 'bottom-right']);

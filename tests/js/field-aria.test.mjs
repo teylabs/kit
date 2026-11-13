@@ -8,7 +8,7 @@ import { pathToFileURL } from 'node:url';
 
 // Field's aria contract: a control is described only by nodes that exist and is aria-invalid while the field has an error. useFieldAria runs under Vue's
 // server renderer with real provide/inject (Vue from typecheck/, installed by the vue-tsc job, which also runs this file); each control's binding is checked by source.
-const form = new URL('../../resources/features/core/components/Kit/Form/', import.meta.url);
+const form = new URL('../../resources/js/components/Kit/Form/', import.meta.url);
 const read = file => readFileSync(new URL(file, form), 'utf8');
 const vueDir = new URL('../../typecheck/node_modules/vue/', import.meta.url);
 const hasVue = existsSync(vueDir);
@@ -19,7 +19,7 @@ test('useFieldAria: no error, no description: no attributes; with them, only the
     const { renderToString } = require('vue/server-renderer');
     const dir = mkdtempSync(join(tmpdir(), 'kit-field-aria-'));
     // The stub imports 'vue'; point it at typecheck's copy.
-    writeFileSync(join(dir, 'fieldAria.ts'), read('fieldAria.ts.stub').replace("from 'vue'", `from '${pathToFileURL(require.resolve('vue')).href.replace(/\.js$/, '.js')}'`));
+    writeFileSync(join(dir, 'fieldAria.ts'), read('fieldAria.ts').replace("from 'vue'", `from '${pathToFileURL(require.resolve('vue')).href.replace(/\.js$/, '.js')}'`));
     const { FIELD_ARIA, useFieldAria } = await import(pathToFileURL(join(dir, 'fieldAria.ts')).href);
     const render = async (field, attrs = {}, invalid) => {
         const Control = { setup: () => { const aria = useFieldAria(attrs, invalid); return () => vue.h('input', { ...aria.value }); } };

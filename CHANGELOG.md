@@ -1,5 +1,56 @@
 # Changelog
 
+## Unreleased
+
+core re-pinned: `sha256:c05cf9ee…3019` → `sha256:c89c790d…fdfd` (the 236 `components/Kit` stubs leave the feature; `css/kit.css` and the migrations are unchanged). In `history.json` only the `current` block changed.
+
+### Added
+
+- **`php artisan kit:scaffold <feature>`: a feature's pages, written once (#959).** It writes the files the feature's `feature.json` lists (pages, page partials, widgets, types and `resources/css/kit.css`), at the paths kit:add used, and from then on the app owns them. Migrations and the shared components are not written.
+  Features affected: none (a new command)
+  - **Never overwrites.** An existing file is skipped and named (`skipped <path> (exists; --force=<path> overwrites it)`). `--force=<path>` overwrites that path, or the files under that folder, and nothing else; a `--force` that names no file this run writes refuses before writing anything. A linked folder on the way to any file it would write (`resources/js/widgets` linked elsewhere, say) refuses before writing anything, so no write leaves the app. Only the folders from the app root down are checked: the app root itself, or a folder above it, may be a link, so Forge and Envoyer-style `current` deploys keep working.
+  - **`--only=<path>`** writes only the named files or folders (repeat it, or separate with commas). One that names no file of the feature refuses.
+  - **`--diff`** writes nothing: for each file, a unified diff from the app's file to the kit's current version, `unchanged <path>`, or a diff from `/dev/null` for a file the app doesn't have. It takes `--only`.
+  - **No records.** Plain filesystem writes: nothing under `.mod-maintenance`, and it runs in an app that has none. It prints each file it wrote or skipped and the totals.
+  - **Tests.** `test:scaffold` (`tests/KitScaffoldCheck.php`) on a synthetic app: the first run writes exactly the listed files with the kit's bytes, a second overwrites nothing and lists each skip, `--diff` shows the app's edit and writes nothing, `--force` overwrites only the named path, `--only` takes files and folders, core writes only its CSS, an access-only feature has nothing to scaffold, an unknown or path-like feature refuses, a folder linked outside the app refuses even under `--force` and leaves both sides untouched, an app booted through a `current` link scaffolds into the release it points to, and no `.mod-maintenance` appears.
+
+### Changed
+
+- **The shared components load from the package.** `resources/js/components/Kit` (the `@kit/ui` barrel, `contract.ts`, `kitImports.js` and every component, 236 files) moves from core's stubs to `vendor/tey/kit/resources/js/components/Kit`, and the app resolves it through a Vite alias and tsconfig paths ([docs/kit-components.md](docs/kit-components.md)). `composer update tey/kit` updates them; nothing is copied into the app. Pages keep their imports (`@kit/ui` and `@/components/Kit/...`), so no page changes.
+  Features affected: core
+  - **The kit's own checks build through the alias.** The browser suite puts the package at `.kit/vendor/tey/kit` and aliases `@/components/Kit` to it, and the vue-tsc job resolves `@/components/Kit/*` and `@kit/ui` through the documented tsconfig paths into a `vendor/tey/kit` copy. `test:scaffold` checks that every folder the snippets name exists in the package and that each of the 809 kit imports in the scaffolded pages and the components resolves to a file (it fails on a page importing a component that isn't there).
+  - **Measured on the starter** (this branch as `vendor/tey/kit`, its copied folder deleted, the aliases and `@source` added): `vite build` output is byte-identical to the build with the copied folder, `vue-tsc --noEmit` passes, and in dev `kitImports()` rewrites the dashboard's `@kit/ui` import into files under `/vendor/tey/kit/`. Without the `@source` line `app.css` drops from 130 KB to 65 KB.
+  - **Not covered:** a consumer app other than the starter, and a production deploy.
+
+### Upgrading
+
+Once per app, after `composer update tey/kit`:
+
+1. **Add the aliases.** In `vite.config.ts`:
+
+   ```ts
+   import { kitImports } from './vendor/tey/kit/resources/js/components/Kit/kitImports.js';
+
+   const kitComponents = decodeURIComponent(new URL('./vendor/tey/kit/resources/js/components/Kit', import.meta.url).pathname);
+   // resolve.alias
+   '@/components/Kit': kitComponents,
+   '@kit/ui': `${kitComponents}/index.ts`,
+   ```
+
+   A `server.warmup` entry for `./resources/js/components/Kit/index.ts` becomes `./vendor/tey/kit/resources/js/components/Kit/index.ts`. In `tsconfig.json`, `compilerOptions.paths`:
+
+   ```json
+   "@/components/Kit": ["./vendor/tey/kit/resources/js/components/Kit/index.ts"],
+   "@/components/Kit/*": ["./vendor/tey/kit/resources/js/components/Kit/*"],
+   "@kit/ui": ["./vendor/tey/kit/resources/js/components/Kit/index.ts"]
+   ```
+
+2. **Let Tailwind scan the package.** In `resources/css/app.css`, beside your other `@source` lines: `@source '../../vendor/tey/kit/resources/js/components/Kit';`. Tailwind skips the git-ignored `vendor/` otherwise, and every class only a kit component uses goes missing.
+3. **Delete the copied folder:** `git rm -r resources/js/components/Kit`. An edit you made there is lost: compare first (`git diff` against the package's copy), and move a real change into your own component behind your own `@kit/ui` module (README, "Use your own components").
+4. **Build:** `npm run build`, `npx vue-tsc --noEmit`, then `npm run dev` and load a page.
+
+An app that installs `tey/kit` from a Composer path repository (a symlink) also sets `resolve.preserveSymlinks: true`, or Vite fails with `Failed to resolve import source "reka-ui"`.
+
 ## v0.17.8
 
 No lineage pin changed: `composer update` is enough.

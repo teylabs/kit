@@ -5,17 +5,17 @@ import { flat } from './shape.mjs';
 
 // ActionBar's and ButtonGroup's optional `itemClass`: the host's own classes on every menu row, after the row's own, with destructive and disabled kept.
 // Checked by source, comments stripped; the browser (?item-class) reads a row's rendered height and colour.
-const kit = new URL('../../resources/features/core/components/Kit/', import.meta.url);
+const kit = new URL('../../resources/js/components/Kit/', import.meta.url);
 const strip = s => s.replace(/<!--[\s\S]*?-->/g, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`])\/\/.*$/gm, '$1');
 const read = path => flat(strip(readFileSync(new URL(path, kit), 'utf8')));
-const bar = read('Action/ActionBar.vue.stub');
-const group = read('Action/ButtonGroup.vue.stub');
-const items = read('Action/ActionMenuItems.vue.stub');
+const bar = read('Action/ActionBar.vue');
+const group = read('Action/ButtonGroup.vue');
+const items = read('Action/ActionMenuItems.vue');
 
 test('itemClass is an optional string on ActionBar and ButtonGroup, in the components and the contract', () => {
     assert.match(bar, /itemClass\?: string[;}]/);
     assert.match(group, /itemClass\?: string[;}]/);
-    const contract = read('contract.ts.stub');
+    const contract = read('contract.ts');
     assert.match(contract, /interface ActionBarProps \{[^}]*itemClass\?: string\}/);
     assert.match(contract, /interface ButtonGroupProps \{[^}]*itemClass\?: string;[^}]*triggerClass\?: string\}/);
 });
@@ -32,15 +32,15 @@ test('every menu row adds it after its own classes; destructive and disabled sta
     assert.equal((items.match(/'text-destructive-text focus:text-destructive-text', action\.disabled && 'cursor-not-allowed opacity-50', rowClass\]/g) ?? []).length, 2);
     assert.match(group, /provideMenuItemClass\(\(\) => props\.itemClass\);/);
     // DropdownItem / DropdownLink: merged last onto the inner control (not the padded-twice row); DropdownItem's wrapper slot has no control, so its row takes it.
-    const item = read('Menu/DropdownItem.vue.stub');
+    const item = read('Menu/DropdownItem.vue');
     assert.match(item, /const rowControlClass = \(\) => cn\(controlClass, itemClass\(\)\);/);
     assert.equal((item.match(/:class="rowControlClass\(\)"/g) ?? []).length, 3, 'button, anchor and Inertia link');
     assert.match(item, /:class="\$slots\.wrapper \? itemClass\(\) : undefined"/);
-    const link = read('Menu/DropdownLink.vue.stub');
+    const link = read('Menu/DropdownLink.vue');
     assert.match(link, /const control = \(own: string\) => cn\(own, itemClass\(\)\);/);
     assert.equal((link.match(/:class="control\('[^']*px-4 py-2[^']*'\)"/g) ?? []).length, 3, 'button, anchor and Inertia link');
     assert.doesNotMatch(link, /<DropdownMenuItem[^>]*itemClass/);
-    const modal = read('Menu/DropdownModalLink.vue.stub');
+    const modal = read('Menu/DropdownModalLink.vue');
     assert.match(modal, /provideMenuItemClass\(\(\) => undefined\);/, 'DropdownModalLink keeps it off its DropdownItem row');
     assert.match(modal, /:class="linkClass\(\)"/, 'and merges it onto its ModalLink');
 });

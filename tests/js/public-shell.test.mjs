@@ -56,8 +56,8 @@ test('the PublicShell mounts the kit Toaster by default, so a public form\'s fla
     assert.match(flat(markup), /<Toaster v-if="toaster" \/>/);
     assert.equal(flat(markup).match(/<Toaster\b/g).length, 1, 'one Toaster');
     // The Toaster renders the page's flashed `toast` on mount and each later flash; a public contact form's redirect toast is an ordinary one.
-    const kit = new URL('../../resources/features/core/components/Kit/', import.meta.url);
-    const toaster = flat(code(readFileSync(new URL('Feedback/Toaster.vue.stub', kit), 'utf8')));
+    const kit = new URL('../../resources/js/components/Kit/', import.meta.url);
+    const toaster = flat(code(readFileSync(new URL('Feedback/Toaster.vue', kit), 'utf8')));
     assert.match(toaster, /show\(\(page as unknown as \{ ?flash\?: Record<string, unknown> ?\}\)\.flash\?\.toast\);/);
     assert.match(toaster, /router\.on\('flash', /);
     const { mkdtempSync, copyFileSync } = await import('node:fs');
@@ -65,7 +65,7 @@ test('the PublicShell mounts the kit Toaster by default, so a public form\'s fla
     const { tmpdir } = await import('node:os');
     const { pathToFileURL } = await import('node:url');
     const dir = mkdtempSync(join(tmpdir(), 'kit-public-toast-'));
-    copyFileSync(new URL('Feedback/toastPlacement.ts.stub', kit), join(dir, 'toastPlacement.ts'));
+    copyFileSync(new URL('Feedback/toastPlacement.ts', kit), join(dir, 'toastPlacement.ts'));
     const { flashedToast } = await import(pathToFileURL(join(dir, 'toastPlacement.ts')).href);
     const thanks = { id: 't1', type: 'success', message: "Thanks, we'll be in touch", style: 'toast', duration: 4000 };
     assert.deepEqual(flashedToast(thanks), thanks, 'a contact form\'s thank-you toast renders');

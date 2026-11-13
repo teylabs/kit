@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const dir = mkdtempSync(join(tmpdir(), 'kit-popover-'));
-copyFileSync(new URL('../../resources/features/core/components/Kit/Overlay/popover.ts.stub', import.meta.url), join(dir, 'popover.ts'));
+copyFileSync(new URL('../../resources/js/components/Kit/Overlay/popover.ts', import.meta.url), join(dir, 'popover.ts'));
 const p = await import(pathToFileURL(join(dir, 'popover.ts')).href);
 const lang = JSON.parse(execFileSync('php', ['-r', 'echo json_encode(require $argv[1]);', fileURLToPath(new URL('../../lang/en/ui.php', import.meta.url))]).toString());
 

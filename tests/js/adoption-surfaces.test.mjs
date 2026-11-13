@@ -12,7 +12,7 @@ const alias = `${inventory.package.alias}:`;
 
 // Runtime exports of the barrel; type-only exports are not surfaces.
 function barrelExports() {
-    const source = read('resources/features/core/components/Kit/index.ts.stub').replace(/\/\/.*$/gm, '');
+    const source = read('resources/js/components/Kit/index.ts').replace(/\/\/.*$/gm, '');
     const names = new Set();
     for (const [, body] of source.matchAll(/^export \{([^}]*)\} from/gm)) {
         for (const part of body.split(',').map(p => p.trim()).filter(Boolean)) {

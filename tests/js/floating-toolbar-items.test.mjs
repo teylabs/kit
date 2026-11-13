@@ -8,12 +8,12 @@ import { flat } from './shape.mjs';
 
 // FloatingToolbar's client items: the overflow fit, groups and the menu's handler run here without Vue (toolbarAction.ts is plain TypeScript); the markup, the
 // iconOnly accessibility and the icon set are checked by source, comments stripped (no browser runner).
-const kit = new URL('../../resources/features/core/components/Kit/', import.meta.url);
+const kit = new URL('../../resources/js/components/Kit/', import.meta.url);
 const read = path => readFileSync(new URL(path, kit), 'utf8');
 const flatRead = path => flat(read(path));
 const strip = s => s.replace(/<!--[\s\S]*?-->/g, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`])\/\/.*$/gm, '$1');
 const dir = mkdtempSync(join(tmpdir(), 'kit-toolbar-items-'));
-writeFileSync(join(dir, 'toolbarAction.ts'), read('Layout/toolbarAction.ts.stub'));
+writeFileSync(join(dir, 'toolbarAction.ts'), read('Layout/toolbarAction.ts'));
 const { fitToolbarItems, toolbarGroups, deferToolbarAction, TOOLBAR_FIT_HYSTERESIS } = await import(pathToFileURL(join(dir, 'toolbarAction.ts')).href);
 
 const item = (key, group = null, extra = {}) => ({ key, label: key, group, ...extra });
@@ -64,7 +64,7 @@ test('unmeasured shows everything; an overflowing toolbar needs slack before sho
 });
 
 test('the toolbar: measured full row, the fit, separators between groups, the "More actions" trigger, one row when it has items', () => {
-    const toolbar = flat(strip(read('Layout/FloatingToolbar.vue.stub')));
+    const toolbar = flat(strip(read('Layout/FloatingToolbar.vue')));
     assert.match(toolbar, /const fit = computed\(\(\) => fitToolbarItems\(props\.items, itemMeasure\.value \?\? \{ ?container: 0, widths: \[\] ?\}, wasOverflowing\.value\)\);/);
     assert.match(toolbar, /itemObserver = new ResizeObserver\(scheduleItems\);/);
     assert.match(toolbar, /:aria-hidden="fit\.overflowing \|\| undefined" :inert="fit\.overflowing \|\| undefined" data-toolbar-items-full/);
