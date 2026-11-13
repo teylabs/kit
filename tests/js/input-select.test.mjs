@@ -116,3 +116,15 @@ test('closed, the input points at nothing: no aria-controls or aria-activedescen
     assert.deepEqual(closedAria(true), {});
     assert.deepEqual(closedAria(false, { 'aria-controls': 'my-list' }), { 'aria-activedescendant': undefined }, 'a caller\'s own aria-controls still wins');
 });
+
+test('the first edit of a shown label is read from its beforeinput event: what it inserts replaces the label, a deletion empties it, anything else is refused', () => {
+    // The reported case: "f" typed with the caret before "Not a member (a public booking)" is the query "f", whatever the field's text would have become.
+    assert.equal(s.labelEdit('insertText', 'f'), 'f');
+    assert.equal(s.labelEdit('insertFromPaste', 'Nnamdi'), 'Nnamdi', 'a paste that repeats the label\'s first letter');
+    assert.equal(s.labelEdit('insertFromDrop', null, 'Ada'), 'Ada', 'a drop carries its text on the dataTransfer');
+    assert.equal(s.labelEdit('insertReplacementText', null, null), '');
+    assert.equal(s.labelEdit('deleteContentBackward', null), '', 'Backspace: an empty query, not the rest of the label');
+    assert.equal(s.labelEdit('deleteWordForward', null), '');
+    assert.equal(s.labelEdit('historyUndo', null), null);
+    assert.equal(s.labelEdit('formatBold', null), null);
+});
