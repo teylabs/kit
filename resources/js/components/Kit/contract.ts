@@ -1017,3 +1017,10 @@ export interface DateTimeProps {
     live?: boolean;
     relativeUntilDays?: number;
 }
+
+/** A long file name, path or URL cut in the middle to fit its width: a file keeps its extension, a path or URL its last segment. `kind`: file, path, url or auto (default); `minTail` keeps at least that many characters at the end. The whole value is the accessible name, the copied text and the title. */
+export interface MiddleTruncateProps {
+    value: string;
+    kind?: 'file' | 'path' | 'url' | 'auto';
+    minTail?: number;
+}

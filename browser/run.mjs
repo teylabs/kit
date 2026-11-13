@@ -8479,3 +8479,150 @@ async function dateTargets(scheme) {
 }
 test('date and time inputs (light): every segment passes axe target-size, is at least 24×24, keeps h-9 and fits at 390px', () => dateTargets('light'));
 test('date and time inputs (dark): every segment passes axe target-size, is at least 24×24, keeps h-9 and fits at 390px', () => dateTargets('dark'));
+
+// ── MiddleTruncate (?middle-truncate): cut in the middle to the box's width, refit on resize; the whole value is the name, the title and the copy ─────────
+// Each row is a [data-box] of 320px (w-80); a test sets its width and waits for the ResizeObserver's refit. `shown` is what paints: the parts, the drawn
+// ellipsis for each cut, and none of the zero-size cut text.
+const truncateRow = (row) => `[data-row="${row}"] [data-slot="middle-truncate"]`;
+async function middleTruncate(query, check) {
+    const context = await browser.newContext({ viewport: { width: 1024, height: 800 }, permissions: ['clipboard-read', 'clipboard-write'] });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?${query}`);
+        await tab.waitForSelector(`${truncateRow('file')}[data-truncated]`);
+        await check(tab);
+    } finally {
+        await context.close();
+    }
+}
+const truncateState = (tab, row) => tab.evaluate((selector) => {
+    const el = document.querySelector(selector);
+    const walk = (node) => [...node.childNodes].map((n) => (n.nodeType === Node.TEXT_NODE ? n.textContent : n.nodeType !== Node.ELEMENT_NODE || n.matches('[data-cut]') ? '' : n.matches('[data-ellipsis]') ? getComputedStyle(n, '::before').content.replace(/^"|"$/g, '') : walk(n))).join('');
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    return {
+        shown: walk(el),
+        truncated: el.hasAttribute('data-truncated'),
+        title: el.title,
+        text: el.textContent,
+        // Unrounded: scrollWidth rounds, and 0.2px over already shows the CSS end ellipsis.
+        overflows: range.getBoundingClientRect().width > el.getBoundingClientRect().width,
+        // How much of the box the painted text fills: a fit to the width, not a fixed count of characters.
+        fill: range.getBoundingClientRect().width / el.clientWidth,
+        cutWidths: [...el.querySelectorAll('[data-cut]')].map((cut) => cut.getBoundingClientRect().width),
+        direction: getComputedStyle(el).direction,
+    };
+}, truncateRow(row));
+// Sets a box's width and waits two frames: the ResizeObserver runs before the next paint and Vue re-renders in a microtask after it.
+const setBox = (tab, row, width) => tab.evaluate(([row, width]) => {
+    document.querySelector(`[data-row="${row}"]`).style.width = `${width}px`;
+    return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+}, [row, width]);
+
+test('MiddleTruncate: cuts the middle to fit, keeps the start and the extension, and refits as its box narrows and widens', async () => {
+    await middleTruncate('middle-truncate', async (tab) => {
+        const file = 'paraframe-brand-guidelines-2026-final.pdf';
+        const at320 = await truncateState(tab, 'file');
+        assert.equal(at320.truncated, true);
+        assert.match(at320.shown, /^paraframe-brand.*….*-final\.pdf$/, at320.shown);
+        assert.equal(at320.overflows, false, 'no CSS end ellipsis: the cut text fits');
+        assert.ok(at320.fill > 0.9 && at320.fill <= 1, `the shown text fills the box (${at320.fill})`);
+        assert.deepEqual(at320.cutWidths, [0], 'the cut middle paints nothing');
+        assert.equal(at320.text, file, 'the cut middle stays in the text');
+
+        await setBox(tab, 'file', 900);
+        const wide = await truncateState(tab, 'file');
+        assert.equal(wide.shown, file, 'a box wide enough shows the whole value, no ellipsis');
+        assert.equal(wide.overflows, false);
+
+        await setBox(tab, 'file', 140);
+        const narrow = await truncateState(tab, 'file');
+        assert.ok(narrow.shown.length < at320.shown.length, `${narrow.shown} is shorter than ${at320.shown}`);
+        assert.match(narrow.shown, /^par.*….*\.pdf$/, narrow.shown);
+        assert.equal(narrow.overflows, false);
+        assert.ok(narrow.fill > 0.8, `still fills the narrow box (${narrow.fill})`);
+
+        await setBox(tab, 'file', 320);
+        assert.equal((await truncateState(tab, 'file')).shown, at320.shown, 'back at 320px, the same cut');
+    });
+});
+
+test('MiddleTruncate: from 120 to 400px every row fits its box, never falls back to the CSS end ellipsis, and keeps its tail', async () => {
+    await middleTruncate('middle-truncate', async (tab) => {
+        const tails = { file: '.pdf', url: '?…', path: '.pdf', short: 'logo.svg', rtl: '.pdf', emoji: '.jpeg', tail: '.xlsx' };
+        for (let width = 120; width <= 400; width += 10) {
+            await tab.evaluate((w) => document.querySelectorAll('[data-box]').forEach((el) => { el.style.width = `${w}px`; }), width);
+            await setBox(tab, 'file', width);
+            for (const [row, tail] of Object.entries(tails)) {
+                // min-tail="16" asks for more than a narrower box holds: its floor is shown and clipped, by design.
+                if (row === 'tail' && width < 170) continue;
+                const state = await truncateState(tab, row);
+                assert.equal(state.overflows, false, `${row} at ${width}px overflows: ${state.shown}`);
+                assert.ok(state.shown.endsWith(tail), `${row} at ${width}px: ${state.shown}`);
+            }
+        }
+    });
+});
+
+test('MiddleTruncate: a URL keeps its host start and last segment with its query cut, a path its last segment; short, RTL and emoji values', async () => {
+    await middleTruncate('middle-truncate', async (tab) => {
+        const link = await truncateState(tab, 'url');
+        assert.match(link.shown, /^https:\/\/cdn\.para.*….*\/final-v3\.pdf\?…$/, link.shown);
+        assert.equal(link.overflows, false);
+        assert.deepEqual(link.cutWidths, [0, 0], 'the cut middle and the cut query paint nothing');
+        const path = await truncateState(tab, 'path');
+        assert.match(path.shown, /^\/srv\/.*….*\/final-v3\.pdf$/, path.shown);
+        const short = await truncateState(tab, 'short');
+        assert.deepEqual([short.truncated, short.shown, short.title], [false, 'logo.svg', 'logo.svg'], 'a short value: whole, no ellipsis');
+        await setBox(tab, 'rtl', 180);
+        const rtl = await truncateState(tab, 'rtl');
+        assert.equal(rtl.direction, 'rtl', 'dir="auto" lays an Arabic name out right to left');
+        assert.equal(rtl.truncated, true);
+        assert.match(rtl.shown, /^دليل-.*….*\.pdf$/, rtl.shown);
+        assert.equal(rtl.overflows, false);
+        await setBox(tab, 'emoji', 150);
+        const emoji = await truncateState(tab, 'emoji');
+        assert.ok(emoji.shown.startsWith('👨‍👩‍👧‍👦'), `the family emoji stays whole: ${emoji.shown}`);
+        assert.ok(emoji.shown.endsWith('.jpeg') && !emoji.overflows, emoji.shown);
+        await setBox(tab, 'tail', 180);
+        const tail = await truncateState(tab, 'tail');
+        assert.ok(tail.shown.split('…')[1].length >= 16, `min-tail keeps 16 characters at the end: ${tail.shown}`);
+    });
+});
+
+test('MiddleTruncate: the accessible name, the title and a copied selection are the whole value; axe passes, light and dark', async () => {
+    for (const query of ['middle-truncate', 'middle-truncate=dark']) {
+        await middleTruncate(query, async (tab) => {
+            const file = 'paraframe-brand-guidelines-2026-final.pdf';
+            const urlValue = 'https://cdn.paraframe.studio/clients/acme/2026/brand/guidelines/final-v3.pdf?download=1';
+            assert.equal(await tab.getByRole('link', { name: file, exact: true }).count(), 1, 'the link is named by the whole file name');
+            assert.equal(await tab.getAttribute(truncateRow('file'), 'title'), file);
+            assert.match(await tab.locator('[data-row="file"]').ariaSnapshot(), new RegExp(`link "${file.replace(/[.]/g, '\\.')}"`));
+            for (const [row, value] of [['file', file], ['url', urlValue]]) {
+                await tab.evaluate((s) => { const r = document.createRange(); r.selectNodeContents(document.querySelector(s)); getSelection().removeAllRanges(); getSelection().addRange(r); }, truncateRow(row));
+                await tab.keyboard.press('ControlOrMeta+C');
+                assert.equal(await tab.evaluate(() => navigator.clipboard.readText()), value, `copying the ${row} copies the whole value, no ellipsis`);
+            }
+            await tab.addScriptTag({ path: axeSource });
+            const violations = await tab.evaluate(async () => (await window.axe.run(document.querySelector('main'))).violations.map((v) => ({ id: v.id, targets: v.nodes.map((n) => n.target.join(' ')) })));
+            if (violations.length) console.log(query, JSON.stringify(violations, null, 1));
+            assert.deepEqual(violations, []);
+        });
+    }
+});
+
+test('MiddleTruncate under Vue\'s server renderer: the whole value with a CSS end ellipsis, and no observer, canvas or timer touched', async () => {
+    const dev = await createServer({ root: here, configFile: path.join(here, 'vite.config.js'), logLevel: 'error', appType: 'custom', server: { middlewareMode: true, hmr: false } });
+    try {
+        const { default: MiddleTruncate } = await dev.ssrLoadModule('/.kit/vendor/tey/kit/resources/js/components/Kit/Data/MiddleTruncate.vue');
+        const { createSSRApp, h } = await import('vue');
+        const { renderToString } = await import('vue/server-renderer');
+        assert.equal(typeof globalThis.document, 'undefined', 'node has no DOM, so any access would throw');
+        assert.equal(typeof globalThis.ResizeObserver, 'undefined');
+        const value = 'paraframe-brand-guidelines-2026-final.pdf';
+        const html = (await renderToString(createSSRApp({ render: () => h(MiddleTruncate, { value }) }))).replace(/<!--.*?-->/g, '');
+        assert.match(html, /^<span title="paraframe-brand-guidelines-2026-final\.pdf" dir="auto" data-slot="middle-truncate" class="block min-w-0 truncate">paraframe-brand-guidelines-2026-final\.pdf<\/span>$/, html);
+    } finally {
+        await dev.close();
+    }
+});
