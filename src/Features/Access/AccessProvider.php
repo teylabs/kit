@@ -39,10 +39,15 @@ final class AccessProvider extends ServiceProvider implements Contributes
         Gate::policy(Workspace::class, WorkspacePolicy::class);
         $this->commands([SyncPermissionsCommand::class, CapabilityCommand::class]);
         // Now, and again once every provider has booted: the kit boots before the app's providers, so a capability one of them declares in its own boot() would
-        // otherwise stay undefined (off, and every route behind it a 404). Defining is idempotent. Contribute in register() all the same: it is the documented place.
+        // otherwise stay undefined (off, and every route behind it a 404). Contribute in register() all the same: it is the documented place.
+        // A capability already defined is left alone: the first pass defined it, or the app did (to follow its own workspace features, say), and defining
+        // it again here would replace the app's definition with the kit.capabilities default.
         $define = function (): void {
+            $defined = Feature::defined();
             foreach (app(Registry::class)->workspaceCapabilities() as $capability) {
-                Feature::define($capability, fn (Workspace $workspace): bool => (bool) (config('kit.capabilities', [])[$capability] ?? false));
+                if (! in_array($capability, $defined, true)) {
+                    Feature::define($capability, fn (Workspace $workspace): bool => (bool) (config('kit.capabilities', [])[$capability] ?? false));
+                }
             }
         };
         $define();
