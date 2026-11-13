@@ -5,7 +5,7 @@ namespace Tey\Kit\Media\Operations;
 use Illuminate\Validation\ValidationException;
 use Lorisleiva\Actions\Concerns\AsAction;
 use Tey\Kit\Media\MediaRules;
-use Tey\Kit\Media\Models\MediaUpload;
+use Tey\Kit\Media\MediaUploads;
 use Tey\Kit\Media\MultipartStore;
 use Tey\Kit\Media\MultipartUploads;
 use Tey\Kit\Media\UploadTicket;
@@ -39,7 +39,7 @@ final class RequestMultipartUpload
         if ($upload->multipart_upload_id === null) {
             $id = $store->create(MultipartUploads::stagingKey($upload->key, $upload->id), $upload->mime, RequestUpload::CACHE_CONTROL, $checksums);
             // Two racing requests for one record: the first to record its id wins; the loser aborts its own and uses the winner's.
-            $won = MediaUpload::query()->whereKey($upload->id)->whereNull('multipart_upload_id')->update(['multipart_upload_id' => $id]) === 1;
+            $won = MediaUploads::model()::query()->whereKey($upload->id)->whereNull('multipart_upload_id')->update(['multipart_upload_id' => $id]) === 1;
             if (! $won) {
                 $this->abortQuietly($store, MultipartUploads::stagingKey($upload->key, $upload->id), $id);
             }

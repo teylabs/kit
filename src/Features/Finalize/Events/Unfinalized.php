@@ -3,10 +3,10 @@
 namespace Tey\Kit\Features\Finalize\Events;
 
 use Illuminate\Database\Eloquent\Model;
-use Tey\Kit\Features\Finalize\Models\Finalization;
+use Tey\Kit\Features\Finalize\Contracts\Finalization;
 
 /** Dispatched after the transaction commits, so a listener's mail or PDF never describes a change that rolled back. */
 final class Unfinalized
 {
-    public function __construct(public readonly string $flow, public readonly Model $subject, public readonly Finalization $finalization) {}
+    public function __construct(public readonly string $flow, public readonly Model $subject, public readonly Model&Finalization $finalization) {}
 }

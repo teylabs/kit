@@ -33,8 +33,10 @@ use Illuminate\View\ViewServiceProvider;
 use Laravel\Fortify\Events\PasswordUpdatedViaController;
 use Monolog\Handler\NullHandler;
 use Symfony\Component\HttpFoundation\Response;
+use Tey\Kit\Features\Core\Kit;
 use Tey\Kit\Features\SessionUi\Account\SecurityLog;
 use Tey\Kit\Features\SessionUi\Fortify\UpdateProfile;
+use Tey\Kit\Features\SessionUi\Models\SecurityEvent;
 use Tey\Kit\Features\SessionUi\Notifications\SecurityNotice;
 
 $loader = require $argv[1];
@@ -78,6 +80,8 @@ try {
     ]));
     Facade::clearResolvedInstances();
     Facade::setFacadeApplication($app);
+    // The security log's model, as SessionUiProvider::register() names it (this harness boots no feature provider).
+    Kit::defaults(['security_event' => SecurityEvent::class], []);
     foreach ([EventServiceProvider::class, FilesystemServiceProvider::class, DatabaseServiceProvider::class, RoutingServiceProvider::class, TranslationServiceProvider::class, ViewServiceProvider::class, MailServiceProvider::class, NotificationServiceProvider::class, BusServiceProvider::class, QueueServiceProvider::class, ValidationServiceProvider::class, SessionServiceProvider::class, CacheServiceProvider::class] as $provider) {
         $app->register($provider);
     }

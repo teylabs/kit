@@ -3,11 +3,13 @@
 namespace Tey\Kit\Media\Operations;
 
 use Illuminate\Contracts\Filesystem\Filesystem;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Storage;
 use Lorisleiva\Actions\Concerns\AsAction;
 use RuntimeException;
 use Tey\Kit\Media\ConditionalCopyStore;
-use Tey\Kit\Media\Models\MediaUpload;
+use Tey\Kit\Media\Contracts\MediaUpload;
+use Tey\Kit\Media\MediaUploads;
 use Tey\Kit\Media\MultipartStore;
 use Tey\Kit\Media\MultipartUploads;
 use Throwable;
@@ -34,7 +36,7 @@ final class CompleteMultipartUpload
     use AsAction;
 
     /** @param  array<mixed>  $parts  [{ part, etag, checksum }] from the client */
-    public function handle(MediaUpload $upload, array $parts): MediaUpload
+    public function handle(Model&MediaUpload $upload, array $parts): Model&MediaUpload
     {
         if ($upload->ready()) {
             return $upload;
@@ -62,7 +64,7 @@ final class CompleteMultipartUpload
             // The staged object goes whatever happened; then the id, so ConfirmUpload accepts the record. A staging delete that fails after the
             // object is placed fails the complete: the record stays pending, so the pruner deletes the staging object with its row.
             $cleaned = rescue(fn () => $disk->delete($staging), false, report: true) === true || ! rescue(fn () => $disk->exists($staging), true, report: true);
-            MediaUpload::query()->whereKey($upload->id)->where('multipart_upload_id', $uploadId)->update(['multipart_upload_id' => null]);
+            MediaUploads::model()::query()->whereKey($upload->id)->where('multipart_upload_id', $uploadId)->update(['multipart_upload_id' => null]);
             $upload->refresh();
         }
         if ($placed && ! $cleaned) {
@@ -70,11 +72,11 @@ final class CompleteMultipartUpload
         }
         $ready = ConfirmUpload::run($upload);
         // A replay of the mutation between the id being cleared and the ready write could have started another multipart upload: abort it.
-        $fresh = MediaUpload::query()->find($upload->id);
+        $fresh = MediaUploads::model()::query()->find($upload->id);
         if ($fresh !== null && ($stray = $fresh->multipart_upload_id) !== null) {
             // The id is cleared only once the abort succeeds; otherwise it stays on the ready row and `kit:uploads:prune` retries the abort.
             if (rescue(fn (): bool => $store->abort($staging, $stray) === null, false, report: true)) {
-                MediaUpload::query()->whereKey($upload->id)->where('multipart_upload_id', $stray)->update(['multipart_upload_id' => null]);
+                MediaUploads::model()::query()->whereKey($upload->id)->where('multipart_upload_id', $stray)->update(['multipart_upload_id' => null]);
             }
             $ready->refresh();
         }
@@ -86,7 +88,7 @@ final class CompleteMultipartUpload
      * Copies the verified staged object to the final key without overwriting anything there. An object already there is re-hashed (an upload
      * from before staging keys may have joined unverified bytes there); one that doesn't match is refused, and deleted unless a ready record shares it.
      */
-    private function place(MultipartStore $store, Filesystem $disk, string $staging, MediaUpload $upload): void
+    private function place(MultipartStore $store, Filesystem $disk, string $staging, Model&MediaUpload $upload): void
     {
         $copied = $store instanceof ConditionalCopyStore
             ? $store->copyIfAbsent($staging, $upload->key, $upload->bytes)
@@ -98,7 +100,7 @@ final class CompleteMultipartUpload
             throw new RuntimeException('media.upload.incomplete');
         }
         if ($disk->size($upload->key) !== $upload->bytes || $this->hash($disk, $upload->key) !== $upload->sha256) {
-            if (! MediaUpload::query()->where('disk', $upload->disk)->where('key', $upload->key)->where('status', 'ready')->exists()) {
+            if (! MediaUploads::model()::query()->where('disk', $upload->disk)->where('key', $upload->key)->where('status', 'ready')->exists()) {
                 $disk->delete($upload->key);
             }
 

@@ -2,36 +2,17 @@
 
 namespace Tey\Kit\Features\Deliver\Models;
 
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Tey\Kit\Features\Workspaces\Workspaces;
+use Tey\Kit\Features\Deliver\Concerns\IsDeliveryEvent;
+use Tey\Kit\Features\Deliver\Contracts\DeliveryEvent as DeliveryEventContract;
 
 /**
- * One provider event for one address, kept once: a webhook delivered twice adds nothing.
- * Read and written only inside its workspace's tenant context: the global scope keeps other workspaces' rows out, and a save outside the row's own
- * workspace throws `workspace_mismatch`. Rows are never deleted. The scheduler sweep, webhooks and the customer link find a row without the scope and
- * then work inside its workspace.
+ * The kit's delivery event model, on `kit_delivery_events`: the default for `kit.models.delivery_event` until the app adopts deliver.
+ * Deprecated since 0.19 for new code: reach it through `Tey\Kit\Features\Core\Kit::model('delivery_event')`. The behaviour is Concerns\IsDeliveryEvent.
  */
-class DeliveryEvent extends Model
+class DeliveryEvent extends Model implements DeliveryEventContract
 {
-    public $timestamps = false;
+    use IsDeliveryEvent;
 
     protected $table = 'kit_delivery_events';
-
-    protected $guarded = ['id', 'workspace_id'];
-
-    protected $casts = ['recipient_id' => 'integer', 'occurred_at' => 'immutable_datetime'];
-
-    protected static function booted(): void
-    {
-        static::addGlobalScope('workspace', fn (Builder $q) => $q->where('kit_delivery_events.workspace_id', Workspaces::required()->getKey()));
-        static::saving(function (self $row): void {
-            $id = (int) Workspaces::required()->getKey();
-            if ($row->exists ? (int) $row->getOriginal('workspace_id') !== $id : ($row->workspace_id !== null && (int) $row->workspace_id !== $id)) {
-                throw new \RuntimeException('workspace_mismatch');
-            }
-            $row->workspace_id = $id;
-        });
-        static::deleting(fn () => throw new \RuntimeException('deliver_history_is_kept'));
-    }
 }

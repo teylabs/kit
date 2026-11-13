@@ -3,7 +3,8 @@
 namespace Tey\Kit\Media;
 
 use DateTimeInterface;
-use Tey\Kit\Media\Models\MediaUpload;
+use Illuminate\Database\Eloquent\Model;
+use Tey\Kit\Media\Contracts\MediaUpload;
 
 /**
  * What the client does next. `PUT` sends the body straight to `url` with exactly `headers`; `POST` sends it as multipart to the app's own fallback
@@ -18,7 +19,7 @@ final readonly class UploadTicket
      * @param  list<array{part: int, url: ?string, headers: array<string, string>}>  $parts
      */
     public function __construct(
-        public MediaUpload $upload,
+        public Model&MediaUpload $upload,
         public ?string $method,
         public ?string $url = null,
         public array $headers = [],

@@ -1,0 +1,15 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Tey\Kit\Features\Notes\Concerns\IsNote;
+use Tey\Kit\Features\Notes\Contracts\Note as NoteContract;
+
+/** A workspace note. The kit's behaviour is IsNote; the table and the model are the app's (kit.models). */
+class Note extends Model implements NoteContract
+{
+    use IsNote;
+
+    protected $table = 'notes';
+}

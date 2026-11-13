@@ -2,9 +2,11 @@
 
 namespace Tey\Kit\Media\Operations;
 
+use Illuminate\Database\Eloquent\Model;
 use Lorisleiva\Actions\Concerns\AsAction;
 use RuntimeException;
-use Tey\Kit\Media\Models\MediaUpload;
+use Tey\Kit\Media\Contracts\MediaUpload;
+use Tey\Kit\Media\MediaUploads;
 use Tey\Kit\Media\MultipartUploads;
 use Throwable;
 
@@ -17,7 +19,7 @@ final class AbortMultipartUpload
 {
     use AsAction;
 
-    public function handle(MediaUpload $upload): MediaUpload
+    public function handle(Model&MediaUpload $upload): Model&MediaUpload
     {
         $id = $upload->multipart_upload_id;
         if ($id === null || $upload->ready()) {
@@ -35,7 +37,7 @@ final class AbortMultipartUpload
             }
         }
         // Without touching updated_at, so an aborted row keeps its age and the pruner can still clear it in the same run.
-        MediaUpload::query()->whereKey($upload->id)->where('multipart_upload_id', $id)->toBase()->update(['multipart_upload_id' => null]);
+        MediaUploads::model()::query()->whereKey($upload->id)->where('multipart_upload_id', $id)->toBase()->update(['multipart_upload_id' => null]);
 
         return $upload->refresh();
     }

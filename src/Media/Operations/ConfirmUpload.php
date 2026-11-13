@@ -3,12 +3,14 @@
 namespace Tey\Kit\Media\Operations;
 
 use Illuminate\Contracts\Filesystem\Filesystem;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use League\Flysystem\Local\LocalFilesystemAdapter;
 use Lorisleiva\Actions\Concerns\AsAction;
 use RuntimeException;
-use Tey\Kit\Media\Models\MediaUpload;
+use Tey\Kit\Media\Contracts\MediaUpload;
+use Tey\Kit\Media\MediaUploads;
 use Tey\Kit\Media\ObjectProbe;
 use Tey\Kit\Media\UploadSigning;
 
@@ -26,7 +28,7 @@ class ConfirmUpload
 {
     use AsAction;
 
-    public function handle(MediaUpload $upload, ?UploadedFile $file = null): MediaUpload
+    public function handle(Model&MediaUpload $upload, ?UploadedFile $file = null): Model&MediaUpload
     {
         if ($upload->ready()) {
             return $upload;
@@ -74,9 +76,9 @@ class ConfirmUpload
         }
     }
 
-    private function discard(Filesystem $disk, MediaUpload $upload): void
+    private function discard(Filesystem $disk, Model&MediaUpload $upload): void
     {
-        $shared = MediaUpload::query()->where('disk', $upload->disk)->where('key', $upload->key)->where('status', 'ready')->exists();
+        $shared = MediaUploads::model()::query()->where('disk', $upload->disk)->where('key', $upload->key)->where('status', 'ready')->exists();
         if (! $shared) {
             $disk->delete($upload->key);
         }

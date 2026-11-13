@@ -10,8 +10,8 @@ use Spatie\MediaLibrary\Conversions\FileManipulator;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 use Tey\Kit\Media\ClientFileName;
+use Tey\Kit\Media\Contracts\MediaUpload;
 use Tey\Kit\Media\KeyPathGenerator;
-use Tey\Kit\Media\Models\MediaUpload;
 
 /**
  * Attaches a ready upload to a model as a Media item over the existing key: a metadata row only, with no byte copy. The item is marked as not owning
@@ -24,7 +24,7 @@ class AttachUpload
     use AsAction;
 
     /** @param  HasMedia&Model  $owner */
-    public function handle(MediaUpload $upload, HasMedia $owner, string $collection, ?string $name = null): Media
+    public function handle(Model&MediaUpload $upload, HasMedia $owner, string $collection, ?string $name = null): Media
     {
         if (! $upload->ready()) {
             throw new RuntimeException('media.upload.pending');

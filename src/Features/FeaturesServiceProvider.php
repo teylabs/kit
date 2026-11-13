@@ -279,6 +279,14 @@ final class FeaturesServiceProvider extends ServiceProvider
         if ($branded) {
             $this->bootBrand();
         }
+        // The domain models (kit.models): a configured class that is not a model with its contract, or a feature adopted in part, stops the boot in local
+        // and testing and is logged elsewhere, where the kit falls back to nothing: each read through that model fails on its own.
+        if ($features !== [] && ($problems = DomainModels::problems()) !== []) {
+            if ($this->app->environment('local', 'testing')) {
+                throw new RuntimeException(implode(' ', $problems));
+            }
+            $this->app->booted(fn () => $this->app->make('log')->error(implode(' ', $problems)));
+        }
         // Each feature's migrations: the app's own copies under database/migrations/kit/<feature> (what kit:add wrote) and the package's directory,
         // database/migrations/<feature>, whose files the migrator lists less those the app has a copy of. Registered only when the migrator is resolved, never on a request.
         if ($features === []) {

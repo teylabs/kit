@@ -2,7 +2,8 @@
 
 namespace Tey\Kit\Features\Deliver\Events;
 
-use Tey\Kit\Features\Deliver\Models\DeliveryRecord;
+use Illuminate\Database\Eloquent\Model;
+use Tey\Kit\Features\Deliver\Contracts\Delivery;
 
 /**
  * Dispatched after commit whenever a delivery's customer link is revoked (`token_revoked_at` set): by Revoke link (`resent` false) or by a resend that
@@ -11,5 +12,5 @@ use Tey\Kit\Features\Deliver\Models\DeliveryRecord;
  */
 final class DeliveryLinkRevoked
 {
-    public function __construct(public readonly string $definition, public readonly DeliveryRecord $delivery, public readonly ?int $actorId, public readonly bool $resent) {}
+    public function __construct(public readonly string $definition, public readonly Model&Delivery $delivery, public readonly ?int $actorId, public readonly bool $resent) {}
 }

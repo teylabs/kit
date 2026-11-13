@@ -2,9 +2,9 @@
 
 namespace Tey\Kit\Features\Notes;
 
-use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\ServiceProvider;
 use Tey\Kit\Features\Core\Contributes;
+use Tey\Kit\Features\Core\Kit;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Notes\Console\ImportNotesCommand;
 use Tey\Kit\Features\Notes\Integrations\Mcp\DeleteNote;
@@ -41,10 +41,16 @@ final class NotesProvider extends ServiceProvider implements Contributes
         }
     }
 
+    public function register(): void
+    {
+        // The kit's own domain models and tables, until the app names its own in kit.models and kit.tables (Kit::model(), Kit::table()).
+        Kit::defaults(['note' => Note::class], ['note_intent' => 'kit_note_intents']);
+    }
+
     public function boot(): void
     {
-        // Media rows name the note by alias, never by class.
-        Relation::morphMap(['kit-note' => Note::class]);
+        // Stored rows name these models by alias, never by class, whichever class config names (kit.models).
+        Kit::aliases('note');
         $this->commands([ImportNotesCommand::class]);
     }
 }

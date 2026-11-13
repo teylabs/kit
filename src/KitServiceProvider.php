@@ -7,11 +7,18 @@ use Illuminate\Image\ImageManager;
 use Illuminate\Support\ServiceProvider;
 use Inertia\Inertia;
 use Tey\Kit\Features\Core\Clock;
+use Tey\Kit\Features\Core\Kit;
 use Tey\Kit\Features\Core\KitShares;
 use Tey\Kit\Features\Core\Toast;
 
 final class KitServiceProvider extends ServiceProvider
 {
+    public function register(): void
+    {
+        // Media is the kit's own, not a feature, so no feature provider registers its upload model: Kit::model('media_upload') resolves through here.
+        Kit::defaults(['media_upload' => Media\Models\MediaUpload::class], []);
+    }
+
     public function boot(): void
     {
         // The kit never depends on the host's tey/mod layout: the features boot the same under any layout, and nothing is scaffolded on boot.

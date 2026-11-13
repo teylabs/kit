@@ -2,8 +2,9 @@
 
 namespace Tey\Kit\Media;
 
+use Illuminate\Database\Eloquent\Model;
 use InvalidArgumentException;
-use Tey\Kit\Media\Models\MediaUpload;
+use Tey\Kit\Media\Contracts\MediaUpload;
 
 /**
  * What a direct upload's presigned PUT signs (`kit.media.signing`, docs/media.md › Signing). `full`, the default, signs Content-Type, Content-Length,
@@ -36,13 +37,13 @@ final class UploadSigning
     }
 
     /** Whether the record's key is named after its SHA-256, so the bucket's signed checksum proved the content (or dedupe trusted it). */
-    public static function contentAddressed(MediaUpload $upload): bool
+    public static function contentAddressed(Model&MediaUpload $upload): bool
     {
         return pathinfo($upload->key, PATHINFO_FILENAME) === $upload->sha256;
     }
 
     /** Whether ConfirmUpload must re-hash the object: its key does not prove the content. */
-    public static function needsRehash(MediaUpload $upload): bool
+    public static function needsRehash(Model&MediaUpload $upload): bool
     {
         return ! self::contentAddressed($upload);
     }

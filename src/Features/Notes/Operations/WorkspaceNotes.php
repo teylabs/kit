@@ -3,6 +3,7 @@
 namespace Tey\Kit\Features\Notes\Operations;
 
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -11,15 +12,16 @@ use RuntimeException;
 use Tey\Concierge\Concierge;
 use Tey\Kit\Features\Access\Access;
 use Tey\Kit\Features\Core\Audit;
+use Tey\Kit\Features\Core\Kit;
 use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Core\RequestMemo;
 use Tey\Kit\Features\Core\UploadLimit;
 use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\Notes\Colours;
+use Tey\Kit\Features\Notes\Contracts\Note;
 use Tey\Kit\Features\Notes\Data\NoteChange;
 use Tey\Kit\Features\Notes\Data\NoteRecord;
-use Tey\Kit\Features\Notes\Models\Note;
 use Tey\Kit\Features\Notes\NoteUrls;
 use Tey\Kit\Features\Workspaces\Workspaces;
 
@@ -54,7 +56,7 @@ class WorkspaceNotes
         app(Access::class)->authorize($principal, 'notes.read');
         $this->only($input, ['colour', 'subject_type', 'subject_id']);
         $data = Validator::make($input, ['colour' => ['nullable', Rule::in(Colours::keys())], 'subject_type' => ['nullable', 'string', 'required_with:subject_id'], 'subject_id' => ['nullable', 'integer', 'min:1', 'required_with:subject_type']])->validate();
-        $query = Note::query()->with('media');
+        $query = Kit::model('note')::query()->with('media');
         if (isset($data['subject_type'])) {
             $this->subject($principal, $data['subject_type'], (int) $data['subject_id']);
             $query->where('subject_type', $data['subject_type'])->where('subject_id', (int) $data['subject_id']);
@@ -75,7 +77,7 @@ class WorkspaceNotes
     }
 
     /** Whether the principal may change or delete the note: their own, or moderation. Never throws. */
-    public function canChange(Principal $principal, Note $note): bool
+    public function canChange(Principal $principal, Model&Note $note): bool
     {
         try {
             $this->authorizeChange($principal, $note);
@@ -120,7 +122,7 @@ class WorkspaceNotes
         return DB::transaction(function () use ($principal, $operation, $data, $files, $fingerprint): NoteChange {
             $workspace = app(Access::class)->authorize($principal, 'notes.write');
             Workspaces::query()->whereKey($workspace->id)->lockForUpdate()->firstOrFail();
-            $previous = DB::table('kit_note_intents')->where('workspace_id', $workspace->id)->where('actor_id', $principal->actorId)->where('intent_key', $data['intent_key'])->first();
+            $previous = DB::table(Kit::table('note_intent'))->where('workspace_id', $workspace->id)->where('actor_id', $principal->actorId)->where('intent_key', $data['intent_key'])->first();
             if ($previous) {
                 if ($previous->fingerprint !== $fingerprint) {
                     throw new RuntimeException('note_intent_conflict');
@@ -132,7 +134,7 @@ class WorkspaceNotes
                 if (isset($data['subject_type'])) {
                     $this->subject($principal, $data['subject_type'], (int) $data['subject_id']);
                 }
-                $note = new Note(['author_id' => $principal->actorId, 'subject_type' => $data['subject_type'] ?? null, 'subject_id' => $data['subject_id'] ?? null, 'body' => $data['body'], 'colour' => $data['colour'] ?? Colours::default(), 'pinned' => (bool) ($data['pinned'] ?? false), 'version' => 1]);
+                $note = new (Kit::model('note'))(['author_id' => $principal->actorId, 'subject_type' => $data['subject_type'] ?? null, 'subject_id' => $data['subject_id'] ?? null, 'body' => $data['body'], 'colour' => $data['colour'] ?? Colours::default(), 'pinned' => (bool) ($data['pinned'] ?? false), 'version' => 1]);
             } else {
                 $note = $this->visible($principal, (int) $data['id'], lock: true);
                 $this->authorizeChange($principal, $note);
@@ -165,16 +167,16 @@ class WorkspaceNotes
             }
             $change = new NoteChange((int) $note->id, (int) $workspace->id, $operation === 'delete', $operation === 'delete' ? null : $this->records([$note])[0]);
             app(Audit::class)->write($principal->actorId, (int) $workspace->id, 'workspace.note.'.$operation.'d', ['note_id' => $note->id, 'version' => $note->version, 'by_author' => $note->author_id === $principal->actorId]);
-            DB::table('kit_note_intents')->insert(['workspace_id' => $workspace->id, 'actor_id' => $principal->actorId, 'intent_key' => $data['intent_key'], 'fingerprint' => $fingerprint, 'result' => $change->toJson(), 'created_at' => now()]);
+            DB::table(Kit::table('note_intent'))->insert(['workspace_id' => $workspace->id, 'actor_id' => $principal->actorId, 'intent_key' => $data['intent_key'], 'fingerprint' => $fingerprint, 'result' => $change->toJson(), 'created_at' => now()]);
 
             return $change;
         });
     }
 
     /** A note the principal may see, or `note_not_found`: another workspace's, a deleted one and one about a subject they cannot see all look absent. */
-    public function visible(Principal $principal, int $id, bool $lock = false): Note
+    public function visible(Principal $principal, int $id, bool $lock = false): Model&Note
     {
-        $note = Note::query()->with('media')->whereKey($id)->when($lock, fn (Builder $q) => $q->lockForUpdate())->first() ?? throw new RuntimeException('note_not_found');
+        $note = Kit::model('note')::query()->with('media')->whereKey($id)->when($lock, fn (Builder $q) => $q->lockForUpdate())->first() ?? throw new RuntimeException('note_not_found');
         if ($note->subject_type !== null) {
             try {
                 $this->subject($principal, $note->subject_type, (int) $note->subject_id);
@@ -204,7 +206,7 @@ class WorkspaceNotes
     }
 
     /** Your own note, or moderation: the workspace owner, or `notes.moderate`. `notes.write` alone never changes another person's note. */
-    private function authorizeChange(Principal $principal, Note $note): void
+    private function authorizeChange(Principal $principal, Model&Note $note): void
     {
         if ($note->author_id !== null && $note->author_id === $principal->actorId) {
             return;
@@ -233,7 +235,7 @@ class WorkspaceNotes
         if (! is_array($result['note'] ?? null) || ($result['note']['attachments'] ?? []) === []) {
             return $result;
         }
-        $media = Note::query()->with('media')->find((int) $result['note_id'])?->getMedia('attachments')->keyBy('uuid');
+        $media = Kit::model('note')::query()->with('media')->find((int) $result['note_id'])?->getMedia('attachments')->keyBy('uuid');
         foreach ($result['note']['attachments'] as $index => $file) {
             $current = $media?->get((string) ($file['id'] ?? ''));
             $made = $current !== null && $current->hasGeneratedConversion('thumb');
@@ -245,16 +247,16 @@ class WorkspaceNotes
     }
 
     /**
-     * @param  list<Note>  $notes
+     * @param  list<Model&Note>  $notes
      * @return list<NoteRecord>
      */
     public function records(array $notes): array
     {
         $model = Users::model();
-        $authors = $model::query()->whereKey(array_values(array_unique(array_filter(array_map(fn (Note $note) => $note->author_id, $notes)))))->pluck('name', (new $model)->getKeyName());
+        $authors = $model::query()->whereKey(array_values(array_unique(array_filter(array_map(fn (Model&Note $note) => $note->author_id, $notes)))))->pluck('name', (new $model)->getKeyName());
         $subjects = [];
 
-        return array_map(function (Note $note) use ($authors, &$subjects): NoteRecord {
+        return array_map(function (Model&Note $note) use ($authors, &$subjects): NoteRecord {
             $subject = null;
             if ($note->subject_type !== null) {
                 $key = $note->subject_type.':'.$note->subject_id;

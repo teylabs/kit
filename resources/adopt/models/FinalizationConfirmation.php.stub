@@ -1,0 +1,15 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Tey\Kit\Features\Finalize\Concerns\IsConfirmation;
+use Tey\Kit\Features\Finalize\Contracts\Confirmation as ConfirmationContract;
+
+/** Who confirmed a finalize step, when, and what they confirmed. The kit's behaviour is IsConfirmation; the table and the model are the app's (kit.models). */
+class FinalizationConfirmation extends Model implements ConfirmationContract
+{
+    use IsConfirmation;
+
+    protected $table = 'finalization_confirmations';
+}

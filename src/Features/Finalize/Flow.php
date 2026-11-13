@@ -28,7 +28,7 @@ use Tey\Kit\Features\Core\Principal;
  *   and address on an invoice), as normalised scalars. Finalizing keeps a frozen copy of exactly these values on the finalization, with a hash per key,
  *   so the finalized subject prints what was certified even after that record is edited; `FinalizeGate::drift()` names the keys that changed since.
  *   Only the declared fields are kept: everything else about a finalization is hashes. Off unless set.
- * - `extras(rules: [...], schema: fn (JsonSchema): array, apply: fn (Model, Finalization, array $extras, Principal): void)`: further fields the certify
+ * - `extras(rules: [...], schema: fn (JsonSchema): array, apply: fn (Model, Contracts\Finalization, array $extras, Principal): void)`: further fields the certify
  *   request may carry (an optional "what changed" note, say). Only the declared names are read: a page visit drops any other field, a JSON or MCP
  *   caller is refused `unknown_arguments`, and the rules run after the gate's own checks. `schema` describes them to an assistant (the MCP finalize
  *   tool's `extra` argument); `apply` runs inside the finalize transaction, after the finalization is written, so a failure rolls it back. The validated
@@ -149,7 +149,7 @@ final class Flow
     /**
      * @param  array<string, mixed>  $rules  each extra field's validation rules, by field name
      * @param  callable(JsonSchema): array<string, mixed>  $schema  each field's JSON schema type, the same names
-     * @param  (callable(Model, Models\Finalization, array<string, mixed>, Principal): void)|null  $apply
+     * @param  (callable(Model, Model&Contracts\Finalization, array<string, mixed>, Principal): void)|null  $apply
      */
     public function extras(array $rules, callable $schema, ?callable $apply = null): self
     {
@@ -282,7 +282,7 @@ final class Flow
     }
 
     /** @param  array<string, mixed>  $extras  validated */
-    public function applyExtras(Model $subject, Models\Finalization $finalization, array $extras, Principal $principal): void
+    public function applyExtras(Model $subject, Model&Contracts\Finalization $finalization, array $extras, Principal $principal): void
     {
         if ($this->extraApply !== null) {
             ($this->extraApply)($subject, $finalization, $extras, $principal);
