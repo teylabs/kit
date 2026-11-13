@@ -26,7 +26,7 @@ function scaffoldTree(string $root): array
 {
     $tree = [];
     foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS)) as $file) {
-        $tree[substr($file->getPathname(), strlen($root) + 1)] = hash_file('sha256', $file->getPathname());
+        $tree[substr($file->getPathname(), strlen($root) + 1)] = is_link($file->getPathname()) ? 'link:'.readlink($file->getPathname()) : hash_file('sha256', $file->getPathname());
     }
     ksort($tree);
 
@@ -101,6 +101,18 @@ try {
     scaffoldCheck($exit === 0 && array_keys(array_diff_key(scaffoldTree($root), $before)) === [$card, $widget] && str_contains($output, '2 written, 0 skipped.'), '--only writes the named files and nothing else');
     [$exit, $output] = $scaffold(['feature' => 'notes', '--only' => ['resources/js/pages/Workspace/Notes']]);
     scaffoldCheck($exit === 0 && is_file($root.'/'.$page) && str_contains($output, 'skipped '.$card) && ! str_contains($output, $widget), '--only takes a folder and still skips existing files');
+    // The widgets folder becomes a link to a folder outside the app; even a --force of the file in it refuses.
+    $outside = sys_get_temp_dir().'/kit-scaffold-outside-'.bin2hex(random_bytes(6));
+    rename($root.'/resources/js/widgets', $outside);
+    file_put_contents($outside.'/Notes.vue', "outside\n");
+    symlink($outside, $root.'/resources/js/widgets');
+    $tree = scaffoldTree($root);
+    [$exit, $output] = $scaffold(['feature' => 'notes', '--force' => [$widget]]);
+    scaffoldCheck($exit !== 0 && str_contains($output, 'Refusing to write through a linked folder: resources/js/widgets') && scaffoldTree($root) === $tree && file_get_contents($outside.'/Notes.vue') === "outside\n", 'a linked parent folder refuses before any write, inside the app or outside it');
+    unlink($root.'/resources/js/widgets');
+    rename($outside, $root.'/resources/js/widgets');
+    unlink($root.'/'.$widget);
+    $scaffold(['feature' => 'notes', '--only' => [$widget]]);
     [$exit, $output] = $scaffold(['feature' => 'notes', '--only' => [$widget], '--diff' => true]);
     scaffoldCheck($exit === 0 && trim($output) === 'unchanged '.$widget, '--only filters --diff too');
     $tree = scaffoldTree($root);

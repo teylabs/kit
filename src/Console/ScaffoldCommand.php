@@ -46,6 +46,14 @@ final class ScaffoldCommand extends Command
 
                 return self::SUCCESS;
             }
+            // A linked folder on the way would carry a write outside the app: refuse before writing anything.
+            foreach (array_keys($files) as $path) {
+                for ($folder = dirname($path); $folder !== '.'; $folder = dirname($folder)) {
+                    if (is_link($root.'/'.$folder)) {
+                        throw new RuntimeException('Refusing to write through a linked folder: '.$folder.' (for '.$path.')');
+                    }
+                }
+            }
             $written = $skipped = 0;
             foreach ($files as $path => $source) {
                 $target = $root.'/'.$path;
