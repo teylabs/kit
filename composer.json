@@ -124,6 +124,7 @@
         "test:brand-assets": "@php tests/BrandAssetsCheck.php vendor/autoload.php",
         "test:brand-config": "@php tests/BrandConfigCheck.php vendor/autoload.php",
         "test:token-contrast": "@php tests/KitTokenContrastCheck.php",
+        "test:theme": "@php tests/ThemeCheck.php vendor/autoload.php",
         "test:environment": "@php tests/EnvironmentIndicatorCheck.php",
         "test:input-select": "node --test tests/js/input-select.test.mjs",
         "test:iso-date": "@php tests/IsoDateCheck.php vendor/autoload.php",

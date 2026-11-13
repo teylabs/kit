@@ -319,6 +319,9 @@ jobs:
       - name: Kit token contrast
         timeout-minutes: 4
         run: composer test:token-contrast
+      - name: Theme tokens, theming advice and theme stylesheets
+        timeout-minutes: 3
+        run: composer test:theme
       - name: Environment indicator
         timeout-minutes: 4
         run: composer test:environment
