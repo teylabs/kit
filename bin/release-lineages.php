@@ -1,7 +1,8 @@
 <?php
 
-// Prints the release-notes line for the lineages a release changes: the features whose pin in src/Catalog.php differs between two refs. A stub fix
-// reaches an app only through kit:update; composer update alone leaves it unapplied. Paste the output under the release's heading in CHANGELOG.md.
+// Prints the release-notes line for the features a release changes: the features whose pin in src/Catalog.php differs between two refs. A stub fix
+// never reaches the files an app already has (they are the app's own since 0.18); the line tells an app which features to review. Paste the output under
+// the release's heading in CHANGELOG.md.
 //   php bin/release-lineages.php [<from-ref> [<to-ref>]]    from: the newest vX.Y.Z tag before <to-ref> (not on it); to: HEAD
 // Fails (exit 1) when either ref's src/Catalog.php cannot be read or names no pins.
 
@@ -24,7 +25,7 @@ function releaseLineagePins(string $source): array
 }
 
 /**
- * The release-notes block for two sets of pins: the lineages whose pin changed (in $head's order), and any new ones.
+ * The release-notes block for two sets of pins: the features whose pin changed (in $head's order), and any new ones.
  *
  * @param  array<string, string>  $base
  * @param  array<string, string>  $head
@@ -35,13 +36,13 @@ function releaseLineagesBlock(array $base, array $head): string
     $added = array_keys(array_diff_key($head, $base));
     $lines = [];
     if ($changed !== []) {
-        $lines[] = 'Run `php artisan kit:update` for: '.implode(', ', $changed);
+        $lines[] = 'Features affected: '.implode(', ', $changed);
     }
     if ($added !== []) {
-        $lines[] = 'New lineages (add with `php artisan kit:add`): '.implode(', ', $added);
+        $lines[] = 'New features: '.implode(', ', $added);
     }
 
-    return $lines === [] ? 'No lineage pin changed: `composer update` is enough.' : implode("\n", $lines);
+    return $lines === [] ? 'Features affected: none.' : implode("\n", $lines);
 }
 
 if (realpath($_SERVER['SCRIPT_FILENAME'] ?? '') !== __FILE__) {

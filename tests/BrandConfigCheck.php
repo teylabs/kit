@@ -1,7 +1,8 @@
 <?php
 
-// The brand's sources (config/brand.php, the kit default; KIT_BRAND_* env is ignored since 0.17 and named), colour validation at boot, kit:brand:migrate
-// and kit:status's source column and ignored-env warning, on synthetic apps in temp directories. No network, browser, database or consumer app.
+// The brand's sources (config/brand.php, the kit default; KIT_BRAND_* env is ignored since 0.17 and named), colour validation at boot and kit:brand:migrate,
+// on synthetic apps in temp directories. No network, browser, database or consumer app.
+use Illuminate\Config\Repository;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Foundation\Application;
 use Tey\Kit\Brand;
@@ -11,7 +12,6 @@ use Tey\Kit\KitServiceProvider;
 use Tey\Mod\ModServiceProvider;
 
 $loader = require $argv[1];
-require __DIR__.'/InstalledSeam.php';
 $loader->addPsr4('Tey\\Kit\\', dirname(__DIR__).'/src', true);
 
 function check(bool $ok, string $message): void
@@ -77,8 +77,6 @@ function refuses(Closure $operation, string $contains): bool
 
 $roots = [];
 try {
-    simulateInstalled('tey/concierge', '0.7.6');
-
     // The stub carries every key, commented out at the kit's default; the defaults match config/kit.php with no env set.
     $stub = (string) file_get_contents(dirname(__DIR__).'/resources/stubs/brand.php');
     check((require dirname(__DIR__).'/resources/stubs/brand.php') === [], 'the published stub sets nothing: every key is commented out');
@@ -96,7 +94,7 @@ try {
     }
     check($defaults === BrandConfig::DEFAULTS, 'BrandConfig::DEFAULTS matches config/kit.php with no env set');
     // A stale kit.brand (a host's published pre-0.17 config/kit.php, or a config cache built before the upgrade) is never a source: an unset key takes the default.
-    $stale = new \Illuminate\Config\Repository(['kit' => ['brand' => ['accent' => '#112233', 'legal_name' => 'From env']], 'brand' => ['ink' => '#222222']]);
+    $stale = new Repository(['kit' => ['brand' => ['accent' => '#112233', 'legal_name' => 'From env']], 'brand' => ['ink' => '#222222']]);
     $staleLogs = BrandConfig::resolve($stale, 'testing');
     check(count(array_filter($staleLogs, fn (array $log): bool => str_contains($log['message'], 'kit.brand.accent is set outside config/brand.php'))) === 1, 'a stale kit.brand value is named once as ignored');
     check($stale->get('kit.brand.accent') === BrandConfig::DEFAULTS['accent'] && $stale->get('kit.brand.legal_name') === BrandConfig::DEFAULTS['legal_name'] && $stale->get('kit.brand.ink') === '#222222'
@@ -177,9 +175,8 @@ KIT_BRAND_IDENTITY=
     boot($root);
     check(config('kit.brand.icon_colours') === 'mono' && config('kit.brand.icon_padding') === null && config('kit.brand.header_rule') === null && str_contains(logged($root), 'kit.brand.icon_padding (config/brand.php) is -0.1'), 'production: an invalid icon key takes the kit default, logged; none is only for icon_background');
 
-    // kit:status: the source column has only config and default.
+    // Every key's source is config or default.
     $roots[] = $root = host("APP_ENV=testing\nKIT_BRAND_LEGAL_NAME=\"Env Co\"\n", "<?php return ['accent' => '#123456'];");
-    file_put_contents($root.'/config/kit.php', "<?php return ['features' => ['core']];");
     boot($root);
     $sources = BrandConfig::sources();
     check($sources['accent'] === 'config' && $sources['legal_name'] === 'default' && $sources['ink'] === 'default' && count($sources) === count(BrandConfig::DEFAULTS), 'every brand key has a source, config or default');
@@ -260,30 +257,10 @@ KIT_BRAND_IDENTITY=
     file_put_contents($root.'/config/kit.php', "<?php throw new RuntimeException('broken kit config');");
     check($kernel->call('kit:brand:migrate') === 1 && str_contains($kernel->output(), 'broken kit config') && ! is_file($root.'/config/brand.php'), 'a config/kit.php that cannot be read fails migrate, with nothing written');
 
-    // kit:status names every KIT_BRAND_* still set, so a leftover in .env, CI or a deploy is found; it boots past any value.
+    // kit:brand:migrate is the one lenient command; any command boots past an ignored KIT_BRAND_* value.
     $roots[] = $root = host("APP_ENV=local\nKIT_BRAND_ACCENT=red\nKIT_BRAND_CARD=\n");
-    file_put_contents($root.'/config/kit.php', "<?php return ['features' => ['core']];");
-    check(BrandConfig::lenientCommand(['artisan', '--ansi', 'kit:brand:migrate', '--force']) && BrandConfig::lenientCommand(['artisan', 'kit:status', '--json'])
+    check(BrandConfig::lenientCommand(['artisan', '--ansi', 'kit:brand:migrate', '--force'])
         && ! BrandConfig::lenientCommand(['artisan', 'kit:brand']) && ! BrandConfig::lenientCommand(['artisan', 'serve', 'kit:brand:migrate']) && ! BrandConfig::lenientCommand(['artisan']), 'the lenient command is the argv\'s command name, not any argument');
-    $kernel = boot_as($root, ['artisan', 'kit:status']);
-    $kernel->call('kit:status');
-    $out = $kernel->output();
-    check(str_contains($out, 'Ignored KIT_BRAND_* variables') && str_contains($out, 'KIT_BRAND_ACCENT') && str_contains($out, 'KIT_BRAND_CARD') && str_contains($out, 'kit:brand:migrate') && ! str_contains($out, 'is not a valid colour'), 'kit:status names each ignored variable and the way out, and lists none as invalid');
-    $roots[] = $configRoot = host("APP_ENV=local\n", "<?php return ['card' => ''];");
-    file_put_contents($configRoot.'/config/kit.php', "<?php return ['features' => ['core']];");
-    $kernel = boot_as($configRoot, ['artisan', 'kit:status']);
-    $kernel->call('kit:status');
-    $out = $kernel->output();
-    check(str_contains($out, 'kit.brand.card is not a valid colour') && str_contains($out, 'in config/brand.php') && ! str_contains($out, 'Ignored KIT_BRAND_'), 'kit:status: a bad config/brand.php colour is fixed in the file; no ignored-env line without a variable set');
-    $roots[] = $iconRoot = host("APP_ENV=local\n", "<?php return ['icon_padding' => 2, 'icon_background' => 'clear', 'icon_colours' => 'rainbow'];");
-    file_put_contents($iconRoot.'/config/kit.php', "<?php return ['features' => ['core']];");
-    $kernel = boot_as($iconRoot, ['artisan', 'kit:status']);
-    $kernel->call('kit:status');
-    $out = $kernel->output();
-    check(str_contains($out, 'kit.brand.icon_padding is not valid and is using the kit default: set a number from 0 up to (not including) 0.5, or null')
-        && str_contains($out, "kit.brand.icon_colours is not valid and is using the kit default: set 'mono' or 'full', or null")
-        && str_contains($out, "kit.brand.icon_background is not valid and is using the kit default: set a #rgb or #rrggbb colour, or 'none', or null")
-        && ! str_contains($out, 'kit.brand.icon_padding is not a valid colour'), 'kit:status: a bad icon key names what it takes, not a colour');
     foreach ([['artisan', 'kit:brand'], ['artisan', 'serve'], ['vendor/bin/pest']] as $argv) {
         boot_as($root, $argv);
         check(config('kit.brand.accent') === '#52525b', 'local, KIT_BRAND_ACCENT=red: '.implode(' ', $argv).' boots, with the kit default');

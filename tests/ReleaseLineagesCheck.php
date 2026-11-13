@@ -35,12 +35,12 @@ $git = function (string $command) use ($repo): void {
 
 try {
     releaseLineagesCheck(releaseLineagePins($catalog($v1)) === ['core' => $pin('core-1'), 'shell' => $pin('shell-1'), 'workspace-ui' => $pin('ui-1'), 'notes' => $pin('notes-1')], 'the pins are read from FEATURES in order, and BASE is not a lineage');
-    releaseLineagesCheck($block($v1, $v1) === 'No lineage pin changed: `composer update` is enough.', 'unchanged pins say composer update is enough');
-    releaseLineagesCheck($block($v1, array_replace($v1, ['shell' => 'shell-2'])) === 'Run `php artisan kit:update` for: shell', 'one changed pin names that lineage only');
+    releaseLineagesCheck($block($v1, $v1) === 'Features affected: none.', 'unchanged pins say no feature is affected');
+    releaseLineagesCheck($block($v1, array_replace($v1, ['shell' => 'shell-2'])) === 'Features affected: shell', 'one changed pin names that feature only');
     // Changed in the reverse of canonical order, so a list that follows the change order (or the alphabet) fails.
-    releaseLineagesCheck($block($v1, array_replace($v1, ['notes' => 'notes-2', 'workspace-ui' => 'ui-2', 'core' => 'core-2'])) === 'Run `php artisan kit:update` for: core, workspace-ui, notes', 'several changed pins are named in canonical order, unchanged ones left out');
-    releaseLineagesCheck($block($v1, $v1 + ['deliver' => 'deliver-1']) === 'New lineages (add with `php artisan kit:add`): deliver', 'a new feature is listed as new, not as an update');
-    releaseLineagesCheck($block($v1, array_replace($v1, ['core' => 'core-2']) + ['deliver' => 'deliver-1']) === "Run `php artisan kit:update` for: core\nNew lineages (add with `php artisan kit:add`): deliver", 'a changed and a new lineage get a line each');
+    releaseLineagesCheck($block($v1, array_replace($v1, ['notes' => 'notes-2', 'workspace-ui' => 'ui-2', 'core' => 'core-2'])) === 'Features affected: core, workspace-ui, notes', 'several changed pins are named in canonical order, unchanged ones left out');
+    releaseLineagesCheck($block($v1, $v1 + ['deliver' => 'deliver-1']) === 'New features: deliver', 'a new feature is listed as new, not as an update');
+    releaseLineagesCheck($block($v1, array_replace($v1, ['core' => 'core-2']) + ['deliver' => 'deliver-1']) === "Features affected: core\nNew features: deliver", 'a changed and a new feature get a line each');
     $refused = false;
     try {
         releaseLineagePins("<?php\n\nfinal class Catalog {}\n");
@@ -65,10 +65,10 @@ try {
     $git('tag v0.1.1');
     $commit(array_replace($v1, ['core' => 'core-2', 'shell' => 'shell-2', 'notes' => 'notes-2']), 'core and notes fix');
     $script = $repo.'/bin/release-lineages.php';
-    releaseLineagesCheck($run($script, []) === [0, 'Run `php artisan kit:update` for: core, notes'], 'with no refs, HEAD is compared with the newest release tag');
+    releaseLineagesCheck($run($script, []) === [0, 'Features affected: core, notes'], 'with no refs, HEAD is compared with the newest release tag');
     $git('tag v0.1.2');
-    releaseLineagesCheck($run($script, []) === [0, 'Run `php artisan kit:update` for: core, notes'], 'a tag on HEAD itself is not its own base');
-    releaseLineagesCheck($run($script, ['v0.1.0', 'v0.1.2']) === [0, 'Run `php artisan kit:update` for: core, shell, notes'], 'two named refs span every release between them');
+    releaseLineagesCheck($run($script, []) === [0, 'Features affected: core, notes'], 'a tag on HEAD itself is not its own base');
+    releaseLineagesCheck($run($script, ['v0.1.0', 'v0.1.2']) === [0, 'Features affected: core, shell, notes'], 'two named refs span every release between them');
     releaseLineagesCheck($run($script, ['no-such-ref'])[0] === 1, 'an unreadable ref fails');
 } catch (Throwable $e) {
     fwrite(STDERR, $e->getMessage()."\n");

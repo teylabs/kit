@@ -1,8 +1,9 @@
 <?php
 
-// session-ui on a core and shell host: no workspaces, access, Concierge, Pennant or multitenancy installed or configured. kit:add session-ui adds it
-// alone, the app boots from its lineages, the sign-in page renders, a user signs in and the session is authenticated, and no workspace, access or Concierge
-// class is ever loaded. Synthetic host app in a temp directory, SQLite memory, real Fortify and Inertia, synthetic users; no network, no browser.
+// session-ui on a core and shell host: no workspaces, access, Concierge, Pennant or multitenancy installed or configured. The app lists core, shell and
+// session-ui in kit.features, the sign-in page renders, a user signs in and the session is authenticated, and no workspace, access or Concierge class, and
+// no tey/mod maintenance class (install history), is ever loaded. Synthetic host app in a temp directory, SQLite memory, real Fortify and Inertia, synthetic
+// users; no network, no browser.
 use Illuminate\Auth\AuthServiceProvider;
 use Illuminate\Auth\Middleware\Authenticate;
 use Illuminate\Auth\Middleware\RedirectIfAuthenticated;
@@ -46,10 +47,7 @@ use Inertia\ServiceProvider;
 use Laravel\Fortify\FortifyServiceProvider;
 use Monolog\Handler\NullHandler;
 use Spatie\LaravelData\LaravelDataServiceProvider;
-use Symfony\Component\Console\Input\ArrayInput;
-use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\HttpFoundation\Response;
-use Tey\Kit\Console\StatusCommand;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\FeaturesServiceProvider;
 use Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests;
@@ -58,9 +56,6 @@ use Tey\Kit\Features\SessionUi\SessionUiPageLayouts;
 use Tey\Kit\Features\SessionUi\SessionUiProvider;
 use Tey\Kit\Features\SessionUi\Welcome\Onboarding;
 use Tey\Kit\Features\Shell\ShellProvider;
-use Tey\Kit\Lifecycle;
-use Tey\Kit\Lineages;
-use Tey\Mod\Maintenance\Checkout;
 use Tey\Mod\ModServiceProvider;
 
 $loader = require $argv[1];
@@ -82,10 +77,10 @@ class CoreUser extends Authenticatable
     protected $guarded = [];
 }
 
-/** Classes a core and shell host must never load: the workspace, access and workspace-ui features, Concierge, Pennant, multitenancy and spatie's permissions. */
+/** Classes a core and shell host must never load: the workspace, access and workspace-ui features, Concierge, Pennant, multitenancy, spatie's permissions, and tey/mod's install history. */
 function forbidden(): array
 {
-    $prefixes = ['Tey\\Concierge\\', 'Tey\\Kit\\Features\\Workspaces\\', 'Tey\\Kit\\Features\\Access\\', 'Tey\\Kit\\Features\\WorkspaceUi\\', 'Tey\\Kit\\Features\\Settings\\', 'Laravel\\Pennant\\', 'Spatie\\Multitenancy\\', 'Spatie\\Permission\\'];
+    $prefixes = ['Tey\\Mod\\Maintenance\\', 'Tey\\Concierge\\', 'Tey\\Kit\\Features\\Workspaces\\', 'Tey\\Kit\\Features\\Access\\', 'Tey\\Kit\\Features\\WorkspaceUi\\', 'Tey\\Kit\\Features\\Settings\\', 'Laravel\\Pennant\\', 'Spatie\\Multitenancy\\', 'Spatie\\Permission\\'];
 
     return array_values(array_filter([...get_declared_classes(), ...get_declared_interfaces(), ...get_declared_traits()], function (string $class) use ($prefixes): bool {
         foreach ($prefixes as $prefix) {
@@ -99,7 +94,7 @@ function forbidden(): array
 }
 
 try {
-    // The host: a synthetic app with core and shell installed from their lineages, then kit:add session-ui.
+    // The host: a synthetic app in a temp directory.
     $root = sys_get_temp_dir().'/kit-session-ui-core-'.bin2hex(random_bytes(8));
     register_shutdown_function(fn () => exec('rm -rf '.escapeshellarg($root)));
     mkdir($root, 0700, true);
@@ -109,38 +104,12 @@ try {
     }
     // The fixture's own User is a Concierge member: this host's is the plain one above.
     unlink($root.'/app/Models/User.php');
-    foreach (['bootstrap/cache', 'storage/logs', 'storage/framework/views', 'verification'] as $dir) {
+    foreach (['bootstrap/cache', 'storage/logs', 'storage/framework/views'] as $dir) {
         mkdir($root.'/'.$dir, 0700, true);
     }
     $root = realpath($root);
-    $paths = [];
-    foreach (['verification-policy', 'verification-code', 'dependency-lock', 'host-config', 'host-binding', 'host-operations', 'executor-provenance'] as $id) {
-        $paths[$id] = 'verification/'.$id.'.txt';
-        file_put_contents($root.'/'.$paths[$id], 'synthetic fixture '.$id);
-    }
-    file_put_contents($root.'/verification/executor-provenance.txt', json_encode((new Lifecycle)->runtime()));
-    file_put_contents($root.'/verification/host-operations.txt', '<?php return function () use ($operation) { return $operation(); };');
-    $bound = fn (Closure $operation): Closure => require $root.'/verification/host-operations.txt';
-    $pass = fn () => true;
-    Application::configure($root)->withExceptions(fn ($e) => null)->create()->make(Kernel::class)->bootstrap();
-    $lineages = new Lineages(new Lifecycle);
 
-    $preview = $lineages->preview($root, 'host', ['core', 'shell'], [], $paths);
-    check($preview['executable'] && array_column($preview['features'], 'feature') === ['core', 'shell'], 'core and shell install on the host app');
-    $lineages->add($root, 'host', ['core', 'shell'], [], $paths, $preview['plan'], null, $bound($pass));
-    $preview = $lineages->preview($root, 'host', ['session-ui'], [], $paths);
-    $rows = array_column($preview['features'], 'action', 'feature');
-    check($preview['executable'] && $rows === ['core' => 'adopted', 'shell' => 'adopted', 'session-ui' => 'add'], 'kit:add session-ui on the core and shell host plans session-ui alone, with no workspaces, access or workspace-ui');
-    $result = $lineages->add($root, 'host', ['session-ui'], [], $paths, $preview['plan'], null, $bound($pass));
-    $installed = array_keys(Checkout::installed($root, 'host'));
-    sort($installed);
-    check($result['status'] === 'completed' && $installed === ['tey/kit:core', 'tey/kit:session-ui', 'tey/kit:shell'], 'session-ui is installed beside core and shell, and nothing else is ('.implode(', ', $installed).')');
-    $auth = array_map(fn (string $path): string => dirname(substr($path, strlen('resources/js/pages/'))), array_values(array_filter(array_keys(Checkout::installed($root, 'host')['tey/kit:session-ui']['files']), fn (string $path): bool => str_starts_with($path, 'resources/js/pages/Auth/'))));
-    sort($auth);
-    check($auth === ['Auth/ConfirmPassword', 'Auth/ForgotPassword', 'Auth/Login', 'Auth/Register', 'Auth/ResetPassword', 'Auth/TwoFactor', 'Auth/VerifyEmail'] && is_file($root.'/resources/js/pages/Auth/Login/Page.vue') && ! file_exists($root.'/resources/js/pages/Auth/Invitation') && ! file_exists($root.'/resources/js/pages/Welcome/WorkspaceTimezone'), 'it writes the seven Auth pages, and no invitation or workspace-timezone page');
-    check(glob($root.'/database/migrations/kit/session-ui/*.php') !== [] && ! is_dir($root.'/database/migrations/kit/workspaces') && ! is_dir($root.'/database/migrations/kit/access'), 'it writes session-ui\'s migrations (security events, user state) and no workspace or access migration');
-
-    // The host boots from its lineages (kit.app_id, no kit.features), with only the framework, Fortify, Inertia, laravel-data and medialibrary.
+    // The host boots from kit.features, with only the framework, Fortify, Inertia, laravel-data and medialibrary.
     $app = new Application($root);
     $app->useStoragePath($root.'/storage');
     $app->singleton(Illuminate\Contracts\Http\Kernel::class, Illuminate\Foundation\Http\Kernel::class);
@@ -154,7 +123,7 @@ try {
         'session' => ['driver' => 'array', 'lifetime' => 120, 'cookie' => 's', 'path' => '/', 'domain' => null, 'secure' => false, 'http_only' => true, 'same_site' => 'lax', 'partitioned' => false, 'lottery' => [0, 100], 'expire_on_close' => false, 'encrypt' => false],
         'view' => ['paths' => [], 'compiled' => $root.'/storage/framework/views'],
         'database' => ['default' => 'testing', 'connections' => ['testing' => ['driver' => 'sqlite', 'database' => ':memory:', 'prefix' => '', 'foreign_key_constraints' => true]]],
-        'kit' => ['app_id' => 'host', 'models' => ['user' => CoreUser::class]],
+        'kit' => ['features' => ['core', 'shell', 'session-ui'], 'models' => ['user' => CoreUser::class]],
         'queue' => ['default' => 'sync', 'connections' => ['sync' => ['driver' => 'sync']]], 'mail' => ['default' => 'array', 'mailers' => ['array' => ['transport' => 'array']], 'from' => ['address' => 'kit@example.test', 'name' => 'Kit']],
         'logging' => ['default' => 'null', 'channels' => ['null' => ['driver' => 'monolog', 'handler' => NullHandler::class]]],
     ]));
@@ -181,9 +150,9 @@ try {
     }
     $app['translator']->addNamespace('kit', dirname(__DIR__).'/lang');
     $adopted = array_values(array_filter(array_keys(FeaturesServiceProvider::FEATURES), fn (string $id): bool => $registry->adopts($id)));
-    check($adopted === ['core', 'shell', 'session-ui'] && $app->getProvider(SessionUiProvider::class) !== null && $app->getProvider(ShellProvider::class) !== null, 'the host boots core, shell and session-ui from its lineages, and nothing else');
+    check($adopted === ['core', 'shell', 'session-ui'] && $app->getProvider(SessionUiProvider::class) !== null && $app->getProvider(ShellProvider::class) !== null, 'the host boots core, shell and session-ui from kit.features, and nothing else');
 
-    // Its tables: the host's users, password resets and media, then the kit migrations kit:add wrote into the app.
+    // Its tables: the host's users, password resets and media, then the kit's migrations for its features.
     Schema::create('users', function (Blueprint $table) {
         $table->id();
         $table->string('name');
@@ -200,7 +169,7 @@ try {
     });
     // session-ui's avatars are medialibrary items (it requires spatie/laravel-medialibrary): the host runs its media migration.
     (require dirname(__DIR__).'/vendor/spatie/laravel-medialibrary/database/migrations/create_media_table.php.stub')->up();
-    $migrations = glob($root.'/database/migrations/kit/*/*.php');
+    $migrations = glob(dirname(__DIR__).'/resources/features/{core,shell,session-ui}/migrations/*.php.stub', GLOB_BRACE);
     usort($migrations, fn (string $a, string $b): int => strcmp(basename($a), basename($b)));
     foreach ($migrations as $file) {
         (require $file)->up();
@@ -311,29 +280,13 @@ try {
     check(array_column(Onboarding::steps(), 'id') === ['timezone', 'photo'], 'the welcome steps are the timezone and the photo');
     $names = array_filter(array_map(fn ($route): ?string => $route->getName(), $app['router']->getRoutes()->getRoutes()));
     check(! in_array('invitations.show', $names, true) && ! in_array('demo.login', $names, true) && ! in_array('home', $names, true) && in_array('login', $names, true) && in_array('focus.welcome', $names, true), 'the routes are the sign-in\'s: no invitation, demo sign-in or kit home');
-    // kit.home is the app's own route without workspace-ui: sign-in lands there, so kit:status flags it (attention, exit 0) until a host route answers GET there.
-    $status = function () use ($app): array {
-        $command = $app->make(StatusCommand::class);
-        $command->setLaravel($app);
-        $code = $command->run(new ArrayInput(['--json' => true]), $output = new BufferedOutput);
-        $json = json_decode($output->fetch(), true) ?? [];
-        $text = $command->run(new ArrayInput([]), $output) === 0 ? $output->fetch() : '';
-
-        return [$code, array_values(array_filter($json['requirements']['steps'] ?? [], fn (array $step): bool => $step['step'] === 'kit.home')), $json['requirements']['attention'] ?? null, $text];
-    };
-    [$code, $step, $attention, $text] = $status();
-    check($code === 0 && count($step) === 1 && $step[0]['status'] === 'unmet' && $attention === true && str_contains($text, 'ATTENTION') && str_contains($text, 'No route answers GET / (kit.home)'), 'with no route at kit.home, kit:status reports attention (exit 0) naming it');
-    $app['router']->get('/', fn () => 'the app\'s home')->name('app.home');
-    $app['router']->getRoutes()->refreshNameLookups();
-    [$code, $step, $attention, $text] = $status();
-    check($code === 0 && count($step) === 1 && $step[0]['status'] === 'met' && ! str_contains($text, 'kit.home).'), 'with a host route at kit.home, the kit.home step is met and not flagged');
     // Deletion (kit.lifecycle.*, off by default) needs workspaces and Concierge, so its routes are workspace-ui's: a session-ui-only host has none.
     $deletion = array_filter(array_map(fn ($route): string => $route->getActionName(), $app['router']->getRoutes()->getRoutes()), fn (string $action): bool => str_contains($action, 'DeletionController'));
     check($deletion === [], 'there is no workspace or account deletion route: deletion comes with workspace-ui');
 
     $loaded = forbidden();
-    check($loaded === [], 'no workspace, access, workspace-ui, settings, Concierge, Pennant, multitenancy or spatie permission class was loaded'.($loaded === [] ? '' : ': '.implode(', ', $loaded)));
-    echo "session-ui on a core and shell host: kit:add on a synthetic host app, then HTTP on SQLite memory with real Fortify and Inertia. No browser or consumer acceptance.\n";
+    check($loaded === [], 'no workspace, access, workspace-ui, settings, Concierge, Pennant, multitenancy, spatie permission or tey/mod maintenance class was loaded'.($loaded === [] ? '' : ': '.implode(', ', $loaded)));
+    echo "session-ui on a core and shell host: a synthetic host app, then HTTP on SQLite memory with real Fortify and Inertia. No browser or consumer acceptance.\n";
 } catch (Throwable $error) {
     fwrite(STDERR, 'FAIL '.$error->getMessage()."\n".$error->getTraceAsString()."\n");
     exit(1);

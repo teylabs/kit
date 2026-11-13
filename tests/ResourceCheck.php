@@ -1,6 +1,8 @@
 <?php
 
-// Tamper only exclusive disposable copies, never immutable package resources.
+// Tamper only exclusive disposable copies, never immutable package resources. Each copy is loaded in a child run of this check (autoload, copy, release).
+use Tey\Kit\Blueprint;
+
 function copyPackage(string $source, string $destination): void
 {
     mkdir($destination, 0700);
@@ -21,21 +23,35 @@ function copyPackage(string $source, string $destination): void
     }
 }
 try {
-    $cases = [['resource-after', 'C', null], ['manifest-after', 'C', null]];
+    if (isset($argv[2])) {
+        $loader = require $argv[1];
+        $loader->addPsr4('Tey\\Kit\\', $argv[2].'/src', true);
+        if ((new ReflectionClass(Blueprint::class))->getFileName() !== $argv[2].'/src/Blueprint.php') {
+            throw new RuntimeException('Blueprint did not load from the disposable copy.');
+        }
+        try {
+            Blueprint::release($argv[3]);
+        } catch (RuntimeException $error) {
+            if (str_contains($error->getMessage(), 'Immutable blueprint')) {
+                exit(0);
+            }
+            throw $error;
+        }
+        throw new RuntimeException('Expected refusal: tampered immutable resource or manifest refuses before rendering');
+    }
+    $cases = [];
     foreach (['A', 'B', 'C', 'D', 'E'] as $release) {
         foreach (glob(dirname(__DIR__).'/resources/releases/'.$release.'/*') as $resource) {
-            $cases[] = ['resource-before', $release, basename($resource)];
+            $cases[] = [$release, basename($resource)];
         }
     }
-    foreach ($cases as [$mode, $release, $resource]) {
+    foreach ($cases as [$release, $resource]) {
         $copy = sys_get_temp_dir().'/blueprint-resource-copy-'.bin2hex(random_bytes(8));
         copyPackage(dirname(__DIR__), $copy);
-        if ($resource !== null) {
-            $path = $copy.'/resources/releases/'.$release.'/'.$resource;
-            $bytes = file_get_contents($path);
-            file_put_contents($path, $resource === 'blueprint.json' ? str_replace('private-workspace', 'changed-workspace', $bytes) : $bytes.'// changed');
-        }
-        $process = proc_open([PHP_BINARY, __DIR__.'/LifecycleCheck.php', $argv[1], $copy, $mode, $release], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+        $path = $copy.'/resources/releases/'.$release.'/'.$resource;
+        $bytes = file_get_contents($path);
+        file_put_contents($path, $resource === 'blueprint.json' ? str_replace('private-workspace', 'changed-workspace', $bytes) : $bytes.'// changed');
+        $process = proc_open([PHP_BINARY, __FILE__, $argv[1], $copy, $release], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
         $output = stream_get_contents($pipes[1]);
         $error = stream_get_contents($pipes[2]);
         fclose($pipes[1]);
@@ -43,7 +59,7 @@ try {
         if (proc_close($process) !== 0) {
             throw new RuntimeException($output.$error);
         }
-        echo 'PASS disposable '.$release.' '.($resource ?? $mode).' tamper refused'."\n";
+        echo 'PASS disposable '.$release.' '.$resource.' tamper refused'."\n";
     }
 } catch (Throwable $error) {
     fwrite(STDERR, (string) $error."\n");

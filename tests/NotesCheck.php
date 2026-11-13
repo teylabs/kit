@@ -1,7 +1,7 @@
 <?php
 
 // The notes feature: tenant isolation, ownership and moderation, stale writes, intent replay, subjects, attachments and their gated media, the save
-// toast, the dashboard widget, the MCP tools over the same operations, the legacy-table attention step and the import. SQLite memory, real Concierge,
+// toast, the dashboard widget, the MCP tools over the same operations, the legacy-table step declaration and the import. SQLite memory, real Concierge,
 // spatie teams and Pennant, medialibrary on a temporary local disk, synthetic users.
 use Illuminate\Auth\AuthServiceProvider;
 use Illuminate\Auth\Middleware\Authenticate;
@@ -76,7 +76,6 @@ use Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests;
 use Tey\Kit\Features\Workspaces\Concerns\HasWorkspaces;
 use Tey\Kit\Features\Workspaces\Models\Workspace;
 use Tey\Kit\Features\Workspaces\Workspaces;
-use Tey\Kit\HostRequirements;
 use Tey\Mod\ModServiceProvider;
 
 $loader = require $argv[1];
@@ -463,10 +462,9 @@ try {
     $gate = app(ConsentGate::class);
     check(array_map(fn (string $code): string => $gate->refusal(new RuntimeException($code))['error'], ['stale_note', 'note_not_yours', 'note_not_found', 'note_subject_unavailable', 'note_intent_conflict']) === ['stale_note', 'note_not_yours', 'note_not_found', 'note_subject_unavailable', 'note_intent_conflict'], 'the operation\'s refusal codes reach the assistant as they are, not as operation_failed');
 
-    // The legacy-table attention step, and the import.
+    // The legacy-table step the manifest declares, and the import.
     $manifest = Blueprint::lineage('notes')['feature'];
-    $steps = fn (): array => array_values(array_filter(HostRequirements::of(sys_get_temp_dir(), ['notes' => $manifest])['steps'], fn (array $step): bool => $step['kind'] === 'legacy_table'));
-    check(array_column($steps(), 'status') === ['met', 'met'], 'with no legacy table, the legacy steps are met');
+    check(array_column($manifest['host_steps']['legacy_table'], 'table') === ['notes', 'app_notes'] && array_filter($manifest['host_steps']['legacy_table'], fn (array $step): bool => ! str_contains($step['why'], 'kit:notes:import --from='.$step['table'])) === [], 'notes declares the legacy notes and app_notes tables, each with its import command');
     Schema::create('notes', function (Illuminate\Database\Schema\Blueprint $t): void {
         $t->id();
         $t->foreignId('workspace_id');
@@ -474,8 +472,6 @@ try {
         $t->unsignedInteger('version')->default(1);
     });
     DB::table('notes')->insert([['workspace_id' => $workspace->id, 'body' => 'Legacy one'], ['workspace_id' => $workspace->id, 'body' => '  '], ['workspace_id' => 999, 'body' => 'Orphan'], ['workspace_id' => $beta->id, 'body' => 'Legacy beta']]);
-    $legacy = $steps()[0];
-    check($legacy['status'] === 'unmet' && $legacy['blocking'] === false && str_contains($legacy['message'], 'kit:notes:import --from=notes'), 'a legacy notes table is pointed out, non-blocking, with the import command');
     $before = [Schema::getColumnListing('notes'), DB::table('notes')->orderBy('id')->get()->map(fn ($row) => (array) $row)->all()];
     $import = function (array $options) use ($app): array {
         $command = new ImportNotesCommand;

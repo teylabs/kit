@@ -1,15 +1,8 @@
 <?php
 
-// External catalogs, stub trees and the catalog host; no consumer acceptance.
-use Illuminate\Contracts\Console\Kernel;
-use Illuminate\Foundation\Application;
-use Tey\Mod\ModServiceProvider;
+// External catalogs and stub trees; no consumer acceptance.
 use Tey\Kit\Blueprint;
-use Tey\Kit\KitServiceProvider;
 use Tey\Kit\Catalog;
-use Tey\Kit\CatalogHost;
-use Tey\Kit\Lifecycle;
-use Tey\Kit\LifecycleHost;
 
 $loader = require $argv[1];
 $loader->addPsr4('Tey\\Kit\\', dirname(__DIR__).'/src', true);
@@ -345,104 +338,8 @@ try {
     $listedDot = Blueprint::features(['core', 'workspaces'], repin($copy));
     catalogCheck(isset($listedDot->manifest['generated']['app/Workspaces/.hidden']) && $listedDot->snapshot()['files']['app/Workspaces/.hidden'] === "skipped\n", 'a dotfile listed in files is included');
 
-    // CatalogHost drives kit:update.
-    $adapter = new Lifecycle;
-    $root = sys_get_temp_dir().'/blueprint-catalog-host-'.bin2hex(random_bytes(8));
-    foreach (['app', 'bootstrap/cache', 'storage/logs', 'config'] as $dir) {
-        mkdir($root.'/'.$dir, 0700, true);
-    }
-    $paths = [];
-    foreach (['verification-policy', 'verification-code', 'dependency-lock', 'host-config', 'host-binding', 'host-operations', 'executor-provenance'] as $id) {
-        $paths[$id] = $id.'.txt';
-        file_put_contents($root.'/'.$paths[$id], 'synthetic fixture '.$id);
-    }
-    file_put_contents($root.'/executor-provenance.txt', json_encode($adapter->runtime()));
-    file_put_contents($root.'/host-operations.txt', '<?php return function () use ($operation) { return $operation(); };');
-    $root = realpath($root);
-    $operation = fn () => true;
-    $check = (require $root.'/host-operations.txt');
-    $app = Application::configure($root)->withExceptions(fn ($e) => null)->withProviders([ModServiceProvider::class, KitServiceProvider::class])->create();
-    $plain = new class($adapter, $paths, $check) implements LifecycleHost
-    {
-        public function __construct(private Lifecycle $adapter, private array $paths, private Closure $check) {}
-
-        public function lifecycle(): Lifecycle
-        {
-            return $this->adapter;
-        }
-
-        public function appId(): string
-        {
-            return 'catalog-host';
-        }
-
-        public function bindings(): array
-        {
-            return ['frontend' => 'SyntheticLayout'];
-        }
-
-        public function inputPaths(): array
-        {
-            return $this->paths;
-        }
-
-        public function operationCheck(): Closure
-        {
-            return $this->check;
-        }
-    };
-    $owned = new class($adapter, $paths, $check, fixtureCatalog()) implements CatalogHost, LifecycleHost
-    {
-        public function __construct(private Lifecycle $adapter, private array $paths, private Closure $check, private Catalog $catalog) {}
-
-        public function catalog(): Catalog
-        {
-            return $this->catalog;
-        }
-
-        public function lifecycle(): Lifecycle
-        {
-            return $this->adapter;
-        }
-
-        public function appId(): string
-        {
-            return 'catalog-host';
-        }
-
-        public function bindings(): array
-        {
-            return ['frontend' => 'SyntheticLayout'];
-        }
-
-        public function inputPaths(): array
-        {
-            return $this->paths;
-        }
-
-        public function operationCheck(): Closure
-        {
-            return $this->check;
-        }
-    };
-    $kernel = $app->make(Kernel::class);
-    $kernel->bootstrap();
-    $app->instance(LifecycleHost::class, $plain);
-    catalogCheck($kernel->call('kit:update', ['action' => 'plan', '--features' => 'core,workspaces,mcp']) !== 0 && str_contains($kernel->output(), 'requires feature access'), 'a host without a catalog uses the package catalog, whose mcp requires access');
-    catalogCheck($kernel->call('kit:update', ['action' => 'plan', '--features' => 'foundation,defaults']) !== 0 && str_contains($kernel->output(), 'Unknown feature: foundation'), 'a host without a catalog no longer plans the v0.1 fixture features');
-    catalogCheck($kernel->call('kit:list', ['--json' => true]) === 0 && array_column(json_decode(trim($kernel->output()), true, flags: JSON_THROW_ON_ERROR), 'id') === $package->featureIds(), 'kit:list prints the package catalog');
-    $app->instance(LifecycleHost::class, $owned);
-    catalogCheck($kernel->call('kit:list', ['--json' => true]) === 0 && array_column(json_decode(trim($kernel->output()), true, flags: JSON_THROW_ON_ERROR), 'id') === Blueprint::featureIds(fixtureCatalog()), 'kit:list prints a catalog host\'s own features');
-    $app->instance(LifecycleHost::class, $plain);
-    $app->instance(LifecycleHost::class, $owned);
-    catalogCheck($kernel->call('kit:update', ['action' => 'plan', '--features' => 'core,workspaces,notes']) === 0, 'a catalog host plans features from its own catalog');
-    $plan = json_decode(trim($kernel->output()), true, flags: JSON_THROW_ON_ERROR);
-    $expected = $adapter->plan($root, 'catalog-host', null, Blueprint::features(['core', 'workspaces', 'notes'], fixtureCatalog()), ['frontend' => 'SyntheticLayout'], $paths);
-    catalogCheck($plan['plan'] === $expected->identity(), 'the command plan is the plan of the catalog host\'s blueprint');
-    catalogCheck($kernel->call('kit:update', ['action' => 'plan', '--features' => 'foundation']) !== 0, 'a catalog host does not fall back to other features');
-    catalogCheck($kernel->call('kit:update', ['action' => 'plan', '--features' => 'notes']) !== 0 && str_contains($kernel->output(), 'requires feature'), 'a catalog host refuses a missing requirement');
-    catalogCheck($kernel->call('kit:update', ['action' => 'apply', '--features' => 'core,workspaces,notes', '--intent' => 'catalog', '--exclusive-checkout' => true, '--expected-plan' => $plan['plan']]) === 0 && is_file($root.'/app/Workspaces/Concerns/BelongsToWorkspace.php') && is_file($root.'/app/Notes/Policies/NotePolicy.php'), 'a catalog host applies its tree features');
-    catalogCheck(! is_file($root.'/app/Support/Starter/BlueprintPolicy.php'), 'no package feature is delivered by a catalog host');
+    // Without a catalog, Blueprint resolves against the package catalog's graph.
+    catalogRefuses(fn () => Blueprint::features(['core', 'workspaces', 'mcp']), 'requires feature access', 'the package catalog\'s mcp requires access');
     echo "Catalog checks only; no consumer acceptance.\n";
 } catch (Throwable $error) {
     fwrite(STDERR, (string) $error."\n");

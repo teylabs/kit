@@ -1,7 +1,8 @@
 <?php
 
-// kit:operators:seed --from-platform-owners, the concierge.manage-tenants Gate on operators, and the empty-operators attention in kit:add/kit:adopt
-// requirements, kit:status and the local/testing boot log; synthetic SQLite files in a temporary directory, no network.
+// kit:operators:seed --from-platform-owners, the concierge.manage-tenants Gate on operators, and the empty-operators warning in the local/testing
+// boot log; synthetic SQLite files in a temporary directory, no network.
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Events\QueryExecuted;
@@ -11,12 +12,8 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Spatie\Permission\Traits\HasRoles;
 use Tey\Concierge\Contracts\Member;
-use Tey\Kit\Catalog;
-use Tey\Kit\Console\StatusCommand;
 use Tey\Kit\Features\FeaturesServiceProvider;
-use Tey\Kit\HostRequirements;
-use Tey\Kit\Lifecycle;
-use Tey\Kit\Lineages;
+use Tey\Kit\Features\Workspaces\Operators;
 
 $loader = require $argv[1];
 $loader->addPsr4('Tey\\Kit\\', dirname(__DIR__).'/src', true);
@@ -29,7 +26,7 @@ function check(bool $ok, string $message): void
     echo 'PASS '.$message."\n";
 }
 
-class OperatorsUser extends Model implements Illuminate\Contracts\Auth\Authenticatable, Member
+class OperatorsUser extends Model implements Authenticatable, Member
 {
     use HasRoles, Illuminate\Auth\Authenticatable;
 
@@ -131,28 +128,14 @@ try {
     $operators = fn (): array => $app['db']->table('operators')->orderBy('actor_id')->pluck('actor_id')->map(fn ($id): int => (int) $id)->all();
     $kernel = $app->make(Kernel::class);
 
-    // The empty-operators attention, before seeding.
-    $lineages = new Lineages(new Lifecycle, Catalog::package());
-    $requirements = $lineages->requirements($root, ['core', 'workspaces']);
-    $step = array_values(array_filter($requirements['steps'], fn (array $step): bool => $step['kind'] === 'operators'));
-    check(count($step) === 1 && $step[0]['status'] === 'unmet' && $step[0]['blocking'] === false && $step[0]['step'] === 'php artisan kit:operators:seed --from-platform-owners', 'kit:add/kit:adopt requirements carry the seed as a non-blocking operators step');
-    check($requirements['attention'] && str_contains($step[0]['message'], '(5 configured, 2 would seed: o***@northwind.test, o***@acme.test, 1 unmatched, 2 skipped)'), 'the step names the verified, active matches, masked, with counts');
+    // Platform-owner addresses are masked wherever they are reported.
     $full = ['owner@northwind.test', 'ops@acme.test', 'unverified@northwind.test', 'inactive@acme.test', 'nobody@acme.test', 'Owner@Northwind', 'OPS@acme'];
     $leaks = fn (string $output): array => array_values(array_filter($full, fn (string $email): bool => stripos($output, $email) !== false));
-    check($leaks(json_encode($requirements, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)) === [] && $leaks(implode("\n", [...HostRequirements::attention($requirements), ...HostRequirements::lines($requirements)])) === [], 'no full platform-owner address in the plan step, its text or JSON');
-    check(Tey\Kit\Features\Workspaces\Operators::mask('jane@example.com') === 'j***@example.com' && Tey\Kit\Features\Workspaces\Operators::mask('nodomain') === '***', 'mask keeps the first character and the domain');
-    check(! array_filter($lineages->requirements($root, ['core'])['steps'], fn (array $step): bool => $step['kind'] === 'operators'), 'a plan without workspaces has no operators step');
-    $status = new ReflectionMethod(StatusCommand::class, 'requirements');
-    $command = $app->make(StatusCommand::class);
-    $command->setLaravel($app);
-    $statusRequirements = $status->invoke($command, ['core', 'workspaces']);
-    $statusLines = implode("\n", [...HostRequirements::attention($statusRequirements), ...HostRequirements::lines($statusRequirements)]);
-    check(str_contains($statusLines, 'ATTENTION') && str_contains($statusLines, 'operators is empty') && str_contains($statusLines, 'step [unmet] workspaces operators: php artisan kit:operators:seed --from-platform-owners'), 'kit:status warns when platform_owners is set and operators is empty');
-    check($leaks($statusLines) === [] && $leaks(json_encode($statusRequirements, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)) === [], 'no full platform-owner address in kit:status text or JSON');
+    check(Operators::mask('jane@example.com') === 'j***@example.com' && Operators::mask('nodomain') === '***', 'mask keeps the first character and the domain');
 
     // The boot warning: logged in testing, and production boot runs no query for it.
     operatorsHost($root, $database, 'testing', $owners);
-    check(str_contains(bootLog($root), 'operators is empty'), 'testing boot logs the empty-operators warning');
+    check(str_contains(bootLog($root), 'operators is empty') && str_contains(bootLog($root), 'php artisan kit:operators:seed --from-platform-owners (5 configured, 2 would seed: o***@northwind.test, o***@acme.test, 1 unmatched, 2 skipped)'), 'testing boot logs the empty-operators warning, naming the seed and the verified, active matches, masked, with counts');
     check($leaks(bootLog($root)) === [] && str_contains(bootLog($root), 'o***@northwind.test'), 'the boot log masks platform-owner addresses');
     operatorsHost($root, $database, 'production', $owners);
     check(OperatorsQueryCounter::$queries === 0 && ! str_contains(bootLog($root), 'operators is empty'), 'production boot runs no database query and logs nothing');
@@ -194,10 +177,7 @@ try {
     $app['db']->table('operators')->insert(['actor_id' => $inactive->id]);
     check(! $allows(OperatorsUser::query()->find($unverified->id)) && ! $allows(OperatorsUser::query()->find($inactive->id)), 'an operator row on an unverified or inactive account is still refused');
 
-    // The attention clears once operators has a row.
-    check(! array_filter($lineages->requirements($root, ['core', 'workspaces'])['steps'], fn (array $step): bool => $step['kind'] === 'operators'), 'the operators step clears after seeding');
-    $statusRequirements = $status->invoke($command, ['core', 'workspaces']);
-    check($statusRequirements === null || ! str_contains(implode("\n", HostRequirements::attention($statusRequirements)), 'operators is empty'), 'the kit:status warning clears after seeding');
+    // The warning clears once operators has a row.
     operatorsHost($root, $database, 'testing', $owners);
     check(! str_contains(bootLog($root), 'operators is empty'), 'the boot warning clears after seeding');
 
@@ -214,7 +194,7 @@ try {
     // No platform owners configured: nothing to warn about.
     $app['db']->table('operators')->delete();
     operatorsHost($root, $database, 'testing', []);
-    check(! array_filter($lineages->requirements($root, ['core', 'workspaces'])['steps'], fn (array $step): bool => $step['kind'] === 'operators') && ! str_contains(bootLog($root), 'operators is empty'), 'no warning when platform_owners is empty');
+    check(! str_contains(bootLog($root), 'operators is empty'), 'no warning when platform_owners is empty');
 } catch (Throwable $error) {
     fwrite(STDERR, $error::class.': '.$error->getMessage()."\n".$error->getTraceAsString()."\n");
     exit(1);

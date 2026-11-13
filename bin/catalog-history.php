@@ -1,7 +1,7 @@
 <?php
 
-// Writes resources/features/history.json: each tagged release's rendered file hashes per feature, so kit:adopt can
-// tell which release a pre-lifecycle app's files came from. Run from a git checkout after composer install:
+// Writes resources/features/history.json: each tagged release's rendered file hashes per feature, so the release an app's
+// files came from can be identified. Run from a git checkout after composer install:
 //   php bin/catalog-history.php
 // Each release renders with its own Blueprint, from `git archive`, in a separate process. Hashes only, no bytes.
 // The last entry, `current`, is this checkout's catalog; `--check` fails when it no longer matches (run before tagging).
@@ -9,7 +9,7 @@
 /**
  * The release tags (vX.Y.Z, in version order) this checkout's history records: those that are ancestors of HEAD, and any older than the newest of them.
  * So main keeps a maintenance line's patches (an app on v0.5.54 is still identified), while a maintenance branch (0.5.x) never lists a newer line's
- * releases (v0.6.x), even when those tags are fetched. kit:adopt reads this history to identify which release an app's files came from.
+ * releases (v0.6.x), even when those tags are fetched.
  *
  * @return list<string>
  */

@@ -1,6 +1,6 @@
 <?php
 
-// The starter catalog in resources/features: manifests, pins, the requires graph, stubs, ownership, kit:list and migration loading.
+// The starter catalog in resources/features: manifests, pins, the requires graph, stubs, ownership, catalog entries and migration loading.
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Bootstrap\LoadConfiguration;
@@ -11,10 +11,6 @@ use Tey\Kit\Catalog;
 use Tey\Kit\Features\FeaturesServiceProvider;
 use Tey\Kit\Features\Workspaces\Models\Workspace;
 use Tey\Kit\Features\Workspaces\WorkspacesProvider;
-use Tey\Kit\KitServiceProvider;
-use Tey\Kit\Lifecycle;
-use Tey\Kit\LifecycleHost;
-use Tey\Mod\ModServiceProvider;
 
 $loader = require $argv[1];
 $loader->addPsr4('Tey\\Kit\\', dirname(__DIR__).'/src', true);
@@ -193,20 +189,15 @@ try {
     starterCheck(str_contains($fieldset, '<fieldset ') && str_contains($fieldset, '<legend ') && str_contains($fieldset, '<component :is="`h${level}`"') && str_contains($fieldset, ':aria-describedby="describedBy"') && ! str_contains($fieldset, 'fieldset :disabled') && ! str_contains($fieldset, 'locked?: boolean') && ! str_contains($fieldset, 'disabled?: boolean'), 'FormFieldset is a native fieldset with a legend heading and a described-by description, and has no locked or disabled prop');
     echo "SKIP Vue compile: the kit has no vue-tsc or @vue/compiler-sfc; blocks and relative imports are checked instead.\n";
 
-    // kit:list prints the starter catalog.
+    // The catalog entries: each starter feature with what it requires, and no v0.1 fixture.
+    $entries = array_column(Blueprint::entries(), null, 'id');
+    starterCheck(array_keys($entries) === array_keys(PINS) && $entries['core']['requires'] === [] && $entries['mcp']['requires'] === ['workspaces', 'access'] && ! isset($entries['foundation']), 'Blueprint::entries lists each starter feature in canonical order with what it requires, and no v0.1 fixture');
     foreach (['bootstrap/cache', 'storage/framework', 'storage/logs'] as $dir) {
         mkdir($temp.'/'.$dir, 0700, true);
     }
     file_put_contents($temp.'/composer.json', json_encode(['name' => 'example/consumer', 'autoload' => ['psr-4' => ['App\\' => 'app/']]]));
-    $app = Application::configure($temp)->withExceptions(fn ($e) => null)->withProviders([ModServiceProvider::class, KitServiceProvider::class])->create();
-    $kernel = $app->make(Kernel::class);
-    $kernel->bootstrap();
-    starterCheck($kernel->call('kit:list', ['--json' => true]) === 0 && json_decode(trim($kernel->output()), true, flags: JSON_THROW_ON_ERROR) === Blueprint::entries(), 'kit:list --json prints the starter catalog');
-    $kernel->call('kit:list');
-    $lines = explode("\n", trim($kernel->output()));
-    starterCheck($lines[0] === 'core' && $lines[1] === '  requires: -' && in_array('mcp', $lines, true) && in_array('  requires: workspaces, access', $lines, true) && ! in_array('foundation', $lines, true), 'kit:list prints each starter feature with what it requires, and no v0.1 fixture');
 
-    // Adopted features' migrations load from database/migrations/kit/<feature> with no app configuration.
+    // The features in kit.features load their migrations from database/migrations/kit/<feature> with no other app configuration.
     @mkdir($temp.'/database/migrations', 0700, true);
     file_put_contents($temp.'/database/migrations/0001_01_01_000000_create_users_table.php', "<?php\nuse Illuminate\\Database\\Migrations\\Migration;\nuse Illuminate\\Database\\Schema\\Blueprint;\nuse Illuminate\\Support\\Facades\\Schema;\nreturn new class extends Migration { public function up(): void { Schema::create('users', function (Blueprint \$t): void { \$t->id(); \$t->string('name'); \$t->string('email'); }); } };\n");
     $selected = ['core', 'workspaces', 'access', 'settings', 'mcp'];
@@ -246,13 +237,6 @@ try {
         }
     }
     starterCheck(array_filter(array_keys($files), fn (string $path): bool => str_starts_with($path, 'database/migrations/kit/shell/') || str_starts_with($path, 'database/migrations/kit/workspace-ui/')) === [] && ! array_diff(array_keys(PINS), [...array_keys(MIGRATION_BLOCK), 'shell', 'workspace-ui']), 'shell and workspace-ui migrate nothing; every other feature has its migration block');
-    // With kit.features null, the adopted features are the installed lineages (test:adopt installs real ones).
-    $record = sys_get_temp_dir().'/kit-installed-'.bin2hex(random_bytes(6));
-    mkdir($record, 0700, true);
-    $record = realpath($record);
-    starterCheck(FeaturesServiceProvider::adopted($record, 'app', null) === [], 'no installed lineage adopts nothing');
-    starterCheck(FeaturesServiceProvider::adopted($record, null, null) === null, 'without an app id no lineage is read');
-    starterCheck(FeaturesServiceProvider::adopted($record, 'app', ['core']) === ['core'], 'kit.features overrides the installed lineages');
     // Config defaults resolve from the library with no published files.
     $configRoot = sys_get_temp_dir().'/kit-config-'.bin2hex(random_bytes(6));
     foreach (['bootstrap/cache', 'config', 'storage/framework', 'storage/logs'] as $dir) {
@@ -281,73 +265,7 @@ try {
     $app = $configured($configRoot);
     starterCheck($app['config']->get('kit.mcp.connection_ability') === 'settings.write' && $app['config']->get('kit.routes.settings.prefix') === 'app', 'an edited published config/kit.php wins');
     starterCheck($app['config']->get('permission.teams') === false && $app['config']->get('permission.column_names') === null, 'a published package config replaces the kit defaults entirely');
-
-    // An app with an edited config/kit.php adopts and grows features with no conflict: no feature owns it.
-    $adapter = new Lifecycle;
-    $root = sys_get_temp_dir().'/kit-starter-update-'.bin2hex(random_bytes(6));
-    foreach (['app', 'bootstrap/cache', 'storage/logs', 'config'] as $dir) {
-        mkdir($root.'/'.$dir, 0700, true);
-    }
-    $paths = [];
-    foreach (['verification-policy', 'verification-code', 'dependency-lock', 'host-config', 'host-binding', 'host-operations', 'executor-provenance'] as $id) {
-        $paths[$id] = $id.'.txt';
-        file_put_contents($root.'/'.$paths[$id], 'synthetic fixture '.$id);
-    }
-    file_put_contents($root.'/executor-provenance.txt', json_encode($adapter->runtime()));
-    file_put_contents($root.'/host-operations.txt', '<?php return function () use ($operation) { return $operation(); };');
-    // The UI primitives core imports (its host_ui): present, as in an app with shadcn-vue's.
-    foreach (['button', 'checkbox', 'dropdown-menu', 'input', 'label', 'sheet', 'spinner'] as $primitive) {
-        mkdir($root.'/resources/js/components/ui/'.$primitive, 0700, true);
-        file_put_contents($root.'/resources/js/components/ui/'.$primitive.'/index.ts', "export {};\n");
-    }
-    file_put_contents($root.'/resources/js/components/ui/spinner/Spinner.vue', "<template><span /></template>\n");
-    $root = realpath($root);
-    $published = "<?php\n// The app's own edits.\nreturn ['features' => null, 'routes' => ['workspaces' => ['middleware' => ['verified']]]];\n";
-    file_put_contents($root.'/config/kit.php', $published);
-    $operation = fn () => true;
-    $check = (require $root.'/host-operations.txt');
-    $app = Application::configure($root)->withExceptions(fn ($e) => null)->withProviders([ModServiceProvider::class, KitServiceProvider::class])->create();
-    $host = new class($adapter, $paths, $check) implements LifecycleHost
-    {
-        public function __construct(private Lifecycle $adapter, private array $paths, private Closure $check) {}
-
-        public function lifecycle(): Lifecycle
-        {
-            return $this->adapter;
-        }
-
-        public function appId(): string
-        {
-            return 'starter-update';
-        }
-
-        public function bindings(): array
-        {
-            return ['frontend' => 'SyntheticLayout'];
-        }
-
-        public function inputPaths(): array
-        {
-            return $this->paths;
-        }
-
-        public function operationCheck(): Closure
-        {
-            return $this->check;
-        }
-    };
-    $kernel = $app->make(Kernel::class);
-    $kernel->bootstrap();
-    $app->instance(LifecycleHost::class, $host);
-    $kernel->call('kit:update', ['action' => 'plan', '--features' => 'core,workspaces']);
-    $plan = json_decode(trim($kernel->output()), true, flags: JSON_THROW_ON_ERROR);
-    starterCheck($kernel->call('kit:update', ['action' => 'apply', '--features' => 'core,workspaces', '--intent' => 'adopt', '--exclusive-checkout' => true, '--expected-plan' => $plan['plan']]) === 0 && is_file($root.'/database/migrations/kit/workspaces/0001_01_02_000202_create_kit_operators_table.php'), 'core and workspaces adopt beside a published config/kit.php');
-    file_put_contents($root.'/config/kit.php', $published."// edited again after adoption\n");
-    starterCheck($kernel->call('kit:update', ['action' => 'plan', '--original-features' => 'core,workspaces', '--features' => 'core,workspaces,access,mcp']) === 0, 'growing the selection after editing config/kit.php plans without conflict');
-    $grow = json_decode(trim($kernel->output()), true, flags: JSON_THROW_ON_ERROR);
-    starterCheck($kernel->call('kit:update', ['action' => 'apply', '--original-features' => 'core,workspaces', '--features' => 'core,workspaces,access,mcp', '--intent' => 'grow', '--exclusive-checkout' => true, '--expected-plan' => $grow['plan']]) === 0 && is_file($root.'/database/migrations/kit/mcp/0001_01_02_000600_create_kit_mcp_tables.php'), 'the update applies and delivers the new features');
-    starterCheck(file_get_contents($root.'/config/kit.php') === $published."// edited again after adoption\n", 'the app\'s config/kit.php is untouched by the update');
-    echo "Catalog checks only; the edited-config update runs on one single-lineage kit:update, not per-feature lineages (test:adopt covers those), and no package provider is booted.\n";
+    echo "Catalog checks only; no package provider is booted.\n";
 } catch (Throwable $error) {
     fwrite(STDERR, (string) $error."\n");
     exit(1);

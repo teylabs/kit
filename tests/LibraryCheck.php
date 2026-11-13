@@ -16,7 +16,6 @@ use Tey\Kit\Features\FeaturesServiceProvider;
 use Tey\Kit\Features\Mcp\Operations\WorkspaceConnection;
 use Tey\Kit\Features\Mcp\Runs\ReadRun;
 use Tey\Kit\Features\Workspaces\Slugs;
-use Tey\Kit\HostRequirements;
 
 $loader = require $argv[1];
 $loader->addPsr4('Tey\\Kit\\', dirname(__DIR__).'/src', true);
@@ -97,6 +96,26 @@ function libraryRefuses(Closure $operation, string $contains, string $message): 
         return;
     }
     throw new RuntimeException('Expected refusal: '.$message);
+}
+/**
+ * The host UI primitives a set of stub files imports (`@/components/ui/<name>` or `@/components/ui/<name>/<File>`), in the terms of a feature's `requires.host_ui`.
+ *
+ * @param  array<string, string>  $files  path => bytes
+ * @return list<string>
+ */
+function importedHostUi(array $files): array
+{
+    $entries = [];
+    foreach ($files as $path => $bytes) {
+        if (preg_match('/\.(?:vue|ts)\z/', $path)) {
+            preg_match_all("/from\s+['\"]@\/components\/ui\/([a-z][a-z0-9-]*(?:\/[A-Za-z][A-Za-z0-9]*\.(?:vue|ts))?)(?:\/index(?:\.ts)?)?['\"]/", $bytes, $matches);
+            array_push($entries, ...$matches[1]);
+        }
+    }
+    $entries = array_values(array_unique($entries));
+    sort($entries);
+
+    return $entries;
 }
 /** @return list<string> */
 function closure(string $feature, array $seen = []): array
@@ -340,7 +359,7 @@ try {
     foreach (['Access/Operations/ComplimentaryAccess', 'Mcp/Operations/WorkspaceConnection', 'Settings/Operations/WorkspaceProfile', 'Workspaces/Operations/AcceptWorkspaceInvitation', 'Workspaces/Operations/ProvisionWorkspace'] as $operation) {
         libraryCheck(str_contains((string) file_get_contents(ROOT.'/'.$operation.'.php'), 'use AsAction;'), $operation.' is a laravel-actions action');
     }
-    // Each feature's stubs import from the host's `@/components/ui` only what its `host_ui` declares (kit:add checks those, and blocks without them), and nothing from `@/lib/utils`.
+    // Each feature's stubs import from the host's `@/components/ui` only what its `host_ui` declares, and nothing from `@/lib/utils`.
     foreach (glob(dirname(__DIR__).'/resources/features/*/feature.json') as $manifestFile) {
         $manifest = json_decode((string) file_get_contents($manifestFile), true, 512, JSON_THROW_ON_ERROR);
         $stubs = [];
@@ -352,10 +371,10 @@ try {
         }
         $declared = $manifest['requires']['host_ui'] ?? [];
         sort($declared);
-        $imported = HostRequirements::importedHostUi($stubs);
+        $imported = importedHostUi($stubs);
         libraryCheck($imported === $declared, $manifest['id'].' declares in host_ui exactly the @/components/ui primitives its stubs import (imported: '.implode(', ', $imported).'; declared: '.implode(', ', $declared).')');
     }
-    libraryCheck(HostRequirements::importedHostUi(['x.vue' => "import { Button } from '@/components/ui/button';\nimport { Sheet } from '@/components/ui/sheet';"]) !== ['button'], 'the host_ui convention check sees an undeclared primitive (a stub importing sheet would fail it)');
+    libraryCheck(importedHostUi(['x.vue' => "import { Button } from '@/components/ui/button';\nimport { Sheet } from '@/components/ui/sheet';"]) !== ['button'], 'the host_ui convention check sees an undeclared primitive (a stub importing sheet would fail it)');
     libraryCheck(preg_match('/(?:from\s+|import\s*\(\s*)[\'"]@inertiajs\/core[\'"]/', "import type { Method } from '@inertiajs/core';") === 1 && preg_match('/(?:from\s+|import\s*\(\s*)[\'"]@inertiajs\/core[\'"]/', '// no stub imports @inertiajs/core') !== 1, 'the @inertiajs/core check sees an import, and not a mention in a comment');
     // `artisan` runs with Collision's adapter bound as the exception handler, which has no `dontReportWhen`/`renderable`: booting must not call them.
     $adapterApp = new Application(dirname(__DIR__));

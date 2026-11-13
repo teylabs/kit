@@ -1,5 +1,5 @@
 #!/bin/sh
-# PHPStan over the PHP stubs, as a host that analyses the files kit:add or kit:update wrote would: copies each *.php.stub to a scratch tree with the `.stub`
+# PHPStan over the PHP stubs, as a host that analyses the files the kit generated would: copies each *.php.stub to a scratch tree with the `.stub`
 # dropped and analyses it at level 8 against the kit's vendor. There is no Larastan, so `config()` and the facades stay loosely typed (level 9 needs its types).
 set -eu
 root=$(cd "$(dirname "$0")/.." && pwd)

@@ -156,7 +156,7 @@ final class BrandMigrateCommand extends Command
             $this->line($deleteKitBrand.($fromKit === [] ? ' (every key in it is the kit\'s default).' : ' (written above: '.implode(', ', $fromKit).').'));
         }
         $this->warn($elsewhere);
-        $this->line('Then run php artisan config:clear (or config:cache) and check php artisan kit:status.');
+        $this->line('Then run php artisan config:clear (or config:cache).');
 
         return self::SUCCESS;
     }

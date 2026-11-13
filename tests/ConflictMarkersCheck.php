@@ -1,7 +1,7 @@
 <?php
 
 // bin/conflict-markers-check.php on synthetic trees (it flags indented markers and a separator only inside a region, and passes a markdown rule), on this
-// repository, and history.json still knowing the v0.6.10–v0.6.12 Page.vue that shipped with markers, so kit:update replaces it as a prior version.
+// repository, and history.json still knowing the v0.6.10–v0.6.12 Page.vue that shipped with markers, so it is identified as a prior release's.
 
 function markersCheck(bool $ok, string $message): void
 {
@@ -40,7 +40,7 @@ markersCheck($code === 0, 'resources and src carry no conflict markers ('.trim($
 $history = json_decode((string) file_get_contents(dirname(__DIR__).'/resources/features/history.json'), true, 512, JSON_THROW_ON_ERROR)['releases'];
 $shipped = 'dcb473541a319392cfe82d7b8b1e6b7fa2b508c2c25b1a2e67a6e6d50dfa664a';
 foreach (['v0.6.10', 'v0.6.11', 'v0.6.12'] as $tag) {
-    markersCheck(str_contains(json_encode($history[$tag] ?? [], JSON_THROW_ON_ERROR), $shipped), "history.json knows {$tag}'s marker-laden Page.vue, so kit:update replaces it as a prior version");
+    markersCheck(str_contains(json_encode($history[$tag] ?? [], JSON_THROW_ON_ERROR), $shipped), "history.json knows {$tag}'s marker-laden Page.vue, so it is identified as a prior release's");
 }
 
-echo "Conflict markers: synthetic trees and this repository. kit:update's replacement of the shipped Page.vue is covered by history.json, not run here.\n";
+echo "Conflict markers: synthetic trees and this repository, and history.json's record of the shipped Page.vue.\n";

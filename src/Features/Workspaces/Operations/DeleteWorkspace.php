@@ -88,7 +88,7 @@ class DeleteWorkspace
     private function close(Model $actor, Model $workspace, DefersWorkspacePurge $purger): string
     {
         if (! Schema::hasColumn($workspace->getTable(), 'deleting_at') || ! Schema::hasColumn($workspace->getTable(), 'deleting_by')) {
-            throw new RuntimeException('Deferred workspace deletion needs the workspaces table\'s deleting_at and deleting_by columns: run `php artisan kit:update apply`, then migrate. Nothing was deleted.');
+            throw new RuntimeException('Deferred workspace deletion needs the workspaces table\'s deleting_at and deleting_by columns: run `php artisan migrate`. Nothing was deleted.');
         }
         $closed = DB::transaction(function () use ($actor, $workspace): bool {
             $id = (int) $workspace->getKey();

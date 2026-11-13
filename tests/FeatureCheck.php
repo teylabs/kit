@@ -1,8 +1,7 @@
 <?php
 
-// Feature manifests and selections; needs no Mod lifecycle API, so it runs against released Mod.
+// Feature manifests and selections.
 use Tey\Kit\Blueprint;
-use Tey\Kit\Lifecycle;
 
 $loader = require $argv[1];
 $loader->addPsr4('Tey\\Kit\\', dirname(__DIR__).'/src', true);
@@ -83,10 +82,7 @@ try {
     featureCheck($foundation->manifest['id'] === $all->manifest['id'] && $foundation->manifest['groups'] === $all->manifest['groups'] && $foundation->manifest['version'] === $all->manifest['version'], 'both selections share artifact name, groups and version');
     featureRefuses(fn () => Blueprint::assertGrowth($all, $foundation), 'Feature removal is refused: defaults', 'removal is refused with a clear message');
     featureRefuses(fn () => Blueprint::assertGrowth(Blueprint::release('C'), $all), 'cannot be upgraded into each other', 'release fixture and feature selection stay apart');
-    $adapter = new Lifecycle;
-    featureRefuses(fn () => $adapter->plan(sys_get_temp_dir(), 'removal', $all, $foundation, [], []), 'Feature removal is refused', 'adapter plan refuses removal before any other check');
-    featureRefuses(fn () => $adapter->resume(sys_get_temp_dir(), 'removal', $all, $foundation, [], [], 'removal', fn () => true, true), 'Feature removal is refused', 'adapter resume refuses removal before any other check');
-    echo "Feature checks only; no lifecycle or consumer acceptance.\n";
+    echo "Feature checks only; no consumer acceptance.\n";
 } catch (Throwable $error) {
     fwrite(STDERR, (string) $error."\n");
     exit(1);

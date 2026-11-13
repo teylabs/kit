@@ -10,7 +10,7 @@ use RuntimeException;
 /**
  * Where each `kit.brand` value comes from. The app's own config/brand.php (Laravel loads it, and `config:cache` caches it, as `brand`) wins for every key it
  * names, an explicit null included; a key it leaves out takes the kit's default. KIT_BRAND_* env values are not read since 0.17: one still set is
- * logged once at boot as ignored, and kit:status names it, so a leftover in .env, CI or a deploy is found (kit:brand:migrate moves it into config/brand.php).
+ * logged once at boot as ignored, so a leftover in .env, CI or a deploy is found (kit:brand:migrate moves it into config/brand.php).
  * The readers keep reading `config('kit.brand.*')`: the resolved values are written back there at register time.
  *
  * The colour keys are validated as they resolve: a #rgb or #rrggbb (a #rgb is widened to #rrggbb), or null for "use the theme" (or the kit default). An
@@ -260,9 +260,9 @@ final class BrandConfig
 
     /**
      * The console commands that boot leniently: an invalid colour warns and takes the default instead of throwing in local and testing. kit:brand:migrate is
-     * the way out of an invalid env value, and kit:status reports it; both must start. kit:brand stays strict: it would bake the default into the icons.
+     * the way out of an invalid env value, so it must start. kit:brand stays strict: it would bake the default into the icons.
      */
-    public const LENIENT_COMMANDS = ['kit:brand:migrate', 'kit:status'];
+    public const LENIENT_COMMANDS = ['kit:brand:migrate'];
 
     /** Whether this artisan argv runs a lenient command: its first argument that is not an option, as Symfony reads the command name. */
     public static function lenientCommand(array $argv): bool

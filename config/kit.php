@@ -27,9 +27,6 @@ return [
     // and social image from `logomark` and `accent`; mail and the footers read the rest. Values left at these placeholders are
     // listed by `Tey\Kit\Brand::placeholders()`, which a production preflight can refuse.
     // The product's name is APP_NAME (`app.name`).
-    // Facts about the host the kit cannot read for itself. `vite_global_types`: 'manual' records that a person verified @vitejs/plugin-vue's script.globalTypeFiles lists
-    // vendor/tey/kit/types/kit.d.ts in a Vite config the kit cannot read statically (a plugin factory, mergeConfig); kit:status then reports it "verified manually".
-    'host' => ['vite_global_types' => env('KIT_HOST_VITE_GLOBAL_TYPES')],
 
     // PostgreSQL row-level security as a second tenant lock under the app's workspace scoping (docs/rls.md). Off by default. On any driver other than
     // pgsql it is a no-op and the database enforces nothing. `connection`: the runtime connection (null: the default), which must log in as a NOBYPASSRLS
@@ -146,7 +143,7 @@ return [
         'font' => null,
     ],
     // Which brand keys still have a KIT_BRAND_* variable set, read as this file loads so `config:cache` keeps the answer. Since 0.17 env brand values are
-    // ignored: the boot logs a warning and kit:status names each one, so a leftover in .env, CI or a deploy is found. `php artisan kit:brand:migrate`
+    // ignored: the boot logs a warning naming each one, so a leftover in .env, CI or a deploy is found. `php artisan kit:brand:migrate`
     // moves them into config/brand.php. See Tey\Kit\BrandConfig.
     'brand_env' => BrandConfig::fromEnv(),
 
@@ -249,7 +246,7 @@ return [
 
     // Workspace and account deletion: off by default (the routes 404, the settings sections hidden). Turning one on ALSO requires binding its purge handler for the
     // app's own data, Tey\Kit\Features\Workspaces\Contracts\PurgesWorkspaceData or Tey\Kit\Features\SessionUi\Contracts\PurgesAccountData (one that does nothing,
-    // explicitly, if the app has none): it runs first, in the deletion's transaction. On without a handler, the deletion refuses and kit:status flags it.
+    // explicitly, if the app has none): it runs first, in the deletion's transaction. On without a handler, the deletion refuses.
     'lifecycle' => [
         'workspace_delete' => filter_var(env('KIT_WORKSPACE_DELETE', false), FILTER_VALIDATE_BOOL),
         'account_delete' => filter_var(env('KIT_ACCOUNT_DELETE', false), FILTER_VALIDATE_BOOL),

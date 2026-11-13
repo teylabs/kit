@@ -1,10 +1,9 @@
 <?php
 
 // A host that already has the access feature's entitlements or complimentary_grants table, or spatie/laravel-settings' settings table, adopts a
-// compatible one in place: the plan lists an adoption, not a collision; the migration creates and changes nothing on it (its rows and columns
-// stay as they were), records it in kit_adoptions and creates only the tables the host lacks (settings_intents); rolling back keeps it. An
-// incompatible table blocks the plan and the migration refuses it, naming the columns, before anything is created. A schema the kit cannot read
-// is a refusal. kit:adopt --json with no feature lists each table's status. Synthetic tables and rows.
+// compatible one in place: the migration creates and changes nothing on it (its rows and columns stay as they were), records it in kit_adoptions
+// and creates only the tables the host lacks (settings_intents); rolling back keeps it. The migration refuses an incompatible table, naming the
+// columns, before anything is created. A schema the kit cannot read is a refusal. Synthetic tables and rows.
 // SQLite memory by default. DB_CONNECTION=pgsql runs against the PostgreSQL the DB_* variables name (CI's service container), in the
 // kit_table_* schemas, which it drops and recreates: point it only at a throwaway database.
 use Illuminate\Cache\CacheServiceProvider;
@@ -21,14 +20,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Facade;
 use Illuminate\Support\Facades\Schema;
 use Monolog\Handler\NullHandler;
-use Symfony\Component\Console\Input\ArrayInput;
-use Symfony\Component\Console\Output\BufferedOutput;
-use Tey\Kit\Console\AdoptCommand;
-use Tey\Kit\Features\Workspaces\AdoptableTables;
 use Tey\Kit\Features\Workspaces\Adoptions;
-use Tey\Kit\HostRequirements;
-use Tey\Kit\Lifecycle;
-use Tey\Kit\LifecycleHost;
 
 $loader = require $argv[1];
 $loader->addPsr4('Tey\\Kit\\', dirname(__DIR__).'/src', true);
@@ -81,7 +73,7 @@ function tableNames(): array
 
 try {
     $pgsql = getenv('DB_CONNECTION') === 'pgsql';
-    $scenarios = ['access_ok', 'access_bad', 'access_partial', 'settings_ok', 'settings_bad', 'listing'];
+    $scenarios = ['access_ok', 'access_bad', 'access_partial', 'settings_ok', 'settings_bad'];
     $connections = [];
     foreach ($scenarios as $name) {
         $connections[$name] = $pgsql
@@ -130,13 +122,6 @@ try {
 
     $kit = dirname(__DIR__).'/resources/features';
     $stub = fn (string $feature, string $name): string => $kit.'/'.$feature.'/migrations/'.$name.'.php.stub';
-    $plan = function (string $feature, string $name) use ($stub): array {
-        $path = 'database/migrations/kit/'.$feature.'/'.$name.'.php';
-        $files = [$path => ['state' => 'create']];
-        $bytes = [$path => (string) file_get_contents($stub($feature, $name))];
-
-        return ['collisions' => HostRequirements::collisions($files, $bytes), 'adoptions' => HostRequirements::adoptions($files, $bytes), 'tables' => HostRequirements::adoptedTables($files, $bytes)];
-    };
     $access = '0001_01_02_000300_create_kit_access_tables';
     $settings = '0001_01_02_000400_create_settings_table';
     $intents = '0001_01_02_000401_create_kit_settings_tables';
@@ -169,10 +154,6 @@ try {
     DB::table('entitlements')->insert(['workspace_id' => 1, 'kind' => 'paid', 'source' => 'billing', 'revoked_at' => null, 'created_at' => '2025-01-02 03:04:05', 'updated_at' => '2025-01-02 03:04:05']);
     DB::table('complimentary_grants')->insert(['workspace_id' => 2, 'granted_by' => 7, 'intent_key' => 'grant-1', 'fingerprint' => 'f1', 'reason' => 'Pilot', 'expires_at' => '2027-01-01 00:00:00', 'note' => 'host note']);
     $before = ['rows' => [rowsOf('entitlements'), rowsOf('complimentary_grants')], 'schema' => schemaOf(['entitlements', 'complimentary_grants']), 'tables' => tableNames()];
-    $planned = $plan('access', $access);
-    tableCheck($planned['collisions'] === [], 'compatible host access tables are not collisions');
-    tableCheck(count($planned['adoptions']) === 2 && str_contains($planned['adoptions'][0], 'adopt the host\'s entitlements table in place') && str_contains($planned['adoptions'][1], 'adopt the host\'s complimentary_grants table in place') && str_contains($planned['adoptions'][1], 'nothing is created or changed'), 'the plan names each adoption');
-    tableCheck($planned['tables'] === ['entitlements', 'complimentary_grants'], 'and its adopted tables');
     (require $stub('access', $access))->up();
     tableCheck([rowsOf('entitlements'), rowsOf('complimentary_grants')] === $before['rows'], 'the adopted tables\' rows are unchanged');
     tableCheck(schemaOf(['entitlements', 'complimentary_grants']) === $before['schema'], 'and their columns, types and nullability are unchanged');
@@ -207,17 +188,13 @@ try {
     });
     DB::table('complimentary_grants')->insert(['user_id' => 1, 'plan_id' => 3, 'granted_by' => 1, 'reason' => 'Pilot', 'granted_at' => '2025-01-02 03:04:05', 'revoked_at' => '2025-02-02 03:04:05']);
     $before = ['rows' => rowsOf('complimentary_grants'), 'tables' => tableNames()];
-    $planned = $plan('access', $access);
-    $grants = implode("\n", array_filter($planned['collisions'], fn (string $line): bool => str_contains($line, 'complimentary_grants table')));
-    $entitlements = implode("\n", array_filter($planned['collisions'], fn (string $line): bool => str_contains($line, 'entitlements table') && ! str_contains($line, 'complimentary')));
-    tableCheck(count($planned['collisions']) === 2 && $planned['adoptions'] === [] && $planned['tables'] === [], 'incompatible host access tables block the plan, and none is adopted');
-    tableCheck(str_contains($grants, 'missing columns workspace_id, intent_key, fingerprint, expires_at'), 'the conflict names the missing columns');
+    $refusal = (string) tableRefused(fn () => (require $stub('access', $access))->up());
+    [$entitlements, $grants] = explode('; complimentary_grants table', $refusal) + [1 => ''];
+    tableCheck(str_contains($refusal, 'cannot adopt the host\'s entitlements table (missing columns kind') && str_contains($refusal, 'complimentary_grants table (missing columns workspace_id, intent_key, fingerprint, expires_at'), 'the migration refuses, naming both tables\' columns');
     tableCheck(str_contains($grants, 'not nullable, but the kit writes null: revoked_at'), 'a column the kit writes null into that is not nullable');
     tableCheck(str_contains($grants, 'host columns the kit\'s inserts would leave empty (not nullable, no default): user_id, plan_id, granted_at'), 'the host\'s required columns the kit would leave empty');
     tableCheck(str_contains($grants, 'no unique index on (granted_by, intent_key)'), 'and the missing unique index');
-    tableCheck(str_contains($entitlements, 'missing columns kind') && str_contains($entitlements, 'revoked_at is varchar, not time'), 'an entitlements table conflict names its missing and mistyped columns');
-    $refusal = (string) tableRefused(fn () => (require $stub('access', $access))->up());
-    tableCheck(str_contains($refusal, 'cannot adopt the host\'s entitlements table (missing columns kind') && str_contains($refusal, 'complimentary_grants table (missing columns workspace_id, intent_key, fingerprint, expires_at'), 'the migration refuses, naming both tables\' columns');
+    tableCheck(str_contains($entitlements, 'missing columns kind') && str_contains($entitlements, 'revoked_at is varchar, not time'), 'the entitlements table\'s refusal names its missing and mistyped columns');
     tableCheck(rowsOf('complimentary_grants') === $before['rows'] && tableNames() === $before['tables'], 'and creates nothing and changes no row');
 
     // (3) Only a compatible complimentary_grants: it is adopted, and entitlements is created.
@@ -235,8 +212,6 @@ try {
         $t->timestamp('revoked_at')->nullable();
         $t->unique(['granted_by', 'intent_key']);
     });
-    $planned = $plan('access', $access);
-    tableCheck($planned['collisions'] === [] && $planned['tables'] === ['complimentary_grants'], 'with only complimentary_grants, the plan adopts it alone');
     (require $stub('access', $access))->up();
     tableCheck(Schema::hasTable('entitlements') && ! Adoptions::adopted('entitlements') && Adoptions::adopted('complimentary_grants'), 'the migration creates entitlements and adopts complimentary_grants');
     (require $stub('access', $access))->down();
@@ -247,8 +222,6 @@ try {
     (require dirname(__DIR__).'/vendor/spatie/laravel-settings/database/migrations/create_settings_table.php.stub')->up();
     DB::table('settings')->insert(['group' => 'general', 'name' => 'site_name', 'locked' => false, 'payload' => json_encode('Northwind Farms'), 'created_at' => '2025-01-02 03:04:05', 'updated_at' => '2025-01-02 03:04:05']);
     $before = ['rows' => rowsOf('settings'), 'schema' => schemaOf(['settings']), 'tables' => tableNames()];
-    $planned = $plan('settings', $settings);
-    tableCheck($planned['collisions'] === [] && count($planned['adoptions']) === 1 && str_contains($planned['adoptions'][0], 'adopt the host\'s settings table in place') && $planned['tables'] === ['settings'], 'a compatible settings table is an adoption in the plan');
     (require $stub('settings', $settings))->up();
     (require $stub('settings', $intents))->up();
     tableCheck(rowsOf('settings') === $before['rows'] && schemaOf(['settings']) === $before['schema'], 'the host\'s settings rows and columns are unchanged');
@@ -269,10 +242,9 @@ try {
     });
     DB::table('settings')->insert(['group' => 'general', 'name' => 'site_name', 'payload' => 1]);
     $before = ['rows' => rowsOf('settings'), 'tables' => tableNames()];
-    $planned = $plan('settings', $settings);
-    tableCheck(count($planned['collisions']) === 1 && str_contains($planned['collisions'][0], 'missing columns locked') && str_contains($planned['collisions'][0], 'payload is '.($pgsql ? 'int4' : 'integer').', not json') && str_contains($planned['collisions'][0], 'no unique index on (group, name)') && $planned['adoptions'] === [], 'an incompatible settings table blocks the plan, naming its columns and the missing unique');
     $refusal = (string) tableRefused(fn () => (require $stub('settings', $settings))->up());
-    tableCheck(str_contains($refusal, 'settings table (missing columns locked') && rowsOf('settings') === $before['rows'] && tableNames() === $before['tables'], 'the migration refuses it, creating and changing nothing');
+    tableCheck(str_contains($refusal, 'settings table (missing columns locked') && str_contains($refusal, 'payload is '.($pgsql ? 'int4' : 'integer').', not json') && str_contains($refusal, 'no unique index on (group, name)'), 'the migration refuses an incompatible settings table, naming its columns and the missing unique');
+    tableCheck(rowsOf('settings') === $before['rows'] && tableNames() === $before['tables'], 'and creates and changes nothing');
 
     // (6) Fail closed: a table the database says exists but whose columns cannot be read is a refusal, not a create.
     $real = Schema::getFacadeRoot();
@@ -296,9 +268,7 @@ try {
         }
     });
     try {
-        $planned = $plan('access', $access);
-        tableCheck(count($planned['collisions']) >= 1 && str_contains(implode("\n", $planned['collisions']), 'complimentary_grants table, which') && str_contains(implode("\n", $planned['collisions']), 'its schema could not be read'), 'an unreadable schema blocks the plan');
-        tableCheck(str_contains((string) tableRefused(fn () => (require $stub('access', $access))->up()), 'its schema could not be read'), 'and the migration refuses it');
+        tableCheck(str_contains((string) tableRefused(fn () => (require $stub('access', $access))->up()), 'complimentary_grants table (its schema could not be read: permission denied'), 'the migration refuses an unreadable schema');
     } finally {
         // db.schema is resolved per default connection, never cached: forget the fake so the next scenario's connection is used.
         $app->forgetInstance('db.schema');
@@ -306,60 +276,7 @@ try {
     }
     tableCheck(! $real->hasTable('complimentary_grants') && tableNames() === $before['tables'], 'nothing was created');
 
-    // (7) kit:adopt --json with no feature lists each table: adopted, adoptable or conflict, with the columns named.
-    $use('listing');
-    (require dirname(__DIR__).'/vendor/spatie/laravel-settings/database/migrations/create_settings_table.php.stub')->up();
-    Schema::create('complimentary_grants', function (Blueprint $t): void {
-        $t->id();
-        $t->unsignedBigInteger('user_id');
-    });
-    Schema::create('entitlements', function (Blueprint $t): void {
-        $t->id();
-        $t->unsignedBigInteger('workspace_id');
-        $t->string('kind');
-        $t->timestamp('revoked_at')->nullable();
-    });
-    Adoptions::record('settings');
-    $app->instance(LifecycleHost::class, new class implements LifecycleHost
-    {
-        public function lifecycle(): Lifecycle
-        {
-            return new Lifecycle;
-        }
-
-        public function appId(): string
-        {
-            return 'host';
-        }
-
-        public function bindings(): array
-        {
-            return [];
-        }
-
-        public function inputPaths(): array
-        {
-            return [];
-        }
-
-        public function operationCheck(): Closure
-        {
-            return fn (): bool => true;
-        }
-    });
-    $command = new AdoptCommand;
-    $command->setLaravel($app);
-    $exit = $command->run(new ArrayInput(['--json' => true]), $output = new BufferedOutput);
-    $printed = trim($output->fetch());
-    $listed = json_decode($printed, true, flags: JSON_THROW_ON_ERROR);
-    $rows = array_column($listed['tables'] ?? [], null, 'table');
-    tableCheck($exit === 0 && $listed['status'] === 'list', 'kit:adopt --json with no feature lists, exit 0');
-    tableCheck(($rows['entitlements']['status'] ?? null) === 'adoptable' && $rows['entitlements']['feature'] === 'access', 'a compatible table not yet adopted is listed adoptable');
-    tableCheck(($rows['settings']['status'] ?? null) === 'adopted' && $rows['settings']['feature'] === 'settings', 'a table kit_adoptions records is listed adopted');
-    tableCheck(($rows['complimentary_grants']['status'] ?? null) === 'conflict' && str_contains(implode('; ', $rows['complimentary_grants']['conflicts']), 'missing columns workspace_id, granted_by, intent_key, fingerprint, revoked_by, revocation_reason, reason, expires_at, revoked_at'), 'an incompatible one is listed as a conflict naming its columns');
-    tableCheck(count($rows) === 3 && AdoptableTables::settingsTable() === 'settings', 'and no table the host lacks');
-
-    echo 'Table adopt-in-place on '.($pgsql ? 'PostgreSQL' : 'in-memory SQLite')." with synthetic host tables; no MySQL run, no kit:add end to end, no HTTP.\n";
+    echo 'Table adopt-in-place on '.($pgsql ? 'PostgreSQL' : 'in-memory SQLite')." with synthetic host tables; no MySQL run, no HTTP.\n";
 } catch (Throwable $error) {
     fwrite(STDERR, $error::class.': '.$error->getMessage().' in '.$error->getFile().':'.$error->getLine()."\n");
     exit(1);

@@ -96,7 +96,7 @@ class DeleteAccount
     private function close(Model $user, DefersAccountPurge $purger): array
     {
         if (! Schema::hasTable('kit_account_deletions')) {
-            throw new RuntimeException('Deferred account deletion needs the kit_account_deletions table: run `php artisan kit:update apply`, then migrate. Nothing was deleted.');
+            throw new RuntimeException('Deferred account deletion needs the kit_account_deletions table: run `php artisan migrate`. Nothing was deleted.');
         }
         $left = DB::transaction(function () use ($user): array {
             $id = (int) $user->getKey();
