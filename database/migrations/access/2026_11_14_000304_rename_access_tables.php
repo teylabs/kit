@@ -4,8 +4,8 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\Schema;
 
 // 0.18: the access feature's infrastructure tables lose the kit_ prefix. Each rename runs only while the old table exists and the new one does not;
-// with both names of any table present it refuses, naming both, before renaming any, and never merges them. Dated after the kit's own creates and an
-// app's migrations from before 0.18, so a fresh database ends with the new names too.
+// with both names of any table present it refuses, naming both, before renaming any, and never merges them. Order does not matter: once it has run, the
+// kit runs it again when each migrate ends (PackageMigrator::renames()), so an app's copy dated after it that creates an old name is renamed too.
 return new class extends Migration
 {
     /** Old name => new name. */

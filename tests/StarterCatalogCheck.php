@@ -9,6 +9,7 @@ use Spatie\Multitenancy\Contracts\IsTenant;
 use Tey\Kit\Blueprint;
 use Tey\Kit\Catalog;
 use Tey\Kit\Features\FeaturesServiceProvider;
+use Tey\Kit\Features\PackageMigrator;
 use Tey\Kit\Features\Workspaces\Models\Workspace;
 use Tey\Kit\Features\Workspaces\WorkspacesProvider;
 
@@ -210,16 +211,19 @@ try {
     $kernel = $migrating->make(Kernel::class);
     $kernel->bootstrap();
     // Only the migration loading is under test, so the provider boots without registering the features' providers.
+    $migrating->extend('migrator', fn ($migrator, $app) => PackageMigrator::from($migrator, $app));
     (new FeaturesServiceProvider($migrating))->boot();
     // The permission migration reads the permission config, which now comes from the library defaults.
     (new WorkspacesProvider($migrating))->register();
     $paths = $migrating['migrator']->paths();
     $expected = [];
     foreach ($selected as $id) {
-        $expected = [...$expected, $temp.'/database/migrations/kit/'.$id, ...array_filter(glob(dirname(__DIR__).'/database/migrations/'.$id.'/*.php'), fn (string $file): bool => ! is_file($temp.'/database/migrations/kit/'.$id.'/'.basename($file)))];
+        $expected = [...$expected, $temp.'/database/migrations/kit/'.$id, PackageMigrator::directory($id)];
     }
+    starterCheck($paths === $expected, 'each adopted feature registers the app\'s database/migrations/kit/<feature>, then the package\'s directory, in canonical order');
     // This app has the catalog's copies under database/migrations/kit, as kit:add wrote them: of the package's, only the 0.18 renames are left to load.
-    starterCheck($paths === $expected && count(array_filter($paths, fn (string $path): bool => str_contains($path, '_rename_'))) === 2, 'each adopted feature registers the app\'s database/migrations/kit/<feature>, then the package\'s migrations the app has no copy of, in canonical order');
+    $package = array_filter($migrating['migrator']->getMigrationFiles($paths), fn (string $file): bool => ! str_starts_with($file, $temp.'/'));
+    starterCheck(count($package) === 2 && array_filter($package, fn (string $file): bool => ! str_contains($file, '_rename_')) === [], 'the migrator lists, of the package\'s migrations, only those the app has no copy of: the renames');
     starterCheck($kernel->call('migrate', ['--force' => true]) === 0, 'migrate runs the host and kit migrations on synthetic SQLite memory');
     $tables = ['users', 'workspaces', 'operators', 'audit_events', 'entitlements', 'complimentary_grants', 'plan_entitlements', 'settings', 'settings_intents', 'connections', 'mcp_intents', 'mcp_runs', 'roles', 'permissions'];
     starterCheck(array_filter($tables, fn (string $table): bool => ! Schema::hasTable($table)) === [], 'every kit table exists after migrate');

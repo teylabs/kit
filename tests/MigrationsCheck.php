@@ -11,6 +11,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Auth\User;
 use Illuminate\Support\Facades\Schema;
 use Tey\Kit\Features\FeaturesServiceProvider;
+use Tey\Kit\Features\PackageMigrator;
 
 $loader = require $argv[1];
 $loader->addPsr4('Tey\\Kit\\', dirname(__DIR__).'/src', true);
@@ -81,6 +82,14 @@ function copies(string $stamp = '0001_01_02'): array
     }
 
     return $files;
+}
+
+/** @return list<string> the file names the app's migrator lists from the kit's database/migrations/<feature> */
+function listed(Application $app, string $id): array
+{
+    $migrator = $app->make('migrator');
+
+    return array_values(array_map('basename', array_filter($migrator->getMigrationFiles($migrator->paths()), fn (string $file): bool => realpath(dirname($file)) === realpath(PACKAGE.'/'.$id))));
 }
 
 /** Runs `migrate`; returns the migrations it ran, in order. */
@@ -172,7 +181,9 @@ try {
     check(count($ran) === count(array_unique($ran)) && array_diff(array_map(fn (string $path): string => basename($path, '.php'), array_keys(array_filter($package, fn ($hash, string $path): bool => in_array(dirname($path), FEATURES, true), ARRAY_FILTER_USE_BOTH))), $ran) === [], 'a fresh app runs each of its features\' package migrations once ('.count($ran).')');
     check(array_filter(RENAMES, fn (string $to, string $from): bool => Schema::hasTable($from) || ! Schema::hasTable($to), ARRAY_FILTER_USE_BOTH) === [] && array_filter(UNTOUCHED, fn (string $table): bool => $table !== 'kit_adoptions' && ! Schema::hasTable($table)) === [], 'a fresh database has each infrastructure table under its new name only, and the domain tables and kit_meta as they were');
     check(migrate($fresh) === [], 'a second migrate runs nothing');
-    check(FeaturesServiceProvider::packageMigrations('shell', $fresh->databasePath('migrations/kit/shell')) === [], 'a feature with no migrations loads none');
+    check(listed($fresh, 'shell') === [], 'a feature with no migrations loads none');
+    $migrator = $fresh->make('migrator');
+    check($migrator instanceof PackageMigrator && preg_grep('/\.php\z/', $migrator->paths()) === [] && in_array(PackageMigrator::directory('session-ui'), $migrator->paths(), true), 'the migrator registers each feature\'s package directory, never a single file');
 
     // An app upgraded from 0.17: its copies ran, with rows in every table. migrate runs no baseline again: only the renames, which keep every row.
     $upgraded = host(copies());
@@ -204,12 +215,13 @@ try {
     $app = host($files);
     $ran = migrate($app);
     check(Schema::hasColumn('user_state', 'edited_by_the_app') && count(array_keys($ran, '0001_01_02_000502_create_kit_user_state_table', true)) === 1 && count($ran) === count(array_unique($ran)), 'the app\'s edited copy runs, once, and the package\'s file of that name does not; the rename still follows');
-    check(! in_array(PACKAGE.'/session-ui/0001_01_02_000502_create_kit_user_state_table.php', FeaturesServiceProvider::packageMigrations('session-ui', $app->databasePath('migrations/kit/session-ui')), true)
-        && in_array(realpath(PACKAGE.'/session-ui/2026_11_14_000506_rename_session_ui_tables.php'), array_map('realpath', FeaturesServiceProvider::packageMigrations('session-ui', $app->databasePath('migrations/kit/session-ui'))), true), 'the package loads the rename beside the app\'s copies, and not their baselines');
+    check(listed($app, 'session-ui') === ['2026_11_14_000506_rename_session_ui_tables.php'], 'the migrator lists the rename beside the app\'s copies, and not their baselines');
+    $files = $app->make('migrator')->getMigrationFiles($app->make('migrator')->paths());
+    check(realpath($files['0001_01_02_000502_create_kit_user_state_table']) === realpath($app->basePath($edited)), 'the migration of that name is the app\'s edited copy');
 
     // A host that adopted its own tables got its copies stamped (`<stamp>_<order>_<name>.php`): the package's baseline of each is not loaded either.
     $stamped = host(copies('2026_03_04_050607'));
-    $loaded = array_map('basename', FeaturesServiceProvider::packageMigrations('session-ui', $stamped->databasePath('migrations/kit/session-ui')));
+    $loaded = listed($stamped, 'session-ui');
     check($loaded === ['2026_11_14_000506_rename_session_ui_tables.php'], 'a stamped copy keeps its package baseline out; only the rename loads ('.implode(', ', $loaded).')');
     $ran = migrate($stamped);
     check(preg_grep('/\A0001_01_02_/', $ran) === [] && count(preg_grep('/\A2026_03_04_050607_/', $ran)) === count(copies()), 'migrate on the stamped app runs its copies and no package baseline');
@@ -233,6 +245,14 @@ try {
     $ran = migrate(host($files));
     check(Schema::hasColumn('user_state', 'edited_by_the_app') && in_array('2026_03_04_050607_000502_create_kit_user_state_table', $ran, true)
         && ! in_array('0001_01_02_000502_create_kit_user_state_table', $ran, true) && count($ran) === count(array_unique($ran)), 'the edited stamped copy runs, once, and the package\'s twin does not; the rename still follows');
+
+    // A copy dated after the renames (kit:add stamped copies with the day it ran) creates the old names after them on a fresh database. The renames
+    // run again when the migrate ends, so it still ends with the new names only.
+    $late = host(copies('2026_12_01_000000'));
+    $ran = migrate($late);
+    check(array_search('2026_11_14_000506_rename_session_ui_tables', $ran, true) < array_search('2026_12_01_000000_000502_create_kit_user_state_table', $ran, true), 'on a fresh database the late copies run after the renames');
+    check(array_filter(RENAMES, fn (string $to, string $from): bool => Schema::hasTable($from) || ! Schema::hasTable($to), ARRAY_FILTER_USE_BOTH) === [], 'and migrate still ends with every infrastructure table under its new name only');
+    check(migrate($late) === [] && ! Schema::hasTable('kit_user_state'), 'a second migrate runs nothing');
 
     // Both names present: the rename refuses, naming both, and changes nothing.
     $both = host(copies());

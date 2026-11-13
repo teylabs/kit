@@ -46,7 +46,7 @@ use Tey\Kit\Search\SearchWorkspace;
 
 /**
  * The composition root: registers each adopted feature's provider, fills the Registry and loads each adopted feature's migrations
- * from the package, deferring to the app's own copies (packageMigrations()).
+ * from the package, deferring to the app's own copies (PackageMigrator).
  *
  * The adopted features are `config('kit.features')` and nothing else; the request path never reads install history.
  */
@@ -108,28 +108,6 @@ final class FeaturesServiceProvider extends ServiceProvider
         }
 
         return array_values(array_intersect(array_keys(self::FEATURES), $ids));
-    }
-
-    /**
-     * The package's migrations for one feature (database/migrations/<feature> in the kit), less each one the app has its own copy of in
-     * $appDirectory under any stamp: the name after the timestamp prefix matches. kit:add published `0001_01_02_<order>_<name>.php` under
-     * that name, or as `<stamp>_<order>_<name>.php` for a host that adopts its own tables. Laravel's migrator keys migrations by name, so an
-     * app that ran its copies runs none of the package's twins, and an app's copy, edited or not, stays the one that runs.
-     *
-     * @return list<string> absolute paths, in name order
-     */
-    public static function packageMigrations(string $id, string $appDirectory): array
-    {
-        $package = glob(dirname(__DIR__, 2).'/database/migrations/'.$id.'/*.php') ?: [];
-        $own = is_dir($appDirectory) ? array_map(self::migrationName(...), glob($appDirectory.'/*.php') ?: []) : [];
-
-        return array_values(array_filter($package, fn (string $file): bool => ! in_array(self::migrationName($file), $own, true)));
-    }
-
-    /** A migration file's name after its timestamp and any six-digit order: `create_kit_notes_table.php` for `0001_01_02_000701_…` and `2026_03_04_050607_000701_…` alike. */
-    private static function migrationName(string $file): string
-    {
-        return (string) preg_replace('/\A\d{4}_\d{2}_\d{2}_(?:\d{6}_)+/', '', basename($file));
     }
 
     /**
@@ -209,6 +187,8 @@ final class FeaturesServiceProvider extends ServiceProvider
         }
         // Every page route declares a breadcrumb, so gretel's route macro must exist whether or not the host's package discovery found it.
         $this->app->register(GretelServiceProvider::class);
+        // The migrator lists the package's migrations less the app's copies (PackageMigrator); built only when a command resolves it.
+        $this->app->extend('migrator', fn ($migrator, $app) => PackageMigrator::from($migrator, $app));
         $features = $this->features();
         if ($features === []) {
             return;
@@ -267,6 +247,15 @@ final class FeaturesServiceProvider extends ServiceProvider
         $brandMail = config('kit.brand_mail');
         $branded = $brandMail === true || ($brandMail === null && in_array('session-ui', $features, true) && Brand::placeholders() === []);
         $placeholderCheck = $brandMail === true;
+        // The 0.18 renames the database has run run again once a migrate ends, before CatalogSync writes permission_defaults: an app's copy dated after
+        // a rename may have created an old name on a fresh database. A no-op once the old tables are gone; never under --pretend or on the way down.
+        if ($features !== []) {
+            Event::listen(MigrationsEnded::class, function (MigrationsEnded $event) use ($features): void {
+                if ($event->method === 'up' && ! ($event->options['pretend'] ?? false) && $this->app->resolved('migrator')) {
+                    $this->app->make('migrator')->renames($features);
+                }
+            });
+        }
         // The workspace columns found are cached across requests (IsKitWorkspace); any migration, up or down, may change them, so it forgets them.
         // A braced closure, never an arrow function: forget() answers false when nothing was cached, and a listener that returns false stops
         // the event, so CatalogSync (below) would never run after a migrate on a cold cache.
@@ -298,17 +287,17 @@ final class FeaturesServiceProvider extends ServiceProvider
         if ($branded) {
             $this->bootBrand();
         }
-        // Each feature's migrations: the app's own copies under database/migrations/kit/<feature> (what kit:add wrote), then the package's under
-        // database/migrations/<feature>, less those the app has a copy of. Worked out only when the migrator is resolved, never on a request.
-        $this->callAfterResolving('migrator', function ($migrator) use ($features): void {
+        // Each feature's migrations: the app's own copies under database/migrations/kit/<feature> (what kit:add wrote) and the package's directory,
+        // database/migrations/<feature>, whose files the migrator lists less those the app has a copy of. Registered only when the migrator is resolved, never on a request.
+        if ($features === []) {
+            return;
+        }
+        $this->callAfterResolving('migrator', function (PackageMigrator $migrator) use ($features): void {
             foreach ($features as $id) {
-                $migrator->path($this->app->databasePath('migrations/kit/'.$id));
-                foreach (self::packageMigrations($id, $this->app->databasePath('migrations/kit/'.$id)) as $file) {
-                    $migrator->path($file);
-                }
+                $migrator->feature($id, $this->app->databasePath('migrations/kit/'.$id));
             }
         });
-        if ($features === [] || $this->app->routesAreCached()) {
+        if ($this->app->routesAreCached()) {
             return;
         }
         $this->app->booted(fn () => app(Registry::class)->loadRoutes());
