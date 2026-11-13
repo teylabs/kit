@@ -171,6 +171,20 @@ export function showCreate(
     );
 }
 
+/**
+ * The query the first edit of a shown label (single) starts, read from that edit's `beforeinput` event, never from the field's text: typing, a paste or a drop
+ * replaces the label with what it inserts, a deletion leaves an empty query, and any other edit (undo, formatting) is `null`: refused, the label stays.
+ */
+export function labelEdit(
+    inputType: string,
+    data: string | null,
+    transfer?: string | null,
+): string | null {
+    if (inputType.startsWith('insert')) return data ?? transfer ?? '';
+    if (inputType.startsWith('delete')) return '';
+    return null;
+}
+
 /** Remote filter: emit `search` only once the trimmed text is long enough (`0` emits for any text). */
 export const searchReady = (query: string, minLength: number): boolean =>
     query.trim().length >= minLength;

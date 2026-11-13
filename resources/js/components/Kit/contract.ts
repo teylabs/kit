@@ -99,7 +99,8 @@ export interface SelectProps {
 
 /**
  * The kit's one rich select (`v-model`: a value or `null`, or an array with `multiple`), on Reka's Combobox and non-modal. `options` are `{ value, label, description?, disabled? }` or groups `{ label, options }`.
- * `searchable` `null` turns search on past 8 options; `filter="remote"` leaves filtering to the caller (`search`, after `debounce` ms and `minSearchLength` characters; `''` on close). `clearable` is on with `multiple`;
+ * `searchable` `null` turns search on past 8 options; `filter="remote"` leaves filtering to the caller (`search`, after `debounce` ms and `minSearchLength` characters; `''` on close). `clearable` (on with `multiple`, opt-in for one value) shows a Clear
+ * button in the tab order, and Escape on a closed field clears too. A chosen label is never the search: the first keystroke starts it, and closing (Escape, a click outside, a choice, focus leaving) drops the typed text.
  * `selectAll`, `chosenFirst` and `creatable` (`create`, with the typed text) are opt-in; `maxChips` swaps chips for a count. With `name` it submits hidden `name` / `name[]` inputs. `readonly` stays a focusable combobox.
  * Default strings come from the kit's `ui` lang file (`select.*`, shared as `kitUi`); `messages` overrides them per use. Slots: `option`, `chip`, `empty`, `loading`. Other attributes (id, aria-*) land on the input.
  */
