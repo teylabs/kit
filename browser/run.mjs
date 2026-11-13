@@ -35,6 +35,8 @@
 // useAppearance (?appearance) must mount, read 'system' and take a choice when localStorage throws on access (blocked site data, some private modes).
 // InputTags (?tags) must pass axe, add a tag on a separator, Enter and a multi-line paste, select then drop the last chip on Backspace, and refuse a duplicate,
 // an invalid tag and one past the limit with a described reason.
+// A searchable InputSelect (?select-query, &modal in the kit Modal) must never search for its chosen label: typing anywhere in it starts a fresh query; Escape, a click
+// outside, a choice and focus leaving drop the query and show the label again; a clearable field has a Clear button in the tab order, a default one none.
 // A FormCard over useSubmitForm (?form-submit) must submit on Enter with no navigation, disable Save while pending, show a 422's field error and summary
 // with focus on the field, then Saved, and pass axe with contrast. A Workbench with :form (?workbench-form=submit|inertia, the latter a stand-in useForm with
 // `save`) must save on Ctrl+S but not from a contenteditable that binds it or while pending, focus a 422's field in its collapsed inspector, show a 409's
@@ -620,6 +622,187 @@ test('InputTags refuses a duplicate, an invalid tag and one past the limit, with
     } finally {
         await tab.close();
     }
+});
+
+// ── InputSelect's search (?select-query): the chosen label is never the query; Escape, a click outside, a choice and blur drop it; a clearable one clears ─────
+async function selectQuery(run, query = '') {
+    const tab = await browser.newPage({ viewport: { width: 1280, height: 800 }, permissions: ['clipboard-read', 'clipboard-write'] });
+    try {
+        await tab.goto(`${url}?select-query${query}`);
+        await tab.waitForSelector('#for');
+        await run(tab, {
+            input: tab.locator('#for'),
+            list: tab.locator('[role="listbox"]'),
+            model: async () => JSON.parse(await tab.locator('[data-test-model]').innerText()),
+        });
+    } finally {
+        await tab.close();
+    }
+}
+const LABEL = 'Not a member (a public booking)';
+
+test('InputSelect: typing on a chosen label starts a fresh search, before, inside or after the label (the reported "No results for fNot a member" case)', async () => {
+    await selectQuery(async (tab, { input, list }) => {
+        assert.equal(await input.inputValue(), LABEL);
+        await input.click();
+        await input.press('Home');
+        await tab.keyboard.type('f');
+        assert.equal(await input.inputValue(), 'f', 'the caret before the label: the query is "f", not "fNot a member (a public booking)"');
+        assert.doesNotMatch(await list.innerText(), /fNot a member/);
+        assert.deepEqual(await tab.getByRole('option').allInnerTexts(), ['Frances Allen'], 'and it filters on "f" alone');
+        await tab.keyboard.press('Escape');
+        await input.click();
+        await input.press('End');
+        await tab.keyboard.press('ArrowLeft');
+        await tab.keyboard.press('ArrowLeft');
+        await tab.keyboard.type('gra');
+        assert.equal(await input.inputValue(), 'gra', 'inside the label');
+        await tab.keyboard.press('Escape');
+        await input.click();
+        await input.press('End');
+        await tab.keyboard.type('ada');
+        assert.equal(await input.inputValue(), 'ada', 'after the label');
+        assert.deepEqual(await tab.getByRole('option').allInnerTexts(), ['Ada Lovelace']);
+        // A real paste (Ctrl+V) before the label that repeats its first letter: the query is what was pasted, never worked out from the field's text.
+        await tab.keyboard.press('Escape');
+        await input.click();
+        await input.press('Home');
+        await tab.evaluate(() => navigator.clipboard.writeText('Nnamdi'));
+        await input.press('ControlOrMeta+V');
+        assert.equal(await input.inputValue(), 'Nnamdi', 'a paste before the label');
+        // An IME composition (Chrome's own IME input) inside the label, overlapping its letters: it replaces the label whole, and the commit is the query.
+        await tab.keyboard.press('Escape');
+        await input.click();
+        await input.press('End');
+        for (let i = 0; i < 5; i++) await input.press('ArrowLeft');
+        const ime = await tab.context().newCDPSession(tab);
+        await ime.send('Input.imeSetComposition', { text: 'bo', selectionStart: 2, selectionEnd: 2 });
+        await ime.send('Input.imeSetComposition', { text: 'book', selectionStart: 4, selectionEnd: 4 });
+        await ime.send('Input.insertText', { text: 'booking' });
+        assert.equal(await input.inputValue(), 'booking', 'an IME composition inside the label');
+        assert.deepEqual(await tab.getByRole('option').allInnerTexts(), [LABEL], 'it filters on "booking" alone (with the label in the query nothing would match)');
+    });
+});
+
+test('InputSelect: Escape and a click outside close the list, drop the typed text and show the chosen label again, even with focus in the list', async () => {
+    await selectQuery(async (tab, { input, list, model }) => {
+        await input.click();
+        await tab.keyboard.type('zq');
+        await list.waitFor();
+        await tab.keyboard.press('Escape');
+        await list.waitFor({ state: 'detached' });
+        assert.equal(await input.inputValue(), LABEL, 'Escape restores the label');
+        assert.equal(await input.getAttribute('aria-expanded'), 'false');
+        // A press on the list's empty message moves focus into the list; Escape there closes it too, and focus comes back to the field.
+        await input.click();
+        await tab.keyboard.type('zq');
+        await list.click();
+        assert.equal(await input.getAttribute('aria-expanded'), 'true');
+        await tab.keyboard.press('Escape');
+        await list.waitFor({ state: 'detached' });
+        assert.equal(await input.inputValue(), LABEL);
+        assert.equal(await tab.evaluate(() => document.activeElement?.id), 'for');
+        // A click outside.
+        await tab.keyboard.type('zq');
+        await list.waitFor();
+        await tab.click('[data-outside]');
+        await list.waitFor({ state: 'detached' });
+        assert.equal(await input.inputValue(), LABEL, 'a click outside restores the label');
+        // The query is gone, not hidden: focusing and typing again starts from nothing.
+        await input.click();
+        await tab.keyboard.type('a');
+        assert.equal(await input.inputValue(), 'a');
+        assert.deepEqual(await model(), { for: 'public', room: 'north' }, 'none of it changed the value');
+    });
+});
+
+test('InputSelect in the kit Modal: Escape and a click outside the list close only the list and restore the label; the modal stays open', async () => {
+    await selectQuery(async (tab, { input, list }) => {
+        await tab.waitForTimeout(300);
+        await input.click();
+        await input.press('Home');
+        await tab.keyboard.type('f');
+        assert.equal(await input.inputValue(), 'f');
+        await tab.keyboard.press('Escape');
+        await list.waitFor({ state: 'detached' });
+        assert.equal(await input.inputValue(), LABEL);
+        await input.click();
+        await tab.keyboard.type('zq');
+        await list.waitFor();
+        await tab.locator('dialog [data-outside]').click();
+        await list.waitFor({ state: 'detached' });
+        assert.equal(await input.inputValue(), LABEL);
+        assert.equal(await tab.evaluate(() => document.querySelector('[data-package-dialog]').open), true);
+        assert.deepEqual(await tab.evaluate(() => window.kitEvents), []);
+    }, '&modal');
+});
+
+test('InputSelect: Clear is opt-in: a clearable select has a Clear button in the tab order (Enter and Space clear it), a default one has none, and axe passes', async () => {
+    await selectQuery(async (tab, { input, model }) => {
+        await tab.addScriptTag({ path: axeSource });
+        const violations = await tab.evaluate(async () => (await window.axe.run(document)).violations.map(v => ({ id: v.id, targets: v.nodes.map(n => n.target.join(' ')) })));
+        assert.deepEqual(violations, []);
+        const clearIn = (id) => tab.locator(`#${id}`).evaluate(el => el.closest('[popover]').querySelector('[data-select-clear]') !== null);
+        assert.equal(await clearIn('for'), false, 'For (a default single select) has none');
+        assert.equal(await clearIn('room'), true, 'Room (clearable) has one');
+        const room = tab.locator('#room');
+        const clear = tab.locator('[data-select-clear]');
+        assert.ok(await clear.getAttribute('aria-label'), 'named');
+        // Escape on a closed default field does not clear it.
+        await input.focus();
+        await input.press('Escape');
+        assert.deepEqual(await model(), { for: 'public', room: 'north' });
+        await room.focus();
+        await tab.keyboard.press('Tab');
+        assert.equal(await tab.evaluate(() => document.activeElement?.hasAttribute('data-select-clear')), true, 'Tab from the clearable field reaches Clear');
+        await tab.keyboard.press('Enter');
+        assert.deepEqual(await model(), { for: 'public', room: null }, 'Enter clears');
+        assert.equal(await room.inputValue(), '');
+        assert.equal(await tab.evaluate(() => document.activeElement?.id), 'room', 'and focus goes back to the field');
+        assert.equal(await clear.count(), 0, 'nothing left to clear');
+        await room.click();
+        await tab.getByRole('option', { name: 'Garden' }).click();
+        await room.focus();
+        await tab.keyboard.press('Tab');
+        await tab.keyboard.press('Space');
+        assert.deepEqual(await model(), { for: 'public', room: null }, 'Space clears');
+    });
+});
+
+test('InputSelect: a choice, choosing the current option again and focus leaving each drop the typed text; the next keystroke starts fresh', async () => {
+    await selectQuery(async (tab, { input, list, model }) => {
+        await input.click();
+        await tab.keyboard.type('gra');
+        await tab.getByRole('option', { name: 'Grace Hopper' }).click();
+        assert.equal(await input.inputValue(), 'Grace Hopper', 'a choice shows its label');
+        assert.deepEqual(await model(), { for: 'grace-hopper', room: 'north' });
+        await input.click();
+        await input.press('End');
+        await tab.keyboard.type('a');
+        assert.equal(await input.inputValue(), 'a', 'not "Grace Hoppera"');
+        await tab.keyboard.press('Escape');
+        // The current option again, through a search.
+        await input.click();
+        await tab.keyboard.type('hop');
+        await tab.getByRole('option', { name: 'Grace Hopper' }).click();
+        assert.equal(await input.inputValue(), 'Grace Hopper');
+        await input.click();
+        await tab.keyboard.type('k');
+        assert.equal(await input.inputValue(), 'k', 'choosing the current option leaves no query');
+        // Focus leaving the field (Tab on to Room).
+        await tab.keyboard.press('Tab');
+        await list.waitFor({ state: 'detached' });
+        assert.equal(await input.inputValue(), 'Grace Hopper', 'Tab away restores the label');
+        await tab.locator('#room').focus();
+        await input.focus();
+        assert.equal(await input.inputValue(), 'Grace Hopper');
+        await tab.keyboard.type('m');
+        assert.equal(await input.inputValue(), 'm', 'focus back and a keystroke: a fresh query');
+        await tab.locator('#room').focus();
+        await list.waitFor({ state: 'detached' });
+        assert.equal(await input.inputValue(), 'Grace Hopper', 'focus moving to another field with the list open restores it');
+        assert.deepEqual(await model(), { for: 'grace-hopper', room: 'north' });
+    });
 });
 
 // ── Money and percent: axe, the unit in the label, the symbol as decoration, percentage points, accounting negatives ─────────────────────────────────────────
