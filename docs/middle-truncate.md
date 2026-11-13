@@ -12,14 +12,14 @@
 
 | `kind` | Head | Tail |
 | --- | --- | --- |
-| `file` | the start of the name | the whole extension, of any length (`.pdf`, `.tar.gz`, `.webmanifest`) |
-| `path` | the root (`/`, or `C:\`, whose drive letter and colon are never cut) and what follows | the last segment, with its extension |
+| `file` | the start of the name | the whole extension: up to 16 letters and digits after the last dot (`.pdf`, `.tar.gz`, `.webmanifest`) |
+| `path` | the root (`/`, a drive's `C:\` or a UNC `\\server\share\`, each one unit that is never cut) and what follows | the last segment, with its extension |
 | `url` | the scheme and the start of the host | the last path segment; a query or fragment is cut first, down to its `?` or `#` |
 | `auto` (the default) | read from the value: a scheme (`https://`) or a leading `www.` is a URL, a `/` or `\` a path, anything else a file name | |
 
 Room left over goes two thirds to the head, one third to the tail. `min-tail` keeps at least that many characters at the end. A value that fits is shown whole, with no ellipsis. In a box too narrow for one character, the ellipsis and the extension, that much is shown and clipped.
 
-Characters are graphemes: an emoji sequence, a flag or a letter with its accents is never split. They come from `Intl.Segmenter`, or, in a runtime without it, from a pattern that keeps the same sequences together. Right-to-left text is cut in logical order, and the element takes its direction from the value (`dir="auto"`).
+Characters are graphemes: an emoji sequence, a flag or a letter with its accents is never split. They come from `Intl.Segmenter`, or, in a runtime without it, from a pattern that keeps ZWJ sequences, flag pairs, variation selectors, skin tones, emoji tags and combining marks with their character: it may group more than `Intl.Segmenter`, never less. Right-to-left text is cut in logical order, and the element takes its direction from the value (`dir="auto"`).
 
 ## Width, not a character count
 

@@ -68,7 +68,9 @@ test('extensions: a dotfile has none, .tar.gz is one, a dot inside a directory n
     assert.equal(extensionStart('backup.tar.gz'), 6);
     assert.equal(extensionStart('photo.jpeg'), 5);
     assert.equal(extensionStart('name.with spaces'), -1, 'an "extension" with a space is part of the name');
-    assert.equal(extensionStart('site.webmanifest'), 4, 'an extension of any length (eleven letters)');
+    assert.equal(extensionStart('site.webmanifest'), 4, 'an eleven-letter extension');
+    assert.equal(extensionStart('notes.abcdefghijklmnop'), 5, 'sixteen letters is still an extension');
+    assert.equal(extensionStart('notes.abcdefghijklmnopq'), -1, 'seventeen is part of the name');
     assert.equal(extensionStart('.env.production'), 4, 'after a leading dotfile name, the last dot starts one');
     assert.equal(extensionStart('report.final version'), -1, 'a suffix with a space is part of the name');
     for (let width = 'brand-kit-2026.webmanifest'.length - 1; width >= 14; width--) {
@@ -119,9 +121,15 @@ test('a path keeps its root and its last segment', () => {
     const drive = 'C:\\Projects\\Paraframe\\Brand\\guidelines-final.docx';
     assert.ok(shown(cut(drive, 20)).startsWith('C:\\') && shown(cut(drive, 20)).endsWith('.docx'), shown(cut(drive, 20)));
     for (let width = drive.length - 1; width >= 4; width--) {
-        assert.ok(cut(drive, width).head.startsWith('C:'), `the drive letter and its colon stay at ${width}: ${shown(cut(drive, width))}`);
+        assert.ok(cut(drive, width).head.startsWith('C:\\'), `the drive root is one unit at ${width}: ${shown(cut(drive, width))}`);
     }
-    assert.equal(shown(cut(drive, 8)), 'C:….docx', 'narrower than the anchors: the drive, the ellipsis and the extension');
+    assert.equal(shown(cut(drive, 9)), 'C:\\….docx', 'narrower than the anchors: the root, the ellipsis and the extension');
+    const unc = '\\\\fileserver\\design\\clients\\acme\\brand\\final.pdf';
+    assert.equal(truncationKind(unc), 'path');
+    for (let width = unc.length - 1; width >= 4; width--) {
+        assert.ok(cut(unc, width).head.startsWith('\\\\fileserver\\design\\'), `the UNC share is one unit at ${width}: ${shown(cut(unc, width))}`);
+    }
+    assert.equal(shown(cut(unc, 25)), '\\\\fileserver\\design\\….pdf');
     assert.equal(cut('/srv/projects/paraframe/final.pdf', 8).head, '/', 'a POSIX root is one character');
     assert.ok(cut('/var/log/app/', 8).tail.endsWith('/'), 'a trailing separator is kept with the last segment');
 });
@@ -152,16 +160,25 @@ test('emoji, flags and combining marks are never split, and wide ones are measur
     assert.ok(measure(shown(cjk)) <= 16 && cjk.tail.endsWith('.pdf'), shown(cjk));
 });
 
-test('without Intl.Segmenter, the fallback still keeps emoji sequences, flags and accents whole', () => {
-    const values = ['👨‍👩‍👧‍👦👨‍👩‍👧‍👦🇨🇦🇨🇦é́é́é́-family-photo.jpeg', '👍🏽-ok-✌️-peace', '\u0301stray-mark-first.txt', 'plain-ascii.pdf'];
-    const native = values.map((value) => graphemes(value));
+test('without Intl.Segmenter, the fallback never splits a grapheme: ZWJ sequences, flag pairs, variation selectors and marks stay whole', () => {
+    // A cut falls only between pieces, so the fallback is safe when each of its boundaries is also one of Intl.Segmenter's (it may group more, never less).
+    const boundaries = (pieces) => pieces.reduce((ends, piece) => [...ends, ends.at(-1) + piece.length], [0]);
+    const exact = ['👨‍👩‍👧‍👦👨‍👩‍👧‍👦🇨🇦🇨🇦é́é́é́-family-photo.jpeg', '👍🏽-ok-✌️-peace-❤︎-text', '🏴󠁧󠁢󠁳󠁣󠁴󠁿-scotland.png', '🇨🇦🇫🇷🇯', '\u0301stray-mark-first.txt', 'plain-ascii.pdf'];
+    const grouped = ['क्‍ष-conjunct.pdf', 'a\u200D', 'x\u200D\u0301y'];
+    const native = new Map([...exact, ...grouped].map((value) => [value, graphemes(value)]));
     const segmenter = Intl.Segmenter;
     delete Intl.Segmenter;
     try {
         assert.equal('Segmenter' in Intl, false);
-        assert.deepEqual(values.map((value) => graphemes(value)), native, 'the same characters as Intl.Segmenter');
-        const r = cut(values[0], 10);
-        assert.deepEqual([...graphemes(r.head), ...graphemes(r.middle), ...graphemes(r.tail)], native[0], shown(r));
+        for (const value of exact) assert.deepEqual(graphemes(value), native.get(value), `${value}: the same characters as Intl.Segmenter`);
+        for (const value of [...exact, ...grouped]) {
+            const pieces = graphemes(value);
+            assert.equal(pieces.join(''), value, 'the pieces join back into the text');
+            const ends = new Set(boundaries(native.get(value)));
+            assert.deepEqual(boundaries(pieces).filter((end) => !ends.has(end)), [], `${JSON.stringify(value)}: a boundary inside a grapheme`);
+        }
+        const r = cut(exact[0], 10);
+        assert.deepEqual([...graphemes(r.head), ...graphemes(r.middle), ...graphemes(r.tail)], native.get(exact[0]), shown(r));
     } finally {
         Intl.Segmenter = segmenter;
     }

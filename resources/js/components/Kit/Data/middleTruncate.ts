@@ -18,11 +18,13 @@ export interface MiddleTruncation {
 export const MIDDLE_ELLIPSIS = '…';
 
 /**
- * Where `Intl.Segmenter` is missing: a flag (two regional indicators), or a character with its marks, variation selectors and skin tones and any emoji
- * joined to it by a zero-width joiner. The last branch takes anything else alone (a stray mark), so the pieces always join back into the text.
+ * Where `Intl.Segmenter` is missing: a flag (two regional indicators), or a character with everything that cannot start a grapheme after it: combining
+ * marks (variation selectors among them), skin tones, emoji tag characters, and a zero-width joiner with the character it joins. It may group more than
+ * Intl.Segmenter does, never less, so a cut between two pieces is never inside a grapheme. The last branch takes anything else alone (a stray mark), so
+ * the pieces always join back into the text.
  */
 const GRAPHEME =
-    /\p{Regional_Indicator}{2}|\P{M}(?:[\p{M}\u{FE0F}\u{1F3FB}-\u{1F3FF}]|\u200D\p{Extended_Pictographic})*|[\s\S]/gu;
+    /\p{Regional_Indicator}{2}|[^\p{M}\u200D](?:[\p{M}\u{1F3FB}-\u{1F3FF}\u{E0020}-\u{E007F}]|\u200D(?:\p{Regional_Indicator}{2}|[^\p{M}\u200D])?)*|[\s\S]/gu;
 
 /** The value's user-perceived characters: an emoji sequence, a flag or a letter with its accents is one, never split. */
 export function graphemes(text: string): string[] {
@@ -59,11 +61,11 @@ export function truncationKind(
 }
 
 /**
- * Where a file name's extension starts (its dot), or -1: the last dot followed only by letters and digits, of any length (`.webmanifest`). `.tar.gz` is
- * one extension; a leading dot (`.env`) is a name, not an extension, and so is a suffix with a space or punctuation in it.
+ * Where a file name's extension starts (its dot), or -1: the last dot followed by 1 to 16 letters and digits (`.pdf`, `.webmanifest`). `.tar.gz` is one
+ * extension; a leading dot (`.env`) is a name, not an extension, and so is a suffix with a space or punctuation in it, or a longer one.
  */
 export function extensionStart(name: string): number {
-    const match = /(?:\.tar)?\.[\p{L}\p{N}]+$/u.exec(name);
+    const match = /(?:\.tar)?\.[\p{L}\p{N}]{1,16}$/u.exec(name);
 
     return match && match.index > 0 && !/[/\\]/.test(name[match.index - 1])
         ? match.index
@@ -86,8 +88,8 @@ function lastSeparator(value: string, from: number, to: number): number {
 }
 
 /**
- * The anchors, as code-unit offsets: the head prefers to keep `head` (the URL's scheme and the start of its host, a drive's root) and never gives up
- * `lead` (one character, or a drive letter and its colon); the tail prefers to keep from `tail` (a file's extension, a path's or URL's last segment) and
+ * The anchors, as code-unit offsets: the head prefers to keep `head` (the URL's scheme and the start of its host) and never gives up `lead` (one
+ * character, or a path's root: `C:\` or `\\server\share\`); the tail prefers to keep from `tail` (a file's extension, a path's or URL's last segment) and
  * never gives up what is from `floor` (the extension the tail ends with).
  */
 function anchors(
@@ -125,12 +127,16 @@ function anchors(
     if (kind === 'path') {
         const separator = lastSeparator(value, 0, length);
         if (separator > 0) {
-            // `C:\` or `C:/`: the drive letter and its colon are the root, never cut.
-            const drive = /^[a-z]:[/\\]?/i.exec(value)?.[0].length ?? 0;
+            // A drive's root (`C:\`, `C:/`) or a UNC share (`\\server\share\`) is one unit of the head, never cut.
+            const root = Math.max(
+                1,
+                /^(?:[a-z]:[/\\]?|\\\\[^/\\]+\\[^/\\]+\\?)/i.exec(value)?.[0]
+                    .length ?? 0,
+            );
 
             return {
-                head: Math.max(1, drive),
-                lead: drive ? 2 : 1,
+                head: root,
+                lead: root,
                 tail: separator,
                 floor: /[/\\]$/.test(value) ? length : extension(separator + 1),
             };
