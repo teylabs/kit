@@ -59,7 +59,7 @@ After an invited sign-up, an app with passkeys shows "Add a passkey for next tim
 - **Not now** (or the close button) dismisses the offer for good (`DELETE /me/passkey-offer`). A failed or cancelled attempt says so and leaves the offer open.
 - The offer is kept per person until it's used or dismissed, and it disappears once they have a passkey.
 
-It's an optional integration (`kit:status` lists it under session-ui). To turn it on:
+It's an optional integration (session-ui's manifest lists it under `optional`). To turn it on:
 
 1. Add `Features::passkeys()` to `features` in `config/fortify.php`.
 2. Run `laravel/passkeys`' migration (the `passkeys` table).

@@ -28,7 +28,7 @@ Assistants see the workspace server as "Workspace operations", with the kit's in
 
 ## Sessions
 
-Set `SESSION_DRIVER=database` (or `redis`) explicitly in every environment, not the platform default. Passport keeps the pending authorization request in the session during consent, and a cookie session passes the browser's 4 KB limit and is dropped without a word. On `SESSION_DRIVER=cookie` the consent routes (`passport.authorizations.authorize`, `approve` and `deny`) refuse with a 503 page naming the fix and log an error. The mcp feature's `config` host step flags a cookie driver in `kit:add` and `kit:update` plans as attention, for the environment the plan runs in. The tey/standards preflight `install.sessions` also checks it at deploy.
+Set `SESSION_DRIVER=database` (or `redis`) explicitly in every environment, not the platform default. Passport keeps the pending authorization request in the session during consent, and a cookie session passes the browser's 4 KB limit and is dropped without a word. On `SESSION_DRIVER=cookie` the consent routes (`passport.authorizations.authorize`, `approve` and `deny`) refuse with a 503 page naming the fix and log an error. The mcp feature's `config` host step names it. The tey/standards preflight `install.sessions` also checks it at deploy.
 
 ## A tool
 

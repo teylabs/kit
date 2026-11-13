@@ -11,7 +11,7 @@ The kit has one reorder model, shared by the Workbench navigator, the Repeater a
 import { SortableList, SortableHandle, useSortable } from '@/components/Kit';
 ```
 
-It needs `vue-draggable-plus` (`npm install vue-draggable-plus@^0.6.1`). `kit:status` and `kit:preflight` say so when it is missing.
+It needs `vue-draggable-plus` (`npm install vue-draggable-plus@^0.6.1`). Core lists it under `requires.npm`; the kit installs no npm packages.
 
 ## SortableList
 

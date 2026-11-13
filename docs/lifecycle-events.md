@@ -4,7 +4,7 @@ workspace-ui adds three owner and account actions: transferring a workspace's ow
 
 ## Deletion is off until you turn it on
 
-Both deletions are **off by default**. While off, their routes return 404, the settings pages don't list them, and `kit:status` reports them as off. Turning one on takes two things:
+Both deletions are **off by default**. While off, their routes return 404, and the settings pages don't list them. Turning one on takes two things:
 
 1. The flag: `kit.lifecycle.workspace_delete` (`KIT_WORKSPACE_DELETE=true`) or `kit.lifecycle.account_delete` (`KIT_ACCOUNT_DELETE=true`).
 2. A bound purge handler for your own data: `Tey\Kit\Features\Workspaces\Contracts\PurgesWorkspaceData::purge(Workspace $workspace)` or `Tey\Kit\Features\SessionUi\Contracts\PurgesAccountData::purge(Model $user)`.
@@ -17,7 +17,7 @@ $this->app->bind(PurgesAccountData::class, PurgeAccount::class);
 
 The handler runs inside the deletion's transaction, before the kit's own rows go, so it can still read them. If it throws, the whole deletion rolls back. If you have nothing of your own to purge, bind a handler that does nothing, explicitly: the kit never assumes it.
 
-With the flag on and no handler bound, the deletion refuses with a configuration error and deletes nothing, and `kit:status` flags the step as unmet.
+With the flag on and no handler bound, the deletion refuses with a configuration error and deletes nothing.
 
 ## Transfer ownership
 
@@ -152,7 +152,7 @@ Both modes call it, inside the transaction, after the kit's and Concierge's rows
 
 If you kept your own deletion page and job, for example one that sets a closing flag and purges in a queued job:
 
-1. Run `kit:update plan|apply`, then `php artisan migrate`.
+1. Run `php artisan migrate`.
 2. Bind your purge handler as `PurgesWorkspaceData` and have it implement `DefersWorkspacePurge`. Its `begin()` dispatches your existing job.
 3. In your job, drop your own deletion of the kit's and Concierge's rows (memberships, ownership, invitations, roles, settings and the workspace row), and end with `app(FinishWorkspaceDeletion::class)($workspaceId)` instead.
 4. Retire your own closing flag in favour of `deleting_at`. If your workspace model sets `admitted`/`accepts_members` to false to close a workspace, you no longer need to: the kit's `conciergeAcceptsMembers()` is already false while `deleting_at` is set. Copy any in-flight closures across (`update workspaces set deleting_at = <your flag's timestamp> where …`) before you remove your column, so a job still running finds them closed.

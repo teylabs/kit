@@ -1,6 +1,6 @@
 # Notes
 
-`notes` is an opt-in feature: workspace notes with a quick-add composer, a wall of cards, attachments, a dashboard widget and MCP tools. All of them run through one set of operations. It requires `workspaces`, `access` and `workspace-ui` (which brings `session-ui`). Adopt it with `php artisan kit:add notes`, then `php artisan migrate` and `php artisan kit:permissions:sync`.
+`notes` is an opt-in feature: workspace notes with a quick-add composer, a wall of cards, attachments, a dashboard widget and MCP tools. All of them run through one set of operations. It requires `workspaces`, `access` and `workspace-ui` (which requires `session-ui`), each listed in `kit.features` too. Adopt it by adding `notes` to `kit.features`, then run `php artisan migrate` and `php artisan kit:permissions:sync`.
 
 ## What a note is
 
@@ -88,7 +88,7 @@ Files are served at `/@{workspace}/notes/{note}/media/{uuid}`, only to someone w
 
 ## Coming from an earlier notes table
 
-The feature never touches a `notes` table (from an earlier kit release) or an `app_notes` table (an app's own). `kit:add notes` and `kit:adopt notes` point either one out as attention that doesn't block. Copy their notes with:
+The feature never touches a `notes` table (from an earlier kit release) or an `app_notes` table (an app's own). Copy their notes with:
 
 ```sh
 php artisan kit:notes:import --from=notes --dry-run   # report only
@@ -126,6 +126,6 @@ A retry with the same `intent_key` replays through the consent gate. Attachments
 - attachments and their gated media;
 - the save toast and the dashboard widget;
 - the MCP tools' operations;
-- the legacy-table attention step and the import.
+- the legacy-table step declaration and the import.
 
 Not covered: no browser renders the composer, cards or widget, and the MCP tools are called directly, not over the transport.
