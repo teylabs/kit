@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+No lineage pin changed: `composer update` is enough.
+
+### Changed
+
+- **The kit accepts tey/mod 0.12 and 0.13** (`^0.11.6 || ^0.12 || ^0.13`, was `^0.11.6`). Since 0.18 the kit uses no class of tey/mod's maintenance API (`Tey\Mod\Maintenance`), which tey/mod 0.13 removes, so an app can move to mod 0.13 with the kit. tey/concierge 0.11.1 still requires tey/mod `^0.11`, so an app with the workspaces feature stays on mod 0.11 until Concierge accepts a newer one.
+  Features affected: none
+  - **Tests.** Every `composer test:*` script in CI's `tests` job (130) and in its PostgreSQL job (7, on PostgreSQL 17) passes against tey/mod 0.11.6, 0.11.7, 0.12.0, 0.12.6 and the 0.13 branch (teylabs/mod#240, from a path repository). Concierge's constraint keeps CI on mod 0.11, so the 0.12 and 0.13 runs were local, with mod installed under an inline alias (`as 0.11.99`) that Concierge accepts. CI's "Show installed Mod" step now accepts 0.11, 0.12 and 0.13.
+  - **Not covered:** the browser and components jobs, and a consumer app.
+
 ## v0.18.0
 
 Features affected: core

@@ -189,7 +189,7 @@ jobs:
         run: php bin/catalog-pins.php --check
       - name: Show installed Mod
         run: |
-          composer show tey/mod | grep -E '^versions : \* v0\.11\.'
+          composer show tey/mod | grep -E '^versions : \* v0\.1[123]\.'
       - name: kit:scaffold (writes a feature's pages once, never overwrites, refuses linked folders)
         timeout-minutes: 4
         run: composer test:scaffold
