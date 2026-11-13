@@ -42,7 +42,7 @@ DB::table(Kit::table('note_intent'));                           // note_intents 
 
 The kit's own classes (`DeliveryRecord`, `Finalization`, `Note`, and so on) stay, as the default for an app that has not adopted. They are deprecated for new code: reach the model through `Kit::model()`.
 
-**The boot check.** In `local` and `testing`, the app refuses to boot when a class in `kit.models` doesn't exist, isn't an Eloquent model or doesn't implement its key's contract, or when a feature is adopted in part (its delivery, say, without its recipients). Elsewhere the problem is logged.
+**The boot check.** In `local` and `testing`, the app refuses to boot when a class in `kit.models` doesn't exist, isn't an Eloquent model or doesn't implement its key's contract, doesn't use its key's trait (directly, through a parent or through another trait), or when a feature is adopted in part (its delivery, say, without its recipients). Elsewhere the problem is logged.
 
 **Morph aliases.** Each model has a stable alias, `kit-` and its key (`kit-note`, `kit-delivery`, `kit-delivery-recipient`, …), registered against whichever class config names. Stored rows that name a model by alias (media attachments, an app's own morphs) follow it to the app's model. Once adopted, a row stored under the kit's class name, from before the alias existed, resolves to the app's model too.
 
@@ -99,7 +99,7 @@ Read-only. For each table the kit reads for the feature (the app's once adopted,
 - `--adopt` writes all of its files and `config/kit.php` or none: a write that fails puts back the ones before it;
 - a malformed `kit.models` or `kit.tables` entry refuses, and a feature adopted in part still runs the kit's migrations;
 - an uneditable config refuses;
-- a class that doesn't implement its contract, and a part-adopted feature, stop the boot.
+- a class that doesn't implement its contract or doesn't use its trait, and a part-adopted feature, stop the boot.
 
 `composer test:lifecycle-pages` checks that account and workspace deletion fail closed on a missing table of a feature that is on, and workspace deletion also on a feature's table that lacks `workspace_id` (#967).
 

@@ -38,6 +38,12 @@ const BASELINES = ['create_kit_deliver_tables', 'add_finalization_ref_to_kit_del
 /** A model that is not the kit's note: no contract, no trait. */
 final class NotANote extends Model {}
 
+/** A security event that implements the (empty) contract but leaves out the kit's behaviour, IsSecurityEvent: its table, timestamps and casts. */
+final class BareSecurityEvent extends Model implements Tey\Kit\Features\SessionUi\Contracts\SecurityEvent {}
+
+/** A security event that inherits the kit's behaviour from the kit's own class: the trait counts through a parent. */
+final class InheritedSecurityEvent extends Tey\Kit\Features\SessionUi\Models\SecurityEvent {}
+
 /** A synthetic member of workspaces, for an account deletion. */
 final class Member extends User implements MemberContract
 {
@@ -501,6 +507,9 @@ try {
     $refused = refusal(fn () => boot(root(kitConfig('current', ['delivery' => 'App\\Models\\Delivery::class']))));
     check($refused !== null && str_contains($refused, 'deliver feature is partly adopted'), 'a feature adopted in part (delivery without its recipients and events) stops the boot');
     check(refusal(fn () => boot(root(kitConfig('current', ['note' => 'Tey\\Kit\\Features\\Notes\\Models\\Note::class'])))) === null, 'naming the kit\'s own class is not adopting');
+    $refused = refusal(fn () => boot(root(kitConfig('current', ['security_event' => 'BareSecurityEvent::class']))));
+    check($refused !== null && str_contains($refused, 'kit.models.security_event (BareSecurityEvent)') && str_contains($refused, 'IsSecurityEvent'), 'a kit.models class that implements its contract without the kit\'s trait stops the boot, naming the trait');
+    check(refusal(fn () => boot(root(kitConfig('current', ['security_event' => 'InheritedSecurityEvent::class'])))) === null, 'a class that has the trait through a parent passes the boot check');
     check(refusal(fn () => boot(root(kitConfig('current', ['note' => 'NotANote::class']), env: 'production'))) === null, 'outside local and testing the app boots and the problem is logged');
 
     // A malformed entry is not "unset": only null means the kit's own. A model entry that is not a class name stops the app; a table entry that is not

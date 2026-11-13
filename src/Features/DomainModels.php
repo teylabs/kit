@@ -92,8 +92,8 @@ final class DomainModels
     }
 
     /**
-     * Why the configured domain models cannot serve, or [] when they can: each configured class exists, extends Eloquent's Model and implements its
-     * key's contract; `kit.models.workspace`, when set, is Concierge's workspace model; and a feature is adopted whole or not at all. The composition
+     * Why the configured domain models cannot serve, or [] when they can: each configured class exists, extends Eloquent's Model, implements its
+     * key's contract and uses its trait (directly, through a parent or through another trait); `kit.models.workspace`, when set, is Concierge's workspace model; and a feature is adopted whole or not at all. The composition
      * root stops the boot on any of them in local and testing.
      *
      * @return list<string>
@@ -122,6 +122,9 @@ final class DomainModels
                 $problems[] = 'kit.models.'.$key.' ('.(is_string($class) ? $class : get_debug_type($class)).') is not a class.';
             } elseif (! is_subclass_of($class, Model::class) || ! is_subclass_of($class, $contract)) {
                 $problems[] = 'kit.models.'.$key.' ('.$class.') must extend '.Model::class.' and implement '.$contract.' (use its trait, '.self::trait($key).').';
+            } elseif (! in_array(self::trait($key), class_uses_recursive($class), true)) {
+                // Most contracts only mark the model; the behaviour the kit relies on (table, casts, scopes, relations) is the trait's.
+                $problems[] = 'kit.models.'.$key.' ('.$class.') implements '.$contract.' but does not use '.self::trait($key).', which carries the behaviour the kit relies on: add `use '.class_basename(self::trait($key)).';`.';
             }
         }
         foreach (self::FEATURES as $feature => $keys) {
