@@ -9,8 +9,8 @@ use Illuminate\Support\Facades\Schema;
 // The session-ui feature's domain table: each user's security history.
 // Written by `php artisan kit:scaffold session-ui --adopt` (tey/kit 0.19), and the app's own from then on. On a database where the kit created the tables,
 // up() renames them, with their indexes, keys and sequences, and keeps every row; on a fresh one it creates them under the app's names. With both names of
-// a table present it refuses before changing anything: it never merges two tables. up() records in kit_meta which tables it renamed and which it
-// created; down() undoes exactly that, so a table the app had before adopting stays as it is, rows and all.
+// a table present it refuses before changing anything: it never merges two tables. up() records in kit_meta what it did to each table: renamed,
+// created or left. down() undoes only that, so a table it left, or has no record of, stays as it is, rows and all.
 return new class extends Migration
 {
     /** The kit's name => the app's, parents first. */
@@ -18,33 +18,44 @@ return new class extends Migration
         'kit_security_events' => 'security_events',
     ];
 
-    /** Where up() records what it changed, so down() undoes that and nothing else: a row of kit_meta (the kit's core). */
-    private const RECORD = 'adopt:session-ui';
-
     public function up(): void
     {
         if (! Schema::hasTable('kit_meta')) {
-            throw new RuntimeException('kit_meta is missing, and this migration records there what it changes so that its rollback undoes only that. Run the core migrations of the kit first.');
+            throw new RuntimeException('kit_meta is missing, and this migration records there what it does to each table so that its rollback undoes only that. Run the core migrations of the kit first.');
         }
-        $done = ['renamed' => $this->rename(self::TABLES), 'created' => $this->create()];
-        DB::table('kit_meta')->updateOrInsert(['key' => self::RECORD], ['value' => json_encode($done), 'updated_at' => now()]);
+        $renamed = $this->rename(self::TABLES);
+        $created = $this->create();
+        foreach (self::TABLES as $table) {
+            $done = in_array($table, $renamed, true) ? 'renamed' : (in_array($table, $created, true) ? 'created' : 'left');
+            DB::table('kit_meta')->updateOrInsert(['key' => $this->record($table)], ['value' => $done, 'updated_at' => now()]);
+        }
     }
 
+    /** Undoes what up() recorded for each table: renamed is renamed back, created is dropped, left (or no record) stays as it is. */
     public function down(): void
     {
-        $value = Schema::hasTable('kit_meta') ? DB::table('kit_meta')->where('key', self::RECORD)->value('value') : null;
-        $done = is_string($value) ? json_decode($value, true) : null;
-        if (! is_array($done) || ! is_array($done['renamed'] ?? null) || ! is_array($done['created'] ?? null)) {
-            throw new RuntimeException('kit_meta has no record ('.self::RECORD.') of what this migration changed, so its rollback changes nothing: it cannot tell a table it created from one that was there before. Put the tables back by hand, then delete the row of this migration from the migrations table.');
+        $done = [];
+        if (Schema::hasTable('kit_meta')) {
+            foreach (self::TABLES as $table) {
+                $done[$table] = DB::table('kit_meta')->where('key', $this->record($table))->value('value');
+            }
         }
         // Renamed back first: the rename checks every pair before it changes anything.
-        $this->rename(array_flip(array_reverse(array_filter(self::TABLES, fn (string $table): bool => in_array($table, $done['renamed'], true)), true)));
+        $this->rename(array_flip(array_reverse(array_filter(self::TABLES, fn (string $table): bool => ($done[$table] ?? null) === 'renamed'), true)));
         foreach (array_reverse(self::TABLES) as $table) {
-            if (in_array($table, $done['created'], true)) {
+            if (($done[$table] ?? null) === 'created') {
                 Schema::dropIfExists($table);
             }
         }
-        DB::table('kit_meta')->where('key', self::RECORD)->delete();
+        if (Schema::hasTable('kit_meta')) {
+            DB::table('kit_meta')->whereIn('key', array_map(fn (string $table): string => $this->record($table), array_values(self::TABLES)))->delete();
+        }
+    }
+
+    /** The kit_meta key holding what up() did to $table (renamed, created or left), by this migration's name and the table's. */
+    private function record(string $table): string
+    {
+        return 'adopt:'.basename(__FILE__, '.php').':'.$table;
     }
 
     /**

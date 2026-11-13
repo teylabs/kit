@@ -187,6 +187,18 @@ function rows(string $table): array
     return array_map(fn (object $row): array => (array) $row, Schema::getConnection()->table($table)->orderBy('id')->get()->all());
 }
 
+/** @return array<string, string> what the adopt migrations recorded in kit_meta, by table: renamed, created or left */
+function records(): array
+{
+    $records = [];
+    foreach (Schema::getConnection()->table('kit_meta')->where('key', 'like', 'adopt:%')->get() as $row) {
+        $records[substr((string) $row->key, strrpos((string) $row->key, ':') + 1)] = (string) $row->value;
+    }
+    ksort($records);
+
+    return $records;
+}
+
 /**
  * @param  list<string>  $values
  * @return list<string>
@@ -312,6 +324,10 @@ try {
     check(DomainModels::problems() === [] && Kit::model('delivery') === 'App\\Models\\Delivery' && Kit::table('delivery') === 'deliveries' && Kit::table('note_intent') === 'note_intents', 'the adopted app boots, and Kit::model() and Kit::table() name its own');
     $ran = migrate($app);
     check(count($ran) === 5 && count(preg_grep('/_adopt_[a-z_]+_tables\z/', $ran)) === 5, 'migrate runs the five adopt migrations and nothing else');
+    $expected = array_map(fn (string $to): string => 'renamed', array_flip(array_filter(PAIRS, fn (string $to, string $from): bool => $from !== $to, ARRAY_FILTER_USE_BOTH))) + ['entitlements' => 'left', 'complimentary_grants' => 'left'];
+    ksort($expected);
+    $deliverKey = Schema::getConnection()->table('kit_meta')->where('key', 'like', 'adopt:%:deliveries')->value('key');
+    check(records() === $expected && preg_match('/\Aadopt:\d{4}_\d{2}_\d{2}_\d{6}_adopt_deliver_tables:deliveries\z/', (string) $deliverKey) === 1, 'kit_meta records, per adopt migration and table, each renamed table as renamed and the access tables the kit created as left');
     $renamedRows = array_filter(PAIRS, fn (string $to, string $from): bool => rows($to) !== $before[$from] || ($from !== $to && Schema::hasTable($from)), ARRAY_FILTER_USE_BOTH);
     check($renamedRows === [], 'every row of every domain table is there under the app\'s name, column for column, and no kit name is left ('.count(PAIRS).' tables)');
     $stale = array_filter(PAIRS, fn (string $to, string $from): bool => $from !== $to && preg_grep('/\A'.$from.'_/', keyNames($to)) !== [], ARRAY_FILTER_USE_BOTH);
@@ -334,8 +350,14 @@ try {
     [$code, $output] = artisan($app, 'migrate:rollback', ['--force' => true]);
     $restored = array_filter(PAIRS, fn (string $to, string $from): bool => ! Schema::hasTable($from) || ($from !== $to && Schema::hasTable($to)) || rows($from) !== $before[$from], ARRAY_FILTER_USE_BOTH);
     check($code === 0 && $restored === [] && preg_grep('/\Adeliveries_/', keyNames('kit_deliveries')) === [] && preg_grep('/\Akit_deliveries_/', keyNames('kit_deliveries')) !== [], 'rollback restores the kit\'s names, every row and the kit\'s key names'.($code === 0 ? '' : ': '.$output));
+    check(records() === [] && Schema::hasTable('entitlements') && Schema::hasTable('complimentary_grants'), 'and leaves the tables it left (entitlements, complimentary_grants) and no record behind');
     $again = migrate($app);
     check(count($again) === 5 && array_filter(PAIRS, fn (string $to, string $from): bool => rows($to) !== $before[$from], ARRAY_FILTER_USE_BOTH) === [], 'migrating again renames them again, rows intact');
+    $deliverPath = ['--force' => true, '--path' => glob($rootA.'/database/migrations/*_adopt_deliver_tables.php'), '--realpath' => true];
+    Schema::create('kit_deliveries', fn ($t) => $t->id());
+    $refused = refusal(fn () => artisan($app, 'migrate:rollback', $deliverPath));
+    check($refused !== null && str_contains($refused, 'Both deliveries and kit_deliveries exist') && Schema::hasTable('delivery_events') && Schema::hasTable('delivery_recipients') && ! Schema::hasTable('kit_delivery_events') && records()['delivery_events'] === 'renamed', 'down() checks every pair before renaming back: with kit_deliveries in the way it refuses, and delivery_events, renamed back first otherwise, keeps its name and record');
+    Schema::drop('kit_deliveries');
 
     // --check is read-only and names a missing column.
     Schema::table('deliveries', fn ($t) => $t->dropColumn('finalization_ref'));
@@ -354,6 +376,7 @@ try {
     $baselines = array_filter($ran, fn (string $migration): bool => in_array(preg_replace('/\A\d{4}_\d{2}_\d{2}_(?:\d{6}_)+/', '', $migration), BASELINES, true));
     check($baselines === [] && count(preg_grep('/_adopt_[a-z_]+_tables\z/', $ran)) === 5, 'a fresh database runs the adopt migrations and none of the kit\'s migrations for those tables');
     check(array_filter(PAIRS, fn (string $to, string $from): bool => ! Schema::hasTable($to) || ($from !== $to && Schema::hasTable($from)), ARRAY_FILTER_USE_BOTH) === [], 'and has every domain table under the app\'s name only');
+    check(array_values(array_unique(records())) === ['created'] && count(records()) === count(PAIRS), 'kit_meta records every table as created');
     $drift = [];
     foreach (DomainModels::COLUMNS as $key => $expected) {
         if ($key !== 'media_upload' && columns(tableOf($key, true)) !== sorted($expected)) {
@@ -364,21 +387,22 @@ try {
     [$code] = artisan($fresh, 'migrate:rollback', ['--force' => true, '--path' => glob($rootB.'/database/migrations/*_adopt_*.php'), '--realpath' => true]);
     check($code === 0 && array_filter(PAIRS, fn (string $to): bool => Schema::hasTable($to)) === [] && Schema::hasTable('workspaces'), 'rolling the adopt migrations back on the fresh database drops the tables they created, and nothing else');
 
-    // A table the app already had under the app's name, which the kit never created here: up() leaves it, and so does down(), rows and all. down() drops
-    // only what up() created, by up()'s record in kit_meta; without that record it refuses rather than guess.
+    // A table the app already had under the app's name, which the kit never created here: up() records it as left, and down() leaves it, rows and all.
+    // down() drops only what up() recorded as created; a table it has no record of stays as it is, never a guess.
     $adoptPaths = ['--force' => true, '--path' => glob($rootB.'/database/migrations/*_adopt_*.php'), '--realpath' => true];
     foreach (['notes', 'entitlements'] as $table) {
         Schema::create($table, fn ($t) => $t->id());
         Schema::getConnection()->table($table)->insert(['id' => 42]);
     }
     migrate($fresh);
+    check(records()['notes'] === 'left' && records()['entitlements'] === 'left' && records()['note_intents'] === 'created' && records()['complimentary_grants'] === 'created', 'up() records an app table that was there before adoption as left, beside the tables it created');
     [$code] = artisan($fresh, 'migrate:rollback', $adoptPaths);
     $kept = fn (string $table): bool => Schema::hasTable($table) && rows($table) === [['id' => 42]];
     check($code === 0 && $kept('notes') && $kept('entitlements') && ! Schema::hasTable('note_intents') && ! Schema::hasTable('complimentary_grants') && ! Schema::hasTable('deliveries'), 'an app table that was there before adoption (notes, entitlements) survives the rollback with its rows; the tables up() created are dropped');
     migrate($fresh);
-    Schema::getConnection()->table('kit_meta')->where('key', 'adopt:notes')->delete();
-    $refused = refusal(fn () => artisan($fresh, 'migrate:rollback', $adoptPaths));
-    check($refused !== null && str_contains($refused, 'adopt:notes') && $kept('notes') && Schema::hasTable('note_intents'), 'without kit_meta\'s record of what up() did, down() refuses and leaves the notes tables as they are');
+    Schema::getConnection()->table('kit_meta')->where('key', 'like', 'adopt:%_adopt_notes_tables:%')->delete();
+    [$code] = artisan($fresh, 'migrate:rollback', $adoptPaths);
+    check($code === 0 && $kept('notes') && Schema::hasTable('note_intents') && ! Schema::hasTable('deliveries') && ! Schema::hasTable('complimentary_grants') && records() === [], 'without a record, down() leaves the table as it is (notes, and the note_intents up() created); the tables with a record are undone');
 
     // Account deletion in an app without session-ui, which never registers the security log's model: the log is skipped, not resolved.
     $child = proc_open([PHP_BINARY, __FILE__, $argv[1], 'without-session-ui'], [1 => ['pipe', 'w'], 2 => ['redirect', 1]], $pipes);
