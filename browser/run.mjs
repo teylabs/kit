@@ -8489,7 +8489,8 @@ async function middleTruncate(query, check) {
     try {
         const tab = await context.newPage();
         await tab.goto(`${url}?${query}`);
-        await tab.waitForSelector(`${truncateRow('file')}[data-truncated]`);
+        // The URL is long enough to be cut at 320px in any font: the component has mounted and measured.
+        await tab.waitForSelector(`${truncateRow('url')}[data-truncated]`);
         await check(tab);
     } finally {
         await context.close();
@@ -8521,7 +8522,7 @@ const setBox = (tab, row, width) => tab.evaluate(([row, width]) => {
 
 test('MiddleTruncate: cuts the middle to fit, keeps the start and the extension, and refits as its box narrows and widens', async () => {
     await middleTruncate('middle-truncate', async (tab) => {
-        const file = 'paraframe-brand-guidelines-2026-final.pdf';
+        const file = 'paraframe-brand-guidelines-2026-client-review-final.pdf';
         const at320 = await truncateState(tab, 'file');
         assert.equal(at320.truncated, true);
         assert.match(at320.shown, /^paraframe-brand.*….*-final\.pdf$/, at320.shown);
@@ -8570,6 +8571,7 @@ test('MiddleTruncate: a URL keeps its host start and last segment with its query
         assert.match(link.shown, /^https:\/\/cdn\.para.*….*\/final-v3\.pdf\?…$/, link.shown);
         assert.equal(link.overflows, false);
         assert.deepEqual(link.cutWidths, [0, 0], 'the cut middle and the cut query paint nothing');
+        await setBox(tab, 'path', 200);
         const path = await truncateState(tab, 'path');
         assert.match(path.shown, /^\/srv\/.*….*\/final-v3\.pdf$/, path.shown);
         const short = await truncateState(tab, 'short');
@@ -8593,7 +8595,7 @@ test('MiddleTruncate: a URL keeps its host start and last segment with its query
 test('MiddleTruncate: the accessible name, the title and a copied selection are the whole value; axe passes, light and dark', async () => {
     for (const query of ['middle-truncate', 'middle-truncate=dark']) {
         await middleTruncate(query, async (tab) => {
-            const file = 'paraframe-brand-guidelines-2026-final.pdf';
+            const file = 'paraframe-brand-guidelines-2026-client-review-final.pdf';
             const urlValue = 'https://cdn.paraframe.studio/clients/acme/2026/brand/guidelines/final-v3.pdf?download=1';
             assert.equal(await tab.getByRole('link', { name: file, exact: true }).count(), 1, 'the link is named by the whole file name');
             assert.equal(await tab.getAttribute(truncateRow('file'), 'title'), file);

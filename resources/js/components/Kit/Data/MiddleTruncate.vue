@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, onUpdated, ref } from 'vue';
-import { type MiddleTruncateKind, middleTruncate } from './middleTruncate';
+import {
+    type MiddleTruncateKind,
+    canvasFont,
+    middleTruncate,
+} from './middleTruncate';
 
 /*
  * A long file name, path or URL cut in the middle to fit its box, so its start and its tail stay visible: `paraframe-brand…final.pdf`, not
@@ -33,11 +37,6 @@ const fontsDone = () => {
     update();
 };
 
-// The canvas font, from the longhands: Firefox may serialise the computed `font` shorthand as ''.
-function fontOf(style: CSSStyleDeclaration): string {
-    return `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
-}
-
 // The unrounded content box: clientWidth and scrollWidth round, and a fraction of a pixel over is enough for the CSS ellipsis.
 function contentWidth(el: HTMLElement, style: CSSStyleDeclaration): number {
     return (
@@ -56,7 +55,7 @@ function update(): void {
     }
     const style = getComputedStyle(el);
     const width = Math.floor(contentWidth(el, style));
-    const font = `${fontOf(style)}|${style.letterSpacing}|${fontsLoaded}`;
+    const font = `${canvasFont(style)}|${style.letterSpacing}|${fontsLoaded}`;
     if (box.value?.width !== width || box.value.font !== font) {
         box.value = { width, font };
         slack.value = 0;
@@ -69,7 +68,7 @@ const parts = computed(() => {
         return null;
     }
     const style = getComputedStyle(el);
-    context.font = fontOf(style);
+    context.font = canvasFont(style);
     if ('letterSpacing' in context) {
         context.letterSpacing =
             style.letterSpacing === 'normal' ? '0px' : style.letterSpacing;
@@ -134,8 +133,8 @@ onBeforeUnmount(() => {
             <template v-if="parts.middle">
                 <span
                     aria-hidden="true"
-                    data-ellipsis
-                    class="before:content-['…']"
+                    data-ellipsis="…"
+                    class="before:content-[attr(data-ellipsis)]"
                 ></span>
                 <span data-cut class="text-[0px] tracking-normal">{{
                     parts.middle
@@ -145,8 +144,8 @@ onBeforeUnmount(() => {
             <template v-if="parts.end">
                 <span
                     aria-hidden="true"
-                    data-ellipsis
-                    class="before:content-['…']"
+                    data-ellipsis="…"
+                    class="before:content-[attr(data-ellipsis)]"
                 ></span>
                 <span data-cut class="text-[0px] tracking-normal">{{
                     parts.end

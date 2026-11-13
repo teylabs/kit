@@ -77,7 +77,7 @@ test('auto reads a URL, a path and a file name', () => {
     assert.equal(truncationKind(url), 'url');
     assert.equal(truncationKind('www.example.com/a/b'), 'url');
     assert.equal(truncationKind('mailto:someone@example.com'), 'file', 'no authority, no URL handling');
-    assert.equal(truncationKind('/Users/sample/Projects/brand/final.pdf'), 'path');
+    assert.equal(truncationKind('/srv/projects/brand/final.pdf'), 'path');
     assert.equal(truncationKind('C:\\Projects\\Brand\\final.docx'), 'path');
     assert.equal(truncationKind(file), 'file');
     assert.equal(truncationKind(url, 'file'), 'file', 'an explicit kind wins');
@@ -108,8 +108,8 @@ test('a URL\'s query and fragment are cut first, down to the ? or #, and kept in
 });
 
 test('a path keeps its root and its last segment', () => {
-    const posix = cut('/Users/sample/Projects/paraframe/brand/guidelines/final.pdf', 30);
-    assert.equal(shown(posix), '/Users/sample…elines/final.pdf');
+    const posix = cut('/srv/projects/paraframe/brand/guidelines/final.pdf', 30);
+    assert.equal(shown(posix), '/srv/projects…elines/final.pdf');
     const windows = cut('C:\\Projects\\Paraframe\\Brand\\guidelines-final.docx', 20);
     assert.ok(shown(windows).startsWith('C') && shown(windows).endsWith('.docx'), shown(windows));
     assert.ok(cut('/var/log/app/', 8).tail.endsWith('/'), 'a trailing separator is kept with the last segment');
@@ -152,7 +152,7 @@ test('RTL text is cut in logical order: its first letters stay in the head and t
 test('the component: the whole value in title, the cut parts kept in the text at zero size, a CSS ellipsis until mounted, nothing started on the server', () => {
     assert.match(source, /:title="value"/);
     assert.match(source, /data-cut class="[^"]*text-\[0px\]/, 'cut text stays in the DOM, so the accessible name and a copy are the whole value');
-    assert.match(source, /aria-hidden="true"\s+data-ellipsis/, 'the drawn ellipsis is not read or copied');
+    assert.match(source, /aria-hidden="true"\s+data-ellipsis="…"\s+class="before:content-\[attr\(data-ellipsis\)\]"/, 'the ellipsis is drawn from an attribute, so it is not read or copied');
     assert.match(source, /class="block min-w-0 truncate"/, 'before mount (and on the server) the whole value with an end ellipsis');
     assert.match(source, /<template v-else>\{\{ value \}\}<\/template>/);
     const setup = source.slice(source.indexOf('<script'), source.indexOf('onMounted('));

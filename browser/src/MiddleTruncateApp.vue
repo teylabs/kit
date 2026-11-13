@@ -5,7 +5,7 @@ import MiddleTruncate from '@/components/Kit/Data/MiddleTruncate.vue';
 // minTail, each in a [data-box] whose width the test sets. ?middle-truncate=dark under .dark.
 if (new URLSearchParams(window.location.search).get('middle-truncate') === 'dark') document.documentElement.classList.add('dark');
 const rows = [
-    { key: 'file', value: 'paraframe-brand-guidelines-2026-final.pdf', kind: 'file' as const },
+    { key: 'file', value: 'paraframe-brand-guidelines-2026-client-review-final.pdf', kind: 'file' as const },
     { key: 'url', value: 'https://cdn.paraframe.studio/clients/acme/2026/brand/guidelines/final-v3.pdf?download=1', kind: 'auto' as const },
     { key: 'path', value: '/srv/clients/acme/2026/brand/guidelines/final-v3.pdf', kind: 'path' as const },
     { key: 'short', value: 'logo.svg', kind: 'auto' as const },

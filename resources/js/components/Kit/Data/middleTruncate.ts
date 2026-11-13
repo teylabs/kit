@@ -31,6 +31,11 @@ export function graphemes(text: string): string[] {
     return Array.from(text);
 }
 
+/** A canvas font matching an element's computed one, from the longhands: Firefox may serialise the computed `font` shorthand as ''. */
+export function canvasFont(style: CSSStyleDeclaration): string {
+    return `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+}
+
 /** `auto` reads a scheme (`https://`) or a leading `www.` as a URL, a value with a `/` or `\` as a path, and anything else as a file name. */
 export function truncationKind(
     value: string,
