@@ -13,14 +13,18 @@ use Tey\Mod\Maintenance\InstalledRecord;
  * the workspaces lineage adopted.
  *
  * Reading and verifying the record costs tens of milliseconds a request. The cache holds an entry only while the record is unchanged:
- * each entry keeps a fingerprint of the record's files (name, inode, size, mtime, ctime) and of the installed kit, re-taken with a few
- * stat calls on every read. Any difference (kit:add, kit:update, kit:remove, a hand edit, a composer update) misses, and the live read runs
- * with its own verification and errors exactly as without a cache. A missing, unreadable or foreign file is a miss too.
+ * each entry keeps a fingerprint of the record's files and of the installed kit, re-taken on every read with a few lstat calls and a hash of
+ * the record's small JSON files. Any difference (kit:add, kit:update, kit:remove, a hand edit, a composer update) misses, and the live read
+ * runs with its own verification and errors exactly as without a cache. A missing, unreadable or foreign file is a miss too.
+ *
+ * The fingerprint holds nothing a copy of the checkout changes: no ctime, inode or device. A host that runs `optimize` in its build and
+ * then extracts or copies the image (Laravel Cloud) gives every file a new ctime, and often a new inode, while its mtime, size and contents
+ * stay; the cache must still hit there. What each path contributes is in stats().
  */
 final class DiscoveryCache
 {
     /** Bumped when an entry's shape changes, so an older file is a miss. */
-    private const VERSION = 4;
+    private const VERSION = 5;
 
     /** The kit's files the cached answers depend on, relative to the package root. */
     private const SOURCES = [
@@ -88,13 +92,14 @@ final class DiscoveryCache
      * read throws and nothing is written, as does a record that keeps changing.
      *
      * The order makes the stored answers belong to the files the stored fingerprint describes:
-     * 1. the before state: the lstat fingerprint and a hash of every fingerprinted file's contents;
+     * 1. the before state: the fingerprint and a hash of every fingerprinted file's contents;
      * 2. the read;
-     * 3. a wait until the clock has passed every fingerprinted file's mtime and ctime (stat times have one-second resolution);
+     * 3. a wait until the clock has passed every fingerprinted file's mtime (stat times have one-second resolution);
      * 4. the after state, taken the same way, which is stored. A different before and after repeats the read.
-     * A write during the read changes the contents hash, even a same-second, same-size rewrite that keeps the lstat fingerprint. A write after
-     * step 4 lands in a later second than every ctime fingerprinted, so its ctime differs and requests miss. Requests check only the lstat
-     * fingerprint: the contents are hashed here, at cache build time, never per request.
+     * A write during the read changes the contents hash, even a same-second, same-size rewrite that keeps the fingerprint. A write after
+     * step 4 lands in a later second than every mtime fingerprinted, so its mtime differs and requests miss; a write under `.mod-maintenance`
+     * that also restores its mtime still misses on its contents hash, which requests re-take. The kit's sources and installed.json are
+     * hashed here, at cache build time, never per request.
      *
      * @param  Closure(): array{lineages: list<string>, carry: bool, tables: list<string>|null}  $discover
      */
@@ -150,7 +155,8 @@ final class DiscoveryCache
     }
 
     /**
-     * Everything the cached answers were computed from, as it stands (see paths()): lstat of each path. No file is opened.
+     * Everything the cached answers were computed from, as it stands (see paths() and stats()): lstat of each path, and the contents hash of
+     * each regular file under `.mod-maintenance`. No other file is opened.
      */
     public static function fingerprint(string $root): string
     {
@@ -168,26 +174,46 @@ final class DiscoveryCache
         return hash('xxh128', serialize($hashes));
     }
 
-    /** The newest mtime or ctime among the fingerprinted files. */
+    /** The newest mtime among the fingerprinted files (the root and its parents carry none). */
     private static function newest(string $root): int
     {
+        clearstatcache();
         $newest = 0;
-        foreach (self::stats($root) as $stat) {
-            $newest = max($newest, $stat[3] ?? 0, $stat[4] ?? 0);
+        foreach (self::paths($root) as $key => $path) {
+            $stat = str_starts_with($key, 'root:') ? false : @lstat($path);
+            $newest = max($newest, $stat === false ? 0 : $stat['mtime']);
         }
 
         return $newest;
     }
 
-    /** @return array<string, list<int|bool>|null> */
+    /**
+     * What each fingerprinted path contributes, none of it changed by extracting or copying the checkout:
+     * - the root and its parents: only what the live read checks (a link or not, a directory or not, and the mode), never their times, which
+     *   change whenever anything in them does (a log, a session file, the home directory), nor their device and inode, which differ between
+     *   the build container and the instance;
+     * - the kit's sources and the host's installed.json: a link or not, size, mtime and mode;
+     * - every entry of the `.mod-maintenance` tree: the same, its name (paths() names each entry, and absent ones), and for a regular file
+     *   the xxh128 hash of its contents, so a same-size rewrite that keeps its mtime misses too. The records are small JSON files: hashing
+     *   them costs microseconds, against tens of milliseconds for the live read.
+     *
+     * @return array<string, list<int|bool|string>|null>
+     */
     private static function stats(string $root): array
     {
         clearstatcache();
+        $maintenance = dirname(InstalledRecord::DIRECTORY);
         $parts = [];
         foreach (self::paths($root) as $key => $path) {
-            // The root and its parents: only what the live read checks (a link or not, and which directory), never their times, which change
-            // whenever anything in them does (a log, a session file, the home directory), so they would miss on nearly every request.
-            $parts[$key] = str_starts_with($key, 'root:') ? self::identity($path) : self::stat($path);
+            if (str_starts_with($key, 'root:')) {
+                $parts[$key] = self::identity($path);
+
+                continue;
+            }
+            $parts[$key] = self::stat($path);
+            if ($parts[$key] !== null && ($key === $maintenance || str_starts_with($key, $maintenance.'/')) && ! is_link($path) && is_file($path)) {
+                $parts[$key][] = @hash_file('xxh128', $path) ?: '(unreadable)';
+            }
         }
 
         return $parts;
@@ -246,20 +272,20 @@ final class DiscoveryCache
         }
     }
 
-    /** @return list<int|bool>|null */
+    /** @return list<int|bool>|null A link or not, size, mtime and mode: no ctime or inode, which a copy of the file changes. */
     private static function stat(string $path): ?array
     {
         $stat = @lstat($path);
 
-        return $stat === false ? null : [is_link($path), $stat['ino'], $stat['size'], $stat['mtime'], $stat['ctime'], $stat['mode']];
+        return $stat === false ? null : [is_link($path), $stat['size'], $stat['mtime'], $stat['mode']];
     }
 
-    /** @return list<int|bool>|null A directory's identity without its times: a link or not, its device, inode and mode. */
+    /** @return list<int|bool>|null A directory's identity without its times, device or inode: a link or not, a directory or not, its mode. */
     private static function identity(string $path): ?array
     {
         $stat = @lstat($path);
 
-        return $stat === false ? null : [is_link($path), $stat['dev'], $stat['ino'], $stat['mode']];
+        return $stat === false ? null : [is_link($path), is_dir($path), $stat['mode']];
     }
 
     /** @return array<string, mixed>|null */

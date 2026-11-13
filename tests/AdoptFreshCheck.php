@@ -448,7 +448,14 @@ try {
     check($config->get('kit.workspaces.adopt') === false && $config->get('kit.access.adopt') === true, 'a value the app sets wins over the record');
 
     // The discovery cache (#939): `optimize` (kit:cache) stores what register() reads from the record, so a request opens none of it.
-    $readsRecord = fn (array $opened): bool => preg_grep('#/\.mod-maintenance/#', $opened) !== [];
+    // The fingerprint hashes every regular file under .mod-maintenance on each lookup, so a cached lookup opens them too, but only as whole
+    // runs of exactly what fingerprint() opens; a live read opens records outside such a run.
+    $readsRecord = function (array $opened) use ($root): bool {
+        $record = array_values(preg_grep('#/\.mod-maintenance/#', $opened));
+        $hashed = array_values(preg_grep('#/\.mod-maintenance/#', OpenedFiles::during(fn () => DiscoveryCache::fingerprint($root))));
+
+        return $hashed === [] ? $record !== [] : array_filter(array_chunk($record, count($hashed)), fn (array $run): bool => $run !== $hashed) !== [];
+    };
     $registerFresh = function () use ($app, $config): void {
         $config->set('kit.workspaces.adopt', null);
         $config->set('kit.access.adopt', null);
@@ -461,7 +468,7 @@ try {
     check($app->make(Kernel::class)->call('kit:cache') === 0 && is_file(DiscoveryCache::path($app)), 'kit:cache writes bootstrap/cache/kit-features.php');
     DiscoveryCache::forget();
     $opened = OpenedFiles::during($registerFresh);
-    check(! $readsRecord($opened) && $config->get('kit.workspaces.adopt') === true && $config->get('kit.access.adopt') === true, 'with the cache, register() opens no file of the installed record and sets the same flags');
+    check(! $readsRecord($opened) && $config->get('kit.workspaces.adopt') === true && $config->get('kit.access.adopt') === true, 'with the cache, register() reads no file of the installed record (it opens them only for the fingerprint\'s hash) and sets the same flags');
     $config->set('kit.features', null);
     $features = fn (FeaturesServiceProvider $provider): array => (fn (): array => $this->features())->call($provider);
     DiscoveryCache::clear($app);
@@ -482,7 +489,7 @@ try {
     $registerFresh();
     check($config->get('kit.workspaces.adopt') === null && $config->get('kit.access.adopt') === null, 'and an unreadable record leaves the flags null, as without a cache (fail closed)');
     file_put_contents($records[0], $bytes);
-    check(DiscoveryCache::entry($app, 'host') === null, 'restoring the bytes still misses (the fingerprint holds ctime), until kit:cache runs again');
+    check(DiscoveryCache::entry($app, 'host') === null, 'restoring the bytes still misses (the restored file\'s mtime is newer than the fingerprint\'s), until kit:cache runs again');
     check($app->make(Kernel::class)->call('kit:cache') === 0 && DiscoveryCache::entry($app, 'host') !== null, 'kit:cache re-caches the restored record');
     // The root and its parents change whenever anything in them does (a log, a session, the home directory): that must not miss.
     sleep(1);
@@ -492,6 +499,64 @@ try {
     check(DiscoveryCache::entry($app, 'host') !== null, 'a new file in the app root, or a touched parent directory, still hits the cache (their times are not fingerprinted, only what they are)');
     @unlink($root.'/.kit-cache-churn');
     DiscoveryCache::forget();
+    // A build image extracted or copied (Laravel Cloud runs optimize in the build): a new root directory, and every fingerprinted file a copy
+    // with a new inode and ctime but the same mtime, size, mode and contents. The cache must still hit.
+    $fingerprinted = array_map(fn (string $source): string => dirname(__DIR__).'/'.$source, ['composer.json', 'src/Catalog.php', 'src/Lineages.php', 'src/Features/FeaturesServiceProvider.php', 'src/Features/DiscoveryCache.php', 'resources/features/session-ui/feature.json']);
+    @mkdir($root.'/vendor/composer', 0700, true);
+    file_put_contents($root.'/vendor/composer/installed.json', '{"packages": []}');
+    $fingerprinted[] = $root.'/vendor/composer/installed.json';
+    $tree = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root.'/.mod-maintenance', FilesystemIterator::SKIP_DOTS), RecursiveIteratorIterator::CHILD_FIRST);
+    foreach ($tree as $file) {
+        $file->isFile() && $fingerprinted[] = $file->getPathname();
+    }
+    check($app->make(Kernel::class)->call('kit:cache') === 0, 'kit:cache before the extraction');
+    clearstatcache();
+    $statsBefore = array_map('lstat', $fingerprinted);
+    $directories = [];
+    foreach ($tree as $directory) {
+        $directory->isDir() && $directories[$directory->getPathname()] = [$directory->getMTime(), $directory->getPerms()];
+    }
+    $directories[$root.'/.mod-maintenance'] = [filemtime($root.'/.mod-maintenance'), fileperms($root.'/.mod-maintenance')];
+    $rootBefore = lstat($root);
+    sleep(1);
+    rename($root, $root.'.build');
+    mkdir($root);
+    chmod($root, $rootBefore['mode'] & 07777);
+    foreach (scandir($root.'.build') as $entry) {
+        $entry === '.' || $entry === '..' || rename($root.'.build/'.$entry, $root.'/'.$entry);
+    }
+    rmdir($root.'.build');
+    foreach ($fingerprinted as $i => $file) {
+        copy($file, $file.'.extract');
+        chmod($file.'.extract', $statsBefore[$i]['mode'] & 07777);
+        rename($file.'.extract', $file);
+        touch($file, $statsBefore[$i]['mtime']);
+    }
+    foreach ($directories as $directory => [$mtime, $perms]) {
+        touch($directory, $mtime);
+    }
+    clearstatcache();
+    $statsAfter = array_map('lstat', $fingerprinted);
+    $copied = array_filter(array_keys($fingerprinted), fn (int $i): bool => $statsAfter[$i]['ino'] !== $statsBefore[$i]['ino'] && $statsAfter[$i]['ctime'] > $statsBefore[$i]['ctime']
+        && [$statsAfter[$i]['size'], $statsAfter[$i]['mtime'], $statsAfter[$i]['mode']] === [$statsBefore[$i]['size'], $statsBefore[$i]['mtime'], $statsBefore[$i]['mode']]);
+    check(count($copied) === count($fingerprinted) && lstat($root)['ino'] !== $rootBefore['ino'], 'the extraction gave all '.count($fingerprinted).' fingerprinted files a new inode and ctime (same size, mtime and mode), and the root a new inode');
+    DiscoveryCache::forget();
+    check(DiscoveryCache::entry($app, 'host') === $discovered, 'after the extraction the cache still hits, with the same answers');
+    check(! $readsRecord(OpenedFiles::during($registerFresh)) && $config->get('kit.workspaces.adopt') === true, 'and register() still reads no record file');
+    unlink($root.'/vendor/composer/installed.json');
+    // What ctime used to catch: a same-size rewrite of a record that keeps its mtime. The per-request contents hash catches it.
+    $app->make(Kernel::class)->call('kit:cache');
+    $mtime = filemtime($records[0]);
+    $mutated = preg_replace('/[a-f]/', 'x', $bytes, 1);
+    file_put_contents($records[0], $mutated);
+    touch($records[0], $mtime);
+    clearstatcache();
+    DiscoveryCache::forget();
+    check($mutated !== $bytes && filesize($records[0]) === strlen($bytes) && filemtime($records[0]) === $mtime && DiscoveryCache::entry($app, 'host') === null, 'a same-size rewrite of a .mod-maintenance record that keeps its mtime is a miss');
+    file_put_contents($records[0], $bytes);
+    touch($records[0], $mtime);
+    DiscoveryCache::forget();
+    check(DiscoveryCache::entry($app, 'host') === $discovered, 'and restoring its bytes and mtime hits again (the fingerprint holds no ctime)');
     // Copilot's review of #940, one check each.
     $cacheFile = DiscoveryCache::path($app);
     $rewriteEntry = function (Closure $change) use ($cacheFile): void {
@@ -513,8 +578,9 @@ try {
         return FeaturesServiceProvider::discover($root, 'host');
     });
     check($reads === 2 && DiscoveryCache::entry($app, 'host') === $discovered, 'a record changed during kit:cache\'s read is read again, and the cache holds the second read\'s answers');
-    // 1b. A same-second, same-size rewrite between the before and after states keeps the lstat fingerprint (inode, size, mtime and ctime
-    // unchanged), so only the contents hash taken at build time catches it: the first read's answers are never published.
+    // 1b. A same-second, same-size rewrite of installed.json between the before and after states keeps its fingerprint (size and mtime
+    // unchanged; installed.json is not hashed per request), so only the contents hash taken at build time catches it: the first read's
+    // answers are never published.
     @mkdir($root.'/vendor/composer', 0700, true);
     $installedJson = $root.'/vendor/composer/installed.json';
     while (fmod(microtime(true), 1.0) > 0.3) {
@@ -536,8 +602,8 @@ try {
 
         return FeaturesServiceProvider::discover($root, 'host');
     });
-    $sameStat = [$statBefore['ino'], $statBefore['size'], $statBefore['mtime'], $statBefore['ctime']] === [$statAfter['ino'], $statAfter['size'], $statAfter['mtime'], $statAfter['ctime']];
-    check($sameStat, 'the rewrite kept the lstat fingerprint (same inode, size, mtime and ctime), so the check below rests on the contents hash');
+    $sameStat = [$statBefore['size'], $statBefore['mtime'], $statBefore['mode']] === [$statAfter['size'], $statAfter['mtime'], $statAfter['mode']];
+    check($sameStat, 'the rewrite kept the fingerprint (same size, mtime and mode), so the check below rests on the contents hash');
     check($reads === 2 && DiscoveryCache::entry($app, 'host') === $discovered, 'a same-second, same-size rewrite during the read is caught by the contents hash: the read is repeated and the first read\'s answers are never published');
     unlink($installedJson);
     $app->make(Kernel::class)->call('kit:cache');
@@ -565,9 +631,11 @@ try {
     // 4. The kit's sources of the answers are fingerprinted: session-ui's feature.json, and the host's vendor/composer/installed.json.
     $app->make(Kernel::class)->call('kit:cache');
     $manifest = dirname(__DIR__).'/resources/features/session-ui/feature.json';
-    touch($manifest, filemtime($manifest));
+    $manifestMtime = filemtime($manifest);
+    touch($manifest, $manifestMtime + 1);
     DiscoveryCache::forget();
     check(DiscoveryCache::entry($app, 'host') === null, 'a changed session-ui feature.json (any kit update) is a miss');
+    touch($manifest, $manifestMtime);
     @mkdir($root.'/vendor/composer', 0700, true);
     file_put_contents($root.'/vendor/composer/installed.json', '{"packages": []}');
     $app->make(Kernel::class)->call('kit:cache');

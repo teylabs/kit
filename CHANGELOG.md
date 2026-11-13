@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **kit:cache hits after a build image is extracted (Laravel Cloud).** `bootstrap/cache/kit-features.php` missed on every request on a host that runs `optimize` in its build and then extracts or copies the image, so `FeaturesServiceProvider::register()` read the installed record live: 73 ms per request instead of about 0.3 ms. Extraction keeps every file's mtime, size and contents but gives it a new ctime (31 to 38 s after the cache was written, on the adopter's host), and can give it a new inode; the fingerprint held both. It now holds neither: the kit's sources and `vendor/composer/installed.json` are fingerprinted by link, size, mtime and mode, the app root and its parents by link, directory and mode (no device or inode), and every entry of the `.mod-maintenance` tree by link, size, mtime, mode and name, plus an xxh128 hash of each regular file's contents, so a same-size rewrite that keeps its mtime, which ctime used to catch, still misses. `kit:cache` waits out mtimes only. The cache format is version 5, so a cache written by an earlier release misses once, until the next `optimize`. No public signature changed.
+  - **Numbers.** The test fixture's record (8 files under `.mod-maintenance`), 2,000 runs on a Linux VM: the fingerprint went from 86 µs to 170 µs, and the live read it replaces takes 2.7 ms there (73 ms on the adopter's host). Each `register()` with the cache takes the fingerprint twice.
+  - **Tests.** `test:adopt-fresh`: after `kit:cache`, the app root is replaced by a new directory and every fingerprinted file (15) by a copy with the same mtime, size, mode and contents and a new inode and ctime, as an image extraction does; the cache still hits with the same answers, and `register()` reads no record file. Fails on v0.17.6. A same-size rewrite of a record that keeps its mtime misses, and restoring its bytes and mtime hits again. Fails without the per-request hash. The existing cache checks pass, with the session-ui `feature.json` change now made by a new mtime (a `touch` that only changed ctime is no longer a change).
+
 ## v0.17.6
 
 No lineage pin changed: `composer update` is enough.
