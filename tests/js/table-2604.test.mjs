@@ -7,11 +7,11 @@ import { pathToFileURL } from 'node:url';
 
 // DataTable's row label, get descriptors as links (RowActions, ActionBar's segments, the ⌄ menu rows) and Badge. The pure parts run here; the components are checked by
 // source (no browser runner).
-const kit = new URL('../../resources/features/core/components/Kit/', import.meta.url);
+const kit = new URL('../../resources/js/components/Kit/', import.meta.url);
 const read = path => readFileSync(new URL(path, kit), 'utf8');
 const dir = mkdtempSync(join(tmpdir(), 'kit-table-2604-'));
-writeFileSync(join(dir, 'rowLabel.ts'), read('Table/rowLabel.ts.stub'));
-writeFileSync(join(dir, 'actionPlacement.ts'), read('Action/actionPlacement.ts.stub'));
+writeFileSync(join(dir, 'rowLabel.ts'), read('Table/rowLabel.ts'));
+writeFileSync(join(dir, 'actionPlacement.ts'), read('Action/actionPlacement.ts'));
 const { rowName } = await import(pathToFileURL(join(dir, 'rowLabel.ts')).href);
 const { rendersAsLink } = await import(pathToFileURL(join(dir, 'actionPlacement.ts')).href);
 

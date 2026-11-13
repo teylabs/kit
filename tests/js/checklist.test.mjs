@@ -7,10 +7,10 @@ import { pathToFileURL } from 'node:url';
 import { flat, members } from './shape.mjs';
 
 // Kit Checklist: checklist.ts (plain TypeScript) runs here; the component and composable are checked by source and typechecked with the kit's clients.
-const kit = new URL('../../resources/features/core/components/Kit/', import.meta.url);
+const kit = new URL('../../resources/js/components/Kit/', import.meta.url);
 const read = path => readFileSync(new URL(path, kit), 'utf8');
 const dir = mkdtempSync(join(tmpdir(), 'kit-checklist-'));
-writeFileSync(join(dir, 'checklist.ts'), read('Feedback/checklist.ts.stub'));
+writeFileSync(join(dir, 'checklist.ts'), read('Feedback/checklist.ts'));
 const { CHECKLIST_STATES, checklistMessage, checklistProgress } = await import(pathToFileURL(join(dir, 'checklist.ts')).href);
 const item = (key, state, extra = {}) => ({ key, label: key[0].toUpperCase() + key.slice(1), state, ...extra });
 
@@ -43,8 +43,8 @@ test('fails closed: an unknown state counts as pending, and no items is not comp
 });
 
 test('Checklist and useChecklist are exported', () => {
-    assert.match(flat(read('Feedback/useChecklist.ts.stub')), /export function useChecklist\(items: MaybeRefOrGetter</);
-    const barrel = read('index.ts.stub');
+    assert.match(flat(read('Feedback/useChecklist.ts')), /export function useChecklist\(items: MaybeRefOrGetter</);
+    const barrel = read('index.ts');
     assert.match(barrel, /export \{ default as Checklist \} from '\.\/Feedback\/Checklist\.vue';/);
     assert.match(barrel, /export \{ useChecklist \} from '\.\/Feedback\/useChecklist';/);
 });

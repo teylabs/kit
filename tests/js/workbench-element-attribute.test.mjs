@@ -8,14 +8,14 @@ import { pathToFileURL } from 'node:url';
 // The Workbench stage's element attribute: the host names the attribute its stage elements carry their id in (default data-workbench-element), and the stage
 // toolbar's selection rects use it. selectedRects runs here over a fake viewport, with a stand-in for vue (it only needs provide/inject to import); the wiring
 // through Workbench, useWorkbench and FloatingToolbar is checked by source.
-const kit = new URL('../../resources/features/core/components/Kit/', import.meta.url);
+const kit = new URL('../../resources/js/components/Kit/', import.meta.url);
 const read = path => readFileSync(new URL(path, kit), 'utf8');
 const dir = mkdtempSync(join(tmpdir(), 'kit-wb-attr-'));
 const vue = join(dir, 'node_modules', 'vue');
 mkdirSync(vue, { recursive: true });
 writeFileSync(join(vue, 'package.json'), JSON.stringify({ name: 'vue', type: 'module', main: 'index.js' }));
 writeFileSync(join(vue, 'index.js'), 'export const provide = () => {}; export const inject = (_, fallback) => fallback;\n');
-writeFileSync(join(dir, 'workbenchStage.ts'), read('Workbench/workbenchStage.ts.stub'));
+writeFileSync(join(dir, 'workbenchStage.ts'), read('Workbench/workbenchStage.ts'));
 const { DEFAULT_ELEMENT_ATTRIBUTE, elementAttributeName, selectedRects } = await import(pathToFileURL(join(dir, 'workbenchStage.ts')).href);
 
 /** A viewport whose elements carry attributes; it records the selector it was queried with. */

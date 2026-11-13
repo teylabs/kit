@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 const root = new URL('../../', import.meta.url);
 const read = (path) => readFileSync(new URL(path, root), 'utf8');
 const table = read(
-    'resources/features/core/components/Kit/Table/DataTable.vue.stub',
+    'resources/js/components/Kit/Table/DataTable.vue',
 );
 
 test('Connections: only Revoke is destructive; Connected and Expires are date columns; the page formats no dates itself', () => {

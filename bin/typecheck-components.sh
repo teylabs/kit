@@ -1,7 +1,8 @@
 #!/bin/sh
-# vue-tsc over every Vue and TypeScript file the kit installs into a host's resources/js (each feature.json `files` entry, from core, shell, session-ui,
-# workspace-ui, settings, mcp, notes…), as a host would compile them: writes each stub to typecheck/build/js at its installed path, so `@/components/Kit/*`,
-# `@/pages/*`, `@kit/ui` and `@kit/shell` resolve as in a host, then type-checks with the versions pinned in typecheck/package.json, and again against
+# vue-tsc over every Vue and TypeScript file the kit scaffolds into a host's resources/js (each feature.json `files` entry, from shell, session-ui,
+# workspace-ui, settings, mcp, notes…) and the shared components a host loads from the package, as a host would compile them: writes each stub to
+# typecheck/build/js at its scaffolded path and the package's resources/js/components/Kit to typecheck/build/vendor/tey/kit, so `@/components/Kit/*` and
+# `@kit/ui` resolve through the documented tsconfig paths into vendor (docs/kit-components.md) and `@/pages/*` and `@kit/shell` as in a host, then type-checks with the versions pinned in typecheck/package.json, and again against
 # @inertiajs/vue3 3.7.1 (the `@inertiajs/vue3-37` alias, tsconfig.inertia-3.7.json), the oldest Inertia 3 a host is known to run: its <Form> types differ (no
 # onHttpException). Both runs repeat on vue-tsc 2.2.12 (the `vue-tsc-2` alias), which a host on vue-tsc 2 still runs: it can't parse an inline object type in a
 # template expression (TS1005) where vue-tsc 3 can. The host's shadcn-vue components are typed `any` (typecheck/shims.d.ts). Run `npm ci` in typecheck/ first.
@@ -27,8 +28,11 @@ php -r '
         fwrite(STDERR, "No Vue or TypeScript stubs found in the feature manifests.\n");
         exit(1);
     }
-    echo "$count installed Vue and TypeScript files.\n";
+    echo "$count scaffolded Vue and TypeScript files.\n";
 ' "$root" "$root/typecheck/build/js"
+mkdir -p "$root/typecheck/build/vendor/tey/kit/resources/js/components"
+cp -R "$root/resources/js/components/Kit" "$root/typecheck/build/vendor/tey/kit/resources/js/components/Kit"
+echo "$(find "$root/typecheck/build/vendor/tey/kit/resources/js/components/Kit" -name '*.vue' -o -name '*.ts' | wc -l | tr -d ' ') shared component files from the package."
 cd "$root/typecheck"
 version() { node -p "JSON.parse(require('fs').readFileSync('node_modules/$1/package.json', 'utf8')).version"; }
 # Each vue-tsc by its path: both packages name their bin `vue-tsc`, so node_modules/.bin holds only one of them.

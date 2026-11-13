@@ -4,11 +4,11 @@ import { readFileSync } from 'node:fs';
 
 // Navigator thumbnails (`thumbnail` on a WorkbenchItem) and the filmstrip layout. Checked by source with comments stripped, so prose can't satisfy an assertion;
 // browser/run.mjs renders a filmstrip in Chromium with axe, reorder and a delayed image.
-const kit = new URL('../../resources/features/core/components/Kit/', import.meta.url);
+const kit = new URL('../../resources/js/components/Kit/', import.meta.url);
 const strip = s => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`])\/\/.*$/gm, '$1').replace(/<!--[\s\S]*?-->/g, '');
 const source = path => strip(readFileSync(new URL(path, kit), 'utf8'));
-const nav = source('Workbench/WorkbenchNavigator.vue.stub');
-const bench = source('Workbench/Workbench.vue.stub');
+const nav = source('Workbench/WorkbenchNavigator.vue');
+const bench = source('Workbench/Workbench.vue');
 const listbox = nav.match(/<ul\b[\s\S]*?<\/ul>/)?.[0] ?? '';
 
 test('a thumbnail is an <img> inside the option with the item\'s alt, lazy and async, never draggable on its own, in both layouts', () => {

@@ -2,7 +2,7 @@
 
 `@kit/ui` is one barrel that names every kit component. Vite's dev server serves an app's own files one module at a time and cannot pre-bundle them, so a page that imports `Button` from the barrel makes the browser fetch every file the barrel names. On the starter's dashboard that was 216 of 320 requests.
 
-`kitImports()` is a Vite plugin that `core` installs at `resources/js/components/Kit/kitImports.js` (with its types in `kitImports.d.ts`). In dev it rewrites
+`kitImports()` is a Vite plugin that ships with the shared components at `vendor/tey/kit/resources/js/components/Kit/kitImports.js` (with its types in `kitImports.d.ts`; before 0.18 `core` copied it to `resources/js/components/Kit/`). In dev it rewrites
 
 ```ts
 import { Button, Page as KitPage } from '@kit/ui';
@@ -11,8 +11,8 @@ import { Button, Page as KitPage } from '@kit/ui';
 into one import per file:
 
 ```ts
-import Button from '/app/resources/js/components/Kit/Form/Button.vue';
-import KitPage from '/app/resources/js/components/Kit/Layout/Page.vue';
+import Button from '/vendor/tey/kit/resources/js/components/Kit/Form/Button.vue';
+import KitPage from '/vendor/tey/kit/resources/js/components/Kit/Layout/Page.vue';
 ```
 
 App code doesn't change, and the barrel stays the one place that names the UI, for types and for apps that replace it.
@@ -41,12 +41,14 @@ The kit's browser check (`browser/run.mjs`, "kitImports") serves the dashboard g
 2. In `vite.config.ts`, import the plugin and add it after `vue()`:
 
    ```ts
-   import { kitImports } from './resources/js/components/Kit/kitImports.js';
+   import { kitImports } from './vendor/tey/kit/resources/js/components/Kit/kitImports.js';
 
    plugins: [/* … */ vue(/* … */), kitImports()],
    ```
 
    If your config points `@kit/ui` at your own module, nothing else changes: the plugin follows that alias.
 3. Check: `npm run build` (output unchanged), `npx vue-tsc --noEmit`, then `npm run dev`. Load a page and confirm in the Network panel that `components/Kit/index.ts` is no longer requested.
+
+From 0.18 the components load from the package: see [kit-components.md](kit-components.md) for the aliases and the import path above.
 
 If your app imports from the barrel by path (`@/components/Kit` or `@/components/Kit/index`), switch those imports to `@kit/ui`. The plugin only rewrites the `@kit/ui` specifier.

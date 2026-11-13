@@ -9,7 +9,7 @@ import { pathToFileURL } from 'node:url';
 const dir = mkdtempSync(join(tmpdir(), 'kit-file-list-'));
 copyFileSync(
     new URL(
-        '../../resources/features/core/components/Kit/Media/fileList.ts.stub',
+        '../../resources/js/components/Kit/Media/fileList.ts',
         import.meta.url,
     ),
     join(dir, 'fileList.ts'),

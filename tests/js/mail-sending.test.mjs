@@ -6,9 +6,9 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 // Settings › Email sending's labels (Kit/Data/mailSending.ts): strings and Intl only.
-const kit = new URL('../../resources/features/core/components/Kit/', import.meta.url);
+const kit = new URL('../../resources/js/components/Kit/', import.meta.url);
 const dir = mkdtempSync(join(tmpdir(), 'kit-mail-sending-'));
-writeFileSync(join(dir, 'mailSending.ts'), readFileSync(new URL('Data/mailSending.ts.stub', kit), 'utf8'));
+writeFileSync(join(dir, 'mailSending.ts'), readFileSync(new URL('Data/mailSending.ts', kit), 'utf8'));
 const { checkedAtLabel, fromLine, fromPreview, fullRecordName, recordKind } = await import(pathToFileURL(join(dir, 'mailSending.ts')).href);
 const spaced = (value) => value.replace(/\s/gu, ' ');
 const now = new Date('2026-11-06T21:00:00Z');

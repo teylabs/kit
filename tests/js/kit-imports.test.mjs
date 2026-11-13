@@ -7,10 +7,10 @@ import { fileURLToPath } from 'node:url';
 
 // kitImports (docs/kit-imports.md) loads `@kit/ui` names straight from their files in dev, so a kit component that imports the barrel would pull the whole
 // set back in. Kit components import each other by relative path, never through `@kit/ui` or the barrel file.
-const kitDir = fileURLToPath(new URL('../../resources/features/core/components/Kit', import.meta.url));
-const sources = readdirSync(kitDir, { recursive: true }).filter((file) => /\.(vue|ts|js)\.stub$/.test(file) && file !== 'index.ts.stub' && !file.startsWith('kitImports.'));
+const kitDir = fileURLToPath(new URL('../../resources/js/components/Kit', import.meta.url));
+const sources = readdirSync(kitDir, { recursive: true }).filter((file) => /\.(vue|ts|js)$/.test(file) && file !== 'index.ts' && !file.startsWith('kitImports.'));
 const plugin = mkdtempSync(join(tmpdir(), 'kit-imports-'));
-writeFileSync(join(plugin, 'kitImports.mjs'), readFileSync(join(kitDir, 'kitImports.js.stub')));
+writeFileSync(join(plugin, 'kitImports.mjs'), readFileSync(join(kitDir, 'kitImports.js')));
 const { readBarrel, kitImports } = await import(join(plugin, 'kitImports.mjs'));
 
 test('no kit component imports the barrel', () => {
@@ -24,7 +24,7 @@ test('no kit component imports the barrel', () => {
 });
 
 test('the barrel maps every value name to its file and skips type-only exports', () => {
-    const { names } = readBarrel(readFileSync(join(kitDir, 'index.ts.stub'), 'utf8'), '/app/Kit/index.ts');
+    const { names } = readBarrel(readFileSync(join(kitDir, 'index.ts'), 'utf8'), '/app/Kit/index.ts');
     assert.deepEqual(names.get('Button'), { source: '/app/Kit/Form/Button.vue', imported: 'default' });
     assert.deepEqual(names.get('toggleSelection'), { source: '/app/Kit/Table/selection', imported: 'toggle' });
     assert.deepEqual(names.get('Checkbox'), { source: '/app/Kit/Form/InputCheckbox.vue', imported: 'default' });
@@ -49,7 +49,7 @@ test("an app's own barrel: its names win, `export *` reaches the kit's files, an
         "export * from '@/components/Kit';",
         "export type * from './types';",
     ].join('\n'));
-    writeFileSync(join(app, 'kit.ts'), readFileSync(join(kitDir, 'index.ts.stub')));
+    writeFileSync(join(app, 'kit.ts'), readFileSync(join(kitDir, 'index.ts')));
     const code = "import { Button, Badge, Page as KitPage, Unknown } from '@kit/ui'; export { Alert } from '@kit/ui';";
     const at = (text) => ({ start: code.indexOf(text), end: code.indexOf(text) + text.length });
     const specifier = (imported, local) => ({ type: 'ImportSpecifier', imported: { name: imported }, local: { name: local }, ...at(imported === local ? imported : `${imported} as ${local}`) });

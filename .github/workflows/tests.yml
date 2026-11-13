@@ -137,7 +137,7 @@ jobs:
         working-directory: typecheck
       - run: sh bin/typecheck-components.sh
       - name: Stubs are formatted (house Prettier)
-        run: typecheck/node_modules/.bin/prettier --check "resources/features/**/components/**/*.{vue,ts}.stub"
+        run: typecheck/node_modules/.bin/prettier --check "resources/js/components/**/*.{vue,ts}"
 
   browser:
     name: Kit components in a browser (Playwright)
@@ -190,6 +190,9 @@ jobs:
       - name: Show installed Mod
         run: |
           composer show tey/mod | grep -E '^versions : \* v0\.11\.'
+      - name: kit:scaffold (writes a feature's pages once, never overwrites, refuses linked folders)
+        timeout-minutes: 4
+        run: composer test:scaffold
       - name: Feature manifests and selections
         timeout-minutes: 4
         run: composer test:features

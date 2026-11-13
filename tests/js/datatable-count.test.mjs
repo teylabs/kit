@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 // The row count shows on a single page too; only the page links need more than one page. The stub has no SSR harness, so this reads its template.
-const stub = readFileSync(fileURLToPath(new URL('../../resources/features/core/components/Kit/Table/DataTable.vue.stub', import.meta.url)), 'utf8');
+const stub = readFileSync(fileURLToPath(new URL('../../resources/js/components/Kit/Table/DataTable.vue', import.meta.url)), 'utf8');
 const footer = stub.split('\n').find((line) => line.includes('data-table-pagination'));
 const pager = stub.split('\n').find((line) => line.includes('aria-label="Pages"'));
 

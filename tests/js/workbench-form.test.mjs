@@ -8,14 +8,14 @@ import { pathToFileURL } from 'node:url';
 // The form frame: FormCard's own <form> for a useSubmitForm, the Workbench's `:form` (Save, ⌘S, summary, leave guard, 409 conflict), the keymap's `save`, and the
 // shared formFrame composables. The keymap runs here; the components are checked by source, and in a real browser by browser/run.mjs (?form-submit,
 // ?workbench-form).
-const kit = new URL('../../resources/features/core/components/Kit/', import.meta.url);
+const kit = new URL('../../resources/js/components/Kit/', import.meta.url);
 const read = path => readFileSync(new URL(path, kit), 'utf8');
 const dir = mkdtempSync(join(tmpdir(), 'kit-workbench-form-'));
-writeFileSync(join(dir, 'workbench.ts'), read('Workbench/workbench.ts.stub'));
+writeFileSync(join(dir, 'workbench.ts'), read('Workbench/workbench.ts'));
 const wb = await import(pathToFileURL(join(dir, 'workbench.ts')).href);
-const workbench = read('Workbench/Workbench.vue.stub');
-const card = read('Form/FormCard.vue.stub');
-const frame = read('Form/formFrame.ts.stub');
+const workbench = read('Workbench/Workbench.vue');
+const card = read('Form/FormCard.vue');
+const frame = read('Form/formFrame.ts');
 
 test('⌘S / Ctrl+S is `save` only with a form; never with Shift (a rich-text strikethrough) or Alt; even while typing', () => {
     const cmd = (event, context = {}) => wb.workbenchCommand({ key: 's', ...event }, { inNavigator: false, typing: true, save: true, ...context });

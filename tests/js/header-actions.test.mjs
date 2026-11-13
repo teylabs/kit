@@ -8,12 +8,12 @@ import { flat } from './shape.mjs';
 
 // Page header actions: headerSplit runs here without Vue (plain TypeScript); Page, FloatingToolbar and the Workbench's actions row are checked by source, comments
 // stripped (no browser runner).
-const kit = new URL('../../resources/features/core/components/Kit/', import.meta.url);
+const kit = new URL('../../resources/js/components/Kit/', import.meta.url);
 const read = path => readFileSync(new URL(path, kit), 'utf8');
 const flatRead = path => flat(read(path));
 const strip = s => s.replace(/<!--[\s\S]*?-->/g, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`])\/\/.*$/gm, '$1');
 const dir = mkdtempSync(join(tmpdir(), 'kit-header-actions-'));
-writeFileSync(join(dir, 'headerSplit.ts'), read('Action/headerSplit.ts.stub'));
+writeFileSync(join(dir, 'headerSplit.ts'), read('Action/headerSplit.ts'));
 const { headerSplit, keepsActionBar } = await import(pathToFileURL(join(dir, 'headerSplit.ts')).href);
 
 const a = (label, extra = {}) => ({ label, url: `/${label}`, method: 'post', ...extra });
@@ -66,7 +66,7 @@ test('phone: only the primary stays, secondaries lead the More menu', () => {
 });
 
 test('HeaderActions splits with headerSplit, keeps ActionBar for the default path, and reuses the menu, confirmation and lock pieces', () => {
-    const source = flat(strip(read('Action/HeaderActions.vue.stub')));
+    const source = flat(strip(read('Action/HeaderActions.vue')));
     assert.match(source, /import \{ ?headerSplit, keepsActionBar ?\} from '@\/components\/Kit\/Action\/headerSplit'/);
     assert.match(source, /<ActionBar v-if="legacy" :actions="actions" :busy="busy" :dialog-open="dialogOpen" :primary="primary" v-bind="barListeners" \/>/);
     assert.match(source, /<ActionMenuItems :actions="split\.overflow" :busy="blocked" :on-action="run" \/>/);

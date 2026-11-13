@@ -6,9 +6,9 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 // DateTime's formatting (Kit/Data/dateTime.ts): Intl only. A calendar date is never converted between zones; an instant shows in the viewer's zone.
-const kit = new URL('../../resources/features/core/components/Kit/', import.meta.url);
+const kit = new URL('../../resources/js/components/Kit/', import.meta.url);
 const dir = mkdtempSync(join(tmpdir(), 'kit-date-time-'));
-writeFileSync(join(dir, 'dateTime.ts'), readFileSync(new URL('Data/dateTime.ts.stub', kit), 'utf8'));
+writeFileSync(join(dir, 'dateTime.ts'), readFileSync(new URL('Data/dateTime.ts', kit), 'utf8'));
 const { formatDateTime, fullDateTime, isCalendarDate, todayIn } = await import(pathToFileURL(join(dir, 'dateTime.ts')).href);
 
 // The zones furthest apart (UTC+14 and UTC-11), and one with a DST change on 2026-11-01.

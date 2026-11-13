@@ -5,9 +5,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-const table = new URL('../../resources/features/core/components/Kit/Table/', import.meta.url);
+const table = new URL('../../resources/js/components/Kit/Table/', import.meta.url);
 const dir = mkdtempSync(join(tmpdir(), 'kit-selection-'));
-copyFileSync(new URL('selection.ts.stub', table), join(dir, 'selection.ts'));
+copyFileSync(new URL('selection.ts', table), join(dir, 'selection.ts'));
 const { emptySelection, isSelected, pageState, toggle, togglePage } = await import(pathToFileURL(join(dir, 'selection.ts')).href);
 const read = (name) => readFileSync(new URL(name, table), 'utf8');
 

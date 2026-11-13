@@ -6,9 +6,9 @@ import { fileURLToPath } from 'node:url';
 
 // Kit stubs never render a native <select> or Reka's modal Select: a choice goes through InputSelect (searchable past 8 options), and a time zone through
 // TimezoneSelect, which is an InputSelect. The deprecated Select component itself is the one exempt file.
-const root = fileURLToPath(new URL('../../resources/features', import.meta.url));
-const stubs = readdirSync(root, { recursive: true }).filter((path) => path.endsWith('.vue.stub'));
-const exempt = new Set(['core/components/Kit/Form/Select.vue.stub']);
+const root = fileURLToPath(new URL('../../resources', import.meta.url));
+const stubs = readdirSync(root, { recursive: true }).filter((path) => path.endsWith('.vue.stub') || path.endsWith('.vue'));
+const exempt = new Set(['js/components/Kit/Form/Select.vue']);
 
 export function selectViolations(source) {
     const template = source.replace(/<script[\s\S]*?<\/script>/g, '');
@@ -31,13 +31,13 @@ for (const stub of stubs.filter((path) => !exempt.has(path.replaceAll('\\', '/')
 }
 
 test('TimezoneSelect is a searchable InputSelect with the current zone first', () => {
-    const source = readFileSync(join(root, 'core/components/Kit/Form/TimezoneSelect.vue.stub'), 'utf8');
+    const source = readFileSync(join(root, 'js/components/Kit/Form/TimezoneSelect.vue'), 'utf8');
     assert.match(source, /import InputSelect from '\.\/InputSelect\.vue'/);
     assert.match(source, /<InputSelect[^>]*\ssearchable[\s>]/);
     assert.match(source, /chosen-first/);
     assert.doesNotMatch(source, /from '\.\/Select\.vue'/);
 });
 
-for (const page of ['settings/pages/Workspace/Settings/General/Page.vue.stub', 'session-ui/pages/Welcome/Timezone/Page.vue.stub', 'workspace-ui/pages/Welcome/WorkspaceTimezone/Page.vue.stub']) {
+for (const page of ['features/settings/pages/Workspace/Settings/General/Page.vue.stub', 'features/session-ui/pages/Welcome/Timezone/Page.vue.stub', 'features/workspace-ui/pages/Welcome/WorkspaceTimezone/Page.vue.stub']) {
     test(`${page} picks its time zone with TimezoneSelect`, () => assert.match(readFileSync(join(root, page), 'utf8'), /<TimezoneSelect[^>]*name="timezone"/));
 }

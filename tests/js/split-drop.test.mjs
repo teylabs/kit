@@ -14,7 +14,7 @@ writeFileSync(join(inertia, 'package.json'), JSON.stringify({ name: '@inertiajs/
 writeFileSync(join(inertia, 'index.js'), "export const http = { getClient: () => ({ request: () => Promise.reject(new Error('offline')) }) };\n");
 const load = async path => {
     const name = path.split('/').pop();
-    copyFileSync(new URL(`../../resources/features/core/components/Kit/${path}.ts.stub`, import.meta.url), join(dir, `${name}.ts`));
+    copyFileSync(new URL(`../../resources/js/components/Kit/${path}.ts`, import.meta.url), join(dir, `${name}.ts`));
     return import(pathToFileURL(join(dir, `${name}.ts`)).href);
 };
 const { splitStorage, splitFallbackKey } = await load('Layout/splitState');
@@ -89,7 +89,7 @@ test('the fallback hint states the per-file limit in MiB (1024² bytes), to one 
 });
 
 test('the default sender goes through Inertia\'s HTTP client and falls back to local storage when it cannot send', async () => {
-    const source = (await import('node:fs')).readFileSync(new URL('../../resources/features/core/components/Kit/Layout/splitState.ts.stub', import.meta.url), 'utf8');
+    const source = (await import('node:fs')).readFileSync(new URL('../../resources/js/components/Kit/Layout/splitState.ts', import.meta.url), 'utf8');
     assert.match(source, /^import \{ http \} from '@inertiajs\/vue3';$/m);
     assert.doesNotMatch(source, /import\('@inertiajs\/vue3'\)/);
     assert.doesNotMatch(source, /fetch\(|document\.cookie/);

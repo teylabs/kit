@@ -9,8 +9,8 @@ import { pathToFileURL } from 'node:url';
 const kit = new URL('../../resources/features/', import.meta.url);
 const source = path => readFileSync(new URL(path, kit), 'utf8');
 const dir = mkdtempSync(join(tmpdir(), 'kit-onboarding-'));
-copyFileSync(new URL('core/components/Kit/http.ts.stub', kit), join(dir, 'http.ts'));
-writeFileSync(join(dir, 'passkeyOffer.ts'), source('core/components/Kit/Feedback/passkeyOffer.ts.stub').replace("from '../http';", "from './http.ts';"));
+copyFileSync(new URL('../js/components/Kit/http.ts', kit), join(dir, 'http.ts'));
+writeFileSync(join(dir, 'passkeyOffer.ts'), source('../js/components/Kit/Feedback/passkeyOffer.ts').replace("from '../http';", "from './http.ts';"));
 const passkey = await import(pathToFileURL(join(dir, 'passkeyOffer.ts')).href);
 
 test('a passkey is offered only where the browser can create one from JSON options', () => {

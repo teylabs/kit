@@ -7,7 +7,7 @@ import { pathToFileURL } from 'node:url';
 
 // The stubs are TypeScript with a .stub suffix; node strips types from a plain .ts copy.
 const dir = mkdtempSync(join(tmpdir(), 'kit-actions-'));
-copyFileSync(new URL('../../resources/features/core/components/Kit/Action/actionPlacement.ts.stub', import.meta.url), join(dir, 'actionPlacement.ts'));
+copyFileSync(new URL('../../resources/js/components/Kit/Action/actionPlacement.ts', import.meta.url), join(dir, 'actionPlacement.ts'));
 const { actionIconName, isNavigation, layoutActions, opensNewTab, placeActions } = await import(pathToFileURL(join(dir, 'actionPlacement.ts')).href);
 const a = (label, extra = {}) => ({ label, url: `/${label}`, method: 'post', ...extra });
 const labels = list => list.map(action => action.label);

@@ -7,8 +7,8 @@ import { flat } from './shape.mjs';
 // measured in a headless render (see the PR): the same y on both.
 const root = new URL('../../resources/features/', import.meta.url);
 const read = path => readFileSync(new URL(path, root), 'utf8');
-const crumbs = flat(read('core/components/Kit/Layout/Breadcrumbs.vue.stub'));
-const page = flat(read('core/components/Kit/Layout/Page.vue.stub'));
+const crumbs = flat(read('../js/components/Kit/Layout/Breadcrumbs.vue'));
+const page = flat(read('../js/components/Kit/Layout/Page.vue'));
 const layout = read('shell/pages/Workspace/Layout.vue.stub');
 
 test('Page draws the trail in the shell, before its header and independent of the heading', () => {

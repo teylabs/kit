@@ -7,11 +7,11 @@ import { pathToFileURL } from 'node:url';
 
 // InputRichText: the document rules (richText.ts) run here without tiptap or Vue; the editor wiring and the toolbar's accessibility are checked by source,
 // comments stripped (no browser runner).
-const kit = new URL('../../resources/features/core/components/Kit/', import.meta.url);
+const kit = new URL('../../resources/js/components/Kit/', import.meta.url);
 const read = path => readFileSync(new URL(path, kit), 'utf8');
 const strip = s => s.replace(/<!--[\s\S]*?-->/g, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`])\/\/.*$/gm, '$1');
 const dir = mkdtempSync(join(tmpdir(), 'kit-rich-text-'));
-writeFileSync(join(dir, 'richText.ts'), read('Form/richText.ts.stub'));
+writeFileSync(join(dir, 'richText.ts'), read('Form/richText.ts'));
 const { emptyDocument, isImageSource, isSafeLink, isSafeFontFamily, isSafeFontSize, splitImageFiles, toEditorDocument, fromEditorDocument, fileIntent, RICH_TEXT_TOOLS } = await import(pathToFileURL(join(dir, 'richText.ts')).href);
 
 const text = (value, marks) => (marks ? { type: 'text', text: value, marks } : { type: 'text', text: value });

@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+core re-pinned: `sha256:c05cf9ee…3019` → `sha256:c89c790d…fdfd` (the 236 `components/Kit` stubs leave the feature; `css/kit.css` and the migrations are unchanged). In `history.json` only the `current` block changed.
+
+### Added
+
+- **`php artisan kit:scaffold <feature>`: a feature's pages, written once (#959).** It writes the files the feature's `feature.json` lists (pages, page partials, widgets, types and `resources/css/kit.css`), at the paths kit:add used, and from then on the app owns them. Migrations and the shared components are not written.
+  Features affected: none (a new command)
+  - **Never overwrites.** An existing file is skipped and named (`skipped <path> (exists; --force=<path> overwrites it)`). `--force=<path>` overwrites that path, or the files under that folder, and nothing else; a `--force` that names no file this run writes refuses before writing anything. A linked folder on the way to any file it would write (`resources/js/widgets` linked elsewhere, say) refuses before writing anything, so no write leaves the app. Only the folders from the app root down are checked: the app root itself, or a folder above it, may be a link, so Forge and Envoyer-style `current` deploys keep working.
+  - **`--only=<path>`** writes only the named files or folders (repeat it, or separate with commas). One that names no file of the feature refuses.
+  - **`--diff`** writes nothing: for each file, a unified diff from the app's file to the kit's current version, `unchanged <path>`, or a diff from `/dev/null` for a file the app doesn't have. It takes `--only`.
+  - **No records.** Plain filesystem writes: nothing under `.mod-maintenance`, and it runs in an app that has none. It prints each file it wrote or skipped and the totals.
+  - **Tests.** `test:scaffold` (`tests/KitScaffoldCheck.php`) on a synthetic app: the first run writes exactly the listed files with the kit's bytes, a second overwrites nothing and lists each skip, `--diff` shows the app's edit and writes nothing, `--force` overwrites only the named path, `--only` takes files and folders, core writes only its CSS, an access-only feature has nothing to scaffold, an unknown or path-like feature refuses, a folder linked outside the app refuses even under `--force` and leaves both sides untouched, an app booted through a `current` link scaffolds into the release it points to, and no `.mod-maintenance` appears.
+
 ### Changed
 
 - **An app's features come only from `config/kit.php` (#959).** `FeaturesServiceProvider` registers exactly the features `kit.features` lists, in catalog order, and takes `kit.workspaces.adopt` and `kit.access.adopt` from config alone. Nothing on the request path reads install history any more: no installed lineage record, no `kit.app_id` or `LifecycleHost` app id, no `.mod-maintenance` file, and no `Tey\Mod\Maintenance` class is loaded. `kit.features` unset or empty registers no feature and logs an error once per process (fail closed). A list naming `session-ui` without `shell` still gets `shell`; a list naming `session-ui` without `workspace-ui` no longer gets `workspace-ui` from the record: list it.
@@ -13,6 +25,11 @@
 - **Infrastructure tables lose the `kit_` prefix.** New package migrations, one per feature, rename `kit_user_state` → `user_state`, `kit_account_deletions` → `account_deletions` (session-ui), `kit_entitlements` → `plan_entitlements`, `kit_permission_defaults` → `permission_defaults`, `kit_capability_overrides` → `capability_overrides` (access), and `kit_mcp_intents` → `mcp_intents`, `kit_mcp_registrations` → `mcp_registrations`, `kit_mcp_runs` → `mcp_runs` (mcp). Each rename runs only while the old table exists and the new one does not; with both names of any of its tables present, `migrate` refuses before renaming any of them, naming both, and merges nothing, so a database without transactional DDL is never left half renamed. Their order does not matter. An app's migration copy dated after its feature's rename, such as one kit:add stamped with a later day for a host that adopted its own tables, was written for the old names: once the rename has run, the kit's migrator undoes it just before that copy runs, up or down, and redoes it right after, on the migration's own connection. So a fresh database still ends with the new names, and rolling such a copy back and migrating it again works too. The baselines keep their released names and bytes, so a fresh install creates the old names and the renames move them. The kit reads and writes the new names. Indexes, keys and sequences keep the names they were created with. Not renamed: the domain tables (`kit_deliveries*`, `kit_finalizations`, `kit_finalize_confirmations`, `kit_notes*`, `kit_security_events`, `entitlements`, `complimentary_grants`, `workspaces`), which become app-owned in 0.19, and `kit_meta` and `kit_adoptions`.
   - **Tests.** `test:migrations`: three synthetic rows in each old table come through the rename column for column, a renamed table still numbers new rows, rolling back restores the old names and rows, and with both `kit_user_state` and `user_state` present `migrate` refuses and changes neither, and a conflict on a migration's second table refuses before its first is renamed, in `up()` and `down()`, with no transaction around them. Copies stamped after the renames run after them on a fresh database, and `migrate` still ends with every table under its new name only, on the default connection and under `--database`; rolling the last of them back drops its table under the new name, migrating it again recreates it, and rolling back every late copy of access, session-ui and mcp leaves no renamed table under either name.
 - **The release notes name the features affected.** `bin/release-lineages.php` prints `Features affected: <features>` (and `New features:`) instead of the `kit:update` and `kit:add` lines.
+- **The shared components load from the package.** `resources/js/components/Kit` (the `@kit/ui` barrel, `contract.ts`, `kitImports.js` and every component, 236 files) moves from core's stubs to `vendor/tey/kit/resources/js/components/Kit`, and the app resolves it through a Vite alias and tsconfig paths ([docs/kit-components.md](docs/kit-components.md)). `composer update tey/kit` updates them; nothing is copied into the app. Pages keep their imports (`@kit/ui` and `@/components/Kit/...`), so no page changes.
+  Features affected: core
+  - **The kit's own checks build through the alias.** The browser suite puts the package at `.kit/vendor/tey/kit` and aliases `@/components/Kit` to it, and the vue-tsc job resolves `@/components/Kit/*` and `@kit/ui` through the documented tsconfig paths into a `vendor/tey/kit` copy. `test:scaffold` checks that every folder the snippets name exists in the package and that each of the 809 kit imports in the scaffolded pages and the components resolves to a file (it fails on a page importing a component that isn't there).
+  - **Measured on the starter** (this branch as `vendor/tey/kit`, its copied folder deleted, the aliases and `@source` added): `vite build` output is byte-identical to the build with the copied folder, `vue-tsc --noEmit` passes, and in dev `kitImports()` rewrites the dashboard's `@kit/ui` import into files under `/vendor/tey/kit/`. Without the `@source` line `app.css` drops from 130 KB to 65 KB.
+  - **Not covered:** a consumer app other than the starter, and a production deploy.
 
 ### Removed
 
@@ -22,7 +39,7 @@
   - `Tey\Kit\Features\DiscoveryCache`
   - `Tey\Kit\Console\DetachCommand` (`kit:detach`): the 0.17.8 one-off reads the install records 0.18 no longer reads. Run it on 0.17.8, before upgrading.
 - Also removed: `FeaturesServiceProvider::adopted()`, `discover()` and `carried()`; `KitServiceProvider::FOUNDATION_LAYOUT`; kit:install's stubs (`resources/install`); the `kit.host.vite_global_types` config key, and the `kit.app_id`, `kit.release`, `kit.scaffold_features` and `kit-lifecycle.*` settings, which nothing reads. `Blueprint` and `Catalog` stay, for the catalog: `Blueprint` validates feature manifests itself, and `ThemeAdvisory::themeStylesheets()` reads the theme for `kit:brand`. The kit still uses tey/mod's layout and discovery.
-- Checks for the tooling: `test:install`, `test:adopt`, `test:adopt-fresh`, `test:adopt-in-place`, `test:add-refused`, `test:plan-steps`, `test:remove-feature`, `test:status`, `test:starter-case`, `test:lifecycle`, `test:layout`, `test:scaffold` and `test:host-contract`, and `test:detach` with `kit:detach`. The checks that covered runtime behaviour beside the tooling keep those assertions.
+- Checks for the tooling: `test:install`, `test:adopt`, `test:adopt-fresh`, `test:adopt-in-place`, `test:add-refused`, `test:plan-steps`, `test:remove-feature`, `test:status`, `test:starter-case`, `test:lifecycle`, `test:layout`, `test:host-contract`, and `test:detach` with `kit:detach`. `test:scaffold` no longer runs the `kit:foundation` check (`tests/ScaffoldCheck.php`); it runs kit:scaffold's. The checks that covered runtime behaviour beside the tooling keep those assertions.
 
 ### Upgrading
 
@@ -32,6 +49,33 @@
 4. **Delete what `kit:detach` listed.** Keep any migration copy under `database/migrations/kit/` you edited, and every stamped copy (`<date>_<order>_<name>.php`, written for a host that adopted its own workspaces table): the package skips each migration you have a copy of, under any stamp, and your copies carry the names your migrations table recorded. Deleting a stamped copy would let the package's file of that migration run again under its own name.
 5. **Remove `kit:status` and `kit:update` from CI and deploy scripts.** `kit:cache` and `kit:clear` may stay.
 6. Update any query or migration of your own that names a renamed table.
+
+**The shared components (#960).** Once per app, after `composer update tey/kit`:
+
+1. **Add the aliases.** In `vite.config.ts`:
+
+   ```ts
+   import { kitImports } from './vendor/tey/kit/resources/js/components/Kit/kitImports.js';
+
+   const kitComponents = decodeURIComponent(new URL('./vendor/tey/kit/resources/js/components/Kit', import.meta.url).pathname);
+   // resolve.alias
+   '@/components/Kit': kitComponents,
+   '@kit/ui': `${kitComponents}/index.ts`,
+   ```
+
+   A `server.warmup` entry for `./resources/js/components/Kit/index.ts` becomes `./vendor/tey/kit/resources/js/components/Kit/index.ts`. In `tsconfig.json`, `compilerOptions.paths`:
+
+   ```json
+   "@/components/Kit": ["./vendor/tey/kit/resources/js/components/Kit/index.ts"],
+   "@/components/Kit/*": ["./vendor/tey/kit/resources/js/components/Kit/*"],
+   "@kit/ui": ["./vendor/tey/kit/resources/js/components/Kit/index.ts"]
+   ```
+
+2. **Let Tailwind scan the package.** In `resources/css/app.css`, beside your other `@source` lines: `@source '../../vendor/tey/kit/resources/js/components/Kit';`. Tailwind skips the git-ignored `vendor/` otherwise, and every class only a kit component uses goes missing.
+3. **Delete the copied folder:** `git rm -r resources/js/components/Kit`. An edit you made there is lost: compare first (`git diff` against the package's copy), and move a real change into your own component behind your own `@kit/ui` module (README, "Use your own components").
+4. **Build:** `npm run build`, `npx vue-tsc --noEmit`, then `npm run dev` and load a page.
+
+An app that installs `tey/kit` from a Composer path repository (a symlink) also sets `resolve.preserveSymlinks: true`, or Vite fails with `Failed to resolve import source "reka-ui"`.
 
 ## v0.17.8
 

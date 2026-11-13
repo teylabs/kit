@@ -1,1 +1,2 @@
 resources/features/**/*.generated.ts.stub
+resources/js/**/*.generated.ts

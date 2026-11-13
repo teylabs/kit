@@ -10,7 +10,7 @@ $autoload = getenv('KIT_AUTOLOAD') ?: $root.'/vendor/autoload.php';
 $loader = require $autoload;
 $loader->addPsr4('Tey\\Kit\\', $root.'/src', true);
 
-const STUB = 'resources/features/core/components/Kit/Explanation/explanation.generated.ts.stub';
+const STUB = 'resources/js/components/Kit/Explanation/explanation.generated.ts';
 
 function explanationType(ReflectionParameter $parameter, string $doc): string
 {

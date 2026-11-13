@@ -193,7 +193,7 @@ $list = new NotesList($request(), 7, 7);
 listCheck($failed['state'] === 'error' && $failed['data'] === [] && $failed['error']['message'] === "This couldn't load." && $failed['error']['retry']['label'] === 'Retry', 'a failing query returns the error state with Retry');
 listCheck(! str_contains(json_encode($failed), 'missing_function') && count($list->reports) === 1, 'the error state carries no exception text and the failure is reported');
 // The client stub keeps keyboard focus: Load more is aria-disabled (never disabled, which drops focus to the page when auto-load fires under it) and ignores activation while busy.
-$stub = file_get_contents(dirname(__DIR__).'/resources/features/core/components/Kit/List/ScrollList.vue.stub');
+$stub = file_get_contents(dirname(__DIR__).'/resources/js/components/Kit/List/ScrollList.vue');
 preg_match('/<Button[^>]*data-load-more[^>]*>/', $stub, $button);
 listCheck(isset($button[0]) && str_contains($button[0], ':aria-disabled="loadingNext || loading || undefined"') && ! preg_match('/[\s:]disabled=/', $button[0]), 'Load more is aria-disabled while busy, never disabled');
 listCheck(isset($button[0]) && str_contains($button[0], '@click="loadingNext || loading || fetchNext()"'), 'Load more ignores activation while busy');

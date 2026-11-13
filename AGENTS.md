@@ -12,6 +12,7 @@ Guidance for contributors and coding agents working in this repository. `tey/kit
 
 ```sh
 composer update --prefer-dist --no-interaction
+composer test:scaffold
 composer test:features
 composer test:catalog
 composer test:host-boot
