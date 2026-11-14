@@ -347,7 +347,7 @@ try {
     // Core's Clock: for() and current() answer 12h or 24h (auto through the app's locale), and time() and range() format server-built strings on them,
     // in each Carbon's own zone. for() takes a person and a workspace and reads no request; a given workspace is entered through Registry::inWorkspace().
     // These stand in for a job or a command, outside any request: the last dispatched request ends here, as Octane and the queue worker end one
-    // (forgetScopedInstances), so nothing it remembered is read.
+    // (forgetScopedInstances), so none of the values that request remembered are read here.
     $app->forgetScopedInstances();
     $app['config']->set('kit.clock.default', 'auto');
     $workspaceClock = null;

@@ -255,7 +255,7 @@ try {
     // The page's write, as the browser sent it: an Inertia visit with the payload as its JSON body, or multipart (a photo) with its fields and files.
     // Each person keeps their own session row, so "Sign out other sessions" has a current one to keep.
     $sessions = [];
-    $send = function (string $who, string $method, string $path, array $payload) use ($app, $people, $upload, &$sessions): array {
+    $send = function (string $who, string $method, string $path, array $payload, array $cookies = []) use ($app, $people, $upload, &$sessions): array {
         Auth::guard('web')->logout();
         Auth::guard('web')->setUser($people[$who]);
         $url = 'https://kit.test'.$path;
@@ -269,6 +269,10 @@ try {
         // The person's own session, by its cookie, so StartSession resumes it (and the database driver keeps its row).
         if (isset($sessions[$who])) {
             $request->cookies->set('s', $sessions[$who]);
+        }
+        // Cookies the browser holds, such as `tz`.
+        foreach ($cookies as $name => $value) {
+            $request->cookies->set($name, $value);
         }
         $app->instance('request', $request);
         try {
@@ -302,7 +306,13 @@ try {
     // or `workspace` to follow the workspace's again; the page then shows both.
     $clockRow = fn (string $who): ?string => DB::table('user_state')->where(['user_id' => $people[$who]->id, 'workspace_id' => 0, 'key' => 'clock'])->value('value');
     $zoneRow = fn (string $who): ?string => DB::table('user_state')->where(['user_id' => $people[$who]->id, 'workspace_id' => 0, 'key' => 'timezone'])->value('value');
-    $result = $send('robin', 'PUT', '/me/profile/clock', $fixture('profile-clock'));
+    // The browser's zone is in the `tz` cookie, which the viewer's zone reads first: before the save Robin's pages are in London.
+    $shownZone = fn (array $cookies): mixed => json_decode((string) $send('robin', 'GET', '/me/profile', [], $cookies)[3]->getContent(), true)['props']['kitTimezone'] ?? null;
+    httpCheck($shownZone(['tz' => 'Europe/London']) === 'Europe/London', 'Profile Date & time: before the save, Robin\'s pages show the browser\'s zone from the tz cookie (Europe/London)');
+    $result = $send('robin', 'PUT', '/me/profile/clock', $fixture('profile-clock'), ['tz' => 'Europe/London']);
+    $tz = collect($result[3]->headers->getCookies())->first(fn ($cookie): bool => $cookie->getName() === 'tz');
+    httpCheck($tz !== null && $tz->getValue() === 'Europe/Amsterdam' && ! $tz->isHttpOnly() && $tz->getPath() === '/' && strtolower((string) $tz->getSameSite()) === 'lax' && $tz->getExpiresTime() > time() + 364 * 86400, 'Profile Date & time: the save sets the tz cookie to the saved zone (Europe/Amsterdam), unencrypted and readable by the page\'s script, path /, SameSite=Lax, for a year, as syncTimezoneCookie() writes it'.json_encode($tz?->getValue()));
+    httpCheck($shownZone(['tz' => $tz?->getValue()]) === 'Europe/Amsterdam', 'Profile Date & time: the next page, with the cookie the save set, shows dates and times in the saved zone (Europe/Amsterdam)');
     httpCheck($redirected($result) && $clockRow('robin') === '24h' && $zoneRow('robin') === 'Europe/Amsterdam' && $clockRow('sam') === null && $zoneRow('sam') === null, 'Profile Date & time: the recorded payload saves Robin\'s time zone and 24h to user_state, redirecting back with no errors, and no one else\'s'.$describe($result));
     httpCheck(! Onboarding::pending($people['robin']->id, 'timezone'), 'Profile Date & time: the saved time zone counts as confirmed, so the welcome flow does not ask again');
     $page = json_decode((string) $send('robin', 'GET', '/me/profile', [])[3]->getContent(), true);
@@ -311,6 +321,7 @@ try {
     $result = $send('robin', 'PUT', '/me/profile/clock', ['timezone' => 'Mars/Olympus', 'clock' => 'auto']);
     httpCheck(isset($result[2]['clock'], $result[2]['timezone']) && $clockRow('robin') === '24h' && $zoneRow('robin') === 'Europe/Amsterdam', 'Profile Date & time: an unknown time zone and a clock other than workspace, 12h or 24h (auto) are each refused on their field, and neither saved value changes'.$describe($result));
     $result = $send('robin', 'PUT', '/me/profile/clock', ['clock' => 'workspace']);
+    httpCheck(collect($result[3]->headers->getCookies())->first(fn ($cookie): bool => $cookie->getName() === 'tz') === null, 'Profile Date & time: a save without a time zone leaves the tz cookie alone');
     $page = json_decode((string) $send('robin', 'GET', '/me/profile', [])[3]->getContent(), true);
     httpCheck($redirected($result) && $clockRow('robin') === null && $zoneRow('robin') === 'Europe/Amsterdam' && ($page['props']['clock'] ?? null) === 'workspace' && Clock::preference($people['robin']) === 'auto', 'Profile Date & time: `workspace` forgets Robin\'s own clock (Use workspace setting, preference auto again); a save without a time zone keeps the saved one'.$describe($result));
 

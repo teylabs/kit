@@ -56,7 +56,7 @@ The clock is a regional preference, so it sits beside the time zone, never under
 | **Account › Profile** (workspace-ui), the person's own | The person's zone, saved and confirmed (the welcome step doesn't ask again) | *Use workspace setting*, *12-hour*, *24-hour* |
 | **Settings › General** (settings), the workspace's | The workspace's zone | *12-hour*, *24-hour*, *Automatic*; shown only when the app wires `workspaceClockUsing()` |
 
-Profile's Date & time is one form, saved with **Save date & time** as `PUT /me/profile/clock` (`timezone`, a zone identifier, optional; `clock`: `workspace`, `12h` or `24h`). General saves the time format with the rest of its form (`clock`: `auto`, `12h` or `24h`). A save without `clock` leaves the workspace's clock alone; a `clock` sent while no app keeps one is refused on the field.
+Profile's Date & time is one form, saved with **Save date & time** as `PUT /me/profile/clock` (`timezone`, a zone identifier, optional; `clock`: `workspace`, `12h` or `24h`). A saved time zone also sets the `tz` cookie to it, so the pages that follow show dates and times in it at once (the viewer's zone reads that cookie first). It's the browser's cookie: the next full page load that calls `syncTimezoneCookie()` writes the browser's own zone back. General saves the time format with the rest of its form (`clock`: `auto`, `12h` or `24h`). A save without `clock` leaves the workspace's clock alone; a `clock` sent while no app keeps one is refused on the field.
 
 ### The workspace's clock
 

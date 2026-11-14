@@ -38,7 +38,7 @@ class WorkspaceProfile
         if (array_diff(array_keys($input), ['display_name', 'timezone', 'clock', 'expected_version', 'intent_key']) !== []) {
             throw new \RuntimeException('unknown_arguments');
         }
-        $data = Validator::make($input, ['display_name' => ['required', 'string', 'max:120'], 'timezone' => ['required', 'timezone'], 'clock' => ['sometimes', Rule::in(['auto', '12h', '24h'])], 'expected_version' => ['required', 'integer', 'min:1'], 'intent_key' => ['required', 'string', 'max:120']], ['clock.*' => 'Choose a time format.'])->validate();
+        $data = Validator::make($input, ['display_name' => ['required', 'string', 'max:120'], 'timezone' => ['required', 'timezone'], 'clock' => ['sometimes', Rule::in(['auto', '12h', '24h'])], 'expected_version' => ['required', 'integer', 'min:1'], 'intent_key' => ['required', 'string', 'max:120']], ['clock.in' => 'Choose a time format.'])->validate();
         // A time format is saved through the app's setter; an app that keeps none refuses one rather than drop it.
         $setClock = app(Registry::class)->workspaceClock()['set'] ?? null;
         if (array_key_exists('clock', $data) && $setClock === null) {
