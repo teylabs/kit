@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## v0.20.0
+
+Features affected: workspace-ui, notes
 
 Features affected: core, session-ui, workspace-ui, notes
 
