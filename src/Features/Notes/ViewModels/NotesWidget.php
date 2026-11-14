@@ -74,7 +74,7 @@ final class NotesWidget extends Widget
         return $this->notes ??= array_slice(app(WorkspaceNotes::class)->listing($this->context->principal), 0, self::LIMIT);
     }
 
-    // The latest notes are a list, so "All notes" is the card's see-all, in its footer after the last note (until v0.18.4 it was a header action).
+    // The latest notes are a list, so "All notes" is the card's see-all, in its footer after the last note (until v0.19.0 it was a header action).
     public function seeAll(): ?SeeAll
     {
         return SeeAll::to('All notes', NoteUrls::index($this->context->workspace));
