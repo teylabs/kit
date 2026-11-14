@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## v0.19.2
+
+Features affected: none.
 
 ### Added
 
