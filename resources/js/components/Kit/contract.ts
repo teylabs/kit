@@ -856,6 +856,15 @@ export interface ActionBarProps {
     /** The host's own classes for each menu row (its row height, say), added after the row's own; destructive and disabled still apply. */
     itemClass?: string;
 }
+/**
+ * A form's own actions as one group, 12px apart (docs/action-group.md). `direction`: `row` (the default, one wrapping row) or `column` (stacked, every action the group's
+ * full width, the primary first as written, the same at every breakpoint). Layout only: no role, no restyling of its children. `as` / `asChild` as Reka's Primitive.
+ */
+export interface ActionGroupProps {
+    direction?: 'row' | 'column';
+    as?: string;
+    asChild?: boolean;
+}
 /** ButtonGroup (ButtonGroup.md): raw `button`/`a`/`Link` children in the default slot, styled by the group; menu entries in `menu`; `label` names the trigger; `offset` is [skid, gap]. */
 export interface ButtonGroupProps {
     label?: string | null;

@@ -341,6 +341,8 @@ export {
 export type { Surface as SurfaceContext } from './Surface/surface';
 export { default as ActionBar } from './Action/ActionBar.vue';
 export { default as ActionLabel } from './Action/ActionLabel.vue';
+// A form's own actions in one row, or stacked full-width for an auth-style card (docs/action-group.md).
+export { default as ActionGroup } from './Action/ActionGroup.vue';
 export { default as ButtonGroup } from './Action/ButtonGroup.vue';
 export {
     isNavigation,

@@ -8,10 +8,12 @@ import PasskeyOffer from '@/components/Kit/Feedback/PasskeyOffer.vue';
 // one (Laravel's 429 HTML from `throttle:`). `kitUi.form` is the kit's `ui` lang copy as the server shares it; `status` (?status=) a view model's flashed status.
 // Register takes ?flow=: `invited` (the address shown as text and posted through `submit`) or `workspace` (shown, not posted), a host's own sign-up through the
 // view model; without it, Fortify's open /register. `?register` gives Login its "Create an account" link. Any other page a response names (the invitation page
-// a redirect lands on) is a stand-in that shows its `status`.
+// a redirect lands on) is a stand-in that shows its `status`, unless the page under test is that page (`?auth=Auth/Invitation/Show`). `?passkey` gives Login
+// Fortify's passkey sign-in endpoints, so Sign in with a passkey shows where the browser can.
 const pages = import.meta.glob(['@/pages/Auth/*/Page.vue', '@/pages/Mcp/Authorize/Page.vue', '@/pages/Workspace/Account/Security/Page.vue'], { eager: true }) as Record<string, { default: object }>;
 // ?auth=PasskeyOffer: the post-sign-up passkey offer (core's PasskeyOffer) on a bare page, with the shared `passkeyOffer` as session-ui shares it: Fortify's
 // registration and its password confirmation (`&noconfirm`: the host turned that off, so no confirm_url).
+const invitationPage = Object.values(import.meta.glob('@/pages/Auth/Invitation/Show/Page.vue', { eager: true }))[0] as { default: object };
 const offerPage = { default: { render: () => h('main', [h(PasskeyOffer)]) } };
 const elsewhere = { default: { props: ['status'], render(this: { status: string | null }) { return h('p', { 'data-elsewhere': '' }, this.status ?? ''); } } };
 const query = new URLSearchParams(window.location.search);
@@ -31,6 +33,9 @@ const register = {
 // ?auth=Mcp/Authorize: mcp's consent page with an invented assistant, two scopes, one workspace (`&two`: a second) and one opt-in grant; `&unchosen`: no
 // workspace chosen yet.
 const consent = { client: 'Acme Assistant', scopes: [{ key: 'read', label: 'Read your workspace data' }, { key: 'write', label: 'Create and edit records' }], workspaces: [{ id: 1, name: 'Northwind Farms' }, ...(query.has('two') ? [{ id: 2, name: 'Globex Labs' }] : [])], workspace: query.has('unchosen') ? null : 1, approve_url: '/oauth/authorize', deny_url: '/oauth/authorize', auth_token: 't', csrf_token: 'c', redirect_host: 'assistant.example.com', registered: false, grants: [{ scope: 'files', label: 'Files', explains: 'read uploaded files', checked: false }] };
+// ?auth=Auth/Invitation/Show: workspace-ui's invitation page, invented names, in `&state=` (`ready` by default; `&other`: signed in as another account than the
+// one invited, so it offers Join as, Switch account and Cancel; `wrong_account`).
+const invitation = { title: 'Join Northwind Farms', state: query.get('state') ?? 'ready', message: '', invitation: { workspace: 'Northwind Farms', inviter: 'Grace Hopper', role: 'member', email: 'ada@example.com', message: null }, signed_in_as: query.has('other') || query.get('state') === 'wrong_account' ? 'ada@work.example.com' : 'ada@example.com', other_email: query.has('other'), accept_url: '/invitations/token/accept', register_url: '/invitations/token/register', login_url: '/login', workspace_url: null, verify_url: null };
 // ?auth=Workspace/Account/Security: Settings › Security with two-factor off, one passkey, and Fortify's passkey endpoints with its password confirmation (`&noconfirm`: the host turned
 // that confirmation off, so no confirm_url).
 // The security log's section, as SecurityViewModel::log() sends it: empty until there are events.
@@ -53,12 +58,14 @@ const props = {
     status: query.get('status'),
     ...(name === 'Register' ? register : {}),
     ...(name === 'Mcp/Authorize' ? consent : {}),
+    ...(name === 'Auth/Invitation/Show' ? invitation : {}),
     ...(name === 'Workspace/Account/Security' ? security : {}),
     ...(name === 'PasskeyOffer' ? { passkeyOffer: { options_url: '/user/passkeys/options', store_url: '/user/passkeys', confirm_url: query.has('noconfirm') ? null : '/user/confirm-password', dismiss_url: '/me/passkey-offer' } } : {}),
     email: name === 'ResetPassword' || (name === 'Register' && flow) ? 'ada@example.com' : null,
     register: query.has('register') ? '/register' : null,
     token: 'token',
     localLogin: null,
+    passkey: query.has('passkey') ? { options_url: '/passkeys/login-options', login_url: '/passkeys/login' } : null,
     cancel: '/',
     errors: {},
     kitUi: { form: { throttled: 'Too many requests. Try again in a moment.', throttled_retry: 'Too many requests. Try again in :seconds seconds.' } },
@@ -66,7 +73,7 @@ const props = {
 (window as unknown as { kitInitialPage: unknown }).kitInitialPage = { component: name.includes('/') ? `${name}/Page` : `Auth/${name}/Page`, props, url: urls[name] ?? '/', version: null, flash: {}, clearHistory: false, encryptHistory: false };
 createInertiaApp({
     page: (window as unknown as { kitInitialPage: never }).kitInitialPage,
-    resolve: (component: string) => component === 'Auth/PasskeyOffer/Page' ? offerPage : pages[Object.keys(pages).find((path) => path.endsWith(`/${component}.vue`)) as string] ?? elsewhere,
+    resolve: (component: string) => component === 'Auth/PasskeyOffer/Page' ? offerPage : component === 'Auth/Invitation/Show/Page' && name === 'Auth/Invitation/Show' ? invitationPage : pages[Object.keys(pages).find((path) => path.endsWith(`/${component}.vue`)) as string] ?? elsewhere,
     setup: ({ el, App, props: appProps, plugin }) => createApp({ render: () => h(App, appProps) }).use(plugin).mount(el),
     progress: false,
 });

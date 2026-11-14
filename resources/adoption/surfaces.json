@@ -1244,6 +1244,7 @@
           "@/components/Kit:Section",
           "@/components/Kit:SectionIcon",
           "@/components/Kit:Toolbar",
+          "@/components/Kit:ActionGroup",
           "@/components/Kit:StickyBar",
           "@/components/Kit:Surface",
           "@/components/Kit:Collapsible",
