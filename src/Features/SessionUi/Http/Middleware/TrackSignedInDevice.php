@@ -50,7 +50,7 @@ final class TrackSignedInDevice
         }
         $device = $session->get(SignedInDevices::KEY);
         if (! SignedInDevices::tracked($device)) {
-            // Signed in with no row yet (its sign-in request could not write one, or a session from before 0.22): written now, before the controller runs.
+            // Signed in with no row yet (its sign-in request could not write one, or a session from before 0.23): written now, before the controller runs.
             $this->track($request, $session, $guard, $userId, $device) ?? $this->signOut($session, $guard);
 
             return;
@@ -110,7 +110,7 @@ final class TrackSignedInDevice
 
     /**
      * Writes the row of a signed-in session that has none, and names it in the session. Remembered: as the sign-in said (`pending`), else (a session from
-     * before 0.22) when the request carries the recaller cookie. Null when no row of this user holds the session.
+     * before 0.23) when the request carries the recaller cookie. Null when no row of this user holds the session.
      */
     private function track(Request $request, Session $session, SessionGuard $guard, int|string $userId, mixed $device): ?int
     {

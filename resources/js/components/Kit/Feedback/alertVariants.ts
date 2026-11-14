@@ -111,6 +111,58 @@ export const alertIconClass = (
     }[variant];
 };
 
+/*
+ * An Alert's actions take its tone (AlertActions provides it as the surface; Button reads it): never the host's grey secondary. `style` is the alert's
+ * `actionsStyle`: `soft` (the default) is a compact button tinted with the tone, `bg-current/8` and 12% on hover (at 20%, light success text falls to
+ * 4.1:1); `link` is tone text, medium weight, underlined on hover. A quiet Button (secondary, ghost, link) is a normal-weight tone link in either style, for a
+ * second action such as Dismiss. Focus is a 2px outline in the tone, 2px out. The tone is the pale tier's semantic text token (the icon's; foreground for muted, whose
+ * muted-foreground is too faint for a link) and the solid tier's own text. Each pairing keeps 4.5:1 in light and dark, at rest and on hover (browser/run.mjs,
+ * ?alert-actions).
+ */
+export type AlertActionsStyle = 'soft' | 'link';
+export type AlertActions = {
+    variant: AlertVariant;
+    tier: AlertTier;
+    style: AlertActionsStyle;
+};
+
+/** The text colour of an Alert's actions row, which a plain link or button slotted there inherits. */
+export const alertActionsText = (
+    variant: AlertVariant,
+    tier: AlertTier,
+): string =>
+    tier === 'solid'
+        ? 'text-current hover:text-current'
+        : {
+              info: 'text-info-text hover:text-info-text',
+              success: 'text-success-text hover:text-success-text',
+              warning: 'text-warning-text hover:text-warning-text',
+              danger: 'text-destructive-text hover:text-destructive-text',
+              primary: 'text-primary hover:text-primary',
+              brand: 'text-accent-foreground hover:text-accent-foreground',
+              muted: 'text-foreground hover:text-foreground',
+          }[variant];
+
+const actionFocus =
+    'focus-visible:ring-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid focus-visible:outline-current';
+const actionLink =
+    'h-auto min-h-6 rounded-sm p-0 has-[>svg]:px-0 bg-transparent shadow-none underline-offset-4 hover:bg-transparent hover:underline dark:bg-transparent dark:hover:bg-transparent';
+const actionSoft =
+    'font-medium shadow-none bg-current/8 hover:bg-current/12 dark:bg-current/8 dark:hover:bg-current/12';
+
+/** A kit Button's classes in an Alert's actions: `quiet` for a secondary, ghost or link Button. On the host's link (a link) or ghost (soft) button, size sm. */
+export const alertActionClass = (
+    actions: AlertActions,
+    quiet: boolean,
+): string =>
+    [
+        alertActionsText(actions.variant, actions.tier),
+        actionFocus,
+        actions.style === 'soft' && !quiet
+            ? actionSoft
+            : `${actionLink} ${quiet ? 'font-normal' : 'font-medium'}`,
+    ].join(' ');
+
 export type AlertVariant = NonNullable<
     VariantProps<typeof alertVariants>['variant']
 >;

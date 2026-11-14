@@ -391,7 +391,7 @@ try {
     $device = SignedInDevices::track(Request::create('https://kit.test/login', 'POST', server: ['REMOTE_ADDR' => '198.51.100.7', 'HTTP_USER_AGENT' => 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) Version/18.1 Mobile/15E148 Safari/604.1']), $phone, $people['sam']->id, false);
     $page = json_decode((string) $send('sam', 'GET', '/me/security', [])[3]->getContent(), true);
     $item = collect($page['props']['sessions']['items'] ?? [])->firstWhere('id', $device);
-    // The 0.21 scaffolded page reads `supported` and each item's agent, ip, last_active and current: still there, with the same types, so it renders unchanged.
+    // The 0.22 scaffolded page reads `supported` and each item's agent, ip, last_active and current: still there, with the same types, so it renders unchanged.
     httpCheck(($page['props']['sessions']['supported'] ?? null) === true && $item !== null && $item['agent'] === 'Safari on iOS' && $item['ip'] === '198.51.100.0/24' && is_string($item['last_active']) && $item['current'] === false && $item['url'] === 'https://kit.test/me/security/devices/'.$device, 'Signed-in devices: on the database driver the page lists the other device with the keys the old page reads (agent, ip, last_active, current) and its sign-out url'.json_encode($item));
     $result = $send('sam', 'DELETE', '/me/security/devices/'.$device, $fixture('device-sign-out'));
     httpCheck($redirected($result), 'Signed-in devices, one device: the recorded payload signs it out, redirecting back with no errors'.$describe($result));

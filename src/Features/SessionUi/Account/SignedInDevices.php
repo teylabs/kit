@@ -160,7 +160,7 @@ final class SignedInDevices
     }
 
     /**
-     * The row of a session that has none yet (it signed in during this request, or it is from before 0.22): inserted, or found when a concurrent first
+     * The row of a session that has none yet (it signed in during this request, or it is from before 0.23): inserted, or found when a concurrent first
      * request of the same session got there first (the unique HMAC). Null when no row of this user holds the session: the caller signs it out.
      */
     public static function track(Request $request, string $sessionId, int|string $userId, bool $remembered): ?int
@@ -172,7 +172,7 @@ final class SignedInDevices
     }
 
     /**
-     * kit:devices:backfill's row for a session from the database session table, signed in before 0.22: its user agent and IP as the table holds them, cut
+     * kit:devices:backfill's row for a session from the database session table, signed in before 0.23: its user agent and IP as the table holds them, cut
      * to the browser, platform and prefix, and its last activity as both times. False when the session already has a row (a second run adds nothing).
      */
     public static function adopt(string $sessionId, int|string $userId, ?string $agent, ?string $ip, CarbonInterface $lastActive): bool

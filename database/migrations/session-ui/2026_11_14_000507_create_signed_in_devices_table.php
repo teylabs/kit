@@ -8,7 +8,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // 0.22: one row per signed-in session, the person's own (never a workspace's), listed on /me/security on every session driver. The session id is
+        // 0.23: one row per signed-in session, the person's own (never a workspace's), listed on /me/security on every session driver. The session id is
         // encrypted, and found by its HMAC; the user agent is kept only as its browser and platform, the IP only as its /24 or /48 (SignedInDevices).
         // An app's own table of this name (one of its own devices, say) is never taken over: the kit refuses, naming it.
         if (Schema::hasTable('signed_in_devices')) {

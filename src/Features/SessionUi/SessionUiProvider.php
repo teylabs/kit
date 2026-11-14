@@ -184,7 +184,7 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
         Fortify::verifyEmailView(fn () => Inertia::render('Auth/VerifyEmail/Page', new ChallengeViewModel('Verify your email address', session('status'), request()->user()?->email)));
         SecurityLog::listen($this->app->make('events'));
         SignedInDevices::listen($this->app->make('events'));
-        // On the database session driver, once after upgrading: a row for each session signed in before 0.22.
+        // On the database session driver, once after upgrading: a row for each session signed in before 0.23.
         $this->commands([BackfillDevicesCommand::class]);
         // A passkey signs in without a password, so Laravel's Validated event (where Concierge refuses a deactivated account) never fires: the same refusal is
         // passkeys' login check. Fails closed: anything that is not a Concierge member with an active account is refused. An app that sets its own check replaces this one, so it must refuse an inactive account too.

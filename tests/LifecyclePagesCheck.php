@@ -754,7 +754,7 @@ try {
     } finally {
         Schema::rename('kit_security_events_away', 'kit_security_events');
     }
-    // The same for its signed-in devices (0.22): without signed_in_devices the deletion refuses and rolls back, rather than leave the person's devices signed in.
+    // The same for its signed-in devices (0.23): without signed_in_devices the deletion refuses and rolls back, rather than leave the person's devices signed in.
     Schema::rename('signed_in_devices', 'signed_in_devices_away');
     try {
         [$status] = $http('leaver', 'DELETE', '/me/delete', ['password' => 'secret-leaver']);

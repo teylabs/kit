@@ -39,7 +39,7 @@ A guest's request reads nothing.
 
 Another person's device id, a device already signed out and a non-numeric id are each a 404. The current device is a 422: signing it out is the app's own Sign out.
 
-"Sign out other sessions", a password change, account deletion (immediate or deferred) and the kit's anonymiser end every other device the same way. On the database driver they also delete the person's rows from the `sessions` table, for sessions from before 0.22.
+"Sign out other sessions", a password change, account deletion (immediate or deferred) and the kit's anonymiser end every other device the same way. On the database driver they also delete the person's rows from the `sessions` table, for sessions from before 0.23.
 
 ## Configuration
 
@@ -66,7 +66,7 @@ use Tey\Kit\Features\SessionUi\Models\SignedInDevice;
 Schedule::command('model:prune', ['--model' => [SignedInDevice::class]])->daily();
 ```
 
-## Upgrading from 0.21
+## Upgrading from 0.22
 
 - Run `php artisan migrate`.
 - On the database session driver, run `php artisan kit:devices:backfill` once. It adds a row for each signed-in session in the `sessions` table, and a second run adds nothing. Other drivers can't list a person's sessions; each of their devices gets its row on its next request.

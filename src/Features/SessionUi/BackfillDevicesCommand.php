@@ -9,7 +9,7 @@ use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\SessionUi\Account\SignedInDevices;
 
 /**
- * Once after upgrading to 0.22, on the database session driver: a `signed_in_devices` row for each signed-in session in the sessions table that has not
+ * Once after upgrading to 0.23, on the database session driver: a `signed_in_devices` row for each signed-in session in the sessions table that has not
  * expired, so the Security page lists the devices signed in before the upgrade. It reads the sessions table once and changes nothing in it. A second run
  * adds nothing (each session's row is keyed by its HMAC). Other drivers can't list a person's sessions: their devices get a row on their next request.
  */
@@ -17,7 +17,7 @@ final class BackfillDevicesCommand extends Command
 {
     protected $signature = 'kit:devices:backfill';
 
-    protected $description = 'Add a signed-in device for each session signed in before 0.22 (the database session driver only; run once after migrate)';
+    protected $description = 'Add a signed-in device for each session signed in before 0.23 (the database session driver only; run once after migrate)';
 
     public function handle(): int
     {

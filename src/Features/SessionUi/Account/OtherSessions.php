@@ -16,7 +16,7 @@ final class OtherSessions
 
     /**
      * Each device last seen within the session lifetime plus `kit.devices.touch_minutes`, most recent first (50). `agent`, `ip`, `last_active` and
-     * `current` are the keys the page had before 0.22 (`ip` is now the network's prefix); `url` signs the device out, null for this one.
+     * `current` are the keys the page had before 0.23 (`ip` is now the network's prefix); `url` signs the device out, null for this one.
      *
      * @return list<array{agent: string, ip: ?string, last_active: string, current: bool, id: int, signed_in_at: string, country: ?string, remembered: bool, url: ?string}>
      */

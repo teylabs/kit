@@ -23,7 +23,7 @@ const RENAMES = [
     'kit_capability_overrides' => 'capability_overrides', 'kit_mcp_intents' => 'mcp_intents', 'kit_mcp_registrations' => 'mcp_registrations', 'kit_mcp_runs' => 'mcp_runs',
 ];
 const RENAME_MIGRATIONS = ['2026_11_14_000304_rename_access_tables', '2026_11_14_000506_rename_session_ui_tables', '2026_11_14_000605_rename_mcp_tables'];
-// 0.22: session-ui's signed_in_devices, an infrastructure table created by the package alone (no app ever had a copy).
+// 0.23: session-ui's signed_in_devices, an infrastructure table created by the package alone (no app ever had a copy).
 const DEVICE_MIGRATIONS = ['2026_11_14_000507_create_signed_in_devices_table', '2026_11_14_000508_add_user_foreign_key_to_signed_in_devices_table'];
 // What `migrate` runs on an app upgraded from 0.17, in order: the renames and the devices pair.
 const UPGRADE_MIGRATIONS = ['2026_11_14_000304_rename_access_tables', '2026_11_14_000506_rename_session_ui_tables', ...DEVICE_MIGRATIONS, '2026_11_14_000605_rename_mcp_tables'];
@@ -181,7 +181,7 @@ try {
     check($stubs !== [] && $baselines === $stubs, 'every package baseline is a catalog stub at the same feature, name and bytes ('.count($stubs).')');
     $others = array_map(fn (string $path): string => basename($path, '.php'), array_keys(array_diff_key($package, $baselines)));
     sort($others);
-    check($others === UPGRADE_MIGRATIONS, 'the package\'s only other migrations are the 0.18 renames, one per feature, and 0.22\'s signed_in_devices pair');
+    check($others === UPGRADE_MIGRATIONS, 'the package\'s only other migrations are the 0.18 renames, one per feature, and 0.23\'s signed_in_devices pair');
 
     // A fresh app on 0.18 (no copies): the package's migrations run once each, and end at the new names.
     $fresh = host();
@@ -335,7 +335,7 @@ try {
     $sql = $kernel->output();
     check($code === 0 && preg_match('/alter table "?workspaces"? add column "?provisioning_invitation_id"?/i', $sql) === 1 && ! str_contains($sql, 'create table "workspaces"'), 'migrate --pretend on an adopting host shows the columns it adds to the host\'s workspaces table, and no create');
     check(! Schema::hasColumn('workspaces', 'provisioning_invitation_id') && ! Schema::hasTable('user_state'), 'and it changes nothing');
-    // 0.22's signed_in_devices: created on a fresh app, rolled back and run again. An app's own table of that name is never taken over: migrate refuses,
+    // 0.23's signed_in_devices: created on a fresh app, rolled back and run again. An app's own table of that name is never taken over: migrate refuses,
     // naming it, and leaves the app's table as it was.
     $devices = host();
     migrate($devices);
