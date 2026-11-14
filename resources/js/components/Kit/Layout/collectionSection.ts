@@ -47,10 +47,11 @@ export type CollectionSectionData = {
 
 /**
  * What CollectionCard adds to the CollectionSection inside it: the classes for each part's padding and rules on the card (`root`, `header`, `filters`,
- * `body`, `footer`), merged after the section's own. Internal to the two components: not exported from `@kit/ui`.
+ * `body`, `footer`) and for the title's and description's type (`title`, `description`), merged after the section's own. Internal to the two components:
+ * not exported from `@kit/ui`.
  */
 export type CollectionFrame = Record<
-    'root' | 'header' | 'filters' | 'body' | 'footer',
+    'root' | 'header' | 'title' | 'description' | 'filters' | 'body' | 'footer',
     string
 >;
 export const collectionFrameKey: InjectionKey<CollectionFrame | null> = Symbol(

@@ -31,7 +31,8 @@ import {
  * - the title, a heading at `level` (3 by default) that links to `seeAll`'s URL unless it says `linkTitle: false` (heading-coloured, underlined on hover);
  *   `description` under it;
  * - on the header's right, the Sort by menu (`sortBy`, while ready), the `#actions` slot, the descriptor `actions` (a GET action with the see-all's URL is
- *   left out, so the link is drawn once; one with a confirmation, intent or new tab stays) and a header see-all. Plain GET navigation is a compact link; every other
+ *   left out, so the link is drawn once; one with a confirmation, intent or new tab stays) and a header see-all, shrinking and wrapping inside the header's width
+ *   (a long item in `#actions` wraps, or truncates with its own `truncate`). Plain GET navigation is a compact link; every other
  *   action (a confirmation, `disabled`, a `dialog`, `panel` or `document` intent, `newTab`, another method) goes to one ActionBar after the links, which keeps
  *   its meaning: it asks first, shows its reason, opens the route modal or a new tab. A host that listens to `action` runs those itself (a `panel` needs it);
  *   otherwise the bar runs them;
@@ -210,7 +211,7 @@ function choose(value: unknown): void {
                 <component
                     :is="heading"
                     :id="headingId"
-                    class="truncate text-sm font-semibold"
+                    :class="cn('truncate text-sm font-semibold', frame?.title)"
                     ><SeeAllLink
                         v-if="titleSeeAll"
                         :see-all="titleSeeAll"
@@ -220,7 +221,9 @@ function choose(value: unknown): void {
                 >
                 <p
                     v-if="section.description"
-                    class="text-muted-foreground text-xs"
+                    :class="
+                        cn('text-muted-foreground text-xs', frame?.description)
+                    "
                     data-collection-description
                 >
                     {{ section.description }}
@@ -235,7 +238,7 @@ function choose(value: unknown): void {
                         operations.length ||
                         placement === 'header')
                 "
-                class="flex shrink-0 flex-wrap items-center justify-end gap-2"
+                class="flex min-w-0 flex-wrap items-center justify-end gap-2"
             >
                 <div
                     v-if="sort"
