@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Link, router } from '@inertiajs/vue3';
+import { Link, router, usePage } from '@inertiajs/vue3';
 import {
     computed,
     getCurrentInstance,
@@ -43,9 +43,9 @@ import {
  * - the footer: the `#footer` slot and, at the bottom right, the see-all ("All cases →"). An error section has no see-all, and its title is plain text.
  * It draws no card: on its own it is a bare section, for a grid or list whose items carry their own look (a grid of note cards), with the see-all under the
  * items at the right. CollectionCard puts it in a kit Card, with the same descriptor, by handing it a frame: the classes for its parts' padding and rules.
- * Choosing an order visits `sortBy.url` with `{ sort }` (its method; a partial visit for `sortBy.reload`), puts the old order back when refused, and remounts
- * the items on the new one. `headless` drops the title bar (the section keeps the title as its accessible name). `minHeight` holds the ready body's height
- * while its content loads (a widget's `loadingHeight`).
+ * Choosing an order visits `sortBy.url` with `{ sort }` (its method; a partial visit for `sortBy.reload`, resetting only the scroll lists among them), puts
+ * the old order back when refused, and remounts the items on the new one. `headless` drops the title bar (the section keeps the title as its accessible
+ * name). `minHeight` holds the ready body's height while its content loads (a widget's `loadingHeight`).
  */
 const props = withDefaults(
     defineProps<{
@@ -128,6 +128,7 @@ const scrolls = computed(
 const minHeight = computed(() =>
     state.value === 'ready' ? props.minHeight || null : null,
 );
+const page = usePage();
 const retry = () => router.reload();
 
 // Sort by: the shown order changes only once the server takes the choice; a refusal puts the select back.
@@ -161,8 +162,11 @@ function choose(value: unknown): void {
         method: sort.value.method as 'get',
         data: { sort: next },
         only: sort.value.reload,
-        // A list starts again from its first page.
-        reset: sort.value.reload,
+        // A list (a scroll prop) starts again from its first page. Any other prop is not reset, so one the server sends as a merge prop (a dashboard widget's
+        // frame, matched on its key) is swapped in where it was, and the rest of the page keeps what it had.
+        reset: sort.value.reload.filter(
+            (key) => key in (page.scrollProps ?? {}),
+        ),
         preserveScroll: true,
         preserveState: true,
         onSuccess: () => {

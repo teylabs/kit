@@ -5449,6 +5449,79 @@ test('a dashboard widget\'s Sort by control: labelled, top right of the header, 
     }
 });
 
+test('a dashboard widget\'s Sort by control: the choice reloads only that widget, merged by key, and every other card keeps its state, scroll and loaded rows', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        const sent = [];
+        // As the server answers the partial reload after a choice: only the sorted widget, as a merge prop matched on `key`; a request that resets `widgets`
+        // gets every widget, fresh, with no merge (the adapter leaves a reset prop out of mergeProps).
+        await tab.route(/\/@acme\/widgets\/app\.ongoing\/sort$/, async (route) => {
+            const request = route.request();
+            const body = JSON.parse(request.postData() ?? '{}');
+            const headers = request.headers();
+            const list = (name) => (headers[name] ?? '').split(',').filter(Boolean);
+            sent.push({ sort: body.sort, only: list('x-inertia-partial-data'), reset: list('x-inertia-reset') });
+            const page = await tab.evaluate(() => window.kitInitialPage);
+            const ongoing = await tab.evaluate((order) => window.kitOngoing(order), body.sort);
+            const answer = list('x-inertia-reset').includes('widgets')
+                ? { ...page, props: { errors: {}, widgets: [ongoing, ...page.props.widgets.slice(1)] } }
+                : { ...page, props: { errors: {}, widgets: [ongoing] }, mergeProps: ['widgets'], matchPropsOn: ['widgets.key'] };
+            await route.fulfill({ status: 200, contentType: 'application/json', headers: { 'X-Inertia': 'true', Vary: 'X-Inertia' }, body: JSON.stringify(answer) });
+        });
+        await tab.goto(`${authUrl}dashboard.html?sorted&see-all`);
+        await tab.waitForSelector('[data-widget="app.ongoing"] [data-collection-sort]');
+        await tab.waitForSelector('[data-widget="app.cases"] [data-scroll-list="cases"] li');
+        await tab.waitForSelector('[data-widget="kit.people"] [data-scroll-list="people"] li');
+        // The other cards' state before the choice: the cases list scrolled part way inside its card (a mark on its element shows it is never remounted),
+        // the rows each list has loaded, and the page's frames and list props by identity.
+        const scrolled = await tab.evaluate(() => {
+            const cases = document.querySelector('[data-scroll-list="cases"]');
+            cases.scrollTop = 240;
+            cases.kitMark = 'kept';
+            document.querySelector('[data-scroll-list="people"]').kitMark = 'kept';
+            const props = window.kitPage.props;
+            window.kitBefore = { widgets: [...props.widgets], cases: props.cases, people: props.people };
+            return cases.scrollTop;
+        });
+        assert.ok(scrolled > 0, 'the cases list scrolls inside its card');
+        const control = tab.getByRole('combobox', { name: 'Sort by' });
+        await control.click();
+        await tab.getByRole('option', { name: 'Due soonest' }).click();
+        await tab.waitForFunction(() => !document.querySelector('[data-widget="app.ongoing"] [data-collection-sort] input')?.disabled);
+        await tab.waitForFunction(() => document.querySelector('[data-widget="app.ongoing"] [data-collection-sort] input')?.value.trim() === 'Due soonest');
+        assert.deepEqual(sent, [{ sort: 'due', only: ['widgets'], reset: [] }], 'one partial visit for widgets, which it does not reset');
+        assert.deepEqual(await sortedTitles(tab), ['Lease renewal', 'Boiler check', 'Roof survey'], 'the sorted card shows its new order');
+        const after = await tab.evaluate(() => {
+            const props = window.kitPage.props;
+            const before = window.kitBefore;
+            const cases = document.querySelector('[data-scroll-list="cases"]');
+            const people = document.querySelector('[data-scroll-list="people"]');
+            return {
+                keys: props.widgets.map((w) => w.key),
+                sortedSwapped: props.widgets[0] !== before.widgets[0] && props.widgets[0].sortBy.current === 'due',
+                othersKept: props.widgets.slice(1).map((w, i) => w === before.widgets[i + 1]),
+                listsKept: [props.cases === before.cases, props.people === before.people],
+                cases: { mark: cases.kitMark ?? null, scrollTop: cases.scrollTop, rows: cases.querySelectorAll('li').length },
+                people: { mark: people.kitMark ?? null, rows: people.querySelectorAll('li').length },
+                cards: [...document.querySelectorAll('[data-widget]')].map((e) => e.dataset.widget),
+            };
+        });
+        assert.deepEqual(after.keys, ['app.ongoing', 'app.cases', 'kit.you', 'kit.activity', 'kit.people'], 'every widget is still in the page\'s props, in order');
+        assert.ok(after.sortedSwapped, 'the sorted widget\'s frame is swapped in, with its new order');
+        assert.deepEqual(after.othersKept, [true, true, true, true], 'every other widget keeps its own frame (the same object): nothing of theirs was reloaded');
+        assert.deepEqual(after.listsKept, [true, true], 'the lists\' loaded rows are the same props');
+        assert.deepEqual(after.cases, { mark: 'kept', scrollTop: scrolled, rows: 30 }, 'the cases list is the same element, at the same scroll, with all 30 rows it loaded');
+        assert.deepEqual(after.people, { mark: 'kept', rows: 2 }, 'the People list is the same element with its rows');
+        assert.deepEqual(after.cards, ['app.ongoing', 'app.cases', 'kit.activity', 'kit.you', 'kit.people'], 'every card is drawn, main then aside');
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+});
+
 test('a dashboard widget\'s Sort by control: a choice the server refuses puts the previous order back', async () => {
     const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
     try {

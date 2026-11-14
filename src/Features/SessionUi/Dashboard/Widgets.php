@@ -19,12 +19,18 @@ use Throwable;
  */
 final class Widgets
 {
-    /** @return array{widgets: list<array<string, mixed>>, lists: array<string, mixed>} the frames, and each list's deferred prop by key */
-    public function resolve(Request $request, Principal $principal, int $workspace, array $reserved = []): array
+    /**
+     * @param  ?string  $only  build just this widget (the one a Sort by choice saved), for the partial reload that merges its frame into the page's
+     * @return array{widgets: list<array<string, mixed>>, lists: array<string, mixed>} the frames, and each list's deferred prop by key
+     */
+    public function resolve(Request $request, Principal $principal, int $workspace, array $reserved = [], ?string $only = null): array
     {
         $widgets = [];
         $lists = [];
         foreach (app(Registry::class)->widgets() as $entry) {
+            if ($only !== null && $entry['key'] !== $only) {
+                continue;
+            }
             if (! $this->visible($principal, $entry['ability'])) {
                 continue;
             }

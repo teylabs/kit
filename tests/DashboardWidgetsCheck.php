@@ -813,6 +813,25 @@ try {
 
     [$status, $location] = $put('owner', $control['url'], ['sort' => 'due']);
     check($status === 303 && in_array($location, ['https://kit.test', 'https://kit.test/'], true) && $stored('owner', $workspace->id) === 'due', 'choosing an order saves it for the viewer in this workspace and returns to the dashboard (303)');
+    // The partial reload that follows a choice carries only that widget, as a frame Inertia merges into the page's by key; the next one, and a full load, carry every widget.
+    $partialWidgets = ['HTTP_X_INERTIA_PARTIAL_COMPONENT' => 'Workspace/Dashboard/Page', 'HTTP_X_INERTIA_PARTIAL_DATA' => 'widgets'];
+    $put('owner', $control['url'], ['sort' => 'opened']);
+    [, $merged] = $page('owner', $partialWidgets);
+    check(array_column($merged['props']['widgets'], 'key') === ['app.sorted'] && $sorted($merged)['sortBy']['current'] === 'opened' && $sorted($merged)['rows'] === ['sorted by opened']
+        && ($merged['mergeProps'] ?? []) === ['widgets'] && ($merged['matchPropsOn'] ?? []) === ['widgets.key'], 'the partial reload after a choice sends only that widget, in its new order, merged into the page\'s widgets by key');
+    [, $again] = $page('owner', $partialWidgets);
+    check(count($again['props']['widgets']) === count($widgets) + 2 && ! in_array('widgets', $again['mergeProps'] ?? [], true), 'a later partial reload of widgets, with no new choice, sends every widget, replacing them');
+    $put('owner', $control['url'], ['sort' => 'opened']);
+    [, $full] = $page('owner');
+    [, $afterFull] = $page('owner', $partialWidgets);
+    check(count($full['props']['widgets']) === count($widgets) + 2 && ! in_array('widgets', $full['mergeProps'] ?? [], true) && ! in_array('widgets', $afterFull['mergeProps'] ?? [], true), 'a full page load after a choice sends every widget, and uses the choice up');
+    $put('owner', $control['url'], ['sort' => 'opened']);
+    [, $otherComponent] = $page('owner', ['HTTP_X_INERTIA_PARTIAL_COMPONENT' => 'Workspace/Settings/Page', 'HTTP_X_INERTIA_PARTIAL_DATA' => 'widgets']);
+    check(count($otherComponent['props']['widgets']) === count($widgets) + 2 && ! in_array('widgets', $otherComponent['mergeProps'] ?? [], true), 'a partial reload for another component (which Inertia answers in full) sends every widget');
+    $put('owner', $control['url'], ['sort' => 'opened']);
+    [, $reset] = $page('owner', [...$partialWidgets, 'HTTP_X_INERTIA_RESET' => 'widgets']);
+    check(count($reset['props']['widgets']) === count($widgets) + 2 && ! in_array('widgets', $reset['mergeProps'] ?? [], true), 'a partial reload that resets widgets sends every widget: one frame alone would replace the rest');
+    $put('owner', $control['url'], ['sort' => 'due']);
     [, $chosen] = $page('owner');
     check($sorted($chosen)['sortBy']['current'] === 'due' && $sorted($chosen)['rows'] === ['sorted by due'], 'the saved order is current next time, and the query is given it');
     $refusals = [$put('owner', $control['url'], ['sort' => 'Bad Key']), $put('owner', $control['url'], ['sort' => 'priority']), $put('owner', $control['url'], ['sort' => ['due']]), $put('owner', $control['url'], [])];
