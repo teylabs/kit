@@ -1,0 +1,15 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Tey\Kit\Features\Deliver\Concerns\IsDelivery;
+use Tey\Kit\Features\Deliver\Contracts\Delivery as DeliveryContract;
+
+/** One delivery: who sent what to whom, when, and what became of it. The kit's behaviour is IsDelivery; the table and the model are the app's (kit.models). */
+class Delivery extends Model implements DeliveryContract
+{
+    use IsDelivery;
+
+    protected $table = 'deliveries';
+}

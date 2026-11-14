@@ -10,6 +10,10 @@ use Tey\Kit\Features\Finalize\Models\Finalization;
  * cover, mark a related record, say). The gate calls these inside its transaction, after the subject's row lock and the kit's own writes, before the
  * commit: a write here commits or rolls back with the finalization, and an exception rolls the whole operation back, so `Finalized` and
  * `Unfinalized` never fire. A subject that does not implement it finalizes exactly as before.
+ *
+ * The gate passes the model `kit.models.finalization` names. These signatures keep the kit's Models\Finalization until a major release, so an
+ * implementation written for it keeps loading; an app that adopted finalize types the parameter as Contracts\Finalization in its implementation,
+ * a wider type, which PHP allows.
  */
 interface FinalizesWithinTransaction
 {

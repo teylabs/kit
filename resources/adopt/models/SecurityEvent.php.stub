@@ -1,0 +1,15 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Tey\Kit\Features\SessionUi\Concerns\IsSecurityEvent;
+use Tey\Kit\Features\SessionUi\Contracts\SecurityEvent as SecurityEventContract;
+
+/** One entry of a user's own security history. The kit's behaviour is IsSecurityEvent; the table and the model are the app's (kit.models). */
+class SecurityEvent extends Model implements SecurityEventContract
+{
+    use IsSecurityEvent;
+
+    protected $table = 'security_events';
+}

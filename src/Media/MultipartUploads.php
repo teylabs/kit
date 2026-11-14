@@ -5,7 +5,6 @@ namespace Tey\Kit\Media;
 use Illuminate\Filesystem\AwsS3V3Adapter;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
-use Tey\Kit\Media\Models\MediaUpload;
 
 /**
  * Opt-in S3 multipart for large direct uploads (`kit.media.multipart`, docs/media.md › Large files). Multipart is used only when the flag is on, the
@@ -87,7 +86,7 @@ final class MultipartUploads
     public static function hasColumn(): bool
     {
         // Remembered per connection, database and table, so a process that switches tenant databases checks each one.
-        $connection = (new MediaUpload)->getConnection();
+        $connection = (new (MediaUploads::model()))->getConnection();
         $table = MediaUploads::table();
         $name = $connection->getName().'|'.$connection->getDatabaseName().'|'.$table;
 

@@ -4,7 +4,7 @@
 
 ## What a note is
 
-A row in `kit_notes`:
+A row in the note table (`kit_notes`, or `notes` once the app adopted notes: docs/domain-tables.md):
 
 - the workspace;
 - the author;
@@ -49,7 +49,7 @@ An app makes its records notable without the kit knowing them:
 
 ```php
 app(Registry::class)->noteSubject(
-    'project',                                                   // stored in kit_notes.subject_type; never a class name
+    'project',                                                   // stored in the note's subject_type; never a class name
     Project::class,
     view: fn (Principal $principal, Project $project): bool => Gate::forUser(Users::find($principal->actorId))->allows('view', $project),
     label: fn (Project $project): string => $project->name,

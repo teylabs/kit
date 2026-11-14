@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Validator;
 use RuntimeException;
 use Tey\Kit\Features\Access\Access;
 use Tey\Kit\Features\Core\Data\Action;
+use Tey\Kit\Features\Core\Kit;
 use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\Finalize\Data\FinalizationRecord;
@@ -21,8 +22,6 @@ use Tey\Kit\Features\Finalize\Events\Unfinalized;
 use Tey\Kit\Features\Finalize\FinalizesWithinTransaction;
 use Tey\Kit\Features\Finalize\Flow;
 use Tey\Kit\Features\Finalize\Flows;
-use Tey\Kit\Features\Finalize\Models\Confirmation;
-use Tey\Kit\Features\Finalize\Models\Finalization;
 use Tey\Kit\Features\Finalize\Step;
 use Tey\Kit\Features\Finalize\StepOutcome;
 use Tey\Kit\Features\Workspaces\Workspaces;
@@ -123,7 +122,7 @@ final class FinalizeGate
             if ($row['outcome']->state !== 'done') {
                 throw new RuntimeException('finalize_step_not_ready');
             }
-            Confirmation::query()->create([
+            Kit::model('finalization_confirmation')::query()->create([
                 'flow' => $definition->name, 'subject_key' => $definition->keyOf($subject), 'step' => $step, 'fingerprint' => (string) $row['fingerprint'],
                 'confirmed_by' => $principal->actorId, 'channel' => $channel, 'confirmed_at' => now(),
             ]);
@@ -158,7 +157,7 @@ final class FinalizeGate
             $statement = $definition->statementFor($subject);
             // The declared printed fields of related records, read under the same lock: kept as values (the one exception to hashes only) and per-key hashes.
             $printed = $definition->snapshotFor($subject);
-            $finalization = Finalization::query()->create([
+            $finalization = Kit::model('finalization')::query()->create([
                 'snapshot' => $printed, 'snapshot_hashes' => $printed === null ? null : self::hashes($printed),
                 'flow' => $definition->name, 'subject_key' => $definition->keyOf($subject), 'finalized_by' => $principal->actorId, 'finalized_at' => now(),
                 'channel' => $channel, 'statement_version' => $statement['version'], 'statement_hash' => hash('sha256', $statement['text']),
@@ -214,12 +213,12 @@ final class FinalizeGate
     /**
      * Every step's outcome from real state, and what follows: the revision, the snapshot hash and whether the gate is complete.
      *
-     * @return array{rows: array<string, array{step: Step, outcome: StepOutcome, fingerprint: ?string, latest: ?Confirmation, state: string}>, complete: bool, revision: string, snapshot: string, finalization: ?Finalization}
+     * @return array{rows: array<string, array{step: Step, outcome: StepOutcome, fingerprint: ?string, latest: ?Model, state: string}>, complete: bool, revision: string, snapshot: string, finalization: ?Model}
      */
     private function compute(Flow $definition, Model $subject): array
     {
         $key = $definition->keyOf($subject);
-        $latest = Confirmation::query()->where('flow', $definition->name)->where('subject_key', $key)->orderByDesc('id')->get()->unique('step')->keyBy('step');
+        $latest = Kit::model('finalization_confirmation')::query()->where('flow', $definition->name)->where('subject_key', $key)->orderByDesc('id')->get()->unique('step')->keyBy('step');
         $rows = [];
         foreach ($definition->stepList() as $step) {
             $outcome = $step->evaluate($subject);
@@ -346,9 +345,9 @@ final class FinalizeGate
         }
     }
 
-    private function current(Flow $definition, string $key): ?Finalization
+    private function current(Flow $definition, string $key): ?Model
     {
-        return Finalization::query()->where('flow', $definition->name)->where('subject_key', $key)->whereNull('unfinalized_at')->orderByDesc('id')->first();
+        return Kit::model('finalization')::query()->where('flow', $definition->name)->where('subject_key', $key)->whereNull('unfinalized_at')->orderByDesc('id')->first();
     }
 
     private function notFinalized(Flow $definition, Model $subject): void

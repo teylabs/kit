@@ -4,11 +4,14 @@ namespace Tey\Kit\Features\Finalize;
 
 use Illuminate\Support\ServiceProvider;
 use Tey\Kit\Features\Core\Contributes;
+use Tey\Kit\Features\Core\Kit;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Finalize\Integrations\Mcp\ConfirmFinalizeStep;
 use Tey\Kit\Features\Finalize\Integrations\Mcp\FinalizeSubject;
 use Tey\Kit\Features\Finalize\Integrations\Mcp\ReadFinalizeGate;
 use Tey\Kit\Features\Finalize\Integrations\Mcp\UnfinalizeSubject;
+use Tey\Kit\Features\Finalize\Models\Confirmation;
+use Tey\Kit\Features\Finalize\Models\Finalization;
 
 /**
  * Finalize gates: a checklist that ends in a certified, recorded commit, and an un-finalize that is recorded too. The app registers its flows with
@@ -44,6 +47,14 @@ final class FinalizeProvider extends ServiceProvider implements Contributes
 
     public function register(): void
     {
+        // The kit's own domain models and tables, until the app names its own in kit.models and kit.tables (Kit::model(), Kit::table()).
+        Kit::defaults(['finalization' => Finalization::class, 'finalization_confirmation' => Confirmation::class], []);
         $this->app->singleton(Flows::class);
+    }
+
+    public function boot(): void
+    {
+        // Stored rows name these models by alias, never by class, whichever class config names (kit.models).
+        Kit::aliases('finalization', 'finalization_confirmation');
     }
 }

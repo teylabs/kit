@@ -2,13 +2,15 @@
 
 namespace Tey\Kit\Media\Operations;
 
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Lorisleiva\Actions\Concerns\AsAction;
 use RuntimeException;
 use Tey\Kit\Features\Core\UploadLimit;
+use Tey\Kit\Media\Contracts\MediaUpload;
 use Tey\Kit\Media\MediaRules;
-use Tey\Kit\Media\Models\MediaUpload;
+use Tey\Kit\Media\MediaUploads;
 use Tey\Kit\Media\UploadSigning;
 use Tey\Kit\Media\UploadTicket;
 
@@ -43,7 +45,7 @@ class RequestUpload
             throw ValidationException::withMessages($errors);
         }
         $declared = ['disk' => $rules->disk, 'mime' => $mime, 'bytes' => $bytes, 'sha256' => $sha256];
-        if ($mutationId !== null && ($replay = MediaUpload::query()->where('scope', $scope)->where('mutation_id', $mutationId)->first()) !== null) {
+        if ($mutationId !== null && ($replay = MediaUploads::model()::query()->where('scope', $scope)->where('mutation_id', $mutationId)->first()) !== null) {
             if (array_diff_assoc($declared, $replay->only(array_keys($declared))) !== []) {
                 throw new RuntimeException('media.upload.mutation_conflict');
             }
@@ -51,8 +53,8 @@ class RequestUpload
             return $this->ticket($replay, $rules);
         }
         // `content_type` signing: the SHA-256 is only the client's word, so it is never an identity: no reuse by it and a random key.
-        $existing = $full ? MediaUpload::query()->where('scope', $scope)->where('sha256', $sha256)->where('disk', $rules->disk)->where('status', 'ready')->first() : null;
-        $upload = MediaUpload::query()->create([
+        $existing = $full ? MediaUploads::model()::query()->where('scope', $scope)->where('sha256', $sha256)->where('disk', $rules->disk)->where('status', 'ready')->first() : null;
+        $upload = MediaUploads::model()::query()->create([
             'scope' => $scope, 'mutation_id' => $mutationId, 'key' => $full ? $rules->key($sha256, $mime) : $rules->randomKey($mime), ...$declared,
             'status' => $existing !== null ? 'ready' : 'pending', 'width' => $existing?->width, 'height' => $existing?->height,
         ]);
@@ -60,7 +62,7 @@ class RequestUpload
         return $this->ticket($upload, $rules);
     }
 
-    private function ticket(MediaUpload $upload, MediaRules $rules): UploadTicket
+    private function ticket(Model&MediaUpload $upload, MediaRules $rules): UploadTicket
     {
         if ($upload->ready()) {
             return new UploadTicket($upload, null);

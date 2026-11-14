@@ -69,10 +69,14 @@ Each kit table with a `workspace_id` key chooses what happens to its rows when t
 | `plan_entitlements` | access | cascade | The workspace's derived capabilities. |
 | `audit_events` | workspaces | set null | History outlives the workspace; `workspace_name` still says which one it was. |
 | `connections` | mcp | restrict | |
-| `kit_notes`, `kit_note_intents` | notes | restrict | |
+| `kit_notes`, `kit_note_intents` (`notes`, `note_intents` once adopted) | notes | restrict | |
 | `settings_intents` | settings | restrict | |
 
 A restrict key makes the database refuse the delete while rows remain, so code that deletes a workspace removes or archives them first, in order, inside the same transaction.
+
+## The kit's own domain models
+
+The kit's domain models (deliveries, finalizations, notes, the security log) are the app's to own since 0.19: see [domain-tables.md](domain-tables.md) for the ownership tiers, `kit.models` and `kit:scaffold <feature> --adopt`.
 
 ## Coverage
 

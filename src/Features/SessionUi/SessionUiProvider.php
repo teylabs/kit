@@ -26,6 +26,7 @@ use Tey\Concierge\Registration\Registration;
 use Tey\Kit\Features\Core\Contributes;
 use Tey\Kit\Features\Core\Defaults;
 use Tey\Kit\Features\Core\EnvironmentIndicator;
+use Tey\Kit\Features\Core\Kit;
 use Tey\Kit\Features\Core\KitShares;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Core\RequestMemo;
@@ -42,6 +43,7 @@ use Tey\Kit\Features\SessionUi\Fortify\UpdateProfile;
 use Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests;
 use Tey\Kit\Features\SessionUi\Http\Middleware\PrepareKitRequest;
 use Tey\Kit\Features\SessionUi\Http\Middleware\RefreshTimezone;
+use Tey\Kit\Features\SessionUi\Models\SecurityEvent;
 use Tey\Kit\Features\SessionUi\Models\UserAvatar;
 use Tey\Kit\Features\SessionUi\Notifications\AccountMail;
 use Tey\Kit\Features\SessionUi\Policies\UserAvatarPolicy;
@@ -69,6 +71,8 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
 
     public function register(): void
     {
+        // The kit's own domain models and tables, until the app names its own in kit.models and kit.tables (Kit::model(), Kit::table()).
+        Kit::defaults(['security_event' => SecurityEvent::class], []);
         Defaults::apply($this->app, 'fortify', 'laravel/fortify');
         Defaults::apply($this->app, 'inertia', 'inertiajs/inertia-laravel');
         // The shared `shell` prop (the shell feature's share) is built by the PageShell: the focus shell, avatars and, with workspaces, the switcher and navigation.
@@ -102,6 +106,8 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
 
     public function boot(): void
     {
+        // Stored rows name these models by alias, never by class, whichever class config names (kit.models).
+        Kit::aliases('security_event');
         // The kit's password policy (PasswordPolicy): 8 characters, not breached, no composition rules. A host's own Password::defaults() boots later and wins.
         Password::defaults(fn () => PasswordPolicy::default());
         // A host that turns on the tenant invitation link gets its emails pointing at it: Concierge delivers a tenant invitation only once it has a URL.

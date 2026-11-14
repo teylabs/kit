@@ -7,7 +7,7 @@ use Illuminate\Support\Str;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 use Symfony\Component\HttpFoundation\HeaderUtils;
-use Tey\Kit\Media\Models\MediaUpload;
+use Tey\Kit\Media\Contracts\MediaUpload;
 use Tey\Kit\Media\Operations\AttachUpload;
 
 /**
@@ -33,7 +33,7 @@ final class ClientFileName
     private static array $scoped = [];
 
     /** AttachUpload with the client's file name as the item's `file_name` (null or invalid: the generated name). */
-    public static function attach(MediaUpload $upload, HasMedia&Model $owner, string $collection, ?string $clientName, ?string $name = null): Media
+    public static function attach(Model&MediaUpload $upload, HasMedia&Model $owner, string $collection, ?string $clientName, ?string $name = null): Media
     {
         $previous = self::$scoped;
         $fileName = self::sanitise($clientName, $upload->key);
@@ -48,7 +48,7 @@ final class ClientFileName
     }
 
     /** The name set for this upload by the attach() in progress; null outside one. */
-    public static function current(MediaUpload $upload): ?string
+    public static function current(Model&MediaUpload $upload): ?string
     {
         return self::$scoped[$upload->id] ?? null;
     }

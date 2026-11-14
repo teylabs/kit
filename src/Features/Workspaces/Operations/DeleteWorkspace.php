@@ -17,6 +17,7 @@ use Tey\Concierge\Enums\MembershipStatus;
 use Tey\Concierge\Support\ConciergeModels;
 use Tey\Concierge\Support\Locks;
 use Tey\Kit\Features\Core\Audit;
+use Tey\Kit\Features\Core\Kit;
 use Tey\Kit\Features\Workspaces\Contracts\DefersWorkspacePurge;
 use Tey\Kit\Features\Workspaces\Contracts\PurgesWorkspaceData;
 use Tey\Kit\Features\Workspaces\Events\WorkspaceDeleted;
@@ -133,32 +134,69 @@ class DeleteWorkspace
         }
     }
 
-    /** @return list<string> the features' tables keyed by `workspace_id`, children first */
+    /** @return list<string> the tables keyed by `workspace_id` of the features that are on, children first (the notes tables are the app's once it adopted notes) */
     protected function featureTables(): array
     {
-        return ['kit_note_intents', 'kit_notes', 'connections', 'settings_intents', 'complimentary_grants', 'entitlements', 'plan_entitlements', 'capability_overrides', 'user_state'];
+        return array_keys(self::owners());
     }
 
-    /** @internal The kit's and Concierge's rows for the workspace, children first (FinishWorkspaceDeletion's too). A table a host did not migrate is skipped. */
+    /**
+     * Each table keyed by `workspace_id` of a feature that is on, children first => the feature that owns it. A domain table (Kit::table()) is named
+     * only for a feature that is on: the feature registers it.
+     *
+     * @return array<string, string>
+     */
+    private static function owners(): array
+    {
+        $tables = [];
+        foreach ([['notes', 'note_intent', true], ['notes', 'note', true], ['mcp', 'connections', false], ['settings', 'settings_intents', false], ['access', 'complimentary_grant', true], ['access', 'entitlement', true], ['access', 'plan_entitlements', false], ['access', 'capability_overrides', false], ['session-ui', 'user_state', false]] as [$feature, $table, $domain]) {
+            if (Kit::enabled($feature)) {
+                $tables[$domain ? Kit::table($table) : $table] = $feature;
+            }
+        }
+
+        return $tables;
+    }
+
+    /**
+     * @internal The kit's and Concierge's rows for the workspace, children first (FinishWorkspaceDeletion's too). A table of a feature that is off is
+     * skipped; a missing table of a feature that is on throws, so the deletion rolls back rather than leave that feature's rows behind (#967).
+     */
     public function deleteRows(int $id): void
     {
-        $where = fn (string $table, string $column = 'workspace_id') => Schema::hasTable($table) && Schema::hasColumn($table, $column) ? DB::table($table)->where($column, $id)->delete() : 0;
-        if (Schema::hasTable('connections') && Schema::hasTable('mcp_intents')) {
+        $owners = self::owners();
+        // A feature's own table must have the column it is deleted by, or its rows would stay behind, and so must a table $required names (the
+        // permission tables' team column, with teams on). Only another table, such as the permission tables with teams off, may lack it.
+        $where = function (string $table, string $column = 'workspace_id', bool $required = false) use ($owners, $id): int {
+            if (! Kit::present($owners[$table] ?? 'workspaces', $table)) {
+                return 0;
+            }
+            if (! Schema::hasColumn($table, $column)) {
+                if (isset($owners[$table]) || $required) {
+                    throw new RuntimeException('The '.($owners[$table] ?? 'workspaces').' feature is on but its table '.$table.' has no '.$column.' column, so nothing was deleted. Restore the column, then delete the workspace again.');
+                }
+
+                return 0;
+            }
+
+            return DB::table($table)->where($column, $id)->delete();
+        };
+        if (Kit::present('mcp', 'connections') && Kit::present('mcp', 'mcp_intents')) {
             DB::table('mcp_intents')->whereIn('connection_id', DB::table('connections')->where('workspace_id', $id)->select('id'))->delete();
         }
         // Every installed feature's rows go here, explicitly, before the workspace row. On RESTRICT foreign keys: notes (`kit_note_intents`, `kit_notes`), mcp
         // (`connections`, whose `mcp_intents` cascade and were cleared above), settings (`settings_intents`) and access's commercial records
         // (`complimentary_grants`, `entitlements`). `plan_entitlements` and `capability_overrides` cascade, and are cleared too for a connection that does not
-        // enforce foreign keys. Each table is guarded, since features are optional.
+        // enforce foreign keys. Each table is guarded by its feature: a feature that is off is skipped, one that is on must have its table.
         foreach ($this->featureTables() as $table) {
             $where($table);
         }
         $team = (string) config('permission.column_names.team_foreign_key', 'workspace_id');
         foreach (['model_has_roles', 'model_has_permissions', 'roles'] as $key) {
-            $where((string) config('permission.table_names.'.$key, $key), $team);
+            $where((string) config('permission.table_names.'.$key, $key), $team, (bool) config('permission.teams'));
         }
         $settings = (string) (config('settings.repositories.database.table') ?? 'settings');
-        if (Schema::hasTable($settings)) {
+        if (Kit::present('settings', $settings)) {
             DB::table($settings)->where('group', 'workspace.'.$id)->delete();
         }
         foreach ([ConciergeModels::invitation(), ConciergeModels::tenantInvitation(), ConciergeModels::ownership(), ConciergeModels::membership()] as $model) {

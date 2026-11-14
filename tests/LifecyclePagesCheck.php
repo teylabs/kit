@@ -603,6 +603,64 @@ try {
         check($status === 200 && Workspace::query()->whereKey($each->id)->doesntExist() && array_sum($rows()) === 0, 'deleting a workspace with '.$feature.' rows succeeds and leaves none behind');
     }
 
+    // Fail closed (#967): a feature that is on must have its table. With notes on and its table gone (a migration that never ran, a table renamed away), the
+    // deletion refuses and rolls back rather than report success with the workspace's notes left behind; with notes off, the same missing table is skipped.
+    $app['cache']->store()->clear();
+    [$missing] = $workspace('Missing Notes', 'missing-notes', ['owner' => 'owner']);
+    DB::table('kit_note_intents')->insert(['workspace_id' => $missing->id, 'actor_id' => $people['owner']->id, 'intent_key' => 'note-missing', 'fingerprint' => 'synthetic', 'result' => '{}', 'created_at' => now()]);
+    $remaining = fn (): array => [Workspace::query()->whereKey($missing->id)->count(), ConciergeModels::membership()::query()->where('workspace_id', $missing->id)->count(), DB::table('kit_note_intents')->where('workspace_id', $missing->id)->count()];
+    $registry = app(Registry::class);
+    $adopted = array_values(array_filter(['core', 'workspaces', 'access', 'settings', 'session-ui', 'workspace-ui', 'mcp', 'notes'], fn (string $id): bool => $registry->adopts($id)));
+    Schema::rename('kit_notes', 'kit_notes_away');
+    try {
+        [$status] = $http('owner', 'DELETE', '/@missing-notes/settings/delete', ['confirmation' => 'Missing Notes', 'password' => 'secret-owner']);
+        check($status === 500 && $remaining() === [1, 1, 1], 'with the notes feature on and its table missing, the workspace deletion fails closed: it rolls back, its note intents and memberships kept (#967)');
+        $registry->adopting(array_values(array_diff($adopted, ['notes'])));
+        DB::table('kit_note_intents')->where('workspace_id', $missing->id)->delete();
+        $app['cache']->store()->clear();
+        [$status] = $http('owner', 'DELETE', '/@missing-notes/settings/delete', ['confirmation' => 'Missing Notes', 'password' => 'secret-owner']);
+        check($status === 200 && $remaining() === [0, 0, 0], 'with the notes feature off, its missing table is skipped and the workspace is deleted');
+    } finally {
+        $registry->adopting($adopted);
+        Schema::rename('kit_notes_away', 'kit_notes');
+    }
+    // The same for a notes table that is there but has lost its workspace_id: deleting by a column it lacks would leave the notes behind.
+    $app['cache']->store()->clear();
+    [$columnless] = $workspace('Columnless Notes', 'columnless-notes', ['owner' => 'owner']);
+    $left = fn (): array => [Workspace::query()->whereKey($columnless->id)->count(), ConciergeModels::membership()::query()->where('workspace_id', $columnless->id)->count(), DB::table('kit_note_intents')->where('workspace_id', $columnless->id)->count()];
+    DB::table('kit_note_intents')->insert(['workspace_id' => $columnless->id, 'actor_id' => $people['owner']->id, 'intent_key' => 'note-columnless', 'fingerprint' => 'synthetic', 'result' => '{}', 'created_at' => now()]);
+    Schema::rename('kit_notes', 'kit_notes_away');
+    Schema::create('kit_notes', fn ($t) => $t->id());
+    try {
+        [$status] = $http('owner', 'DELETE', '/@columnless-notes/settings/delete', ['confirmation' => 'Columnless Notes', 'password' => 'secret-owner']);
+        check($status === 500 && $left() === [1, 1, 1], 'with the notes feature on and its table missing workspace_id, the workspace deletion fails closed: it rolls back, its note intents and memberships kept');
+    } finally {
+        Schema::drop('kit_notes');
+        Schema::rename('kit_notes_away', 'kit_notes');
+    }
+    $app['cache']->store()->clear();
+    [$status] = $http('owner', 'DELETE', '/@columnless-notes/settings/delete', ['confirmation' => 'Columnless Notes', 'password' => 'secret-owner']);
+    check($status === 200 && $left() === [0, 0, 0], 'with the notes table whole again, the same deletion succeeds and leaves nothing behind');
+    // With teams on, the permission tables are deleted by their team column: one that has lost it refuses rather than leave the workspace's role rows behind.
+    [$teamless] = $workspace('Teamless Roles', 'teamless-roles', ['owner' => 'owner']);
+    $roleRows = fn (string $table): int => DB::table($table)->where((string) config('permission.column_names.team_foreign_key'), $teamless->id)->count();
+    $held = $roleRows('model_has_roles');
+    Schema::rename('model_has_roles', 'model_has_roles_away');
+    Schema::create('model_has_roles', fn ($t) => $t->unsignedBigInteger('role_id')->index('teamless_role_id_index'));
+    $error = null;
+    try {
+        DB::transaction(fn () => app(DeleteWorkspace::class)->deleteRows((int) $teamless->id));
+    } catch (Throwable $thrown) {
+        $error = $thrown->getMessage();
+    } finally {
+        Schema::drop('model_has_roles');
+        Schema::rename('model_has_roles_away', 'model_has_roles');
+    }
+    check((bool) config('permission.teams') && $held > 0 && $error !== null && str_contains($error, 'model_has_roles') && Workspace::query()->whereKey($teamless->id)->exists() && $roleRows('model_has_roles') === $held && ConciergeModels::membership()::query()->where('workspace_id', $teamless->id)->count() === 1, 'with teams on and model_has_roles missing its team column, the workspace deletion fails closed: its role rows, memberships and workspace are kept');
+    $app['cache']->store()->clear();
+    [$status] = $http('owner', 'DELETE', '/@teamless-roles/settings/delete', ['confirmation' => 'Teamless Roles', 'password' => 'secret-owner']);
+    check($status === 200 && Workspace::query()->whereKey($teamless->id)->doesntExist() && $roleRows('model_has_roles') === 0, 'with the team column back, the same deletion succeeds and its role rows go');
+
     // Deferred workspace deletion: the handler implements DefersWorkspacePurge. The workspace closes at once and nothing is deleted until the finish hook.
     $app['cache']->store()->clear();
     [$closing, $cm] = $workspace('Closing Co', 'closing', ['owner' => 'owner', 'admin' => 'admin', 'member' => 'member']);
@@ -686,6 +744,20 @@ try {
     DB::table('oauth_access_tokens')->insert(['id' => str_repeat('b', 80), 'user_id' => $leaverId, 'client_id' => '00000000-0000-0000-0000-000000000000', 'name' => 'synthetic', 'scopes' => '[]', 'revoked' => false, 'created_at' => now(), 'updated_at' => now(), 'expires_at' => now()->addDay()]);
     DB::table('oauth_auth_codes')->insert(['id' => str_repeat('e', 80), 'user_id' => $leaverId, 'client_id' => '00000000-0000-0000-0000-000000000000', 'scopes' => '[]', 'revoked' => false, 'expires_at' => now()->addMinutes(10)]);
     DB::table('oauth_device_codes')->insert(['id' => str_repeat('e', 80), 'user_id' => $leaverId, 'client_id' => '00000000-0000-0000-0000-000000000000', 'user_code' => strtoupper(str_repeat('e', 8)), 'scopes' => '[]', 'revoked' => false, 'user_approved_at' => now(), 'expires_at' => now()->addMinutes(10)]);
+    // Fail closed (#967): session-ui is on, so its security log must be there. Without its table the account deletion refuses and rolls back rather than
+    // report success with the person's security history left behind.
+    $held = ConciergeModels::membership()::query()->where('user_id', $leaverId)->count();
+    Schema::rename('kit_security_events', 'kit_security_events_away');
+    try {
+        [$status] = $http('leaver', 'DELETE', '/me/delete', ['password' => 'secret-leaver']);
+        check($status === 500 && $held > 0 && HttpUser::query()->whereKey($leaverId)->exists() && ConciergeModels::membership()::query()->where('user_id', $leaverId)->count() === $held, 'with session-ui on and its security log table missing, the account deletion fails closed: the user and memberships are kept (#967)');
+    } finally {
+        Schema::rename('kit_security_events_away', 'kit_security_events');
+    }
+    RecordingAccountPurge::$seen = [];
+    $seen = [];
+    $session->put('marker', 'before');
+    $before = $session->getId();
     [$status] = $http('leaver', 'DELETE', '/me/delete', ['password' => 'secret-leaver']);
     check($status === 200 && ! HttpUser::query()->whereKey($leaverId)->exists() && ConciergeModels::membership()::query()->where('user_id', $leaverId)->count() === 0 && DB::table('model_has_roles')->where('model_id', $leaverId)->count() === 0, 'a member who owns nothing deletes their account: the user, memberships and role rows go');
     check(RecordingAccountPurge::$seen === [[$leaverId, RecordingAccountPurge::$seen[0][1] ?? 0, true]] && RecordingAccountPurge::$seen[0][1] >= 1, 'the account purge handler ran once, inside the transaction, before the user row went');

@@ -9,11 +9,11 @@ use Throwable;
 /**
  * Writes a feature's pages, page partials, types and CSS into the app once; from then on the app owns them. Plain filesystem writes, no
  * records: an existing file is never overwritten unless --force names it, and --diff only reads. Migrations and the shared components
- * (resources/js/components/Kit) load from the package and are never written.
+ * (resources/js/components/Kit) load from the package and are never written. --adopt and --check are the domain tables' (Adoption, since 0.19).
  */
 final class ScaffoldCommand extends Command
 {
-    protected $signature = 'kit:scaffold {feature : The feature whose files to write} {--only=* : Write only these paths (a file, or a folder of them); repeat it or separate with commas} {--force=* : Overwrite these existing paths; repeat it or separate with commas} {--diff : Print a unified diff from each app file to the kit\'s current version; writes nothing}';
+    protected $signature = 'kit:scaffold {feature : The feature whose files to write} {--only=* : Write only these paths (a file, or a folder of them); repeat it or separate with commas} {--force=* : Overwrite these existing paths; repeat it or separate with commas} {--diff : Print a unified diff from each app file to the kit\'s current version; writes nothing} {--adopt : Make the feature\'s domain tables the app\'s: its models, one migration that renames or creates them, and the kit.models entries} {--check : Compare the feature\'s tables with the columns the kit relies on; writes nothing}';
 
     protected $description = 'Write a feature\'s pages and partials into the app once (never overwrites without --force; --diff is read-only)';
 
@@ -25,6 +25,14 @@ final class ScaffoldCommand extends Command
             $feature = $this->argument('feature');
             if (! is_string($feature)) {
                 throw new RuntimeException('Name one feature.');
+            }
+            if ($this->option('adopt') || $this->option('check')) {
+                if (($this->option('adopt') && $this->option('check')) || $this->option('diff') || $this->paths('only') !== [] || ($this->option('check') && $this->paths('force') !== [])) {
+                    throw new RuntimeException('--adopt takes only --force, and --check nothing else.');
+                }
+                $adoption = new Adoption($this, $this->laravel);
+
+                return $this->option('check') ? $adoption->check($feature) : $adoption->adopt($feature, $this->paths('force'));
             }
             $files = $this->select(self::files($feature), $this->paths('only'));
             $force = $this->paths('force');
