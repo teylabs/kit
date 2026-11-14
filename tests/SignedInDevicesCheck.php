@@ -149,62 +149,71 @@ final class RecordingHandler extends Handler
     }
 }
 
-/** A cache store that is down: every read and write throws. */
+/** A cache store that is down: every read and write throws, and is counted, so a check can tell this store was reached (not an error before it). */
 final class DownStore implements Store
 {
+    public int $calls = 0;
+
     public function get($key): mixed
     {
-        throw new RuntimeException('connection refused');
+        $this->refuse();
     }
 
     public function many(array $keys): array
     {
-        throw new RuntimeException('connection refused');
+        $this->refuse();
     }
 
     public function put($key, $value, $seconds): bool
     {
-        throw new RuntimeException('connection refused');
+        $this->refuse();
     }
 
     public function putMany(array $values, $seconds): bool
     {
-        throw new RuntimeException('connection refused');
+        $this->refuse();
     }
 
     public function increment($key, $value = 1): int|bool
     {
-        throw new RuntimeException('connection refused');
+        $this->refuse();
     }
 
     public function decrement($key, $value = 1): int|bool
     {
-        throw new RuntimeException('connection refused');
+        $this->refuse();
     }
 
     public function forever($key, $value): bool
     {
-        throw new RuntimeException('connection refused');
+        $this->refuse();
     }
 
     public function touch($key, $seconds): bool
     {
-        throw new RuntimeException('connection refused');
+        $this->refuse();
     }
 
     public function forget($key): bool
     {
-        throw new RuntimeException('connection refused');
+        $this->refuse();
     }
 
     public function flush(): bool
     {
-        throw new RuntimeException('connection refused');
+        $this->refuse();
     }
 
     public function getPrefix(): string
     {
         return '';
+    }
+
+    private function refuse(): never
+    {
+        $this->calls++;
+
+        throw new RuntimeException('connection refused');
     }
 }
 
@@ -271,7 +280,9 @@ try {
     ] as $provider) {
         $app->register($provider);
     }
-    $app['cache']->extend('down', fn () => $this->repository(new DownStore));
+    // Static, so it has no $this: the manager passes the app to a custom driver's factory.
+    $downStore = new DownStore;
+    $app['cache']->extend('down', static fn (Application $app) => $app['cache']->repository($downStore));
     // The password policy asks a breach service; here every password is unbreached, with no network.
     $app->instance(UncompromisedVerifier::class, new class implements UncompromisedVerifier
     {
@@ -468,6 +479,15 @@ try {
         }
         check($refused, 'kit.devices '.json_encode($bad).' stops the boot');
     }
+    // The store-down factory, from the CLI: `down` resolves through the cache manager to DownStore, and a revocation read reaches it, is reported with
+    // DownStore's own refusal (an error in the factory would be reported and caught the same way, so the class is checked) and is left to the row (null).
+    $config->set('kit.devices.store', 'down');
+    $calls = $downStore->calls;
+    $resolved = $app['cache']->store('down')->getStore();
+    $answer = SignedInDevices::revoked(bin2hex(random_bytes(20)));
+    $cliDown = $reported();
+    $config->set('kit.devices.store', null);
+    check($resolved === $downStore && $answer === null && $downStore->calls === $calls + 1 && count($cliDown) === 1 && str_contains($cliDown[0], 'could not read the cache store (RuntimeException)'), 'from the CLI, the down store resolves through its factory to DownStore, and a revocation read reaches it, is reported and is left to the row'.json_encode($cliDown));
     // An empty or unknown store: the boot stops in local and testing. Anywhere else it is reported, and the default store holds the marks (never no check).
     foreach (['local', 'testing', 'production'] as $env) {
         $app->instance('env', $env);
@@ -485,6 +505,11 @@ try {
                 : $refused && $config->get('kit.devices.store') === $store, $env.': kit.devices.store '.json_encode($store).($env === 'production' ? ' is reported and falls back to the default store: '.json_encode($fellBack) : ' stops the boot'));
         }
     }
+    // From the CLI after that fallback: the revocation read goes to the default store, so a mark there is found and none is not.
+    $marked = bin2hex(random_bytes(20));
+    $app['cache']->store('array')->put('kit.devices.revoked.'.SignedInDevices::hash($marked), true, 60);
+    $calls = $downStore->calls;
+    check($config->get('kit.devices.store') === null && SignedInDevices::revoked($marked) === true && SignedInDevices::revoked(bin2hex(random_bytes(20))) === false && $downStore->calls === $calls && $reported() === [], 'from the CLI, after the fallback, a revocation read finds a mark in the default store and none where there is none, with nothing reported');
     $app->instance('env', 'testing');
     // What production booted with: a sign-out marks the session revoked in the default store, read on the device's next request.
     $fallback = $person('fallback');
@@ -561,10 +586,12 @@ try {
     $stale->cookies = ['s' => $new];
     $send($laptop, 'POST', '/kit-probe/regenerate');
     $config->set('kit.devices.store', 'down');
+    $calls = $downStore->calls;
     check(! $signedIn($stale) && $signedIn($laptop), 'with the cache store down, a request on a retired id is still signed out (the row decides), and the current one is not');
     $down = $reported();
     $config->set('kit.devices.store', null);
     check($down !== [] && ! str_contains(implode(' ', $down), $new) && str_contains(implode(' ', $down), 'could not read the cache store'), 'the store\'s failure is reported scrubbed, without the session id');
+    check($downStore->calls === $calls + 2 && count($down) === 2 && array_filter($down, fn (string $line): bool => ! str_contains($line, 'could not read the cache store (RuntimeException)')) === [], 'each of the two requests reached DownStore through its factory, and its refusal is what was reported'.json_encode($down));
 
     // ── 4. Remote sign-out per driver, and 6. ownership ──────────────────────────────────────────────────────────────────────────────────────────────
     foreach (['database', 'file', 'memcached'] as $name) {
@@ -602,10 +629,12 @@ try {
     $cId = $signIn($c, $cookieOwner);
     $cAt = Carbon::now();
     $config->set('kit.devices.store', 'down');
+    $calls = $downStore->calls;
     [$status, , $body] = $signOut($a, (int) $rowOf($cId)->id);
     $config->set('kit.devices.store', null);
     $downAtSignOut = $reported();
     check($status === 200 && $body['at_once'] === false && $downAtSignOut !== [], 'cookie with the store down at the sign-out: the row is deleted, the person told it ends within N minutes, the failure reported');
+    check($downStore->calls > $calls && str_contains(implode(' ', $downAtSignOut), 'could not be marked revoked in the cache store (RuntimeException)'), 'and the sign-out request reached DownStore through its factory: its refusal of the mark is what was reported'.json_encode($downAtSignOut));
     $page = $send($a, 'GET', '/me/security')[2]['props'] ?? [];
     check(str_contains((string) ($page['notice'] ?? ''), 'will be signed out within 5 minutes'), 'and the page says "That device will be signed out within 5 minutes."');
     Carbon::setTestNow($cAt->copy()->addSeconds(5 * 60 - 1));
@@ -808,9 +837,11 @@ try {
     [$tabletId, $kioskId] = [$legacySessions['tablet']['id'], $legacySessions['kiosk']['id']];
     $kioskRow = (int) $rowOf($kioskId)->id;
     $config->set('kit.devices.store', 'down');
+    $calls = $downStore->calls;
     [$status] = $signOut($a, (int) $rowOf($tabletId)->id);
     $config->set('kit.devices.store', null);
-    $reported();
+    $legacyDown = $reported();
+    check($downStore->calls > $calls && str_contains(implode(' ', $legacyDown), 'could not be marked revoked in the cache store (RuntimeException)'), 'database: the sign-out with the store down reached DownStore through its factory, and its refusal of the mark is what was reported'.json_encode($legacyDown));
     DB::table('sessions')->updateOrInsert(['id' => $tabletId], $legacySessions['tablet']);
     $tablet = new Browser(WINDOWS, '192.0.2.90');
     $tablet->cookies = ['s' => $tabletId];
