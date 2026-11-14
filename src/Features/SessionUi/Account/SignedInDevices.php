@@ -29,8 +29,10 @@ use Throwable;
  * middleware compares (`kit.device`: the row's id, the user, the session id the row knows and when it was last touched), so a normal page runs no
  * query against the table; it reads one revocation marker from the cache store instead (TrackSignedInDevice).
  *
- * Signing a device out deletes its row first, which is the authority (that session fails its next touch), then marks its session revoked in the
- * cache store, so its next request is cut off, then destroys the session through the configured handler. The row holds the session id encrypted
+ * Signing a device out retires its row first, which is the authority (that session fails its next touch): the row keeps only its HMAC, with no
+ * person, device or address, until the session would have expired, so the unique HMAC refuses that session a new row even when it carries no
+ * `kit.device` (a session from before 0.23). Then it marks the session revoked in the cache store, so its next request is cut off, and destroys the
+ * session through the configured handler. The row holds the session id encrypted
  * (decrypted only to destroy it) and its HMAC with the app key (to find it); the IP only as its /24 or /48, the user agent only as its browser and
  * platform, and a country only from Cloudflare's CF-IPCountry when the host names it. Every write is conditioned on the row's id, its user and the
  * session's current HMAC, so a request carrying an old session id never moves a row back, and a session whose row is gone is never given a new one.
@@ -102,7 +104,7 @@ final class SignedInDevices
         if (($devices['country_header'] ?? null) !== null && $devices['country_header'] !== self::COUNTRY_HEADER) {
             throw new RuntimeException('kit.devices.country_header is null or '.self::COUNTRY_HEADER.' (Cloudflare\'s, which its proxy sets): the kit reads a country from no other header.');
         }
-        if (($devices['store'] ?? null) !== null && ! is_string($devices['store'])) {
+        if (($devices['store'] ?? null) !== null && (! is_string($devices['store']) || trim($devices['store']) === '')) {
             throw new RuntimeException('kit.devices.store names a cache store, or is null for the default one.');
         }
     }
@@ -282,7 +284,7 @@ final class SignedInDevices
             $confirm();
         }
         // The row first: it is the authority, so even with the store down that session fails its next touch. Gone meanwhile (another tab): already signed out.
-        if (DB::table(self::TABLE)->where('id', $row->id)->where('user_id', $user->getAuthIdentifier())->where('session_hash', $row->session_hash)->delete() === 0) {
+        if (self::retire($row) === 0) {
             return ['status' => 'missing'];
         }
         $atOnce = self::end($row);
@@ -302,7 +304,7 @@ final class SignedInDevices
     }
 
     /**
-     * Ends every session of the person but $except (none for an account deletion): each row deleted, its session marked revoked and destroyed through the
+     * Ends every session of the person but $except (none for an account deletion): each row retired, its session marked revoked and destroyed through the
      * handler. On the database driver the sessions table is swept too, for sessions from before tracking. A missing table while session-ui is on throws
      * (#967). Returns how many live sessions ended.
      */
@@ -313,7 +315,7 @@ final class SignedInDevices
             $keep = $except === null ? [] : self::hashes($except);
             $live = self::staleBefore();
             foreach (DB::table(self::TABLE)->where('user_id', $user->getAuthIdentifier())->orderBy('id')->get() as $row) {
-                if (in_array($row->session_hash, $keep, true) || DB::table(self::TABLE)->where('id', $row->id)->where('session_hash', $row->session_hash)->delete() === 0) {
+                if (in_array($row->session_hash, $keep, true) || self::retire($row) === 0) {
                     continue;
                 }
                 self::end($row);
@@ -336,6 +338,17 @@ final class SignedInDevices
     public static function live(int|string $userId): array
     {
         return DB::table(self::TABLE)->where('user_id', $userId)->where('last_seen_at', '>', self::staleBefore())->orderByDesc('last_seen_at')->orderByDesc('id')->limit(50)->get()->all();
+    }
+
+    /**
+     * A signed-out session's row, retired while it still holds that session: its person, session id, device and network cleared, only its HMAC kept,
+     * last seen now, so it is pruned once that session would have expired anyway. Every read is by person, so it is never listed, touched or moved, and
+     * the unique HMAC refuses that session a new row (track() then finds none of the person's: signed out). Zero when the row is gone or moved meanwhile.
+     */
+    private static function retire(object $row): int
+    {
+        return DB::table(self::TABLE)->where('id', $row->id)->where('user_id', $row->user_id)->where('session_hash', $row->session_hash)
+            ->update(['user_id' => null, 'session_id' => null, 'browser' => null, 'platform' => null, 'ip_prefix' => null, 'country' => null, 'remembered' => false, 'last_seen_at' => now()]);
     }
 
     /** @return array<string, mixed> a new row: the session id encrypted and its HMAC, the browser and platform alone, the IP's prefix alone */

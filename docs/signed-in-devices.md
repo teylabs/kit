@@ -8,9 +8,9 @@ Each signed-in session has one row in `signed_in_devices`, an infrastructure tab
 
 | Column | Holds |
 | --- | --- |
-| `user_id` | The person. The foreign key cascades, so the rows go with the account. |
+| `user_id` | The person. The foreign key cascades, so the rows go with the account. Null once the device is signed out (the row is retired). |
 | `session_hash` | The HMAC-SHA256 of the session id with the app key. Unique; never sent to the page. |
-| `session_id` | The session id, encrypted with the app key. It is decrypted only to destroy that session. |
+| `session_id` | The session id, encrypted with the app key. It is decrypted only to destroy that session. Null once retired. |
 | `browser`, `platform` | Parsed from the user agent ("Chrome", "macOS"). The user agent itself is not stored. |
 | `ip_prefix` | The IPv4 /24 or IPv6 /48. The full address is not stored. |
 | `country` | A two-letter code, only from Cloudflare's `CF-IPCountry` and only when `kit.devices.country_header` names it. |
@@ -30,7 +30,7 @@ A guest's request reads nothing.
 
 ## Signing a device out
 
-`DELETE /me/security/devices/{id}` asks for the password, like the page's other actions, and is throttled to 10 a minute. The row is deleted first, so even with the session store down, that device is signed out at its next touch. Then:
+`DELETE /me/security/devices/{id}` asks for the password, like the page's other actions, and is throttled to 10 a minute. The row is retired first, so even with the session store down, that device is signed out at its next touch. A retired row keeps only the session id's HMAC (no person, session id, device or network) until that session would have expired. Its unique HMAC refuses the session a new row, so even a session from before 0.23 can't come back if its revocation mark is lost. Then:
 
 - its session id is marked revoked in the cache store, so its next request is signed out;
 - its session is destroyed through the configured handler (a cookie session can't be reached, so it is skipped);
@@ -48,7 +48,7 @@ Another person's device id, a device already signed out and a non-numeric id are
 'devices' => ['touch_minutes' => 5, 'country_header' => null, 'store' => null],
 ```
 
-- `store` is the cache store that holds the revocation marks: `null` for the default store. Name one every server shares (Redis, say). Name one that isn't the `database` cache store, or each signed-in page runs one query on the `cache` table. With a per-server store such as `array` or `file`, a device signed out on one server is cut off at its next touch, within `touch_minutes`.
+- `store` is the cache store that holds the revocation marks: `null` for the default store (an empty name stops the boot). Name one every server shares (Redis, say). Name one that isn't the `database` cache store, or each signed-in page runs one query on the `cache` table. With a per-server store such as `array` or `file`, a device signed out on one server is cut off at its next touch, within `touch_minutes`.
 - `touch_minutes` is a whole number, at least 1.
 - `country_header` is `null` or `CF-IPCountry`. Turn it on only behind Cloudflare, whose proxy sets the header.
 

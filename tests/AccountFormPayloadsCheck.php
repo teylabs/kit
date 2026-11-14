@@ -395,7 +395,7 @@ try {
     httpCheck(($page['props']['sessions']['supported'] ?? null) === true && $item !== null && $item['agent'] === 'Safari on iOS' && $item['ip'] === '198.51.100.0/24' && is_string($item['last_active']) && $item['current'] === false && $item['url'] === 'https://kit.test/me/security/devices/'.$device, 'Signed-in devices: on the database driver the page lists the other device with the keys the old page reads (agent, ip, last_active, current) and its sign-out url'.json_encode($item));
     $result = $send('sam', 'DELETE', '/me/security/devices/'.$device, $fixture('device-sign-out'));
     httpCheck($redirected($result), 'Signed-in devices, one device: the recorded payload signs it out, redirecting back with no errors'.$describe($result));
-    httpCheck(DB::table('signed_in_devices')->where('id', $device)->doesntExist() && DB::table('kit_security_events')->where('user_id', $people['sam']->id)->where('type', 'device_signed_out')->exists(), 'Signed-in devices, one device: its row is gone and the security log records it');
+    httpCheck(DB::table('signed_in_devices')->where('id', $device)->whereNotNull('user_id')->doesntExist() && DB::table('kit_security_events')->where('user_id', $people['sam']->id)->where('type', 'device_signed_out')->exists(), 'Signed-in devices, one device: its row is retired (no longer the person\'s) and the security log records it');
 
     // The welcome flow: the timezone saved as it changes, then confirmed; then the photo step's upload.
     $result = $send('sam', 'PUT', '/welcome/timezone', $fixture('welcome-timezone-save'));
