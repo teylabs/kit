@@ -6331,6 +6331,36 @@ test('CollectionSection at 390px: a long item in the header\'s #actions slot shr
     }
 });
 
+test('CollectionCard: changing `size` after it mounts restyles its section, compact to section and back: the padding of the header, body and footer, and the title\'s and description\'s type', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?collection-section&resize`);
+        await tab.waitForSelector('[data-case="resize"] [data-collection-footer]');
+        const read = () => tab.evaluate(() => {
+            const card = document.querySelector('[data-case="resize"]');
+            const padding = (selector) => ['Top', 'Right', 'Bottom', 'Left'].map((side) => getComputedStyle(card.querySelector(selector))[`padding${side}`]);
+            const type = (selector) => ['fontSize', 'lineHeight'].map((key) => getComputedStyle(card.querySelector(selector))[key]);
+            return {
+                header: padding('[data-collection-header]'),
+                body: padding('[data-collection-body]'),
+                footer: padding('[data-collection-footer]'),
+                title: type('[data-collection-header] h2'),
+                description: type('[data-collection-description]'),
+            };
+        });
+        const compact = { header: ['8px', '16px', '8px', '16px'], body: ['16px', '16px', '16px', '16px'], footer: ['8px', '16px', '8px', '16px'], title: ['14px', '20px'], description: ['12px', '16px'] };
+        const section = { header: ['16px', '24px', '16px', '24px'], body: ['24px', '24px', '24px', '24px'], footer: ['12px', '24px', '12px', '24px'], title: ['16px', '24px'], description: ['14px', '20px'] };
+        assert.deepEqual(await read(), compact, 'mounted compact: 16px of padding, a small title and description');
+        await tab.locator('[data-resize]').click();
+        assert.deepEqual(await read(), section, 'switched to section: 24px of padding, a Section\'s title and description');
+        await tab.locator('[data-resize]').click();
+        assert.deepEqual(await read(), compact, 'and back to compact');
+    } finally {
+        await context.close();
+    }
+});
+
 test('SearchBox: the results end with "All results" and an arrow, kept in view while they scroll, and it visits the full results page', async () => {
     const context = await browser.newContext({ viewport: { width: 1280, height: 700 } });
     try {

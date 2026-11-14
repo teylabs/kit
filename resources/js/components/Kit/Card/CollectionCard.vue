@@ -59,7 +59,10 @@ const frames: Record<'compact' | 'section', CollectionFrame> = {
         footer: 'border-t px-6 py-3',
     },
 };
-provide(collectionFrameKey, frames[props.size]);
+provide(
+    collectionFrameKey,
+    computed(() => frames[props.size]),
+);
 </script>
 <template>
     <Card

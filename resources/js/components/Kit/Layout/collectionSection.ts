@@ -1,4 +1,4 @@
-import type { InjectionKey } from 'vue';
+import type { ComputedRef, InjectionKey } from 'vue';
 import type { ActionDescriptor } from '@/components/Kit/Action/actionPlacement';
 import type { SeeAll } from '@/components/Kit/Action/seeAll';
 
@@ -47,13 +47,12 @@ export type CollectionSectionData = {
 
 /**
  * What CollectionCard adds to the CollectionSection inside it: the classes for each part's padding and rules on the card (`root`, `header`, `filters`,
- * `body`, `footer`) and for the title's and description's type (`title`, `description`), merged after the section's own. Internal to the two components:
- * not exported from `@kit/ui`.
+ * `body`, `footer`) and for the title's and description's type (`title`, `description`), merged after the section's own. Provided as a computed, so a card
+ * whose `size` changes restyles its section. Internal to the two components: not exported from `@kit/ui`.
  */
 export type CollectionFrame = Record<
     'root' | 'header' | 'title' | 'description' | 'filters' | 'body' | 'footer',
     string
 >;
-export const collectionFrameKey: InjectionKey<CollectionFrame | null> = Symbol(
-    'kit.collectionFrame',
-);
+export const collectionFrameKey: InjectionKey<ComputedRef<CollectionFrame> | null> =
+    Symbol('kit.collectionFrame');

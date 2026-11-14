@@ -58,7 +58,8 @@ const props = withDefaults(
     { level: 3, headless: false, minHeight: null },
 );
 // The frame a CollectionCard gives this section's parts; a section among its items starts with none.
-const frame = inject(collectionFrameKey, null);
+const card = inject(collectionFrameKey, null);
+const frame = computed(() => card?.value ?? null);
 provide(collectionFrameKey, null);
 const id = useId();
 const headingId = `${id}-title`;
