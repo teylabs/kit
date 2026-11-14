@@ -9,6 +9,7 @@ import {
     pillControl,
     useSurface,
 } from '@/components/Kit/Surface/surface';
+import { alertActionClass } from '@/components/Kit/Feedback/alertVariants';
 import { insideFormSubmit } from './formSubmit';
 
 // What a link's visit may send: the kit's own type (it imports none from @inertiajs/core), shaped like Inertia's form data.
@@ -29,7 +30,8 @@ export type VisitData = Record<string, VisitValue>;
 // controls ON the shell's header bar, drawn from `--shell-bar-foreground` so it reads on a dark bar too. No variant needs anything new in the host button.
 // `size` is the host button's default, sm, lg or icon; `xl` is the host's lg made a large tap target (about 96px tall: a phone used as a remote) with kit classes. `type` defaults to `submit` only inside a form that submits it (Inertia's <Form> or a FormCard) and to
 // `button` everywhere else, so a toolbar or menu button never submits a form by accident; pass `type` to say otherwise.
-// On a surface (FloatingToolbar's pill, a Surface) it takes that surface's shape and tone; elsewhere the shared radius and tones hold.
+// On a surface (FloatingToolbar's pill, a Surface) it takes that surface's shape and tone; elsewhere the shared radius and tones hold. In an Alert's #actions it
+// takes the alert's tone and actions style (link or soft) whatever its variant, and a variant other than primary, success or destructive is a quiet link there.
 // With `href` it is a link styled as this button (the host button's as-child, so the classes land on the link and a <button> is never inside an <a>): an Inertia
 // <Link> (`method`, `data`, `preserveScroll`; a method other than get renders it as a <button>, as Inertia requires for a non-GET visit), or a plain <a> when
 // `external`, with `rel="noopener noreferrer"` when `target` is `_blank`. A `mailto:`, `tel:` or `sms:` href is always a plain <a>: an Inertia visit would mangle it.
@@ -64,12 +66,23 @@ const props = withDefaults(
         target: undefined,
     },
 );
+const surface = useSurface();
+// In an Alert's actions the alert decides the colour and the variant only how loud the action is: a filled variant is the alert's link or soft action, any
+// other a quiet link (alertActionClass), on the host's link or ghost button.
+const alert = computed(() => surface.value.alert);
+const quiet = computed(
+    () => !['primary', 'success', 'destructive'].includes(props.variant),
+);
 const base = computed(() =>
-    props.variant === 'primary' || props.variant === 'success'
-        ? 'default'
-        : props.variant === 'bar'
-          ? 'ghost'
-          : props.variant,
+    alert.value
+        ? alert.value.style === 'soft' && !quiet.value
+            ? 'ghost'
+            : 'link'
+        : props.variant === 'primary' || props.variant === 'success'
+          ? 'default'
+          : props.variant === 'bar'
+            ? 'ghost'
+            : props.variant,
 );
 const inForm = Boolean(useOptionalFormContext()) || insideFormSubmit();
 const kind = computed(() => props.type ?? (inForm ? 'submit' : 'button'));
@@ -92,18 +105,25 @@ const destructiveClass =
     'hover:bg-[var(--color-destructive-hover,#b91c1c)] dark:hover:bg-[var(--color-destructive-hover,#b91c1c)] hover:text-white';
 const barClass =
     'text-[color:var(--shell-bar-foreground)] hover:bg-[color:var(--shell-bar-foreground)]/10 hover:text-[color:var(--shell-bar-foreground)]';
-const hostSize = computed(() => (props.size === 'xl' ? 'lg' : props.size));
+const hostSize = computed(() =>
+    alert.value ? 'sm' : props.size === 'xl' ? 'lg' : props.size,
+);
 const xlClass = 'h-24 min-w-24 rounded-xl px-8 text-lg [&_svg]:size-6';
-const surface = useSurface();
-const blend = computed(() => [
-    props.size === 'xl' && xlClass,
-    props.variant === 'bar' && barClass,
-    props.variant === 'success' && successClass,
-    props.variant === 'destructive' && destructiveClass,
-    surface.value.shape === 'pill' && pillControl,
-    surface.value.tone === 'inverse' &&
-        (props.variant === 'primary' ? inverseFilled : inverseControl),
-]);
+const blend = computed(() =>
+    alert.value
+        ? alertActionClass(alert.value, quiet.value)
+        : [
+              props.size === 'xl' && xlClass,
+              props.variant === 'bar' && barClass,
+              props.variant === 'success' && successClass,
+              props.variant === 'destructive' && destructiveClass,
+              surface.value.shape === 'pill' && pillControl,
+              surface.value.tone === 'inverse' &&
+                  (props.variant === 'primary'
+                      ? inverseFilled
+                      : inverseControl),
+          ],
+);
 </script>
 <template>
     <BaseButton

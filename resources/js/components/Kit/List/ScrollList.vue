@@ -60,7 +60,7 @@ const {
             variant="warning"
             :title="list.error?.message ?? `This couldn't load.`"
             ><template #actions
-                ><Button type="button" variant="secondary" @click="refresh">{{
+                ><Button type="button" @click="refresh">{{
                     list.error?.retry?.label ?? 'Retry'
                 }}</Button></template
             ></Alert

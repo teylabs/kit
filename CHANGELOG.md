@@ -22,6 +22,27 @@ A patch release: a page costs fewer queries, and the same number with one worksp
   Features affected: workspaces
   - **Tests.** `test:workspace-models`: on a stand-in workspace table without `admitted` and `deleting_at`, both are cached as absent; the next request (scoped instances forgotten) asks the database nothing about either; the cached answers are gone a day later; a migration forgets them and the same request asks again. On the old code the absent columns are never cached, so it fails.
 
+## v0.22.0
+
+Features affected: none.
+
+Features affected: core
+
+A minor release: a kit Button in an Alert's `#actions` is now a soft button tinted with the alert's tone instead of the host's grey secondary, so alerts with actions change look (see Changed and Upgrading).
+
+### Changed
+
+- **An Alert's actions take its tone.** A kit `Button` in `#actions` is drawn in the alert's colour, never the host's grey, with no class from the caller: `Alert` gives its actions row the alert's tone and style as a surface (as `Surface` and `SurfaceReset` do), and `Button` reads it. `actionsStyle` (new) is `soft`, the default (a compact 32px button tinted with the tone, `bg-current/8`, 12% on hover), or `link`, chosen per alert (tone text, medium weight, underlined on hover, no background). The Button's variant now says how loud the action is: `primary`, `success` or `destructive` is the main action in the chosen style; `secondary`, `ghost` or `link` a quiet, normal-weight tone link (Dismiss, Learn more). A plain link or button in `#actions` takes the tone's colour too, and the focus ring is a 2px outline in the tone. The tone is the pale tier's semantic text token (the icon's; the alert's foreground for `muted`, `primary` and `brand`) and the solid tier's white. Every tone and tier keeps 4.5:1 in light and dark, at rest and on hover ([docs/alert-actions.md](docs/alert-actions.md)). A Button in the alert's body is unchanged. `contract.ts`'s `AlertProps` gains `actionsStyle`; `SurfaceContext` gains an optional `alert`.
+  Features affected: core
+  - ScrollList's error alert: Retry is the alert's main action (a `primary` Button, so a soft warning-tinted button) where it was a grey secondary button.
+  - **Tests.** Browser (`?alert-actions`, light and dark): every tone (info, success, warning, danger, muted, primary, brand) in both tiers and both styles (soft by leaving `actionsStyle` out), read as painted with translucent backgrounds composited: both actions are the alert's tone; a link has no background, is not underlined at rest, underlines on hover and is at least 24px tall; a soft action is tinted, 32px tall and deepens on hover; the quiet action is a normal-weight link; every ratio is at least 4.5:1 at rest and on hover; the keyboard focus is a 2px outline in the tone, 2px out, with no host ring; a plain link and a Button with `href` take the tone, the Button soft by default and the plain link still a link; a Button in the body keeps `bg-secondary`; nothing overflows at 390 or 1280px; axe with contrast passes. They fail on main (the grey secondary). Floor 367 → 371.
+  - **Not covered:** a consumer app, a host theme with its own semantic tokens (only the kit's defaults are measured), and browsers other than Chromium.
+
+### Upgrading
+
+- Comes with `composer update tey/kit`: the components load from the package, so every Alert with a kit Button in `#actions` changes look at once. Its main action (`primary`, `success`, `destructive`, or no variant) becomes a soft 32px button tinted with the alert's tone where it was the host's filled button, and a `secondary`, `ghost` or `link` Button a normal-weight tone link where it was a grey secondary button. An alert whose action should blend into the message instead takes `actions-style="link"`. An app that wants the old grey button moves it into the alert's body. A plain link or button in `#actions` keeps its shape and takes the tone's colour.
+- A host that points `@kit/ui` at its own `Alert` keeps its own look until it adds `actionsStyle`.
+
 ## v0.21.0
 
 Features affected: session-ui, workspace-ui
