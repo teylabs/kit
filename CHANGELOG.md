@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased
+
+Features affected: session-ui, workspace-ui
+
+session-ui re-pinned: `sha256:dda4c842…744b` → `sha256:f9aafc30…4a8d` (ConfirmPassword, ForgotPassword, ResetPassword, TwoFactor and VerifyEmail put their heading in a `<Stack class="gap-2">`). workspace-ui re-pinned: `sha256:7d96253d…0ca4` → `sha256:f372bde6…a03b` (the invitation page's heading is a `<Stack class="gap-2">`). In `history.json` only the `current` block changed.
+
+### Fixed
+
+- **The kit's auth pages pass tey/standards' `ui.no-outer-margins` (#1015).** ConfirmPassword, ForgotPassword, ResetPassword, TwoFactor, VerifyEmail and the invitation page each put a `<div class="space-y-2">` heading block directly in `<Page>`, which the rule flags, so an app running standards over its scaffolded pages had to allowlist the kit's own. The heading block is a `<Stack class="gap-2">` now: the same 8px between the heading and its lines, the page's 24px under it. The invitation's note from the inviter is `my-1` where it was `my-3`, so it keeps its 12px above and below (a flex gap adds to a margin where a block's margins collapsed). Nothing looks different. Login and Register already held the heading in a Stack and are unchanged. Run over all 59 `.vue` files the kit's features ship, tey/standards 0.11.101's `ui.no-outer-margins` finds nothing (6 findings before). docs/page-rhythm.md lists the heading block with the compact cards' tighter groups.
+  Features affected: session-ui, workspace-ui
+  - **Tests.** Browser (`auth.html`, at 1280 and 390px, which now gives the invitation a note from the inviter with `&note`): on ConfirmPassword, ForgotPassword, ResetPassword, TwoFactor, VerifyEmail, the invitation and the invitation with a note, the heading block is a Stack directly in `<Page>` with no `space-y-*`; its lines are 8px apart (12px around the note) and the page gap is 24px under it; with the block put back to the 0.22 markup in the same tab, every element's box in the card is where it was, and the card's screenshot is the same but for antialiasing. It fails on the old pages (the block is not a Stack), and with the note left at `my-3` (20px around it). Floor 371 → 372.
+  - **Not covered:** a consumer app, the dark scheme (only spacing changed), and browsers other than Chromium.
+
+### Upgrading
+
+- Since 0.18 an app owns its scaffolded pages, so this reaches them only with the new pages, and nothing changes until then. An app that allowlists the kit's auth pages for `ui.no-outer-margins` can run `php artisan kit:scaffold session-ui --diff --only=resources/js/pages/Auth` and `php artisan kit:scaffold workspace-ui --diff --only=resources/js/pages/Auth/Invitation`, then swap each heading's `<div class="space-y-2">` for `<Stack class="gap-2">` (importing `Stack` from `@kit/ui`) and the invitation note's `my-3` for `my-1` (or `--force` those pages if it never edited them), and drop the allowlist entries.
+
 ## v0.22.0
 
 Features affected: none.
