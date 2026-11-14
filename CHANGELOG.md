@@ -1,5 +1,32 @@
 # Changelog
 
+## Unreleased
+
+Features affected: core, settings, session-ui, workspace-ui
+
+settings re-pinned: `sha256:587275c4…1b48` → `sha256:222aa233…4757` (General's Date & time section). workspace-ui re-pinned: `sha256:34e11cec…ada9` → `sha256:b66e1af6…9388` (Profile's Date & time card, in place of the Clock card). In `history.json` only the `current` block changed.
+
+### Added
+
+- **A workspace's time format on Settings › General.** Under a new *Date & time* heading, *Time zone* (the workspace's timezone, as before) then *Time format*: *12-hour*, *24-hour* or *Automatic* (no choice of its own: each person's language decides). Time format shows only when the app wires `Registry::workspaceClockUsing()`; without it the section holds Time zone alone and the page is as before. General reads it through the getter and saves it through the setter, inside the workspace and the save's transaction, as the acting person (*Automatic* passes null). `SettingsView` gains `clock` (`auto`, `12h`, `24h`, or null when the app keeps none). A save without `clock` leaves the workspace's alone; a `clock` sent with no wiring, or any value other than `auto`, `12h` or `24h`, is refused on the field ([docs/date-time.md](docs/date-time.md#where-its-set-date--time)).
+  Features affected: settings
+- **A person's time zone on Account › Profile.** *Time zone* sits first in the new *Date & time* card, before *Time format*. It saves with the clock through the existing `PUT /me/profile/clock` (`timezone` optional, a zone identifier) and counts as confirmed, so the welcome step doesn't ask again. The save also sets the `tz` cookie to the saved zone, so the pages that follow show dates and times in it at once (the viewer's zone reads that cookie first), until a full page load's `syncTimezoneCookie()` writes the browser's own zone back. `ProfileViewModel` gains `timezone` (the saved zone, else the browser's, else UTC).
+  Features affected: session-ui, workspace-ui
+
+### Changed
+
+- **The 12/24-hour clock moves beside the time zone, under *Date & time*.** It's a regional preference, not an appearance one. Account › Profile's Clock card is now the *Date & time* card: *Time zone*, then *Time format* (*Use workspace setting*, *12-hour*, *24-hour*), saved with *Save date & time* ("Date & time saved."); the save path and its values are unchanged. Settings › General's *Timezone* field is now *Time zone* under *Date & time*.
+  Features affected: settings, session-ui, workspace-ui
+  - **Tests.** Browser: General without the wiring shows *Date & time* with *Time zone* only and posts the same payload as before (fixture `general` unchanged); with it, the heading, then Time zone, then Time format, *Automatic* chosen for a workspace with none, 24-hour saved and kept after a reload (fixture `general-clock`); Profile shows *Date & time*, Time zone before Time format and no Clock card, and *Save date & time* posts only `{ timezone, clock }` (fixture `profile-clock`, gaining `timezone`), toasts and keeps both after a reload. `test:form-payloads`: `general-clock` refused on the field with no `workspaceClockUsing`, then saved through the setter inside the workspace as the admin and read back; *Automatic* passes null; `25h` refused without calling the setter; a save without `clock` leaves it alone. `test:account-form-payloads`: `profile-clock` stores the zone (confirmed) and 24h; with a London `tz` cookie, the save sets `tz` to Amsterdam (unencrypted, readable by the page's script, path `/`, SameSite=Lax, a year) and the next page's `kitTimezone` is Amsterdam, where it was London before (fails without the cookie); a save without a zone leaves the cookie alone; an unknown zone is refused on its field with neither value changed; `workspace` keeps the zone. Floor 330 → 331.
+  - **Not covered:** a consumer app, a real app setting behind `workspaceClockUsing` (a synthetic getter and setter), and browsers other than Chromium.
+
+### Fixed
+
+- **The clock is resolved once per request, not once per formatted time (regressed in v0.18.4).** `Clock::preference()` read the person's choice from `user_state` and called the workspace getter on every call, so a 30-row list formatted with `Clock::time()` made 30 `user_state` reads and 30 getter calls, and the `kitClock` share one more of each. Within a web request the resolved preference is now remembered per person and workspace (`RequestMemo`, a scoped instance, so nothing carries over between requests under Octane or between queued jobs), and the share uses the same entry: one `user_state` read and one getter call per request. `ClientClock::save()` and the workspace setter registered with `Registry::workspaceClockUsing()` forget it, so the next read in the same request sees the change; `Clock::forget()` (new) does the same for an app that changes its own setting another way. Outside a request (a job, a command) nothing is remembered, as before.
+  Features affected: core, session-ui
+  - **Tests.** `test:inertia-shares`: a page that formats 30 times with `Clock::time()` and shares `kitClock` reads the person's clock from `user_state` once and calls the workspace getter once (31 and 31 before); the next request reads afresh; within one request, `ClientClock::save()` (24h → 12h) and the workspace setter (12h → 24h) are each seen by the next call. Without the forgets the changes read stale. The checks that stand in for a job now end the last dispatched request first (`forgetScopedInstances()`), as Octane and the queue worker do.
+  - **Not covered:** a real Octane worker and a consumer app.
+
 ## v0.19.0
 
 Features affected: none.

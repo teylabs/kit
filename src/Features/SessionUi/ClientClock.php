@@ -18,10 +18,11 @@ final class ClientClock
         return Clock::valid(UserState::get($userId, self::KEY));
     }
 
-    /** Saves the person's choice, `12h` or `24h`; anything else (null) forgets it, so the workspace's applies again. */
+    /** Saves the person's choice, `12h` or `24h`; anything else (null) forgets it, so the workspace's applies again. The next read in this request sees it. */
     public static function save(int $userId, ?string $clock): void
     {
         $clock = Clock::valid($clock);
         $clock === null ? UserState::forget($userId, self::KEY) : UserState::set($userId, self::KEY, $clock);
+        Clock::forget();
     }
 }
