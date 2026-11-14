@@ -109,13 +109,15 @@ final class TrackSignedInDevice
     }
 
     /**
-     * Writes the row of a signed-in session that has none, and names it in the session. Remembered: as the sign-in said (`pending`), else (a session from
-     * before 0.23) when the request carries the recaller cookie. Null when no row of this user holds the session.
+     * Writes the row of a signed-in session that has none, and names it in the session. Remembered: as the sign-in said (`pending`), else (a legacy
+     * session: from before 0.23, or backfilled) when the request carries the recaller cookie. Null when no row of this user holds the session; a legacy
+     * session of a person who has signed a device out is never given a new one.
      */
     private function track(Request $request, Session $session, SessionGuard $guard, int|string $userId, mixed $device): ?int
     {
-        $remembered = is_array($device) && isset($device['pending']) ? (bool) ($device['remembered'] ?? false) : $request->cookies->has($guard->getRecallerName());
-        $row = SignedInDevices::track($request, $session->getId(), $userId, $remembered);
+        $pending = is_array($device) && isset($device['pending']);
+        $remembered = $pending ? (bool) ($device['remembered'] ?? false) : $request->cookies->has($guard->getRecallerName());
+        $row = SignedInDevices::track($request, $session->getId(), $userId, $remembered, legacy: ! $pending);
         if ($row !== null) {
             $session->put(SignedInDevices::KEY, ['id' => $row, 'user' => $userId, 'sid' => $session->getId(), 'at' => now()->getTimestamp()]);
         }

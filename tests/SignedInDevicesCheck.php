@@ -467,6 +467,32 @@ try {
         }
         check($refused, 'kit.devices '.json_encode($bad).' stops the boot');
     }
+    // An empty or unknown store: the boot stops in local and testing. Anywhere else it is reported, and the default store holds the marks (never no check).
+    foreach (['local', 'testing', 'production'] as $env) {
+        $app->instance('env', $env);
+        foreach (['', 'nope'] as $store) {
+            $config->set('kit.devices', ['touch_minutes' => 5, 'country_header' => null, 'store' => $store]);
+            $refused = false;
+            try {
+                SignedInDevices::validate();
+            } catch (RuntimeException) {
+                $refused = true;
+            }
+            $fellBack = $reported();
+            check($env === 'production'
+                ? ! $refused && $config->get('kit.devices.store') === null && count($fellBack) === 1 && str_contains($fellBack[0], 'the default store')
+                : $refused && $config->get('kit.devices.store') === $store, $env.': kit.devices.store '.json_encode($store).($env === 'production' ? ' is reported and falls back to the default store: '.json_encode($fellBack) : ' stops the boot'));
+        }
+    }
+    $app->instance('env', 'testing');
+    // What production booted with: a sign-out marks the session revoked in the default store, read on the device's next request.
+    $fallback = $person('fallback');
+    $a = new Browser;
+    $b = new Browser(IPHONE, '198.51.100.3');
+    $signIn($a, $fallback);
+    $bId = $signIn($b, $fallback);
+    $signOut($a, (int) $rowOf($bId)->id);
+    check($app['cache']->store('array')->get('kit.devices.revoked.'.SignedInDevices::hash($bId)) === true && ! $signedIn($b) && $reported() === [], 'after the fallback, a sign-out\'s mark is in the default store, its device is signed out, and nothing is reported');
     $config->set('kit.devices', ['touch_minutes' => 5, 'country_header' => null, 'store' => null]);
 
     // ── 2. Zero queries ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -750,6 +776,51 @@ try {
     [$code, $out] = $backfill();
     check($code === 1 && str_contains($out, 'SESSION_DRIVER is file') && DB::table('signed_in_devices')->count() === $count, 'on another driver it refuses, nonzero, and adds nothing');
     DB::table('sessions')->delete();
+
+    // A legacy session that was signed out is never given a fresh row: the same cookie on its next request is signed out. Backfilled on the database
+    // driver, then signed out with the cache store down (no mark), its session written back by a request in flight. A second one, not signed out, keeps its row.
+    $driver('database');
+    $legacyOwner = $person('legacy-owner');
+    $a = new Browser;
+    $signIn($a, $legacyOwner);
+    $legacySessions = [];
+    foreach (['tablet' => '192.0.2.90', 'kiosk' => '192.0.2.91'] as $name => $ip) {
+        $legacySessions[$name] = ['id' => bin2hex(random_bytes(20)), 'user_id' => $legacyOwner->id, 'ip_address' => $ip, 'user_agent' => WINDOWS, 'payload' => base64_encode(serialize(['_token' => str_repeat('l', 40), $guardKey => $legacyOwner->id])), 'last_activity' => Carbon::now()->getTimestamp()];
+        DB::table('sessions')->insert($legacySessions[$name]);
+    }
+    $backfill();
+    [$tabletId, $kioskId] = [$legacySessions['tablet']['id'], $legacySessions['kiosk']['id']];
+    $kioskRow = (int) $rowOf($kioskId)->id;
+    $config->set('kit.devices.store', 'down');
+    [$status] = $signOut($a, (int) $rowOf($tabletId)->id);
+    $config->set('kit.devices.store', null);
+    $reported();
+    DB::table('sessions')->updateOrInsert(['id' => $tabletId], $legacySessions['tablet']);
+    $tablet = new Browser(WINDOWS, '192.0.2.90');
+    $tablet->cookies = ['s' => $tabletId];
+    $count = DB::table('signed_in_devices')->count();
+    check($status === 200 && ! $signedIn($tablet) && $rowOf($tabletId) === null && DB::table('signed_in_devices')->count() === $count, 'database: a backfilled session signed out with the store down, written back, is signed out on its next request, and given no new row');
+    DB::table('sessions')->updateOrInsert(['id' => $tabletId], $legacySessions['tablet']);
+    $tablet->cookies = ['s' => $tabletId];
+    check(! $signedIn($tablet) && $rowOf($tabletId) === null, 'database: and the same cookie again is still signed out');
+    $kiosk = new Browser(WINDOWS, '192.0.2.91');
+    $kiosk->cookies = ['s' => $kioskId];
+    check($signedIn($kiosk) && $rowOf($kioskId)?->id == $kioskRow && $signedIn($a), 'database: the backfilled session not signed out keeps its own row, and the device that signed the other out stays signed in');
+    $fresh = new Browser(IPHONE, '198.51.100.92');
+    $signIn($fresh, $legacyOwner);
+    check($signedIn($fresh) && $rowOf((string) $fresh->session()) !== null, 'database: a new sign-in of the same person still gets its row');
+    DB::table('sessions')->delete();
+    $driver('file');
+    // A session from before 0.23 with no row (file), which Sign out other sessions can't reach: the same cookie on its next request is signed out.
+    $unrowed = $person('unrowed');
+    $a = new Browser;
+    $signIn($a, $unrowed);
+    $unrowedId = bin2hex(random_bytes(20));
+    file_put_contents($base.'/storage/framework/sessions/'.$unrowedId, serialize(['_token' => str_repeat('u', 40), $guardKey => $unrowed->id]));
+    [$status] = $send($a, 'DELETE', '/me/security/sessions', ['password' => PASSWORD]);
+    $old = new Browser(WINDOWS, '192.0.2.93');
+    $old->cookies = ['s' => $unrowedId];
+    check($status < 400 && ! $signedIn($old) && $rowOf($unrowedId) === null && $rows($unrowed)->count() === 1 && $signedIn($a), 'file: after Sign out other sessions, a session from before 0.23 with no row is signed out on its next request and given none; this device stays');
 
     // ── 10. Remember-me ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
     $rem = $person('rem');

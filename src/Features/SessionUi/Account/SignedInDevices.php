@@ -21,6 +21,7 @@ use Illuminate\Support\Facades\DB;
 use RuntimeException;
 use Tey\Concierge\Support\UserSessions;
 use Tey\Kit\Features\Core\Kit;
+use Tey\Kit\Features\SessionUi\UserState;
 use Throwable;
 
 /**
@@ -44,6 +45,9 @@ final class SignedInDevices
 
     /** The one header a country is read from, when `kit.devices.country_header` names it: Cloudflare's, set by its proxy, never by the browser. */
     public const string COUNTRY_HEADER = 'CF-IPCountry';
+
+    /** The person's user_state key, set before any of their devices is signed out: from then on a legacy session is never given a new row (track). */
+    public const string LEGACY_CLOSED = 'devices.legacy_closed';
 
     /**
      * The sign-in and sign-out ends, on the web guard. Login can't key the row: Fortify regenerates the session id after it (PrepareAuthenticatedSession), so
@@ -88,7 +92,10 @@ final class SignedInDevices
         return (int) config('kit.devices.touch_minutes', 5);
     }
 
-    /** Refuses a `kit.devices` block the kit can't honour, so a typo never quietly turns a check off. Run at boot. */
+    /**
+     * Refuses a `kit.devices` block the kit can't honour, so a typo never quietly turns a check off. Run at boot. A `store` that names no cache store
+     * (empty, or not in cache.stores) stops the boot in local and testing; anywhere else it is reported and the default store holds the marks instead.
+     */
     public static function validate(): void
     {
         $devices = config('kit.devices', []);
@@ -102,8 +109,17 @@ final class SignedInDevices
         if (($devices['country_header'] ?? null) !== null && $devices['country_header'] !== self::COUNTRY_HEADER) {
             throw new RuntimeException('kit.devices.country_header is null or '.self::COUNTRY_HEADER.' (Cloudflare\'s, which its proxy sets): the kit reads a country from no other header.');
         }
-        if (($devices['store'] ?? null) !== null && ! is_string($devices['store'])) {
+        $store = $devices['store'] ?? null;
+        if ($store !== null && ! is_string($store)) {
             throw new RuntimeException('kit.devices.store names a cache store, or is null for the default one.');
+        }
+        if ($store !== null && ($store === '' || ! is_array(((array) config('cache.stores', []))[$store] ?? null))) {
+            $message = 'kit.devices.store '.json_encode($store).' names no cache store in cache.stores, so the revocation marks would have nowhere to go.';
+            if (app()->environment('local', 'testing')) {
+                throw new RuntimeException($message.' Name one, or null for the default store.');
+            }
+            report(new RuntimeException($message.' They are kept in the default store instead.'));
+            config(['kit.devices.store' => null]);
         }
     }
 
@@ -160,10 +176,12 @@ final class SignedInDevices
     }
 
     /**
-     * The row of a session that has none yet (it signed in during this request, or it is from before 0.23): inserted, or found when a concurrent first
-     * request of the same session got there first (the unique HMAC). Null when no row of this user holds the session: the caller signs it out.
+     * The row of a session that has none yet (it signed in during this request, or it is `$legacy`: signed in before 0.23, or backfilled): inserted, or
+     * found when a concurrent first request of the same session got there first (the unique HMAC). Null when no row of this user holds the session: the
+     * caller signs it out. Once one of the person's devices has been signed out (closeLegacy), a legacy session is never given a new row: its own row may
+     * have been the one deleted, and nothing else tells them apart, so it keeps only a row that still holds it (a backfilled one), else it signs out.
      */
-    public static function track(Request $request, string $sessionId, int|string $userId, bool $remembered): ?int
+    public static function track(Request $request, string $sessionId, int|string $userId, bool $remembered, bool $legacy = false): ?int
     {
         // After an APP_KEY rotation, a row under a previous key's HMAC (a backfilled session, say) is this session's: adopted with its id and rewritten
         // with the current key, never a second row. Another person's row is never adopted.
@@ -177,7 +195,9 @@ final class SignedInDevices
 
             return (int) $held->id;
         }
-        DB::table(self::TABLE)->insertOrIgnore(self::row($sessionId, $userId, $request->userAgent(), $request->ip(), self::country($request), $remembered, now()));
+        if (! $legacy || ! UserState::has((int) $userId, self::LEGACY_CLOSED)) {
+            DB::table(self::TABLE)->insertOrIgnore(self::row($sessionId, $userId, $request->userAgent(), $request->ip(), self::country($request), $remembered, now()));
+        }
         $id = DB::table(self::TABLE)->where('session_hash', self::hash($sessionId))->where('user_id', $userId)->value('id');
 
         return $id === null ? null : (int) $id;
@@ -281,6 +301,8 @@ final class SignedInDevices
         if ($confirm !== null) {
             $confirm();
         }
+        // Before the row goes, durably: the row may be a legacy session's (backfilled), which has no kit.device to tell it from one never tracked.
+        self::closeLegacy($user->getAuthIdentifier());
         // The row first: it is the authority, so even with the store down that session fails its next touch. Gone meanwhile (another tab): already signed out.
         if (DB::table(self::TABLE)->where('id', $row->id)->where('user_id', $user->getAuthIdentifier())->where('session_hash', $row->session_hash)->delete() === 0) {
             return ['status' => 'missing'];
@@ -310,6 +332,8 @@ final class SignedInDevices
     {
         $ended = 0;
         if (Kit::present('session-ui', self::TABLE)) {
+            // Every other session ends, legacy ones too: those without a row (which this can't reach) are signed out at their next request instead.
+            self::closeLegacy($user->getAuthIdentifier());
             $keep = $except === null ? [] : self::hashes($except);
             $live = self::staleBefore();
             foreach (DB::table(self::TABLE)->where('user_id', $user->getAuthIdentifier())->orderBy('id')->get() as $row) {
@@ -405,6 +429,12 @@ final class SignedInDevices
 
             return false;
         }
+    }
+
+    /** From now on none of the person's legacy sessions is given a new row (track): kept in user_state, not the cache store, so a flush can't undo it. */
+    private static function closeLegacy(int|string $userId): void
+    {
+        UserState::set((int) $userId, self::LEGACY_CLOSED);
     }
 
     private static function session(): ?Session

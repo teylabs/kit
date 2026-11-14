@@ -52,7 +52,7 @@ Another person's device id, a device already signed out and a non-numeric id are
 - `touch_minutes` is a whole number, at least 1.
 - `country_header` is `null` or `CF-IPCountry`. Turn it on only behind Cloudflare, whose proxy sets the header.
 
-Any other key or value stops the boot.
+Any other key or value stops the boot. A `store` that is empty or names no store in `cache.stores` stops the boot in `local` and `testing`. Anywhere else it is reported, and the default store holds the marks instead, so the check is never turned off.
 
 If the cache store can't be read, the request checks the row in the database instead, so it is never let through unchecked. The failure is reported scrubbed (its class only).
 
@@ -70,6 +70,7 @@ Schedule::command('model:prune', ['--model' => [SignedInDevice::class]])->daily(
 
 - Run `php artisan migrate`.
 - On the database session driver, run `php artisan kit:devices:backfill` once. It adds a row for each signed-in session in the `sessions` table, and a second run adds nothing. Other drivers can't list a person's sessions; each of their devices gets its row on its next request.
+- A session from before the upgrade gets its row only until one of the person's devices is signed out (one device, every other one, a password change or an account deletion). From then on it keeps a row that still holds it (a backfilled one) and is otherwise signed out, because its own row may have been the one deleted. The mark is kept in `user_state`, not the cache store. Such a session that has made no request since the upgrade signs in again.
 - Take the new Security page for the per-device Sign out: `php artisan kit:scaffold workspace-ui --diff --only=resources/js/pages/Workspace/Account/Security`. Until then the old page lists every device on every driver, and its "Sign out other sessions" works everywhere.
 
 ## Checks
