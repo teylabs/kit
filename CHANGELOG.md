@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## v0.20.1
+
+Features affected: workspace-ui
 
 Released notes corrected: v0.20.0
 
