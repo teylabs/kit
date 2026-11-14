@@ -67,8 +67,6 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
         $registry->focusRoutes('account.switch', 'verification.*', 'focus.*');
         // A person's own 12- or 24-hour clock, for core's Clock (the `kitClock` share core makes on every page, and server-built times).
         $registry->userClockUsing(fn (int $userId): ?string => ClientClock::own($userId));
-        // A page's checks and its shell's switcher share one batched read of what they look up in each of the viewer's workspaces (PageShell::prime).
-        $registry->beforeRequestUsing(PageShell::prime(...));
     }
 
     public function register(): void

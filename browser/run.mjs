@@ -5272,6 +5272,24 @@ for (const [mode, query] of [['light', ''], ['dark', '?dark']]) {
 // ── The workspace list (workspaces.html): each workspace a card that is one real link, keyboard-focusable with a visible ring on the card; Current marked;
 // New workspace a header action only when sent; the empty state; axe-clean light and dark at 1280 and 375, nothing overflowing ─────────────────────────────────
 const workspacesShots = process.env.KIT_WORKSPACES_SCREENSHOTS;
+// The switcher's links (GET /me/switcher), answered as the server would: `hold` keeps the answer back until release(). `seen` lists each request's Accept header.
+const answerLandings = async (tab, workspaces, { status = 200, hold = false } = {}) => {
+    const seen = [];
+    let release = () => {};
+    const held = hold ? new Promise(resolve => { release = resolve; }) : Promise.resolve();
+    await tab.route('**/me/switcher', async route => {
+        seen.push(route.request().headers().accept ?? null);
+        await held;
+        await route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(status === 200 ? { workspaces } : { message: 'Server Error' }) });
+    });
+    return { seen, release: () => release() };
+};
+const listLandings = [{ id: 1, url: '/@acme' }, { id: 2, url: '/@northwind' }, { id: 3, url: null }];
+const settle = (tab) => tab.waitForFunction(() => !document.querySelector('[data-workspace-loading], [data-shell-switcher-loading]'));
+const until = async (ok, label) => {
+    for (let i = 0; i < 100 && !ok(); i++) await new Promise(resolve => setTimeout(resolve, 20));
+    assert.ok(ok(), label);
+};
 const workspacesLayout = (tab) => tab.evaluate(() => ({
     page: document.documentElement.scrollWidth - document.documentElement.clientWidth,
     overflowing: [...document.querySelectorAll('[data-slot="page"], [data-slot="page"] *')].filter(el => el.scrollWidth > el.clientWidth + 1 && getComputedStyle(el).overflowX === 'visible').map(el => el.tagName),
@@ -5284,8 +5302,10 @@ for (const width of [1280, 375]) {
                 const tab = await context.newPage();
                 const errors = [];
                 tab.on('pageerror', error => errors.push(error.message));
+                await answerLandings(tab, listLandings);
                 await tab.goto(`${authUrl}workspaces.html?create${dark}`);
                 await tab.waitForSelector('[data-workspace-list]');
+                await settle(tab);
                 const cards = await tab.$$eval('[data-workspace]', els => els.map(el => ({ link: el.querySelector('a[data-workspace-link]')?.getAttribute('href') ?? null, current: el.hasAttribute('data-current'), badge: el.querySelector('[data-workspace-current]')?.textContent.trim() ?? null, meta: el.querySelector('p')?.textContent.replace(/\s+/g, ' ').trim() })));
                 assert.deepEqual(cards.map(c => c.link), ['/@acme', '/@northwind', null], 'each workspace with a page links to it; one with none is not a link');
                 assert.deepEqual(cards.map(c => c.badge), ['Current', null, null], 'only the current workspace is marked Current, in words');
@@ -5312,8 +5332,10 @@ test('the workspace list: Tab reaches each workspace link, and the focused card 
     const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
     try {
         const tab = await context.newPage();
+        await answerLandings(tab, listLandings);
         await tab.goto(`${authUrl}workspaces.html`);
         await tab.waitForSelector('[data-workspace-list]');
+        await settle(tab);
         const shadow = () => tab.$eval('[data-workspace="1"]', el => getComputedStyle(el).boxShadow);
         const before = await shadow();
         let focused = null;
@@ -5352,6 +5374,116 @@ for (const [mode, dark] of [['light', ''], ['dark', '&dark']]) {
         }
     });
 }
+
+// ── The switcher's links, loaded on demand: the shell sends only the workspaces' names (`switcher.choices`), and each one's page comes from GET /me/switcher,
+// asked once, when the switcher opens or its caret is hovered or focused (the drawer when it opens, the workspace list as it opens). Until the answer a
+// workspace is its name alone (busy, never "unavailable"); a workspace the server sends no page for, or a failed load, is unavailable. ──────────────────────────
+test('the workspace list loads its links once as it opens: names alone while loading, the links once they arrive, unavailable when the load fails', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        const landings = await answerLandings(tab, listLandings, { hold: true });
+        await tab.goto(`${authUrl}workspaces.html`);
+        await tab.waitForFunction(() => document.querySelectorAll('[data-workspace-loading]').length === 3);
+        const loading = await tab.$$eval('[data-workspace]', els => els.map(el => ({ link: el.querySelector('a') !== null, busy: el.querySelector('[data-workspace-loading]')?.getAttribute('aria-busy') ?? null, unavailable: el.textContent.includes('unavailable') })));
+        assert.deepEqual(loading, Array(3).fill({ link: false, busy: 'true', unavailable: false }), 'while it loads, each workspace is its name alone, busy: no link the server has not sent, and none called unavailable');
+        landings.release();
+        await settle(tab);
+        const links = await tab.$$eval('[data-workspace]', els => els.map(el => el.querySelector('a[data-workspace-link]')?.getAttribute('href') ?? (el.textContent.includes('· unavailable') ? 'unavailable' : null)));
+        assert.deepEqual(links, ['/@acme', '/@northwind', 'unavailable'], 'once the answer arrives each links to its page, and Globex (no page) is unavailable');
+        assert.deepEqual(landings.seen, ['application/json'], 'one JSON request');
+        const failed = await context.newPage();
+        await answerLandings(failed, listLandings, { status: 500 });
+        await failed.goto(`${authUrl}workspaces.html`);
+        await failed.waitForSelector('[data-workspace-list]');
+        await settle(failed);
+        assert.equal(await failed.locator('a[data-workspace-link]').count(), 0, 'a failed load links nothing');
+        assert.equal(await failed.locator('[data-workspace]', { hasText: '· unavailable' }).count(), 3, 'and shows each workspace unavailable');
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+});
+
+const switcherItems = (tab) => tab.$$eval('[role="menu"] [role="menuitem"]', els => els.map(el => ({ text: el.textContent.replace(/\s+/g, ' ').trim(), href: el.getAttribute('href'), busy: el.getAttribute('aria-busy') === 'true' })).filter(item => /Acme|Northwind|Globex/.test(item.text)));
+test('the switcher asks for its workspaces\' pages only when wanted: nothing on page load, once on hover of the caret, the menu then links each, and not again on reopening', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        const landings = await answerLandings(tab, [{ id: 1, url: '/@acme/overview' }, { id: 2, url: '/@northwind' }, { id: 3, url: null }], { hold: true });
+        await tab.goto(`${authUrl}shell.html?switch`);
+        await tab.waitForSelector('[data-shell-switcher]');
+        await tab.mouse.move(640, 600);
+        await tab.waitForTimeout(300);
+        assert.equal(landings.seen.length, 0, 'the page asks for no workspace\'s page');
+        // Over the workspace's name first (its own link), then the caret: only the caret asks.
+        await tab.hover('[data-shell-home]');
+        await tab.waitForTimeout(150);
+        assert.equal(landings.seen.length, 0, 'hovering the workspace\'s name asks nothing');
+        await tab.hover('[data-shell-switcher]');
+        await until(() => landings.seen.length === 1, 'hovering the caret asks once');
+        await tab.click('[data-shell-switcher]');
+        await tab.waitForSelector('[data-shell-switcher-loading]');
+        assert.deepEqual(await switcherItems(tab), [{ text: 'Acme Workshop', href: '/@acme', busy: false }, { text: 'Northwind Farms', href: null, busy: true }, { text: 'Globex Labs', href: null, busy: true }], 'opened before the answer: the bar\'s workspace links from the shell, the others are their names, busy');
+        if (workspacesShots) await tab.screenshot({ path: `${workspacesShots}/switcher-loading.png`, clip: { x: 0, y: 0, width: 480, height: 320 } });
+        landings.release();
+        await settle(tab);
+        assert.deepEqual(await switcherItems(tab), [{ text: 'Acme Workshop', href: '/@acme', busy: false }, { text: 'Northwind Farms', href: '/@northwind', busy: false }, { text: 'Globex Labs · unavailable', href: null, busy: false }], 'then each links to its page, and Globex (no page) is unavailable');
+        if (workspacesShots) await tab.screenshot({ path: `${workspacesShots}/switcher-loaded.png`, clip: { x: 0, y: 0, width: 480, height: 320 } });
+        await tab.keyboard.press('Escape');
+        await tab.click('[data-shell-switcher]');
+        await tab.waitForSelector('[role="menu"]');
+        assert.equal(landings.seen.length, 1, 'reopening asks nothing more');
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+});
+
+test('the switcher by keyboard and in the drawer: focusing the caret asks, a failed load shows the others unavailable and the next open asks again; the drawer asks as it opens', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        const landings = await answerLandings(tab, [], { status: 500 });
+        await tab.goto(`${authUrl}shell.html?switch`);
+        await tab.waitForSelector('[data-shell-switcher]');
+        await tab.focus('[data-shell-switcher]');
+        await until(() => landings.seen.length === 1, 'focusing the caret asks once');
+        await tab.keyboard.press('Enter');
+        await tab.waitForSelector('[role="menu"]');
+        await settle(tab);
+        assert.deepEqual(await switcherItems(tab), [{ text: 'Acme Workshop', href: '/@acme', busy: false }, { text: 'Northwind Farms · unavailable', href: null, busy: false }, { text: 'Globex Labs · unavailable', href: null, busy: false }], 'a failed load links none of the others: unavailable, never a guessed link');
+        await tab.keyboard.press('Escape');
+        await tab.waitForSelector('[role="menu"]', { state: 'detached' });
+        const asked = landings.seen.length;
+        await tab.click('[data-shell-switcher]');
+        await tab.waitForSelector('[role="menu"]');
+        await until(() => landings.seen.length > asked, 'after a failed load, the next open asks again');
+        const narrow = await context.newPage();
+        const drawer = await answerLandings(narrow, [{ id: 1, url: '/@acme/overview' }, { id: 2, url: '/@northwind' }, { id: 3, url: null }]);
+        await narrow.setViewportSize({ width: 390, height: 800 });
+        await narrow.goto(`${authUrl}shell.html?switch`);
+        await narrow.waitForSelector('[data-shell-menu-button]');
+        await narrow.waitForTimeout(300);
+        assert.equal(drawer.seen.length, 0, 'the closed drawer asks nothing');
+        await narrow.click('[data-shell-menu-button]');
+        await narrow.waitForSelector('[data-shell-sheet] nav[aria-label="Workspaces"] a[href="/@northwind"]');
+        await settle(narrow);
+        const listed = await narrow.$$eval('[data-shell-sheet] nav[aria-label="Workspaces"] > :not(p)', els => els.map(el => el.getAttribute('href') ?? el.textContent.trim()));
+        assert.deepEqual(listed, ['/@acme', '/@northwind', 'Globex Labs · unavailable'], 'the open drawer links each workspace\'s page, Globex unavailable');
+        assert.equal(drawer.seen.length, 1, 'one request');
+        if (workspacesShots) await narrow.screenshot({ path: `${workspacesShots}/switcher-drawer.png` });
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+});
 
 // ── The dashboard's main/aside columns: side by side from md (768, PageGrid's breakpoint) up, stacked main-then-aside at 767, every card its column's full width,
 // nothing overflowing ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────

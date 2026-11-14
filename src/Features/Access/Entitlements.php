@@ -7,7 +7,6 @@ use RuntimeException;
 use Tey\Concierge\Contracts\Workspace;
 use Tey\Kit\Features\Core\Data\Action;
 use Tey\Kit\Features\Core\Registry;
-use Tey\Kit\Features\Workspaces\Rls;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
 /**
@@ -96,27 +95,6 @@ final class Entitlements
             DB::table('plan_entitlements')->upsert([$where + ['included' => $included, 'limits' => $limits === null ? null : json_encode($limits, JSON_THROW_ON_ERROR), 'created_at' => now(), 'updated_at' => now()]], ['workspace_id', 'entitlement'], ['included', 'limits', 'updated_at']);
         }
         $this->memo = $this->memo === null ? null : [];
-    }
-
-    /**
-     * Reads the plan rows of several workspaces in one query, for a request that asks in each of them (the shell's switcher); a workspace already read keeps its rows.
-     * Nothing is read outside a request's memo, when no feature declared an entitlement, or while RLS hides other workspaces' rows (each is then read in its own workspace).
-     *
-     * @param  list<Workspace>  $workspaces
-     */
-    public function prime(array $workspaces): void
-    {
-        if ($this->memo === null || $this->request !== spl_object_id(request()) || app(Registry::class)->entitlements() === [] || ! Rls::shared('plan_entitlements')) {
-            return;
-        }
-        $ids = array_values(array_filter(array_map(fn (Workspace $workspace): int => (int) $workspace->getKey(), $workspaces), fn (int $id): bool => ! isset($this->memo['rows:'.$id])));
-        if ($ids === []) {
-            return;
-        }
-        $rows = DB::table('plan_entitlements')->whereIn('workspace_id', $ids)->get(['workspace_id', 'entitlement', 'included', 'limits'])->groupBy('workspace_id');
-        foreach ($ids as $id) {
-            $this->memo['rows:'.$id] = ($rows[$id] ?? collect())->all();
-        }
     }
 
     /** @return ?array{included: bool, limits: ?array<string, ?int>} */

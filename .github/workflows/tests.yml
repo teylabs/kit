@@ -124,7 +124,7 @@ jobs:
           DB_DATABASE: kit_adopt_check
           DB_USERNAME: kit
           DB_PASSWORD: kit
-      # The shell's batched switcher under RLS: its own kit_switcher_rls schema and a runtime role it creates and drops.
+      # The shell's switcher and its links under RLS: its own kit_switcher_rls schema and a runtime role it creates and drops.
       - run: composer test:switcher-rls
         env:
           DB_CONNECTION: pgsql

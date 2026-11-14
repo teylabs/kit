@@ -1,12 +1,13 @@
 <?php
 
-// The shell's batched switcher under PostgreSQL row-level security (kit.tenancy.rls), on Inertia pages through the router, as a NOBYPASSRLS runtime role.
-// PostgreSQL only: it exits 1 on any other DB_CONNECTION. It creates its own schema (kit_switcher_rls) and role (kit_switcher_rls_runtime) in the database the
-// DB_* variables name, as their superuser (the admin/migrator connection), and drops them at the end; point it only at a throwaway database.
-// Covered: protected tables (capability overrides and plan rows) are read only inside the workspace they belong to, never in a batch; an excepted table
-// that is protected anyway is read in each workspace too (fail closed); the excepted tables (memberships, roles and grants) are batched and decide as before;
-// the tenant, the Concierge context, the permission team, the RLS setting and the request's memo are restored after the batch and after each workspace,
-// also when either throws; and switching workspace mid-request, also after a role or grant changes there, answers from that workspace, never a stale memo.
+// The shell's lazy switcher under PostgreSQL row-level security (kit.tenancy.rls), on Inertia pages and its JSON links (GET /me/switcher) through the
+// router, as a NOBYPASSRLS runtime role. PostgreSQL only: it exits 1 on any other DB_CONNECTION. It creates its own schema (kit_switcher_rls) and role
+// (kit_switcher_rls_runtime) in the database the DB_* variables name, as their superuser (the admin/migrator connection), and drops them at the end; point it
+// only at a throwaway database. Covered: the page lists the workspaces and reads no other workspace's rows, at the same queries with one workspace or five;
+// the switcher's links read protected tables (capability overrides and plan rows) only inside the workspace they belong to, and decide each workspace by its
+// own roles, grants, plan rows and overrides, also with a protected table listed in `except` or a protected permission pivot; the tenant, the Concierge
+// context, the permission team, the RLS setting and the request's memo are restored after each workspace, also when a check throws; and switching
+// workspace mid-request, also after a role or grant changes there, answers from that workspace, never a stale memo.
 // Synthetic users and workspaces only. Not covered: a pooler, Octane, a browser, Pennant's database store.
 use Illuminate\Auth\AuthServiceProvider;
 use Illuminate\Auth\Middleware\Authenticate;
@@ -120,7 +121,7 @@ function switcherState(): array
 /** Workspace pages the check opens inside the request, with the workspace's app scoping and RLS transaction already set by ResolveWorkspace. */
 final class SwitcherProbeController
 {
-    /** Builds the shell inside the page, then again; the state before, after the first build (which may throw) and the second build's switcher. */
+    /** Builds the shell and the switcher's links inside the page, then the links again; the state before, after the first build (which may throw) and the second build's links. */
     public function shell(Request $request): mixed
     {
         $before = switcherState();
@@ -129,18 +130,20 @@ final class SwitcherProbeController
         $error = null;
         try {
             app(PageShell::class)->forRequest($request);
+            app(PageShell::class)->landings($request);
         } catch (Throwable $thrown) {
             $error = $thrown->getMessage();
         }
         $after = switcherState();
         // The request's memo is still on and still this request's: an answer it holds is kept.
         $kept = $memo === RequestMemo::instance() && $memo->get('probe', fn (): int => 2) === 1;
-        $choices = collect(app(PageShell::class)->forRequest($request)->switcher['choices'] ?? [])->pluck('url', 'name')->all();
+        $landings = app(PageShell::class)->landings($request);
+        $choices = collect(MemberWorkspaces::workspaces($request->user()))->mapWithKeys(fn ($workspace): array => [$workspace->name => $landings[(int) $workspace->getKey()] ?? null])->all();
 
         return response()->json(['before' => $before, 'after' => $after, 'error' => $error, 'kept' => $kept, 'choices' => $choices, 'final' => switcherState()]);
     }
 
-    /** The page's own gate in its workspace, after the request's batch: allowed, or the refusal's code. */
+    /** The page's own gate in its workspace: allowed, or the refusal's code. */
     public function gate(Request $request): mixed
     {
         try {
@@ -175,7 +178,7 @@ final class SwitcherProbeController
         $steps['home'] = $ask('switch-home');
         $steps['member'] = $ask('switch-member');
         $steps['home again'] = $ask('switch-home');
-        // Admin, not asked yet (only the batch has read it), loses its admin role; Member, asked above, is given the grant. Each in its own workspace.
+        // Admin, not asked yet, loses its admin role; Member, asked above, is given the grant. Each in its own workspace.
         Workspaces::run($ids['switch-admin'], function () use ($user, $ids): void {
             app(Concierge::class)->context()->run($ids['switch-admin'], fn () => $user->removeRole('admin'), [$user]);
         });
@@ -384,15 +387,15 @@ try {
             throw new RuntimeException('tripped');
         }
     });
-    // One Inertia GET through the router (a partial reload when asked: the page's own late hook then batches nothing): [status, the decoded body].
+    // One Inertia GET through the router (or, `$json`, a plain JSON one, as the switcher loads its links): [status, the decoded body].
     $handler = $app['session']->driver()->getHandler();
-    $send = function (string $path, bool $partial = false) use ($app, $handler, $sam, &$log): array {
+    $send = function (string $path, bool $json = false) use ($app, $handler, $sam, &$log): array {
         Auth::guard('web')->logout();
         Auth::guard('web')->setUser($sam);
         $app['session']->driver()->flush();
         $id = bin2hex(random_bytes(20));
         $handler->write($id, serialize(['_token' => 'token']));
-        $headers = ['HTTP_X_INERTIA' => 'true', 'HTTP_ACCEPT' => 'text/html, application/xhtml+xml', 'HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest'] + ($partial ? ['HTTP_X_INERTIA_PARTIAL_COMPONENT' => 'Probe', 'HTTP_X_INERTIA_PARTIAL_DATA' => 'none'] : []);
+        $headers = $json ? ['HTTP_ACCEPT' => 'application/json', 'HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest'] : ['HTTP_X_INERTIA' => 'true', 'HTTP_ACCEPT' => 'text/html, application/xhtml+xml', 'HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest'];
         $request = Request::create('https://kit.test'.$path, 'GET', [], ['s' => $id], server: $headers);
         $request->setUserResolver(fn () => Auth::guard('web')->user());
         $app->instance('request', $request);
@@ -407,16 +410,25 @@ try {
 
         return [$response->getStatusCode(), json_decode((string) $response->getContent(), true) ?? []];
     };
-    $choices = fn (array $page): array => collect($page['props']['shell']['switcher']['choices'] ?? [])->pluck('url', 'name')->all();
-    // The shell built for the same page with no request memo: each check spatie's own, read in its own workspace (the path before the batch).
-    $unbatched = function (Workspace $workspace) use ($app, $sam): array {
+    $names = fn (): array => Workspace::on('pgsql_admin')->pluck('name', 'id')->all();
+    // The page's switcher: the workspaces it lists, by name (with no link). The switcher, opened: [status, the page each workspace opens on, by name].
+    $listed = fn (array $page): array => array_column($page['props']['shell']['switcher']['choices'] ?? [], 'slug', 'name');
+    $opened = function () use ($send, $names): array {
+        [$status, $body] = $send('/me/switcher', json: true);
+        $name = $names();
+
+        return [$status, collect($body['workspaces'] ?? [])->mapWithKeys(fn (array $landing): array => [$name[$landing['id']] => $landing['url']])->all()];
+    };
+    // The switcher's links with no request memo: each check spatie's own, read in its own workspace.
+    $unmemoized = function () use ($app, $sam, $names): array {
         $app->forgetScopedInstances();
-        $request = Request::create('https://kit.test/@'.$workspace->slug);
+        $request = Request::create('https://kit.test/me/switcher');
         $request->setUserResolver(fn () => $sam);
         $request->setLaravelSession($app['session']->driver());
         $app->instance('request', $request);
+        $name = $names();
 
-        return Workspaces::run($workspace, fn (): array => collect(app(PageShell::class)->forRequest($request)->switcher['choices'] ?? [])->pluck('url', 'name')->all());
+        return collect(app(PageShell::class)->landings($request))->mapWithKeys(fn (?string $url, int $id): array => [$name[$id] => $url])->all();
     };
     // Queries on a protected table, and those among them not confined to the workspace the transaction carries: a batch (`workspace_id in`), a read outside
     // any workspace, or a read of one workspace while another is current.
@@ -431,15 +443,17 @@ try {
 
         return (int) $query['bindings'][substr_count(substr($query['sql'], 0, $at), '?')] !== $query['setting'];
     }));
-    $excepted = function () use (&$log): int {
-        return count(array_filter($log, fn (array $query): bool => preg_match('/"(concierge_memberships|model_has_roles|model_has_permissions)"/', $query['sql']) === 1));
+    // A page's queries, after the same page once (so caches the first request fills are not counted).
+    $pageQueries = function (string $path) use ($send, &$log): array {
+        $send($path);
+        [$status, $page] = $send($path);
+
+        return [$status, $page, count($log)];
     };
 
     // One workspace.
-    [$status, $page] = $send('/@switch-home');
-    $oneExcepted = $excepted();
-    $oneProtected = count($protectedReads());
-    switcherCheck($status === 200 && $choices($page) === ['Switch Home' => '/people'] && $misplaced($protectedReads()) === [], 'one workspace under RLS: the page renders, and its protected rows are read only inside it ('.$status.')');
+    [$status, $page, $onePage] = $pageQueries('/@switch-home');
+    switcherCheck($status === 200 && $listed($page) === ['Switch Home' => 'switch-home'] && ($page['props']['shell']['workspace']['url'] ?? null) === '/people' && $misplaced($protectedReads()) === [], 'one workspace under RLS: the page renders, names Home with its page, and its protected rows are read only inside it ('.$status.')');
 
     // Four more: an admin on the plan (People); a member on the plan (Dashboard: Home's grant is Home's alone); a member off the plan (Settings); an admin on
     // the plan with the workspace's settings capability off and the dashboard off for Sam alone (unavailable). Overrides and plan rows are protected rows.
@@ -457,75 +471,70 @@ try {
     $expected = ['Switch Home' => '/@switch-home/people', 'Switch Admin' => '/@switch-admin/people', 'Switch Member' => '/@switch-member', 'Switch Unplanned' => '/@switch-unplanned/settings', 'Switch Off' => null];
     $ids = [$home->id, $admin_->id, $member->id, $unplanned->id, $off->id];
 
-    // (1) Protected tables: never batched, never read outside the workspace they belong to, and nothing of a workspace Sam is not in.
-    [$status, $page] = $send('/@switch-home');
+    // (1) The page lists the five by name and slug, enters only Home, and costs the same queries as with one workspace.
+    [$status, $page, $fivePage] = $pageQueries('/@switch-home');
     $reads = $protectedReads();
-    $fiveExcepted = $excepted();
-    $batchedMemberships = collect($log)->contains(fn (array $query): bool => str_contains($query['sql'], 'from "concierge_memberships" where "user_id" = ? and "workspace_id" in (') && $query['setting'] === null);
+    switcherCheck($status === 200 && $listed($page) === ['Switch Home' => 'switch-home', 'Switch Admin' => 'switch-admin', 'Switch Member' => 'switch-member', 'Switch Unplanned' => 'switch-unplanned', 'Switch Off' => 'switch-off'] && ! str_contains(json_encode($page['props']['shell']['switcher']), '"url"'), 'five workspaces under RLS: the page\'s switcher lists each by name and slug, with no link ('.json_encode($listed($page)).')');
+    switcherCheck($misplaced($reads) === [] && collect($reads)->pluck('setting')->unique()->values()->all() === [$home->id], 'the page reads protected rows only in Home, the workspace it shows ('.json_encode(collect($reads)->pluck('setting')->unique()->values()->all()).')');
+    switcherCheck($fivePage === $onePage, 'the page costs the same queries under RLS with one workspace and five ('.$onePage.' and '.$fivePage.')');
+
+    // (2) The switcher, opened: each workspace decided inside it. Protected tables never batched, never read outside the workspace they belong to, and
+    // nothing of a workspace Sam is not in.
+    [$status, $links] = $opened();
+    $reads = $protectedReads();
     $settings = collect($reads)->pluck('setting')->unique()->sort()->values()->all();
-    switcherCheck($status === 200 && $choices($page) === $expected, 'five workspaces under RLS: each choice is decided by its own role, grant, plan row and overrides ('.json_encode($choices($page)).')');
+    switcherCheck($status === 200 && $links === $expected, 'five workspaces under RLS, the switcher opened: each lands by its own role, grant, plan row and overrides ('.json_encode($links).')');
     switcherCheck($reads !== [] && $misplaced($reads) === [], 'every read of a protected table ('.count($reads).') names one workspace, the one the transaction carries: none batched, none outside a workspace');
     switcherCheck($settings === collect($ids)->sort()->values()->all(), 'the protected rows are read in each of her five workspaces, and never in one she is not in ('.json_encode($settings).')');
-    switcherCheck(! str_contains(json_encode($page['props']), 'Switch Outside') && ! str_contains(json_encode($page['props']), 'switch-outside'), 'nothing of a workspace she is not in reaches the page, though its override and plan row name her');
-    switcherCheck($unbatched($home) === $expected, 'the shell read without the batch, workspace by workspace under RLS, decides the same');
+    switcherCheck(! array_key_exists('Switch Outside', $links) && ! str_contains(json_encode($page['props']), 'Switch Outside') && ! str_contains(json_encode($page['props']), 'switch-outside'), 'nothing of a workspace she is not in reaches the page or the links, though its override and plan row name her');
+    switcherCheck($unmemoized() === $expected, 'the links read without the request memo, workspace by workspace under RLS, decide the same');
 
-    // (2) Excepted tables (memberships, roles and grants): read in one batch for every workspace, as before, so their queries do not grow with the workspaces;
-    // the protected ones are read once in each workspace, so theirs do.
-    switcherCheck($fiveExcepted === $oneExcepted && count($reads) > $oneProtected, 'the excepted tables cost the same queries with one workspace and five ('.$oneExcepted.' and '.$fiveExcepted.'); the protected ones are read per workspace ('.$oneProtected.' and '.count($reads).')');
-    switcherCheck($batchedMemberships, 'the memberships are read in one batch as the request starts, before any workspace is set (an excepted table, readable across workspaces)');
-
-    // An excepted table that is protected anyway (`except` says it is shared, the database does not): the batch must not read it outside a workspace, where it
-    // would see none of its rows and seed the switcher with too little (an override missed fails open, a grant missed hides a link). Fail closed: read in
-    // each workspace instead, deciding as before.
+    // A table `except` lists that is protected anyway, or a protected permission pivot: every read is still made inside its own workspace, so each decides as before.
     [$status, $body] = $send('/@switch-off/switcher-gate?ability=settings.read');
     switcherCheck($status === 200 && $body === ['gate' => 'capability_unavailable'], 'in Switch Off, the page\'s own gate refuses settings (its settings capability is off there) ('.json_encode($body).')');
     $config->set('kit.tenancy.rls.except', [...$except, ...$protected]);
-    [$status, $page] = $send('/@switch-home');
-    switcherCheck($status === 200 && $choices($page) === $expected, 'with the protected tables also listed in except, the switcher decides the same ('.json_encode($choices($page)).')');
+    [$status, $links] = $opened();
+    switcherCheck($status === 200 && $links === $expected, 'with the protected tables also listed in except, the switcher decides the same ('.json_encode($links).')');
     switcherCheck($misplaced($protectedReads()) === [], 'and each protected table is still read only inside its own workspace');
     [$status, $body] = $send('/@switch-off/switcher-gate?ability=settings.read');
-    switcherCheck($status === 200 && $body === ['gate' => 'capability_unavailable'], 'and Switch Off\'s own gate still refuses settings: its override is not lost to a batch that saw no rows ('.json_encode($body).')');
+    switcherCheck($status === 200 && $body === ['gate' => 'capability_unavailable'], 'and Switch Off\'s own gate still refuses settings ('.json_encode($body).')');
     $config->set('kit.tenancy.rls.except', $except);
     $seed(fn () => Rls::protect('model_has_permissions'));
-    [$status, $page] = $send('/@switch-home');
-    switcherCheck($status === 200 && $choices($page) === $expected, 'with a permission pivot protected while except still lists it, Home\'s direct grant still shows People ('.json_encode($choices($page)).')');
+    [$status, $links] = $opened();
+    switcherCheck($status === 200 && $links === $expected, 'with a permission pivot protected while except still lists it, Home\'s direct grant still shows People ('.json_encode($links).')');
     $seed(fn () => Rls::unprotect('model_has_permissions'));
 
-    // (3) The batch and each workspace's checks leave the request as they found it: the tenant, Concierge's context, the permission team, the RLS setting,
-    // the transaction depth and the request's memo. Also when one throws, and the next build answers as before (nothing half-read was kept).
+    // (3) Each workspace's checks leave the request as they found it: the tenant, Concierge's context, the permission team, the RLS setting, the transaction
+    // depth and the request's memo. Also when one throws, and the next build answers as before (nothing half-read was kept).
     $inHome = ['tenant' => $home->id, 'context' => $home->id, 'team' => $home->id, 'rls' => $home->id, 'level' => 1];
-    [$status, $body] = $send('/@switch-home/switcher-shell', partial: true);
-    switcherCheck($status === 200 && $body['error'] === null && $body['before'] === $inHome && $body['after'] === $inHome && $body['final'] === $inHome && $body['kept'] && $body['choices'] === $expected, 'after the shell\'s batch and its five workspaces, the page is back in Home: tenant, context, team, RLS setting and memo ('.json_encode($body['after']).')');
-    $trip = fn (string $sql, ?int $setting): bool => str_contains($sql, '"model_has_permissions"') && str_contains($sql, '"workspace_id" in (');
-    [$status, $body] = $send('/@switch-home/switcher-shell', partial: true);
-    switcherCheck($status === 200 && $body['error'] === 'tripped' && $body['after'] === $inHome && $body['kept'], 'when the batch throws midway, the page is still in Home with its memo ('.json_encode($body['after']).')');
-    switcherCheck($body['choices'] === $expected && $body['final'] === $inHome, 'and the shell built next decides as before ('.json_encode($body['choices']).')');
+    [$status, $body] = $send('/@switch-home/switcher-shell');
+    switcherCheck($status === 200 && $body['error'] === null && $body['before'] === $inHome && $body['after'] === $inHome && $body['final'] === $inHome && $body['kept'] && $body['choices'] === $expected, 'after the shell and the switcher\'s links, built inside Home across five workspaces, the page is back in Home: tenant, context, team, RLS setting and memo ('.json_encode($body['after']).')');
     $trip = fn (string $sql, ?int $setting): bool => str_contains($sql, '"capability_overrides"') && $setting === $admin_->id;
-    [$status, $body] = $send('/@switch-home/switcher-shell', partial: true);
+    [$status, $body] = $send('/@switch-home/switcher-shell');
     switcherCheck($status === 200 && $body['error'] === 'tripped' && $body['after'] === $inHome && $body['kept'], 'when a check throws inside another workspace (Switch Admin), the page is back in Home: tenant, context, team, RLS setting and memo ('.json_encode($body['after']).')');
-    switcherCheck($body['choices'] === $expected && $body['final'] === $inHome, 'and the shell built next decides as before');
-    // The batch run as the page request starts throws: the request fails (never a switcher built from half a batch), and nothing is left behind.
-    $trip = fn (string $sql, ?int $setting): bool => str_contains($sql, '"model_has_permissions"') && str_contains($sql, '"workspace_id" in (');
-    [$status] = $send('/@switch-home');
+    switcherCheck($body['choices'] === $expected && $body['final'] === $inHome, 'and the links built next decide as before');
+    // The links' own request throws in a workspace: it fails (never a half-built list), and nothing is left behind.
+    $trip = fn (string $sql, ?int $setting): bool => str_contains($sql, '"capability_overrides"') && $setting === $member->id;
+    [$status] = $send('/me/switcher', json: true);
     $after = switcherState();
-    switcherCheck($status === 500 && $trip === null && $after === ['tenant' => null, 'context' => null, 'team' => null, 'rls' => null, 'level' => 0], 'a batch that throws as the page request starts fails the request, and leaves no tenant, context, team, RLS setting or transaction ('.json_encode($after).')');
-    [$status, $page] = $send('/@switch-home');
-    switcherCheck($status === 200 && $choices($page) === $expected, 'the next request decides as before');
+    switcherCheck($status === 500 && $trip === null && $after === ['tenant' => null, 'context' => null, 'team' => null, 'rls' => null, 'level' => 0], 'the switcher\'s links request, throwing inside Switch Member, fails and leaves no tenant, context, team, RLS setting or transaction ('.json_encode($after).')');
+    [$status, $links] = $opened();
+    switcherCheck($status === 200 && $links === $expected, 'the next request decides as before');
 
-    // (4) Switching workspace mid-request answers from the workspace switched to, also after a role or a grant changes there in the same request: the batch's
-    // memo for a workspace is never reused once what it read has changed. Each answer is [the kit's gate, spatie's own check, the RLS setting is that workspace].
+    // (4) Switching workspace mid-request answers from the workspace switched to, also after a role or a grant changes there in the same request: the
+    // request's memo for a workspace is never reused once what it read has changed. Each answer is [the kit's gate, spatie's own check, the RLS setting is that workspace].
     [$status, $body] = $send('/@switch-home/switcher-switch');
     $steps = $body['steps'] ?? [];
     switcherCheck($status === 200 && array_slice($steps, 0, 3) === ['home' => [true, true, true], 'member' => [false, false, true], 'home again' => [true, true, true]], 'Home, Member and Home again in one request: each answers members.manage from its own roles and grants ('.json_encode(array_slice($steps, 0, 3)).')');
-    switcherCheck(($steps['admin after the role is removed'] ?? null) === [false, false, true], 'Admin\'s admin role removed mid-request, before anything asked there: People is refused at once, not answered from the batch ('.json_encode($steps['admin after the role is removed'] ?? null).')');
+    switcherCheck(($steps['admin after the role is removed'] ?? null) === [false, false, true], 'Admin\'s admin role removed mid-request, before anything asked there: People is refused at once ('.json_encode($steps['admin after the role is removed'] ?? null).')');
     switcherCheck(($steps['member after the grant'] ?? null) === [true, true, true] && ($steps['home at the end'] ?? null) === [true, true, true], 'Member given the grant mid-request, after it was asked: allowed there at once, and Home unchanged ('.json_encode([$steps['member after the grant'] ?? null, $steps['home at the end'] ?? null]).')');
     switcherCheck(($body['final'] ?? null) === $inHome, 'and the request is back in Home at the end');
     $seed(function () use ($sam, $admin_, $member): void {
         app(Concierge::class)->context()->run($admin_, fn () => $sam->assignRole('admin'), [$sam]);
         app(Concierge::class)->context()->run($member, fn () => $sam->revokePermissionTo('workspace.members.manage'), [$sam]);
     });
-    [$status, $page] = $send('/@switch-home');
-    switcherCheck($status === 200 && $choices($page) === $expected, 'the next request reads the restored roles ('.json_encode($choices($page)).')');
+    [$status, $links] = $opened();
+    switcherCheck($status === 200 && $links === $expected, 'the next request reads the restored roles ('.json_encode($links).')');
 
     // (5) The same switches with spatie's tables configured schema-qualified (kit_switcher_rls.roles and so on), as spatie then writes them
     // ("kit_switcher_rls"."model_has_permissions"): Member, asked first, is given the grant and answers at once, not from the set read before.
@@ -540,7 +549,7 @@ try {
         app(Concierge::class)->context()->run($member, fn () => $sam->revokePermissionTo('workspace.members.manage'), [$sam]);
     });
 
-    echo "Batched switcher under PostgreSQL RLS: protected and excepted tables, restoration after a throw, mid-request switches; no pooler, Octane or browser.\n";
+    echo "Lazy switcher under PostgreSQL RLS: the page's cost, protected tables read per workspace, restoration after a throw, mid-request switches; no pooler, Octane or browser.\n";
     $code = 0;
 } catch (Throwable $error) {
     fwrite(STDERR, 'FAIL '.$error->getMessage()."\n".$error->getTraceAsString()."\n");

@@ -28,12 +28,33 @@ use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 final class PageShell implements ShellSource
 {
     /** The app shell for a signed-in viewer; a guest gets the GuestShell: the product and the footer, nothing about a viewer, a workspace or what they may do. */
-    /** The workspaces the viewer can open, in the switcher's shape (empty for a guest). */
+    /** The workspaces the viewer can open, in the switcher's shape (empty for a guest): each one's id, name and slug, and whether it is the one being viewed. */
     public function choices(Request $request): array
     {
         $this->forRequest($request);
 
         return $request->attributes->get('kit.shell_choices', []);
+    }
+
+    /**
+     * The page each of the viewer's workspaces opens on, by id: its first page they may open there, or null when there is none (unavailable). What the switcher
+     * loads when it opens (SwitcherController), and the workspace list's links. Each is decided inside its own workspace, link by link, as the shell decides the
+     * workspace it names; empty for a guest, a focus page or a viewer without a switcher.
+     *
+     * @return array<int, ?string>
+     */
+    public function landings(Request $request): array
+    {
+        $user = $request->user('web');
+        if (! Users::is($user) || app(Registry::class)->isFocusRoute($request->route()?->getName()) || ! self::switches($user)) {
+            return [];
+        }
+        $landings = [];
+        foreach (MemberWorkspaces::workspaces($user) as $workspace) {
+            $landings[(int) $workspace->id] = self::landing($this->allowed($request, $user, $workspace));
+        }
+
+        return $landings;
     }
 
     /** An account page (/me/*): outside any workspace, so the bar shows the account, not a workspace. The server decides; the client renders `shell.mode`. */
@@ -50,25 +71,11 @@ final class PageShell implements ShellSource
         if (! app(Registry::class)->adopts('workspaces')) {
             return null;
         }
-        $shell = app(self::class);
         $lastId = WorkspaceUrl::currentMemberId($request);
-        $last = $lastId === null ? null : collect($shell->choices($request))->firstWhere('id', $lastId);
+        $shell = app(self::class)->forRequest($request);
+        $last = $lastId !== null && $shell instanceof ShellData && ($shell->workspace['id'] ?? null) === $lastId ? $shell->workspace : null;
 
         return $last === null || $last['url'] === null ? null : new NavigationHeader('Back to '.$last['name'], $last['url']);
-    }
-
-    /**
-     * Reads what the switcher's checks look up in each of the viewer's workspaces (Access::prime) as a page request starts (session-ui's late request hook, before
-     * the page's own checks), so the page and the shell share one batch and a page costs the same queries with one workspace or many. Only for a GET that renders
-     * a page with the switcher: a JSON request, a partial reload, a focus page or a viewer without one reads nothing here.
-     */
-    public static function prime(Request $request): void
-    {
-        $user = $request->user('web');
-        $page = $request->isMethod('GET') && ($request->header('X-Inertia') !== null || ! $request->expectsJson()) && $request->header('X-Inertia-Partial-Component') === null;
-        if ($page && Users::is($user) && ! app(Registry::class)->isFocusRoute($request->route()?->getName()) && self::switches($user)) {
-            app(Access::class)->prime($user, MemberWorkspaces::workspaces($user));
-        }
     }
 
     public function forRequest(Request $request): ShellData|GuestShellData|FocusShellData
@@ -90,55 +97,31 @@ final class PageShell implements ShellSource
         $product['lockup'] = (bool) config('kit.brand.lockup') && config('kit.brand.lockup_scope', 'guest') === 'everywhere';
         $choices = [];
         $current = null;
-        $settings = [];
         $slots = ['primary' => [], 'user-menu' => []];
         // Without workspaces (session-ui on a core and shell host) there is no workspace to name, switch or navigate: the bar is the product and the account.
         if (self::switches($user)) {
-            // Only the viewer's own active memberships, in one query: never every workspace. What each workspace's checks look up is read for all of them at once
-            // (prime(), as the request began; again here for anything read since), so the shell costs the same queries with one workspace or many. Each link is
-            // still decided inside its own workspace.
-            $workspaces = MemberWorkspaces::workspaces($user);
-            app(Access::class)->prime($user, $workspaces);
-            foreach ($workspaces as $workspace) {
-                $allowed = Workspaces::run($workspace, function () use ($workspace, $user, $request): array {
-                    $allowed = ['primary' => [], 'user-menu' => [], 'settings' => null, 'module' => null, 'search' => null];
-                    $primary = [];
-                    foreach (app(Registry::class)->navigationLinks() as $link) {
-                        if ($this->may($user, $link['ability'])) {
-                            $url = WorkspaceUrl::to($workspace, $link['suffix'], null, $request);
-                            $allowed[$link['slot']][] = ['label' => $link['label'], 'url' => $url, 'current' => $this->active($request, $workspace, $link), 'group' => $link['group']];
-                            if ($link['slot'] === 'primary') {
-                                $primary[] = ['label' => $link['label'], 'suffix' => $link['suffix'], 'current' => end($allowed['primary'])['current']];
-                            }
-                        }
-                    }
-                    // The SubNav, for the workspace being viewed only: the active module's pages the viewer may open.
-                    if ((string) $request->route('workspace') === (string) $workspace->id) {
-                        $allowed['module'] = self::moduleNavigation(app(Registry::class), $primary, fn (string $ability): bool => $this->may($user, $ability), fn (array $page): string => WorkspaceUrl::to($workspace, $page['suffix'], null, $request), fn (array $page): bool => $this->active($request, $workspace, $page));
-                    }
-
-                    // Global search, for the workspace being viewed only, while the viewer may search it (workspace.search on).
-                    if ((string) $request->route('workspace') === (string) $workspace->id && $this->may($user, Searches::ABILITY)) {
-                        $allowed['search'] = ['url' => WorkspaceUrl::to($workspace, 'search', 'session-ui', $request), 'label' => 'Search', 'placeholder' => 'Search '.$workspace->name];
-                    }
-
-                    // Settings is one link, to the landing page, when the user can open any of its sections.
-                    if (SettingsSections::visible('workspace', $workspace, new Principal((int) $user->id), $request) !== []) {
-                        $allowed['settings'] = WorkspaceUrl::to($workspace, 'settings', null, $request);
-                        $allowed['primary'][] = ['label' => 'Settings', 'url' => WorkspaceUrl::to($workspace, 'settings', null, $request), 'current' => $this->active($request, $workspace, ['suffix' => 'settings', 'active' => null]), 'group' => 'workspace'];
-                    }
-
-                    return $allowed;
-                });
+            // Only the viewer's own active memberships, in one query: never every workspace. The switcher lists them by name; which page each opens on is
+            // decided for the workspace the bar names (below), and for the others only when the switcher opens (landings()), so a page costs the same with any number.
+            foreach (MemberWorkspaces::workspaces($user) as $workspace) {
                 $isCurrent = (string) $request->route('workspace') === (string) $workspace->id;
-                // Landing in a workspace means its first primary page.
-                $settings[(int) $workspace->id] = $allowed['settings'];
-                $choices[] = ['id' => (int) $workspace->id, 'name' => $workspace->name, 'url' => ($allowed['primary'][0] ?? $allowed['user-menu'][0] ?? null)['url'] ?? null, 'current' => $isCurrent];
+                $choices[] = ['id' => (int) $workspace->id, 'name' => $workspace->name, 'slug' => (string) $workspace->slug, 'current' => $isCurrent];
                 if ($isCurrent) {
                     $current = ['id' => (int) $workspace->id, 'name' => $workspace->name];
-                    $slots = $allowed;
                 }
             }
+        }
+        $request->attributes->set('kit.shell_choices', $choices);
+        // The workspace is always named in the bar: the current one, or the only one there is. The switcher exists only with two or more.
+        $lastId = $current !== null ? $current['id'] : ($choices === [] ? null : WorkspaceUrl::currentMemberId($request));
+        $named = ($lastId !== null ? collect($choices)->firstWhere('id', $lastId) : null) ?? (count($choices) === 1 ? $choices[0] : null);
+        $workspace = null;
+        if ($named !== null) {
+            // Its pages are decided inside it; the current one's are the bar's navigation.
+            $allowed = $this->allowed($request, $user, MemberWorkspaces::workspace($named['id'], $user));
+            if ($named['current']) {
+                $slots = $allowed;
+            }
+            $workspace = ['id' => $named['id'], 'name' => $named['name'], 'url' => self::landing($allowed), 'settings' => $allowed['settings'] === null ? null : new Action('Workspace settings', $allowed['settings'], 'get'), 'all' => new Action('All workspaces', $links['switcher'], 'get'), 'leave' => $this->leave($user, (int) $named['id'], $named['name'])];
         }
         // Without workspaces (a core and shell host, session-ui for sign-in): the app's own pages from Registry::navigation(), at the root, each shown while the
         // viewer passes its ability as a Laravel Gate ability (undefined abilities deny: fail closed). `user-menu` links join the account menu.
@@ -147,15 +130,9 @@ final class PageShell implements ShellSource
         }
         $identity = ['name' => $user->name, 'email' => $user->email, 'initials' => $this->initials((string) $user->name), 'avatar_url' => ($avatar = Avatars::urls((int) $user->getKey()))['url'] ?? null, 'avatar_url_2x' => $avatar['url_2x'] ?? null, 'items' => [...(app(Registry::class)->adopts('workspaces') ? [] : $slots['user-menu']), ...$this->accountItems($user, $request)]];
 
-        $request->attributes->set('kit.shell_choices', $choices);
-        // The workspace is always named in the bar: the current one, or the only one there is. The switcher exists only with two or more.
-        $lastId = $current !== null ? $current['id'] : ($choices === [] ? null : WorkspaceUrl::currentMemberId($request));
-        $named = ($lastId !== null ? collect($choices)->firstWhere('id', $lastId) : null) ?? (count($choices) === 1 ? $choices[0] : null);
-        $workspace = $named === null ? null : ['id' => $named['id'], 'name' => $named['name'], 'url' => $named['url'], 'settings' => ($settings[$named['id']] ?? null) === null ? null : new Action('Workspace settings', $settings[$named['id']], 'get'), 'all' => new Action('All workspaces', $links['switcher'], 'get'), 'leave' => $this->leave($user, (int) $named['id'], $named['name'])];
-
         $account = self::isAccount($request);
 
-        return new ShellData(['label' => 'Your account', 'url' => Landing::to('/me'), 'current' => $account], $product, $workspace, $choices === [] ? null : ['current' => $current, 'choices' => $choices], $slots['primary'], $identity, $links, app(Registry::class)->webFooter(), subNavigation: $slots['module'] ?? null, search: $slots['search'] ?? null);
+        return new ShellData(['label' => 'Your account', 'url' => Landing::to('/me'), 'current' => $account], $product, $workspace, $choices === [] ? null : ['current' => $current, 'choices' => $choices, 'landings' => '/me/switcher'], $slots['primary'], $identity, $links, app(Registry::class)->webFooter(), subNavigation: $slots['module'] ?? null, search: $slots['search'] ?? null);
     }
 
     /**
@@ -225,6 +202,53 @@ final class PageShell implements ShellSource
         }
 
         return null;
+    }
+
+    /**
+     * What the viewer may open in one of their workspaces, decided inside it (Workspaces::run: its tenant, Concierge context and permission team), link by
+     * link through Access::authorize(): the primary and user-menu links, Settings (one link, when they can open any section), and, for the workspace being
+     * viewed only, the active module's SubNav and global search.
+     *
+     * @return array{primary: list<array{label: string, url: string, current: bool, group: string}>, user-menu: list<array{label: string, url: string, current: bool, group: string}>, settings: ?string, module: ?array, search: ?array}
+     */
+    private function allowed(Request $request, object $user, Workspace $workspace): array
+    {
+        return Workspaces::run($workspace, function () use ($workspace, $user, $request): array {
+            $allowed = ['primary' => [], 'user-menu' => [], 'settings' => null, 'module' => null, 'search' => null];
+            $primary = [];
+            foreach (app(Registry::class)->navigationLinks() as $link) {
+                if ($this->may($user, $link['ability'])) {
+                    $url = WorkspaceUrl::to($workspace, $link['suffix'], null, $request);
+                    $allowed[$link['slot']][] = ['label' => $link['label'], 'url' => $url, 'current' => $this->active($request, $workspace, $link), 'group' => $link['group']];
+                    if ($link['slot'] === 'primary') {
+                        $primary[] = ['label' => $link['label'], 'suffix' => $link['suffix'], 'current' => end($allowed['primary'])['current']];
+                    }
+                }
+            }
+            // The SubNav, for the workspace being viewed only: the active module's pages the viewer may open.
+            if ((string) $request->route('workspace') === (string) $workspace->id) {
+                $allowed['module'] = self::moduleNavigation(app(Registry::class), $primary, fn (string $ability): bool => $this->may($user, $ability), fn (array $page): string => WorkspaceUrl::to($workspace, $page['suffix'], null, $request), fn (array $page): bool => $this->active($request, $workspace, $page));
+            }
+
+            // Global search, for the workspace being viewed only, while the viewer may search it (workspace.search on).
+            if ((string) $request->route('workspace') === (string) $workspace->id && $this->may($user, Searches::ABILITY)) {
+                $allowed['search'] = ['url' => WorkspaceUrl::to($workspace, 'search', 'session-ui', $request), 'label' => 'Search', 'placeholder' => 'Search '.$workspace->name];
+            }
+
+            // Settings is one link, to the landing page, when the user can open any of its sections.
+            if (SettingsSections::visible('workspace', $workspace, new Principal((int) $user->id), $request) !== []) {
+                $allowed['settings'] = WorkspaceUrl::to($workspace, 'settings', null, $request);
+                $allowed['primary'][] = ['label' => 'Settings', 'url' => WorkspaceUrl::to($workspace, 'settings', null, $request), 'current' => $this->active($request, $workspace, ['suffix' => 'settings', 'active' => null]), 'group' => 'workspace'];
+            }
+
+            return $allowed;
+        });
+    }
+
+    /** Landing in a workspace means its first primary page (else its first user-menu page); null when the viewer may open none. */
+    private static function landing(array $allowed): ?string
+    {
+        return ($allowed['primary'][0] ?? $allowed['user-menu'][0] ?? null)['url'] ?? null;
     }
 
     /** Whether the bar names, switches and navigates the viewer's workspaces: with workspaces, for an active account with a verified email. */

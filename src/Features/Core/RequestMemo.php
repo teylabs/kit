@@ -50,24 +50,6 @@ final class RequestMemo
         return $this->memo[$key];
     }
 
-    /**
-     * Answers several keys in one read, for later get()s of them: `$read` receives the keys not answered yet and returns key => value for them. A key already
-     * answered keeps its value, and nothing is read when every key is answered or while the memo is off (outside a request every lookup reads afresh).
-     *
-     * @param  list<string>  $keys
-     * @param  Closure(list<string>): array<string, mixed>  $read
-     */
-    public function prime(array $keys, Closure $read): void
-    {
-        if ($this->memo === null || $this->request !== spl_object_id(request())) {
-            return;
-        }
-        $missing = array_values(array_filter($keys, fn (string $key): bool => ! array_key_exists($key, $this->memo)));
-        if ($missing !== []) {
-            $this->memo += $read($missing);
-        }
-    }
-
     public static function instance(): self
     {
         return app(self::class);

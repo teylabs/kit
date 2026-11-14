@@ -18,7 +18,7 @@ const app = {
     account: { label: 'Account', url: '/account', current: false },
     product,
     workspace: { id: 1, name: 'Acme Workshop', url: '/@acme', settings: null, all: null, leave: null },
-    switcher: { current: { id: 1, name: 'Acme Workshop' }, choices: [{ id: 1, name: 'Acme Workshop', url: '/@acme', current: true }] },
+    switcher: { current: { id: 1, name: 'Acme Workshop' }, choices: [{ id: 1, name: 'Acme Workshop', slug: 'acme', current: true }], landings: '/me/switcher' },
     navigation: [{ label: 'Overview', url: '/@acme', current: false, group: 'main' }],
     user: { name: 'Ada Example', email: 'ada@example.test', initials: 'AE', avatar_url: null, avatar_url_2x: null, items: [] },
     links: { home: '/', switcher: '/workspaces', sign_in: '/login', sign_out: '/logout' },

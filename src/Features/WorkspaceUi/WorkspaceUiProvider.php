@@ -68,9 +68,10 @@ final class WorkspaceUiProvider extends ServiceProvider implements Contributes
         // Over its per-minute searches a person gets a 429, and over MCP the `rate_limited` refusal.
         $registry->errors([Searches::RATE_LIMITED => 429], [Searches::RATE_LIMITED => 'Too many searches. Wait a minute and try again.'])->mcpRefusalCodes([Searches::RATE_LIMITED]);
         $registry->workspaceOpener(function (Request $request): ?string {
-            $reachable = array_values(array_filter(app(PageShell::class)->choices($request), fn (array $choice) => $choice['url'] !== null));
+            // Decided in each workspace, as the switcher's links are (the shell itself sends only the list).
+            $reachable = array_values(array_filter(app(PageShell::class)->landings($request)));
 
-            return count($reachable) === 1 ? $reachable[0]['url'] : null;
+            return count($reachable) === 1 ? $reachable[0] : null;
         });
         $registry->errorPages(function (string $code, int $status, ?string $message, Request $request) {
             // The error names its page once: the heading and the document title are the same label.

@@ -8,7 +8,6 @@ use Laravel\Pennant\Feature;
 use RuntimeException;
 use Tey\Concierge\Contracts\Workspace;
 use Tey\Kit\Features\Core\Registry;
-use Tey\Kit\Features\Workspaces\Rls;
 
 /**
  * Whether a capability (a feature of the app) is on for a person in a workspace. Precedence: the person's own override in that workspace, then the workspace's (both set by
@@ -37,27 +36,6 @@ final class Capabilities
         }
 
         return $this->memo[$capability.':'.$workspace->getKey().':'.($user?->getKey() ?? 0)] ??= $this->decide($capability, $workspace, $user);
-    }
-
-    /**
-     * Reads the overrides of several workspaces in one query, for a request that asks in each of them (the shell's switcher); a workspace already read keeps its rows.
-     * Nothing is read outside a request's memo, or while RLS hides other workspaces' overrides (each is then read in its own workspace, as before).
-     *
-     * @param  list<Workspace>  $workspaces
-     */
-    public function prime(array $workspaces): void
-    {
-        if ($this->memo === null || $this->request !== spl_object_id(request()) || ! Rls::shared('capability_overrides')) {
-            return;
-        }
-        $ids = array_values(array_filter(array_map(fn (Workspace $workspace): int => (int) $workspace->getKey(), $workspaces), fn (int $id): bool => ! isset($this->memo['overrides:'.$id])));
-        if ($ids === []) {
-            return;
-        }
-        $rows = DB::table('capability_overrides')->whereIn('workspace_id', $ids)->get(['workspace_id', 'capability', 'user_id', 'enabled'])->groupBy('workspace_id');
-        foreach ($ids as $id) {
-            $this->memo['overrides:'.$id] = ($rows[$id] ?? collect())->all();
-        }
     }
 
     private function decide(string $capability, Workspace $workspace, ?Model $user): bool
