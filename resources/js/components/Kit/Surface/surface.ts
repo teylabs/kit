@@ -5,12 +5,15 @@ import {
     type ComputedRef,
     type InjectionKey,
 } from 'vue';
+import type { AlertActions } from '@/components/Kit/Feedback/alertVariants';
 
 // The surface a control sits on: its tone and its shape. A container with its own tone (the FloatingToolbar's pill) provides `inverse`, and a pill container
 // provides the `pill` shape; Button and ActionBar's groups read both and blend in instead of each caller passing a one-off variant. Elsewhere the defaults hold.
+// An Alert's actions row adds `alert`, its tone and actions style, so a Button there takes the alert's colour (alertActionClass); every other surface clears it.
 export type Surface = {
     tone: 'default' | 'inverse';
     shape: 'default' | 'pill';
+    alert?: AlertActions;
 };
 const key: InjectionKey<ComputedRef<Surface>> = Symbol('kit.surface');
 

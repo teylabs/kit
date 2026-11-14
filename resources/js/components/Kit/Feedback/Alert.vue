@@ -2,9 +2,11 @@
 import { router } from '@inertiajs/vue3';
 import { CircleCheck, Info, OctagonAlert, TriangleAlert, X } from '@lucide/vue';
 import { computed, nextTick, onMounted, ref, type Component } from 'vue';
+import AlertActions from './AlertActions.vue';
 import {
     alertIconClass,
     alertVariants,
+    type AlertActionsStyle,
     type AlertTier,
     type AlertVariant,
 } from './alertVariants';
@@ -24,6 +26,11 @@ import {
  *
  * `actionsPlacement`: `below` (default) puts the actions under the body; `inline` puts them, from sm up, on the right of the title and body, vertically centred
  * beside them, and below them on a phone. Opt in for a short alert with one or two actions, such as a lock notice with Reopen.
+ *
+ * `actionsStyle`: a kit Button in `#actions` takes the alert's tone, never the host's grey, with no class from the caller. `link` (default) is tone text, medium
+ * weight, underlined on hover: it blends into the alert. `soft` is a compact button tinted with the tone, for an alert that exists to get one click. The
+ * Button's variant says how loud it is: primary, success or destructive is that action; secondary, ghost or link a quiet, normal-weight tone link (Dismiss,
+ * Learn more). A plain link or button slotted there takes the tone's colour. The focus ring is the tone too. See alertActionClass.
  */
 const props = withDefaults(
     defineProps<{
@@ -38,6 +45,7 @@ const props = withDefaults(
             method?: 'post' | 'put' | 'patch' | 'delete';
         } | null;
         actionsPlacement?: 'below' | 'inline';
+        actionsStyle?: AlertActionsStyle;
     }>(),
     {
         variant: 'info',
@@ -47,6 +55,7 @@ const props = withDefaults(
         dismissible: false,
         dismiss: null,
         actionsPlacement: 'below',
+        actionsStyle: 'link',
     },
 );
 
@@ -80,6 +89,11 @@ const canDismiss = computed(() => props.dismissible && props.dismiss !== null);
 const inline = computed(
     () => props.actionsPlacement === 'inline' && filled.value,
 );
+const actions = computed(() => ({
+    variant: props.variant,
+    tier: props.tier,
+    style: props.actionsStyle,
+}));
 const dismissName = computed(() => `Dismiss ${props.title ?? props.variant}`);
 
 function dismissed() {
@@ -127,13 +141,14 @@ function dismissed() {
                     {{ title }}
                 </p>
                 <div data-slot="alert-body"><slot /></div>
-                <div
+                <AlertActions
                     v-if="$slots.actions"
+                    :actions="actions"
                     class="flex flex-wrap items-center gap-3 pt-2 font-medium sm:justify-end"
                     data-slot="alert-actions"
                 >
                     <slot name="actions" />
-                </div>
+                </AlertActions>
             </template>
         </div>
         <div
@@ -147,13 +162,14 @@ function dismissed() {
                 </p>
                 <div data-slot="alert-body"><slot /></div>
             </div>
-            <div
+            <AlertActions
                 v-if="$slots.actions"
+                :actions="actions"
                 class="flex shrink-0 flex-wrap items-center gap-3 font-medium"
                 data-slot="alert-actions"
             >
                 <slot name="actions" />
-            </div>
+            </AlertActions>
         </div>
         <!-- The 44px target overhangs its one-line box evenly, so the × stays centred on the first line and reaches the alert's right edge. -->
         <span v-if="canDismiss" class="-mr-4 flex h-5 shrink-0 items-center">
