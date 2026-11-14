@@ -77,7 +77,9 @@ final class Access
             return;
         }
         $memberships = ConciergeModels::membership();
-        if (Rls::shared(app($memberships)->getTable())) {
+        // The batch is Concierge's own lookup for many workspaces at once: a bound Concierge that resolves memberships its own way keeps each lookup its own.
+        $standard = (new \ReflectionMethod(app(Concierge::class), 'membership'))->getDeclaringClass()->getName() === Concierge::class;
+        if ($standard && Rls::shared(app($memberships)->getTable())) {
             $keys = collect($workspaces)->mapWithKeys(fn (Workspace $workspace): array => ['membership:'.$user->getKey().':'.$workspace->getKey() => (int) $workspace->getKey()]);
             RequestMemo::instance()->prime($keys->keys()->all(), function (array $missing) use ($memberships, $user, $keys): array {
                 $found = $memberships::query()->where('user_id', $user->getKey())->whereIn('workspace_id', $keys->only($missing)->values()->all())->get()->keyBy('workspace_id');

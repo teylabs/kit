@@ -283,6 +283,14 @@ try {
     config(['kit.capabilities' => ['workspace.settings' => true]]);
     permissionCheck($update('owner', $one), 'turning the capability on allows it again');
 
+    // The shell's batch reads memberships only through Concierge's own lookup: a bound Concierge that resolves them its own way (here, no membership table
+    // at all) keeps each lookup its own, so the batch leaves an active member active.
+    app()->instance('request', Illuminate\Http\Request::create('https://kit.test/'));
+    app()->singleton(Tey\Kit\Features\Core\RequestMemo::class);
+    Tey\Kit\Features\Core\RequestMemo::instance()->remember();
+    $primed = app(Registry::class)->adopts('access');
+    app(Access::class)->prime($users['admin'], [$one, $two]);
+    permissionCheck($primed && Tey\Kit\Features\Core\RequestMemo::membership($users['admin'], $one)?->isActive() && Tey\Kit\Features\Core\RequestMemo::membership($users['admin'], $two)?->isActive() && Tey\Kit\Features\Core\RequestMemo::membership($users['outsider'], $one) === null, 'Access::prime() leaves memberships to a Concierge that resolves them its own way');
     permissionCheck(! $permissions->granted($users['owner'], 'undeclared.permission', $one), 'a permission no feature declares is never granted');
     permissionCheck(class_exists(Access::class) && (new ReflectionMethod(SyncPermissionsCommand::class, 'handle'))->getNumberOfParameters() === 1, 'kit:permissions:sync is a command over the sync');
     echo "Permission checks on in-memory SQLite with synthetic membership; no Concierge tables, HTTP, Inertia props rendering or MCP transport.\n";
