@@ -6,7 +6,8 @@ use Spatie\TypeScriptTransformer\Attributes\TypeScript;
 use Tey\Kit\Features\Core\ViewModels\PageViewModel;
 
 /**
- * Props for pages/Workspace/Account/Profile/Page.vue: who you are, your photo, and your clock (`workspace` follows the workspace's, else `12h` or `24h`).
+ * Props for pages/Workspace/Account/Profile/Page.vue: who you are, your photo, and your date and time: your time zone and your clock (`workspace`
+ * follows the workspace's, else `12h` or `24h`), both saved to `clock_url`.
  *
  * @purpose Signed-in person: keep their name and photo current.
  */
@@ -14,7 +15,7 @@ use Tey\Kit\Features\Core\ViewModels\PageViewModel;
 final class ProfileViewModel extends PageViewModel
 {
     /** @param ?array{url: string, url_2x: string} $avatar */
-    public function __construct(private string $title, private string $name, private string $initials, private ?array $avatar, private string $store_url, private int $max_kb, private string $email = '', private bool $email_verified = true, private string $profile_url = '/user/profile-information', private ?string $notice = null, private string $verify_url = '/email/verification-notification', private string $clock = 'workspace', private string $clock_url = '/me/profile/clock') {}
+    public function __construct(private string $title, private string $name, private string $initials, private ?array $avatar, private string $store_url, private int $max_kb, private string $email = '', private bool $email_verified = true, private string $profile_url = '/user/profile-information', private ?string $notice = null, private string $verify_url = '/email/verification-notification', private string $clock = 'workspace', private string $clock_url = '/me/profile/clock', private string $timezone = 'UTC') {}
 
     public function title(): string
     {
@@ -81,6 +82,12 @@ final class ProfileViewModel extends PageViewModel
     public function clock_url(): string
     {
         return $this->clock_url;
+    }
+
+    /** Your saved time zone, else the browser's, else UTC. */
+    public function timezone(): string
+    {
+        return $this->timezone;
     }
 
     protected function section(): ?string

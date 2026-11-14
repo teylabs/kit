@@ -580,7 +580,14 @@ final class Registry
      */
     public function workspaceClockUsing(callable $get, callable $set): self
     {
-        $this->workspaceClock = ['get' => $get, 'set' => $set];
+        // A change is seen by the next read in the same request: the setter forgets the preferences Clock resolved.
+        $this->workspaceClock = ['get' => $get, 'set' => static function (mixed ...$arguments) use ($set): mixed {
+            try {
+                return $set(...$arguments);
+            } finally {
+                Clock::forget();
+            }
+        }];
 
         return $this;
     }
