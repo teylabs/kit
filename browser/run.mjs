@@ -7910,6 +7910,7 @@ function securityAccount({ twoFactor = 'off', passkeys = [{ id: 7, name: 'MacBoo
                         two_factor: { state: store.twoFactor, qr_svg: store.twoFactor === 'pending' ? '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 4 4"><rect width="2" height="2"/></svg>' : null, secret_key: store.twoFactor === 'pending' ? 'JBSWY3DPEHPK3PXP' : null, codes_left: store.twoFactor === 'on' ? store.codes.length : 0, recovery_codes: shown },
                         sessions: { supported: true, items: [{ agent: 'Chrome on macOS', ip: '203.0.113.5', last_active: '2026-11-09T09:00:00+00:00', current: true }, ...Array.from({ length: store.sessions - 1 }, () => ({ agent: 'Safari on iOS', ip: '198.51.100.7', last_active: '2026-11-08T18:00:00+00:00', current: false }))] },
                         events: [],
+                        log: { title: 'Security log', description: 'Your recent sign-ins and security changes. Only you can see this.', state: 'empty', empty: { variant: 'first-use', title: 'Nothing yet', description: 'Your sign-ins and security changes show up here.', action: null }, error: null, actions: [], segments: [], sortBy: null, seeAll: null, maxHeight: null },
                         two_factor_url: '/me/security/two-factor',
                         recovery_codes_url: '/me/security/recovery-codes',
                         sessions_url: '/me/security/sessions',
@@ -8963,7 +8964,7 @@ async function securityPasskeys(run, { confirmation = true, page: auth = 'Worksp
         tab.on('pageerror', error => pageErrors.push(error.message));
         const requests = [];
         // With the confirmation off (fortify-options.passkeys.confirmPassword false), Fortify serves the options without it.
-        const server = { confirmed: !confirmation, passkeys: [{ id: 7, name: 'MacBook passkey', created: '2026-10-01T09:00:00+00:00', last_used: null }] };
+        const server = { confirmed: !confirmation, passkeys: [{ id: 7, name: 'MacBook passkey', created: '2026-10-01T09:00:00+00:00', last_used: null }], events: [] };
         await tab.route('**/user/confirm-password', async (route) => {
             const body = route.request().postDataJSON();
             requests.push(['POST', '/user/confirm-password', body]);
@@ -8981,14 +8982,19 @@ async function securityPasskeys(run, { confirmation = true, page: auth = 'Worksp
             requests.push(['POST', '/user/passkeys', body]);
             if (!server.confirmed) return route.fulfill({ status: 423, contentType: 'application/json', body: '{}' });
             server.passkeys.push({ id: 8, name: body.name, created: '2026-11-09T10:00:00+00:00', last_used: null });
+            // SecurityLog records Fortify's PasskeyRegistered.
+            server.events.unshift({ type: 'passkey_added', label: 'Passkey added', ip: '203.0.113.5', agent: 'Chrome on macOS', at: '2026-11-09T10:00:00+00:00' });
             await route.fulfill({ status: 201, contentType: 'application/json', body: '{"id":8}' });
         });
-        // The page's reload after a passkey is added (router.reload({ only: ['passkeys', 'events'] })).
+        // The page's reload after a passkey is added (router.reload({ only: [...] })): as Inertia's server, a partial reload gets only the props it names
+        // (and `errors`), and the page keeps the rest as they were.
         await tab.route('**/me/security', async (route) => {
-            requests.push(['GET', '/me/security']);
+            const only = (route.request().headers()['x-inertia-partial-data'] ?? '').split(',').filter(Boolean);
+            requests.push(['GET', '/me/security', only]);
             const page = await tab.evaluate(() => window.kitInitialPage);
-            const passkeys = { ...page.props.passkeys, items: server.passkeys };
-            await route.fulfill({ status: 200, headers: { 'Content-Type': 'application/json', 'X-Inertia': 'true', Vary: 'X-Inertia' }, body: JSON.stringify({ ...page, props: { ...page.props, passkeys } }) });
+            const props = { ...page.props, passkeys: { ...page.props.passkeys, items: server.passkeys }, events: server.events, log: await tab.evaluate((events) => window.kitSecurityLog(events), server.events) };
+            const sent = only.length ? Object.fromEntries(Object.entries(props).filter(([key]) => key === 'errors' || only.includes(key))) : props;
+            await route.fulfill({ status: 200, headers: { 'Content-Type': 'application/json', 'X-Inertia': 'true', Vary: 'X-Inertia' }, body: JSON.stringify({ ...page, props: sent }) });
         });
         // The passkey offer's close once a passkey is added (router.delete(dismiss_url)): the page again, with the offer gone.
         await tab.route('**/me/passkey-offer', async (route) => {
@@ -9019,6 +9025,26 @@ test('Security, Add a passkey: the password is asked for inline and confirmed wi
         assert.deepEqual(await passkeyNames(tab), ['MacBook passkey', requests[2][2].name]);
         assert.equal(await tab.locator('[data-passkey-add-failed]').count(), 0, 'no failure alert');
         assert.equal(await tab.inputValue('#passkey-add-password'), '', 'the password is cleared');
+    });
+});
+
+test('Security, Add a passkey: the security log, empty before, shows the new "Passkey added" event after the reload, not its stale "Nothing yet"', async () => {
+    await securityPasskeys(async ({ tab, requests }) => {
+        const card = tab.locator('[data-security-log-card]');
+        const read = () => card.evaluate((el) => ({
+            state: el.querySelector('[data-collection-section]')?.dataset.state ?? null,
+            empty: el.querySelector('[data-collection-empty]')?.innerText.split('\n').map((line) => line.trim()).filter(Boolean) ?? null,
+            events: [...el.querySelectorAll('[data-security-log] [data-event]')].map((li) => li.dataset.event),
+        }));
+        assert.deepEqual(await read(), { state: 'empty', empty: ['Nothing yet', 'Your sign-ins and security changes show up here.'], events: [] }, 'before: the empty state, and no events');
+        const add = tab.locator('[data-passkey-add-form]');
+        await add.getByLabel('Your password').fill('correct horse battery staple');
+        await add.getByRole('button', { name: 'Add a passkey' }).click();
+        await tab.locator('[data-passkey="8"]').waitFor();
+        assert.deepEqual(requests.at(-1), ['GET', '/me/security', ['passkeys', 'events', 'log']], 'the reload asks for the log\'s section with its events');
+        await tab.locator('[data-security-log-card] [data-event="passkey_added"]').waitFor();
+        assert.deepEqual(await read(), { state: 'ready', empty: null, events: ['passkey_added'] }, 'after: the new event, and the empty state gone');
+        assert.equal((await card.locator('[data-event="passkey_added"]').innerText()).includes('Passkey added'), true);
     });
 });
 

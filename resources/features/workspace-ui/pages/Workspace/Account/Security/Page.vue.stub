@@ -29,7 +29,8 @@ async function addPasskey(): Promise<void> {
         }
         await registerPasskey(client, props.passkeys, passkeyName((navigator as { userAgentData?: { platform?: string } }).userAgentData?.platform));
         addPassword.value = '';
-        router.reload({ only: ['passkeys', 'events'] });
+        // `log` too: the security log's card reads its empty or ready state from it, not from `events`.
+        router.reload({ only: ['passkeys', 'events', 'log'] });
     } catch {
         addFailed.value = true;
     } finally {
