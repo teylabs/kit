@@ -6077,7 +6077,8 @@ test('CollectionSection: header actions keep their descriptor: a confirmed POST 
         // At rest, before any action runs (a running action is dimmed while its visit is in flight, and this page's router never finishes one).
         assert.deepEqual(await notesAxe(tab), [], 'axe');
         const card = tab.locator('[data-case="actions"]');
-        assert.equal(await card.getByRole('link', { name: 'New case', exact: true }).getAttribute('href'), '/@acme/cases/new', 'a plain GET stays a link');
+        const plainLink = card.getByRole('link', { name: 'Add an open case', exact: true });
+        assert.deepEqual([await plainLink.getAttribute('href'), (await plainLink.innerText()).trim()], ['/@acme/cases/new', 'New case'], 'a plain GET stays a link, named by its ariaLabel');
         // The ActionBar places it (inline or behind its More menu); either way it is a button or a menu item, never a link.
         assert.equal(await card.getByRole('link', { name: 'Close all' }).count(), 0, 'a confirmed POST is not a link');
         const close = async () => {
@@ -6138,13 +6139,15 @@ test('SearchBox: the results end with "All results" and an arrow, kept in view w
         assert.equal(await tab.getByText('See all results').count(), 0, 'the old "See all results" label is gone');
         const pinned = () => tab.evaluate(() => {
             const box = document.querySelector('[data-search-results]');
-            const link = box.querySelector('[data-search-all] a').getBoundingClientRect();
-            const r = box.getBoundingClientRect();
+            const anchor = document.querySelector('[data-search-popup] [data-search-all] a');
+            const link = anchor.getBoundingClientRect();
+            const r = document.querySelector('[data-search-popup]').getBoundingClientRect();
             const hit = document.elementFromPoint(link.left + link.width / 2, link.top + link.height / 2);
-            return { scrolls: box.scrollHeight > box.clientHeight, scrollTop: box.scrollTop, inside: link.top >= r.top && link.bottom <= r.bottom + 0.5, hit: Boolean(hit?.closest('[data-search-all]')) };
+            return { scrolls: box.scrollHeight > box.clientHeight, scrollTop: box.scrollTop, inside: link.top >= r.top && link.bottom <= r.bottom + 0.5, hit: Boolean(hit?.closest('[data-search-all]')), outsideListbox: anchor.closest('[role="listbox"]') === null && !box.contains(anchor), owned: [...box.querySelectorAll('[role="group"] > *')].every((el) => el.getAttribute('role') === 'option' || el.getAttribute('aria-hidden') === 'true') };
         });
         const top = await pinned();
         assert.ok(top.scrolls && top.inside && top.hit, 'the results scroll and the link is in view at the top of them');
+        assert.ok(top.outsideListbox && top.owned, 'the link is outside the listbox and its scroll; the listbox\'s groups hold only options (and their hidden labels)');
         await tab.locator('[data-search-results]').evaluate(el => { el.scrollTop = el.scrollHeight / 2; });
         const middle = await pinned();
         assert.ok(middle.scrollTop > 0 && middle.inside && middle.hit, 'and part way down');

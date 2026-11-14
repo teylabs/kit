@@ -45,7 +45,7 @@ const edge = new URLSearchParams(window.location.search).has('edge');
 const withActions = {
     title: 'Open cases',
     actions: [
-        { label: 'New case', url: '/@acme/cases/new', method: 'get', key: 'new' },
+        { label: 'New case', url: '/@acme/cases/new', method: 'get', key: 'new', ariaLabel: 'Add an open case' },
         { label: 'Close all', url: '/@acme/cases/close', method: 'post', key: 'close', destructive: true, confirm: { title: 'Close all open cases?', description: 'Every open case is closed.', label: 'Close all' } },
         { label: 'Export', url: '/@acme/cases/export', method: 'get', key: 'export', disabled: true, reason: 'Exports are off on this plan' },
         { label: 'Open in a new tab', url: '/@acme/cases?status=open', method: 'get', key: 'tab', newTab: true },

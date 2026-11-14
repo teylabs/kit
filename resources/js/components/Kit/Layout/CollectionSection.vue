@@ -252,6 +252,7 @@ function choose(value: unknown): void {
                     v-for="action in links"
                     :key="action.key ?? action.url"
                     :href="action.url"
+                    :aria-label="action.ariaLabel || undefined"
                     class="text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-ring rounded-md px-2 py-1 text-xs font-medium focus-visible:ring-2 focus-visible:outline-none"
                     >{{ action.label }}</Link
                 >
@@ -361,6 +362,7 @@ function choose(value: unknown): void {
                         <Link
                             v-if="emptyAction && navigates(emptyAction)"
                             :href="emptyAction.url"
+                            :aria-label="emptyAction.ariaLabel || undefined"
                             class="bg-primary text-primary-foreground hover:bg-primary/90 focus-visible:ring-ring mt-2 inline-flex min-h-11 items-center rounded-md px-4 text-sm font-medium focus-visible:ring-2 focus-visible:outline-none"
                             >{{ emptyAction.label }}</Link
                         >
