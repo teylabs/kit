@@ -3785,6 +3785,22 @@
       "reason": "SearchBox helper."
     },
     {
+      "ref": "@/components/Kit:SeeAllLink",
+      "reason": "A list's see-all link: drawn by CollectionSection (and so CollectionCard) and SearchBox from the server's SeeAll descriptor."
+    },
+    {
+      "ref": "@/components/Kit:CollectionSection",
+      "reason": "The section a collection of items sits in, driven by the server's CollectionSectionData, bare around a grid or list of cards: a list section's frame, not a page surface of its own."
+    },
+    {
+      "ref": "@/components/Kit:CollectionCard",
+      "reason": "A CollectionSection on a kit Card, from the same descriptor: a dashboard widget's and a card list's frame, not a page surface of its own."
+    },
+    {
+      "ref": "@/components/Kit:seeAllPlacement",
+      "reason": "SeeAllLink helper."
+    },
+    {
       "ref": "@/components/Kit:provideSurface",
       "reason": "Surface context helper."
     },

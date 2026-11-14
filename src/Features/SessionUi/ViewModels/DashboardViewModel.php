@@ -2,6 +2,8 @@
 
 namespace Tey\Kit\Features\SessionUi\ViewModels;
 
+use Inertia\Inertia;
+use Inertia\MergeProp;
 use Spatie\TypeScriptTransformer\Attributes\TypeScript;
 use Tey\Kit\Features\Core\ViewModels\PageViewModel;
 
@@ -29,7 +31,7 @@ final class DashboardViewModel extends PageViewModel
      *
      * @param  array<string, mixed>  $lists
      */
-    public function __construct(private string $title, private string $workspace, private string $next_label, private string $next_url, private string $greeting = '', private array $widgets = [], array $lists = [], private string $aside = 'narrow')
+    public function __construct(private string $title, private string $workspace, private string $next_label, private string $next_url, private string $greeting = '', private array $widgets = [], array $lists = [], private string $aside = 'narrow', private bool $mergeWidgets = false)
     {
         $this->lists = $lists;
     }
@@ -66,9 +68,10 @@ final class DashboardViewModel extends PageViewModel
     }
 
     /** @return list<array{key: string, title: string, component: string, kind: 'task'|'feed'|'status'|'setup', region: 'main'|'aside', span: array{md: int, lg: int}, state: string, empty: array{title: string, description: string, action: array<string, mixed>|null}|null, error: array{message: string, retry: array<string, mixed>|null}|null, actions: list<array<string, mixed>>}> each visible widget's frame and its own props, in order */
-    public function widgets(): array
+    public function widgets(): array|MergeProp
     {
-        return $this->widgets;
+        // `mergeWidgets`: the partial reload after a Sort by choice, carrying only that widget's frame, which the page swaps in by key.
+        return $this->mergeWidgets ? Inertia::merge($this->widgets)->matchOn('key') : $this->widgets;
     }
 
     /** @return array<string, mixed> */

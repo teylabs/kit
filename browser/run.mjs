@@ -5379,7 +5379,49 @@ test('the dashboard setup card at 1280 and 375, light and dark: personal steps i
 // with the keyboard PUTs it to the widget's sort URL as a partial visit for the widget's props, and the card shows the new order; a refused choice reverts.
 // At 1280 and 1600, light and dark, axe-clean, the title not truncated, nothing overflowing ──────────────────────────────────────────────────────────────────
 const sortShots = process.env.KIT_SORT_SCREENSHOTS;
-const sortedTitles = (tab) => tab.$$eval('[data-widget="app.ongoing"] li, [data-widget="app.ongoing"] article', els => els.map(el => el.textContent.replace(/\s+/g, ' ').replace(/\s*[A-Z][a-z]{2} \d{1,2}, \d{4}.*$/, '').trim()).filter(Boolean));
+const sortedTitles = (tab, key = 'app.ongoing') => tab.$$eval(`[data-widget="${key}"] li, [data-widget="${key}"] article`, els => els.map(el => el.textContent.replace(/\s+/g, ' ').replace(/\s*[A-Z][a-z]{2} \d{1,2}, \d{4}.*$/, '').trim()).filter(Boolean));
+// The dashboard's sort endpoint and the reload it leads to, as WidgetSortController and DashboardController answer them. Laravel's 303 to the dashboard,
+// followed: Playwright does not route a redirect it fulfilled itself, so the PUT is answered with the page the redirect lands on, and its headers are the
+// ones the browser's follow-up GET carries. The choice saves the order; the reload reads the choice from its own X-Kit-Sort header (nothing else is kept)
+// and merges only that widget's frame (matched on `key`) while the viewer sees the widgets the page was drawn with (`set`) and the widget shows that order;
+// otherwise, or when it resets `widgets`, every widget the viewer sees, fresh, with no merge. `server.hidden` hides widgets on the server since the page
+// was drawn (the set is then `changed`); `server.hold(key)` delays a PUT's answer.
+const sortServer = async (tab, server) => {
+    await tab.route(/\/@acme\/widgets\/[a-z.]+\/sort$/, async (route) => {
+        const request = route.request();
+        const headers = request.headers();
+        const list = (name) => (headers[name] ?? '').split(',').filter(Boolean);
+        const widget = request.url().match(/widgets\/([a-z.]+)\/sort$/)[1];
+        const chosen = JSON.parse(request.postData() ?? '{}').sort;
+        server.saved[widget] = chosen;
+        server.sent.push({ widget, sort: chosen, kitSort: headers['x-kit-sort'] ?? null, only: list('x-inertia-partial-data'), reset: list('x-inertia-reset') });
+        await server.hold?.(widget);
+        const page = await tab.evaluate(() => window.kitInitialPage);
+        const set = server.hidden.length ? 'changed' : 'drawn';
+        const shown = page.props.widgets.filter((w) => !server.hidden.includes(w.key));
+        const frame = (w) => (w.sortBy ? tab.evaluate(([key, title, order, at]) => window.kitOngoing(order, key, title, at), [w.key, w.title, server.saved[w.key] ?? w.sortBy.current, set]) : w);
+        const choice = Object.fromEntries(new URLSearchParams(headers['x-kit-sort'] ?? ''));
+        const own = shown.find((w) => w.key === choice.widget);
+        const merge = !list('x-inertia-reset').includes('widgets') && own && choice.set === set && choice.sort === server.saved[choice.widget];
+        const answer = merge
+            ? { ...page, props: { errors: {}, widgets: [await frame(own)] }, mergeProps: ['widgets'], matchPropsOn: ['widgets.key'] }
+            : { ...page, props: { errors: {}, widgets: await Promise.all(shown.map(frame)) } };
+        server.answered.push(merge ? 'merge' : 'all');
+        await route.fulfill({ status: 200, contentType: 'application/json', headers: { 'X-Inertia': 'true', Vary: 'X-Inertia' }, body: JSON.stringify(answer) });
+    });
+};
+const newSortServer = () => ({ saved: {}, hidden: [], sent: [], answered: [] });
+const chooseOrder = async (tab, key, label) => {
+    await tab.locator(`[data-widget="${key}"]`).getByRole('combobox', { name: 'Sort by' }).click();
+    await tab.getByRole('option', { name: label }).click();
+};
+const showsOrder = (tab, key, label) => tab.waitForFunction(([k, l]) => {
+    const input = document.querySelector(`[data-widget="${k}"] [data-collection-sort] input`);
+    return input && !input.disabled && input.value.trim() === l;
+}, [key, label]);
+// The page's frames by identity (window.kitPage is the live Inertia page), to tell a kept frame from a reloaded one.
+const snapshotFrames = (tab) => tab.evaluate(() => { window.kitBefore = { widgets: [...window.kitPage.props.widgets], cases: window.kitPage.props.cases, people: window.kitPage.props.people }; });
+const keptFrames = (tab) => tab.evaluate(() => Object.fromEntries(window.kitPage.props.widgets.map((w) => [w.key, window.kitBefore.widgets.includes(w)])));
 test('a dashboard widget\'s Sort by control: labelled, top right of the header, keyboard-operable, saves and reloads only the widget\'s props, axe passes', async () => {
     for (const width of [1280, 1600]) {
         for (const [mode, dark] of [['light', ''], ['dark', '&dark']]) {
@@ -5398,17 +5440,17 @@ test('a dashboard widget\'s Sort by control: labelled, top right of the header, 
                     await route.fulfill({ status: 200, contentType: 'application/json', headers: { 'X-Inertia': 'true', Vary: 'X-Inertia' }, body: JSON.stringify({ ...page, props: { errors: {}, widgets } }) });
                 });
                 await tab.goto(`${authUrl}dashboard.html?sorted${dark}`);
-                await tab.waitForSelector('[data-widget="app.ongoing"] [data-widget-sort]');
+                await tab.waitForSelector('[data-widget="app.ongoing"] [data-collection-sort]');
                 await tab.waitForSelector('[data-widget="kit.people"] [data-scroll-list="people"]');
                 const control = tab.getByRole('combobox', { name: 'Sort by' });
                 assert.equal(await control.count(), 1, 'one control, named "Sort by" by its visible label');
-                assert.equal(await tab.locator('[data-widget="kit.activity"] [data-widget-sort], [data-widget="kit.people"] [data-widget-sort]').count(), 0, 'a widget that declares no orders has no control');
+                assert.equal(await tab.locator('[data-widget="kit.activity"] [data-collection-sort], [data-widget="kit.people"] [data-collection-sort]').count(), 0, 'a widget that declares no orders has no control');
                 assert.equal((await control.inputValue()).trim(), 'Last touched', 'the default order shows');
                 const geometry = await tab.evaluate(() => {
                     const card = document.querySelector('[data-widget="app.ongoing"]');
                     const header = card.querySelector('header').getBoundingClientRect();
                     const title = card.querySelector('h2');
-                    const sort = card.querySelector('[data-widget-sort]').getBoundingClientRect();
+                    const sort = card.querySelector('[data-collection-sort]').getBoundingClientRect();
                     return { headerRight: header.right, headerTop: header.top, headerBottom: header.bottom, sortRight: sort.right, sortTop: sort.top, sortBottom: sort.bottom, titleRight: title.getBoundingClientRect().right, sortLeft: sort.left, titleCut: title.scrollWidth > title.clientWidth };
                 });
                 assert.ok(geometry.headerRight - geometry.sortRight <= 24, 'the control sits at the header\'s right edge');
@@ -5432,7 +5474,7 @@ test('a dashboard widget\'s Sort by control: labelled, top right of the header, 
                 for (let i = 0; i < 5 && (await tab.locator('[role="option"][data-highlighted]').innerText().catch(() => '')).trim() !== 'Due soonest'; i++) await tab.keyboard.press('ArrowDown');
                 await tab.keyboard.press('Enter');
                 await tab.waitForFunction(() => document.querySelector('[data-widget="app.ongoing"] li, [data-widget="app.ongoing"] article')?.textContent.includes('Lease renewal'));
-                await tab.waitForFunction(() => !document.querySelector('[data-widget="app.ongoing"] [data-widget-sort] input')?.disabled);
+                await tab.waitForFunction(() => !document.querySelector('[data-widget="app.ongoing"] [data-collection-sort] input')?.disabled);
                 assert.deepEqual(sent, [{ method: 'PUT', sort: 'due', only: 'widgets' }], 'one PUT of the chosen order, a partial visit for the widget\'s props only');
                 assert.deepEqual(await sortedTitles(tab), ['Lease renewal', 'Boiler check', 'Roof survey'], 'the card shows the new order');
                 assert.equal((await control.inputValue()).trim(), 'Due soonest');
@@ -5449,6 +5491,135 @@ test('a dashboard widget\'s Sort by control: labelled, top right of the header, 
     }
 });
 
+test('a dashboard widget\'s Sort by control: the choice reloads only that widget, merged by key, and every other card keeps its state, scroll and loaded rows', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        const server = newSortServer();
+        await sortServer(tab, server);
+        await tab.goto(`${authUrl}dashboard.html?sorted&see-all`);
+        await tab.waitForSelector('[data-widget="app.ongoing"] [data-collection-sort]');
+        await tab.waitForSelector('[data-widget="app.cases"] [data-scroll-list="cases"] li');
+        await tab.waitForSelector('[data-widget="kit.people"] [data-scroll-list="people"] li');
+        // The other cards' state before the choice: the cases list scrolled part way inside its card (a mark on its element shows it is never remounted),
+        // the rows each list has loaded, and the page's frames and list props by identity.
+        const scrolled = await tab.evaluate(() => {
+            const cases = document.querySelector('[data-scroll-list="cases"]');
+            cases.scrollTop = 240;
+            cases.kitMark = 'kept';
+            document.querySelector('[data-scroll-list="people"]').kitMark = 'kept';
+            const props = window.kitPage.props;
+            window.kitBefore = { widgets: [...props.widgets], cases: props.cases, people: props.people };
+            return cases.scrollTop;
+        });
+        assert.ok(scrolled > 0, 'the cases list scrolls inside its card');
+        const control = tab.getByRole('combobox', { name: 'Sort by' });
+        await control.click();
+        await tab.getByRole('option', { name: 'Due soonest' }).click();
+        await tab.waitForFunction(() => !document.querySelector('[data-widget="app.ongoing"] [data-collection-sort] input')?.disabled);
+        await tab.waitForFunction(() => document.querySelector('[data-widget="app.ongoing"] [data-collection-sort] input')?.value.trim() === 'Due soonest');
+        assert.deepEqual(server.sent, [{ widget: 'app.ongoing', sort: 'due', kitSort: 'widget=app.ongoing&set=drawn&sort=due', only: ['widgets'], reset: [] }], 'one choice, naming itself in X-Kit-Sort (its token and the order), a partial reload of widgets that resets nothing');
+        assert.deepEqual(server.answered, ['merge']);
+        assert.deepEqual(await sortedTitles(tab), ['Lease renewal', 'Boiler check', 'Roof survey'], 'the sorted card shows its new order');
+        const after = await tab.evaluate(() => {
+            const props = window.kitPage.props;
+            const before = window.kitBefore;
+            const cases = document.querySelector('[data-scroll-list="cases"]');
+            const people = document.querySelector('[data-scroll-list="people"]');
+            return {
+                keys: props.widgets.map((w) => w.key),
+                sortedSwapped: props.widgets[0] !== before.widgets[0] && props.widgets[0].sortBy.current === 'due',
+                othersKept: props.widgets.slice(1).map((w, i) => w === before.widgets[i + 1]),
+                listsKept: [props.cases === before.cases, props.people === before.people],
+                cases: { mark: cases.kitMark ?? null, scrollTop: cases.scrollTop, rows: cases.querySelectorAll('li').length },
+                people: { mark: people.kitMark ?? null, rows: people.querySelectorAll('li').length },
+                cards: [...document.querySelectorAll('[data-widget]')].map((e) => e.dataset.widget),
+            };
+        });
+        assert.deepEqual(after.keys, ['app.ongoing', 'app.cases', 'kit.you', 'kit.activity', 'kit.people'], 'every widget is still in the page\'s props, in order');
+        assert.ok(after.sortedSwapped, 'the sorted widget\'s frame is swapped in, with its new order');
+        assert.deepEqual(after.othersKept, [true, true, true, true], 'every other widget keeps its own frame (the same object): nothing of theirs was reloaded');
+        assert.deepEqual(after.listsKept, [true, true], 'the lists\' loaded rows are the same props');
+        assert.deepEqual(after.cases, { mark: 'kept', scrollTop: scrolled, rows: 30 }, 'the cases list is the same element, at the same scroll, with all 30 rows it loaded');
+        assert.deepEqual(after.people, { mark: 'kept', rows: 2 }, 'the People list is the same element with its rows');
+        assert.deepEqual(after.cards, ['app.ongoing', 'app.cases', 'kit.activity', 'kit.you', 'kit.people'], 'every card is drawn, main then aside');
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+});
+
+test('a dashboard widget\'s Sort by control: two tabs choosing on different widgets each get their own widget back, whichever reload is answered first', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    try {
+        const server = newSortServer();
+        const [first, second] = [await context.newPage(), await context.newPage()];
+        const errors = [];
+        for (const tab of [first, second]) {
+            tab.on('pageerror', error => errors.push(error.message));
+            await sortServer(tab, server);
+            await tab.goto(`${authUrl}dashboard.html?sorted&two`);
+            await tab.waitForSelector('[data-widget="app.followups"] [data-collection-sort]');
+            await snapshotFrames(tab);
+        }
+        // The first tab's choice is answered only after the second tab's: with anything shared between requests, one reload would take the other's.
+        let secondDone;
+        const afterSecond = new Promise((resolve) => { secondDone = resolve; });
+        server.hold = (widget) => (widget === 'app.ongoing' ? afterSecond : null);
+        await chooseOrder(first, 'app.ongoing', 'Due soonest');
+        await first.waitForFunction(() => document.querySelector('[data-widget="app.ongoing"] [data-collection-sort] input')?.disabled);
+        await chooseOrder(second, 'app.followups', 'Newest');
+        await showsOrder(second, 'app.followups', 'Newest');
+        secondDone();
+        await showsOrder(first, 'app.ongoing', 'Due soonest');
+        assert.deepEqual(server.sent.map(({ widget, kitSort }) => [widget, kitSort]), [['app.ongoing', 'widget=app.ongoing&set=drawn&sort=due'], ['app.followups', 'widget=app.followups&set=drawn&sort=opened']], 'each tab\'s request names its own widget and order');
+        assert.deepEqual(server.answered, ['merge', 'merge'], 'the second tab\'s reload answered first, both merge only their own widget');
+        assert.deepEqual([await sortedTitles(first), await sortedTitles(first, 'app.followups')], [['Lease renewal', 'Boiler check', 'Roof survey'], ['Roof survey', 'Lease renewal', 'Boiler check']], 'the first tab: Ongoing items in its new order, Follow-ups as it was');
+        assert.deepEqual([await sortedTitles(second), await sortedTitles(second, 'app.followups')], [['Roof survey', 'Lease renewal', 'Boiler check'], ['Boiler check', 'Roof survey', 'Lease renewal']], 'the second tab: Follow-ups in its new order, Ongoing items as it was');
+        const keep = (sorted) => ({ 'app.ongoing': sorted !== 'app.ongoing', 'app.followups': sorted !== 'app.followups', 'kit.you': true, 'kit.activity': true, 'kit.people': true });
+        assert.deepEqual([await keptFrames(first), await keptFrames(second)], [keep('app.ongoing'), keep('app.followups')], 'in each tab only its own sorted widget\'s frame changed');
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+});
+
+test('a dashboard widget\'s Sort by control: after a widget is hidden on the server, sorting another one takes the hidden card away, and the next choice merges again', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        const server = newSortServer();
+        await sortServer(tab, server);
+        await tab.goto(`${authUrl}dashboard.html?sorted&two`);
+        await tab.waitForSelector('[data-widget="kit.people"] [data-scroll-list="people"] li');
+        const cards = () => tab.evaluate(() => [...document.querySelectorAll('[data-widget]')].map((e) => e.dataset.widget));
+        assert.deepEqual(await cards(), ['app.ongoing', 'app.followups', 'kit.activity', 'kit.you', 'kit.people']);
+        // People is hidden from the viewer on the server since the page was drawn; the viewer then sorts Ongoing items.
+        server.hidden = ['kit.people'];
+        await chooseOrder(tab, 'app.ongoing', 'Due soonest');
+        await showsOrder(tab, 'app.ongoing', 'Due soonest');
+        await tab.waitForFunction(() => !document.querySelector('[data-widget="kit.people"]'));
+        assert.deepEqual(server.answered, ['all'], 'the page was drawn with other widgets, so every widget the viewer sees is sent, not a merge');
+        assert.deepEqual(await cards(), ['app.ongoing', 'app.followups', 'kit.activity', 'kit.you'], 'the People card is gone, every other card stays');
+        assert.deepEqual(await sortedTitles(tab), ['Lease renewal', 'Boiler check', 'Roof survey'], 'Ongoing items shows its new order');
+        // The fresh frames carry the new set, so the next choice merges only its widget.
+        await snapshotFrames(tab);
+        await chooseOrder(tab, 'app.followups', 'Newest');
+        await showsOrder(tab, 'app.followups', 'Newest');
+        assert.deepEqual(server.sent.map((sent) => sent.kitSort), ['widget=app.ongoing&set=drawn&sort=due', 'widget=app.followups&set=changed&sort=opened'], 'the second choice sends the token of the frames it was drawn with');
+        assert.deepEqual(server.answered, ['all', 'merge']);
+        assert.deepEqual(await keptFrames(tab), { 'app.ongoing': true, 'app.followups': false, 'kit.you': true, 'kit.activity': true }, 'only Follow-ups\' frame changed, and People stays gone');
+        assert.deepEqual(await sortedTitles(tab, 'app.followups'), ['Boiler check', 'Roof survey', 'Lease renewal']);
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+});
+
 test('a dashboard widget\'s Sort by control: a choice the server refuses puts the previous order back', async () => {
     const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
     try {
@@ -5458,12 +5629,12 @@ test('a dashboard widget\'s Sort by control: a choice the server refuses puts th
             await route.fulfill({ status: 200, contentType: 'application/json', headers: { 'X-Inertia': 'true', Vary: 'X-Inertia' }, body: JSON.stringify({ ...page, props: { ...page.props, errors: { sort: 'Choose one of the orders this card offers.' } } }) });
         });
         await tab.goto(`${authUrl}dashboard.html?sorted`);
-        await tab.waitForSelector('[data-widget="app.ongoing"] [data-widget-sort]');
+        await tab.waitForSelector('[data-widget="app.ongoing"] [data-collection-sort]');
         const control = tab.getByRole('combobox', { name: 'Sort by' });
         await control.click();
         await tab.getByRole('option', { name: 'Newest' }).click();
-        await tab.waitForFunction(() => !document.querySelector('[data-widget="app.ongoing"] [data-widget-sort] input')?.disabled);
-        await tab.waitForFunction(() => document.querySelector('[data-widget="app.ongoing"] [data-widget-sort] input')?.value.trim() === 'Last touched');
+        await tab.waitForFunction(() => !document.querySelector('[data-widget="app.ongoing"] [data-collection-sort] input')?.disabled);
+        await tab.waitForFunction(() => document.querySelector('[data-widget="app.ongoing"] [data-collection-sort] input')?.value.trim() === 'Last touched');
         assert.deepEqual(await sortedTitles(tab), ['Roof survey', 'Lease renewal', 'Boiler check'], 'the rows keep the order they had');
     } finally {
         await context.close();
@@ -5490,7 +5661,7 @@ test('the You card at 1280 and 375, light and dark: no "You" title, name, local 
                     const card = tab.locator('[data-widget="kit.you"]');
                     assert.equal(await card.locator('header, h2').count(), 0, 'the You card has no title bar');
                     assert.equal((await card.innerText()).split('\n').some(line => line.trim() === 'You'), false, 'no visible "You" anywhere in the card');
-                    assert.equal(await card.getAttribute('aria-label'), 'You', 'the card is still named "You"');
+                    assert.equal(await card.locator('[data-collection-section]').getAttribute('aria-label'), 'You', 'the card\'s section is still named "You"');
                     assert.equal(await tab.getByRole('region', { name: 'You', exact: true }).count(), 1, 'and is reachable as the "You" region');
                     assert.equal((await card.locator('[data-widget-you-name]').innerText()).trim(), 'Ada Example');
                     // The time is the viewer's own zone (America/New_York, sent by the server), never the browser's (Europe/Amsterdam here).
@@ -5611,7 +5782,7 @@ test('a widget with a loadingHeight holds that minimum height on its ready body;
         const tab = await context.newPage();
         const read = () => tab.evaluate(() => {
             const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
-            const body = (key) => { const el = document.querySelector(`[data-widget="${key}"] > header + div`); return { min: getComputedStyle(el).minHeight, height: el.getBoundingClientRect().height, marked: el.hasAttribute('data-widget-loading-height') }; };
+            const body = (key) => { const el = document.querySelector(`[data-widget="${key}"] [data-collection-body]`); return { min: getComputedStyle(el).minHeight, height: el.getBoundingClientRect().height, marked: el.hasAttribute('data-collection-min-height') }; };
             return { rem, activity: body('kit.activity'), people: body('kit.people') };
         });
         await tab.goto(`${authUrl}dashboard.html?tall`);
@@ -5625,6 +5796,537 @@ test('a widget with a loadingHeight holds that minimum height on its ready body;
         await tab.waitForSelector('[data-widget="kit.activity"]');
         const plain = await read();
         assert.ok(!plain.activity.marked && ['0px', 'auto'].includes(plain.activity.min), 'without loadingHeight there is no min-height');
+    } finally {
+        await context.close();
+    }
+});
+
+// ── A list's see-all link (dashboard.html?see-all, docs/see-all.md): "All cases →" in a footer at the card's bottom right, after the list's end and outside its
+// scroll, so it stays in view while the list scrolls; a stat card's in its header with its count; one link per card (the header action the server also sends
+// for an older WidgetCard is not drawn twice); Tab reaches it right after the list; axe passes, light and dark ──────────────────────────────────────────────
+const seeAllShots = process.env.KIT_SEE_ALL_SCREENSHOTS;
+async function seeAllDashboard(dark, check) {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        await tab.goto(`${authUrl}dashboard.html?see-all${dark}`);
+        await tab.waitForSelector('[data-widget="app.cases"] [data-scroll-list="cases"] li');
+        await tab.waitForSelector('[data-widget="kit.people"] [data-scroll-list="people"] li');
+        await check(tab);
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+}
+
+test('a list widget\'s see-all: one "All cases" link with an arrow, in the card footer at the bottom right after the list\'s end, axe passes, light and dark', async () => {
+    for (const [mode, dark] of [['light', ''], ['dark', '&dark']]) {
+        await seeAllDashboard(dark, async (tab) => {
+            const card = tab.locator('[data-widget="app.cases"]');
+            const link = card.getByRole('link', { name: 'All cases', exact: true });
+            assert.equal(await link.count(), 1, `${mode}: one link named "All cases" in the list card (the header action with its URL is not drawn too)`);
+            assert.deepEqual(await card.locator('header a').evaluateAll(els => els.map(el => [el.textContent.trim(), el.hasAttribute('data-see-all-title')])), [['Open cases', true]], `${mode}: the list card's header holds only its title link, no second "All cases"`);
+            assert.equal(await tab.getByRole('link', { name: /view all|see all/i }).count(), 0, `${mode}: no "View all" or "See all" anywhere`);
+            const box = await tab.evaluate(() => {
+                const card = document.querySelector('[data-widget="app.cases"]');
+                const footer = card.querySelector('[data-collection-footer]');
+                const link = footer.querySelector('a[data-see-all]');
+                const list = card.querySelector('[data-scroll-list="cases"]');
+                const r = (el) => el.getBoundingClientRect();
+                return {
+                    last: footer === card.querySelector('[data-collection-section]').lastElementChild, text: link.textContent.trim(), href: link.getAttribute('href'), arrow: link.querySelector('svg')?.getAttribute('aria-hidden'),
+                    cardRight: r(card).right, cardBottom: r(card).bottom, footerTop: r(footer).top, footerBottom: r(footer).bottom, linkRight: r(link).right, linkLeft: r(link).left, footerLeft: r(footer).left, listBottom: r(list).bottom,
+                    scrolls: list.scrollHeight > list.clientHeight, inList: list.contains(link),
+                };
+            });
+            assert.ok(box.last && Math.abs(box.footerBottom - box.cardBottom) <= 1.5, `${mode}: the footer is the card's last part, at its bottom`);
+            assert.ok(box.footerTop >= box.listBottom - 0.5 && !box.inList, `${mode}: after the list's end, outside its scroll`);
+            assert.ok(box.cardRight - box.linkRight <= 24 && box.linkLeft - box.footerLeft > 200, `${mode}: at the right of the footer`);
+            assert.ok(box.scrolls, `${mode}: the list scrolls inside the card`);
+            assert.equal(box.text, 'All cases');
+            assert.equal(box.href, '/@acme/cases');
+            assert.equal(box.arrow, 'true', `${mode}: the arrow is an icon hidden from assistive tech`);
+            assert.deepEqual(await notesAxe(tab), [], mode);
+            if (seeAllShots) await tab.screenshot({ path: `${seeAllShots}/dash-see-all-${mode}.png`, fullPage: true });
+        });
+    }
+});
+
+test('a list widget\'s see-all stays in view, in the same place, while the list scrolls inside the card', async () => {
+    await seeAllDashboard('', async (tab) => {
+        const at = () => tab.evaluate(() => {
+            const link = document.querySelector('[data-widget="app.cases"] [data-collection-footer] a[data-see-all]');
+            const list = document.querySelector('[data-scroll-list="cases"]');
+            const r = link.getBoundingClientRect();
+            const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+            return { top: Math.round(r.top), left: Math.round(r.left), hit: Boolean(hit && link.contains(hit)), inView: r.top >= 0 && r.bottom <= window.innerHeight, scrollTop: list.scrollTop, end: list.scrollHeight - list.clientHeight, page: window.scrollY };
+        });
+        const before = await at();
+        assert.ok(before.hit && before.inView && before.scrollTop === 0 && before.end > 100, 'visible and on top before the list scrolls');
+        const list = tab.locator('[data-scroll-list="cases"]');
+        const listBox = await list.boundingBox();
+        await tab.mouse.move(listBox.x + listBox.width / 2, listBox.y + listBox.height / 2);
+        await tab.mouse.wheel(0, 400);
+        await tab.waitForFunction(() => document.querySelector('[data-scroll-list="cases"]').scrollTop > 0);
+        const middle = await at();
+        await list.evaluate(el => { el.scrollTop = el.scrollHeight; });
+        const end = await at();
+        for (const [label, now] of [['part way', middle], ['at the end', end]]) {
+            assert.ok(now.scrollTop > 0, `${label}: the list scrolled`);
+            assert.deepEqual([now.top, now.left, now.hit, now.inView, now.page], [before.top, before.left, true, true, 0], `${label}: the link has not moved, is on top and in view, and the page did not scroll`);
+        }
+        assert.ok(end.scrollTop >= end.end - 1, 'the list reached its end');
+    });
+});
+
+test('a stat card\'s see-all is in its header, after its title, with its count: "All cases (42)"', async () => {
+    for (const [mode, dark] of [['light', ''], ['dark', '&dark']]) {
+        await seeAllDashboard(dark, async (tab) => {
+            const card = tab.locator('[data-widget="app.case-stats"]');
+            assert.equal(await card.getByRole('link', { name: 'All cases (42)', exact: true }).count(), 1, `${mode}: named with its count`);
+            assert.equal(await card.locator('a').count(), 1, `${mode}: one link in the stat card: its title opts out (linkTitle false)`);
+            const box = await tab.evaluate(() => {
+                const card = document.querySelector('[data-widget="app.case-stats"]');
+                const header = card.querySelector('header');
+                const link = card.querySelector('a[data-see-all]');
+                const title = header.querySelector('h2').getBoundingClientRect();
+                const r = link.getBoundingClientRect();
+                return { inHeader: header.contains(link), placement: link.dataset.placement, footer: card.querySelectorAll('[data-collection-footer]').length, right: card.getBoundingClientRect().right - r.right, afterTitle: r.left >= title.right, sameRow: r.top < title.bottom && r.bottom > title.top };
+            });
+            assert.deepEqual([box.inHeader, box.placement, box.footer], [true, 'header', 0], `${mode}: in the header, no footer`);
+            assert.ok(box.right <= 24 && box.afterTitle && box.sameRow, `${mode}: at the header's right, on the title's row`);
+        });
+    }
+});
+
+test('keyboard: a list card\'s focus order is its title link, its list and items, then its see-all, before the next card; each link shows a focus ring', async () => {
+    await seeAllDashboard('', async (tab) => {
+        const stops = [];
+        for (let i = 0; i < 60; i++) {
+            await tab.keyboard.press('Tab');
+            const stop = await tab.evaluate(() => {
+                const el = document.activeElement;
+                if (!el || el === document.body) return null;
+                return { widget: el.closest('[data-widget]')?.dataset.widget ?? null, what: el.matches('[data-scroll-list]') ? `list:${el.dataset.scrollList}` : `${el.tagName.toLowerCase()}:${el.textContent.trim()}`, ring: getComputedStyle(el).boxShadow };
+            });
+            if (!stop) break;
+            stops.push(stop);
+        }
+        const names = stops.map(s => `${s.widget} ${s.what}`);
+        const rows = Array.from({ length: 30 }, (_, i) => `app.cases a:Case ${101 + i}`);
+        assert.deepEqual(names.slice(0, 33), ['app.cases a:Open cases', 'app.cases list:cases', ...rows, 'app.cases a:All cases'], `title, then the list and its 30 rows, then the see-all: ${names.join(' | ')}`);
+        assert.notEqual(names[33]?.split(' ')[0], 'app.cases', 'the see-all is the last stop in its card');
+        assert.notEqual(stops[0].ring, 'none', 'the focused title link shows a ring');
+        assert.notEqual(stops[32].ring, 'none', 'the focused see-all shows a ring');
+        const stat = names.indexOf('app.case-stats a:All cases (42)');
+        assert.ok(stat > names.indexOf('kit.people list:people'), 'the stat card\'s header link comes after the cards before it in the aside');
+        assert.equal(names.filter(n => n.startsWith('app.case-stats')).length, 1, 'the stat card\'s plain title is no stop');
+        await tab.getByRole('link', { name: 'All cases', exact: true }).focus();
+        await tab.keyboard.press('Shift+Tab');
+        assert.equal(await tab.evaluate(() => document.activeElement?.textContent.trim()), 'Case 130', 'Shift+Tab from the see-all goes back to the list\'s last row');
+    });
+});
+
+// ── A see-all card's title (docs/see-all.md): a link to the same URL by default, plain text with `linkTitle: false`; in the heading's colour (never a body
+// link's, even where the host colours links), underlined on hover, with a visible focus ring. On the dashboard and on CollectionSection (?collection-section) ────────
+const titleLinks = (tab) => tab.evaluate(() => [...document.querySelectorAll('[data-widget], [data-case]')].filter(card => card.querySelector('h1, h2, h3, h4, h5, h6')).map(card => {
+    const heading = card.querySelector('h1, h2, h3, h4, h5, h6');
+    const link = heading.querySelector('a');
+    const seeAll = card.querySelector('a[data-see-all]');
+    return { card: card.dataset.widget ?? card.dataset.case, title: heading.textContent.trim(), link: link ? { href: link.getAttribute('href'), name: link.textContent.trim(), title: link.hasAttribute('data-see-all-title') } : null, seeAll: seeAll?.getAttribute('href') ?? null };
+}).filter(card => card.seeAll !== null || card.link !== null));
+async function collectionPage(dark, check, viewport = { width: 1280, height: 900 }) {
+    const context = await browser.newContext({ viewport });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        await tab.goto(`${url}?collection-section${dark}`);
+        await tab.waitForSelector('[data-case="list"] [data-collection-body] li');
+        await check(tab);
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+}
+
+test('a see-all card\'s title links to the same URL as its see-all; with linkTitle false the title is plain text', async () => {
+    await seeAllDashboard('', async (tab) => {
+        assert.deepEqual(await titleLinks(tab), [
+            { card: 'app.cases', title: 'Open cases', link: { href: '/@acme/cases', name: 'Open cases', title: true }, seeAll: '/@acme/cases' },
+            { card: 'app.case-stats', title: 'Cases this week', link: null, seeAll: '/@acme/cases' },
+        ], 'dashboard: the list card\'s title is a link named by the title with the see-all\'s href; the opted-out stat card\'s is plain text');
+        assert.equal(await tab.getByRole('heading', { name: 'Open cases' }).getByRole('link', { name: 'Open cases', exact: true }).count(), 1, 'the link sits inside the heading, so the heading keeps its name');
+        assert.equal(await tab.locator('[data-widget="kit.people"] h2 a, [data-widget="kit.activity"] h2 a').count(), 0, 'a card with no see-all keeps a plain title');
+    });
+    await collectionPage('', async (tab) => {
+        assert.deepEqual(await titleLinks(tab), [
+            { card: 'list', title: 'Ongoing cases', link: { href: '/@acme/cases?status=ongoing', name: 'Ongoing cases', title: true }, seeAll: '/@acme/cases?status=ongoing' },
+            { card: 'stat', title: 'Cases this week', link: null, seeAll: '/@acme/cases?week=current' },
+            { card: 'empty', title: 'Overdue cases', link: { href: '/@acme/cases?overdue=1', name: 'Overdue cases', title: true }, seeAll: '/@acme/cases?overdue=1' },
+            { card: 'grid', title: 'Active projects', link: { href: '/@acme/projects?status=active', name: 'Active projects', title: true }, seeAll: '/@acme/projects?status=active' },
+            { card: 'grid-empty', title: 'Archived projects', link: { href: '/@acme/projects?status=archived', name: 'Archived projects', title: true }, seeAll: '/@acme/projects?status=archived' },
+        ], 'CollectionCard and bare CollectionSection: a list card, an empty card and both bare sections link their titles to the filtered index; the opted-out stat card\'s is plain text');
+        assert.equal(await tab.locator('[data-case="empty-slot"] h2 a').count(), 0, 'a card with no see-all keeps a plain title');
+    });
+});
+
+test('a see-all title link keeps the heading\'s colour, not a body link\'s, is underlined only on hover, and shows an unclipped focus ring, light and dark', async () => {
+    // A host that colours its links (a base `a` rule, as many apps' app.css has): the title must still read as a heading.
+    const hostLink = 'rgb(37, 99, 235)';
+    const style = `@layer base { a { color: ${hostLink}; } }`;
+    const read = (tab, selector) => tab.evaluate(([s]) => {
+        const link = document.querySelector(s);
+        const heading = link.closest('h1, h2, h3, h4, h5, h6');
+        const body = document.querySelector('[data-body-link]');
+        const [l, h] = [link.getBoundingClientRect(), heading.getBoundingClientRect()];
+        return { inside: l.left >= h.left - 0.5 && l.right <= h.right + 0.5, link: getComputedStyle(link).color, heading: getComputedStyle(heading).color, body: getComputedStyle(body).color, primary: getComputedStyle(document.querySelector('[data-primary-link]')).color, underline: getComputedStyle(link).textDecorationLine, ring: getComputedStyle(link).boxShadow };
+    }, [selector]);
+    const check = async (tab, selector, label) => {
+        // `--primary` set apart from the text colour, so the text-primary reference cannot match the heading by chance.
+        await tab.addStyleTag({ content: `${style} :root { --primary: rgb(147, 51, 234); }` });
+        // A plain body link and one in kit's body-link style (`text-primary`), outside any card, as references.
+        await tab.evaluate(() => document.body.insertAdjacentHTML('beforeend', '<p><a href="/x" data-body-link>body link</a> <a href="/y" class="text-primary underline" data-primary-link>primary link</a></p>'));
+        await tab.mouse.move(0, 0);
+        const rest = await read(tab, selector);
+        assert.equal(rest.body, hostLink, `${label}: the host's link colour applies to a body link`);
+        assert.equal(rest.link, rest.heading, `${label}: the title link has the heading's colour`);
+        assert.notEqual(rest.link, rest.body, `${label}: not the host's body-link colour`);
+        assert.notEqual(rest.link, rest.primary, `${label}: not kit's text-primary link colour`);
+        assert.equal(rest.underline, 'none', `${label}: no underline at rest`);
+        await tab.hover(selector);
+        assert.equal((await read(tab, selector)).underline, 'underline', `${label}: underlined on hover`);
+        await tab.mouse.move(0, 0);
+        await tab.locator(selector).focus();
+        await tab.keyboard.press('Shift+Tab');
+        await tab.keyboard.press('Tab');
+        const focused = await read(tab, selector);
+        assert.ok(await tab.evaluate((s) => document.activeElement === document.querySelector(s), selector), `${label}: keyboard focus is on the title link`);
+        assert.notEqual(focused.ring, 'none', `${label}: a visible focus ring`);
+        assert.ok(focused.inside, `${label}: the link (and its inset ring) stays inside its heading, which clips what overflows when it truncates`);
+        assert.equal(focused.link, focused.heading, `${label}: still the heading's colour while focused`);
+    };
+    for (const [mode, dark] of [['light', ''], ['dark', '&dark']]) {
+        await seeAllDashboard(dark, (tab) => check(tab, '[data-widget="app.cases"] h2 a[data-see-all-title]', `dashboard ${mode}`));
+        await collectionPage(dark, (tab) => check(tab, '[data-case="list"] h2 a[data-see-all-title]', `CollectionSection ${mode}`));
+    }
+});
+
+// ── CollectionSection's parts (?collection-section, docs/collection-section.md): segment tabs and the Sort by menu, the empty state from the descriptor or a slot,
+// the scrolling body with the footer in view, the see-all in the footer or the header, axe light and dark ──────────────────────────────────────────────────────
+test('CollectionSection: segment tabs are links named by the card, the current one aria-current, with counts; Sort by is keyboard-operable and visits with the order', async () => {
+    for (const [mode, dark] of [['light', ''], ['dark', '&dark']]) {
+        await collectionPage(dark, async (tab) => {
+            const card = tab.locator('[data-case="list"]');
+            const nav = card.getByRole('navigation', { name: 'Ongoing cases views' });
+            assert.equal(await nav.count(), 1, `${mode}: the segments are a navigation named by the card`);
+            assert.deepEqual(await nav.getByRole('link').evaluateAll(els => els.map(el => [el.getAttribute('href'), el.getAttribute('aria-current')])), [
+                ['/@acme/cases?status=ongoing', 'page'],
+                ['/@acme/cases?status=ongoing&segment=new', null],
+                ['/@acme/cases?status=ongoing&segment=progress', null],
+            ], `${mode}: one link per segment, to the same index filtered to it, only the current one marked`);
+            for (const name of ['All (30)', 'New (4)', 'In progress (26)']) assert.equal(await nav.getByRole('link', { name, exact: true }).count(), 1, `${mode}: a segment is named with its count, "${name}"`);
+            const tabs = await tab.evaluate(() => {
+                const header = document.querySelector('[data-case="list"] header').getBoundingClientRect();
+                const nav = document.querySelector('[data-case="list"] [data-collection-segments]').getBoundingClientRect();
+                const body = document.querySelector('[data-case="list"] [data-collection-body]').getBoundingClientRect();
+                const [on, off] = ['all', 'new'].map(key => getComputedStyle(document.querySelector(`[data-case="list"] [data-segment="${key}"]`)).backgroundColor);
+                return { below: nav.top >= header.bottom - 0.5 && nav.bottom <= body.top + 0.5, distinct: on !== off };
+            });
+            assert.ok(tabs.below && tabs.distinct, `${mode}: between the header and the items, the current one drawn apart`);
+            assert.equal(await card.getByRole('link', { name: 'New case', exact: true }).count(), 1, `${mode}: the header action`);
+            const control = card.getByRole('combobox', { name: 'Sort by' });
+            assert.equal((await control.inputValue()).trim(), 'Last touched', `${mode}: the current order shows`);
+            assert.equal(await tab.locator('[data-case="stat"] [data-collection-sort], [data-case="stat"] [data-collection-segments]').count(), 0, `${mode}: a card that sends neither has no menu and no tabs`);
+            assert.deepEqual(await notesAxe(tab), [], mode);
+            if (dark) return;
+            await control.focus();
+            await tab.keyboard.press('ArrowDown');
+            await tab.getByRole('listbox').waitFor();
+            for (let i = 0; i < 4 && (await tab.locator('[role="option"][data-highlighted]').innerText().catch(() => '')).trim() !== 'Due soonest'; i++) await tab.keyboard.press('ArrowDown');
+            await tab.keyboard.press('Enter');
+            await tab.waitForFunction(() => (window.kitVisits ?? []).length > 0);
+            assert.deepEqual(await tab.evaluate(() => window.kitVisits), [{ url: '/@acme', method: 'get', data: { sort: 'due' } }], 'one visit to the sort URL with the chosen order');
+            assert.equal((await control.inputValue()).trim(), 'Due soonest');
+        });
+    }
+});
+
+test('CollectionSection: an empty card shows the descriptor\'s empty state, or its #empty slot, never the items; its see-all stays', async () => {
+    await collectionPage('', async (tab) => {
+        const read = (key) => tab.evaluate((k) => {
+            const card = document.querySelector(`[data-case="${k}"]`);
+            return { state: card.dataset.state, empty: card.querySelector('[data-collection-empty]')?.innerText.replace(/\s+/g, ' ').trim() ?? null, items: card.textContent.includes('never shown'), footer: card.querySelector('[data-collection-footer] a[data-see-all]')?.textContent.trim() ?? null };
+        }, key);
+        assert.deepEqual(await read('empty'), { state: 'empty', empty: 'Nothing overdue Cases past their due date show up here.', items: false, footer: 'All overdue cases' }, 'the descriptor\'s title and description, no items, the see-all still in the footer');
+        assert.deepEqual(await read('empty-slot'), { state: 'empty', empty: 'Flag a case to keep it here.', items: false, footer: null }, 'the #empty slot in its place');
+        assert.equal(await tab.locator('[data-case="list"] [data-collection-empty]').count(), 0, 'a ready card has none');
+    });
+});
+
+test('CollectionSection: with maxHeight the items scroll inside the card, a named, focusable region, and the footer\'s see-all stays in view and in place', async () => {
+    await collectionPage('', async (tab) => {
+        const at = () => tab.evaluate(() => {
+            const card = document.querySelector('[data-case="list"]');
+            const body = card.querySelector('[data-collection-body]');
+            const footer = card.querySelector('[data-collection-footer]');
+            const link = footer.querySelector('a[data-see-all]');
+            const r = link.getBoundingClientRect();
+            const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+            return { top: Math.round(r.top), right: Math.round(card.getBoundingClientRect().right - r.right), hit: Boolean(hit && link.contains(hit)), inView: r.top >= 0 && r.bottom <= window.innerHeight, scrollTop: body.scrollTop, end: body.scrollHeight - body.clientHeight, height: Math.round(body.getBoundingClientRect().height), rem: parseFloat(getComputedStyle(document.documentElement).fontSize), outside: !body.contains(link), last: footer === card.querySelector('[data-collection-section]').lastElementChild, page: window.scrollY };
+        });
+        const region = tab.getByRole('region', { name: 'Ongoing cases items' });
+        assert.equal(await region.count(), 1, 'the scrolling body is a region named after the card');
+        assert.equal(await region.getAttribute('tabindex'), '0', 'and keyboard-scrollable');
+        const before = await at();
+        assert.ok(before.end > 100 && before.height <= 12 * before.rem + 0.5, `the body stops at 12rem and scrolls (${before.height}px)`);
+        assert.ok(before.outside && before.last && before.right <= 24 && before.hit && before.inView, 'the see-all is in the footer, the card\'s last part, at its right, outside the scroll, on top and in view');
+        const box = await region.boundingBox();
+        await tab.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+        await tab.mouse.wheel(0, 300);
+        await tab.waitForFunction(() => document.querySelector('[data-case="list"] [data-collection-body]').scrollTop > 0);
+        const middle = await at();
+        await region.evaluate(el => { el.scrollTop = el.scrollHeight; });
+        const end = await at();
+        for (const [label, now] of [['part way', middle], ['at the end', end]]) {
+            assert.ok(now.scrollTop > 0, `${label}: the items scrolled`);
+            assert.deepEqual([now.top, now.hit, now.inView, now.page], [before.top, true, true, before.page], `${label}: the see-all has not moved and is on top and in view`);
+        }
+        assert.ok(end.scrollTop >= end.end - 1, 'the items reached their end');
+        assert.equal(await tab.locator('[data-case="stat"] [data-collection-body]').getAttribute('role'), null, 'a card without maxHeight does not scroll and is no region');
+    });
+});
+
+test('CollectionSection: the see-all is one link, "All <noun>" with an arrow: in the footer for a list, in the header with its count for a stat card; axe passes, light and dark', async () => {
+    for (const [mode, dark] of [['light', ''], ['dark', '&dark']]) {
+        await collectionPage(dark, async (tab) => {
+            const read = (key) => tab.evaluate((k) => {
+                const card = document.querySelector(`[data-case="${k}"]`);
+                const links = [...card.querySelectorAll('a[data-see-all]')];
+                const link = links[0];
+                const r = link.getBoundingClientRect();
+                return { count: links.length, text: link.textContent.trim(), header: Boolean(link.closest('header')), footer: Boolean(link.closest('[data-collection-footer]')), arrow: link.querySelector('svg')?.getAttribute('aria-hidden'), right: Math.round(card.getBoundingClientRect().right - r.right) };
+            }, key);
+            const list = await read('list');
+            assert.deepEqual([list.count, list.text, list.footer, list.header, list.arrow], [1, 'All ongoing cases', true, false, 'true'], `${mode}: a list card's see-all is in its footer, its arrow hidden`);
+            const stat = await read('stat');
+            assert.deepEqual([stat.count, stat.text, stat.header, stat.footer], [1, 'All cases (42)', true, false], `${mode}: a stat card's is in its header, with its count`);
+            assert.ok(list.right <= 24 && stat.right <= 24, `${mode}: both at the card's right`);
+            assert.equal(await tab.locator('[data-case="stat"] [data-collection-footer]').count(), 0, `${mode}: a header see-all leaves no footer`);
+            assert.deepEqual(await notesAxe(tab), [], mode);
+            if (seeAllShots) await tab.screenshot({ path: `${seeAllShots}/collection-section-${mode}.png`, fullPage: true });
+        });
+    }
+});
+
+test('CollectionSection, bare: no card, a grid of cards as its items, the linked title and header action above, and "All <noun>" under the grid at its right; axe passes, light and dark', async () => {
+    for (const [mode, dark] of [['light', ''], ['dark', '&dark']]) {
+        await collectionPage(dark, async (tab) => {
+            const read = await tab.evaluate(() => {
+                const style = (el) => getComputedStyle(el);
+                const section = document.querySelector('[data-case="grid"]');
+                const list = document.querySelector('[data-case="list"]');
+                const header = section.querySelector('header');
+                const grid = section.querySelector('[data-project-grid]').getBoundingClientRect();
+                const cards = [...section.querySelectorAll('[data-project-card]')];
+                const footer = section.querySelector('[data-collection-footer]');
+                const link = footer?.querySelector('a[data-see-all]');
+                const r = link.getBoundingClientRect();
+                return {
+                    kinds: [section.matches('[data-collection-section]') && !section.closest('[data-collection-card]'), list.matches('[data-collection-card]')],
+                    noCard: style(section).borderTopWidth === '0px' && style(section).backgroundColor === 'rgba(0, 0, 0, 0)' && style(section).boxShadow === 'none',
+                    listCard: style(list).borderTopWidth !== '0px',
+                    rules: [style(header).borderBottomWidth, style(footer).borderTopWidth],
+                    cards: cards.length,
+                    cardsBordered: cards.every((card) => style(card).borderTopWidth !== '0px'),
+                    firstRow: cards.filter((card) => Math.abs(card.getBoundingClientRect().top - cards[0].getBoundingClientRect().top) < 1).length,
+                    below: r.top >= grid.bottom - 0.5,
+                    right: Math.round(grid.right - r.right),
+                    after: Boolean(section.querySelector('[data-collection-body]').compareDocumentPosition(footer) & Node.DOCUMENT_POSITION_FOLLOWING) && footer === section.lastElementChild,
+                    inCard: Boolean(link.closest('[data-project-card]')),
+                    arrow: link.querySelector('svg')?.getAttribute('aria-hidden'),
+                    title: section.querySelector('h2 a[data-see-all-title]')?.getAttribute('href') ?? null,
+                };
+            });
+            assert.deepEqual(read.kinds, [true, true], `${mode}: the grid is a bare CollectionSection, the list a CollectionCard`);
+            assert.ok(read.noCard && read.listCard, `${mode}: no border, fill or shadow around the grid section; the list section has its card`);
+            assert.deepEqual(read.rules, ['0px', '0px'], `${mode}: no rule under the header or over the footer without a card`);
+            assert.ok(read.cards === 6 && read.cardsBordered && read.firstRow === 3, `${mode}: the items are a grid of six cards, three to a row at 1280px`);
+            assert.ok(read.below && read.after && !read.inCard && read.right <= 1, `${mode}: the see-all sits under the grid, after it, outside every card, flush with the grid's right edge (${read.right}px)`);
+            assert.equal(read.arrow, 'true', `${mode}: the arrow is hidden`);
+            assert.equal(read.title, '/@acme/projects?status=active', `${mode}: the title links to the see-all's URL`);
+            const section = tab.locator('[data-case="grid"]');
+            assert.equal(await section.getByRole('link', { name: 'All active projects', exact: true }).count(), 1, `${mode}: one link named "All active projects"`);
+            assert.equal(await section.getByRole('link', { name: 'New project', exact: true }).count(), 1, `${mode}: the header action`);
+            assert.deepEqual(await notesAxe(tab), [], mode);
+            if (dark) return;
+            await section.locator('h2 a').focus();
+            const order = [];
+            for (let i = 0; i < 9; i++) {
+                order.push(await tab.evaluate(() => document.activeElement.textContent.trim()));
+                await tab.keyboard.press('Tab');
+            }
+            assert.deepEqual(order, ['Active projects', 'New project', 'Harbour', 'Lantern', 'Meadow', 'Orchard', 'Quarry', 'Willow', 'All active projects'], 'keyboard: the title, the header action, each card, then the see-all');
+        });
+    }
+});
+
+test('CollectionSection, bare: an empty section shows its empty state in place of the grid, and keeps its see-all under it', async () => {
+    await collectionPage('', async (tab) => {
+        const read = await tab.evaluate(() => {
+            const section = document.querySelector('[data-case="grid-empty"]');
+            return { border: getComputedStyle(section).borderTopWidth, empty: section.querySelector('[data-collection-empty]')?.innerText.replace(/\s+/g, ' ').trim() ?? null, items: section.textContent.includes('never shown'), footer: section.querySelector('[data-collection-footer] a[data-see-all]')?.textContent.trim() ?? null, last: section.querySelector('[data-collection-footer]') === section.lastElementChild };
+        });
+        assert.deepEqual(read, { border: '0px', empty: 'Nothing archived Projects you archive show up here.', items: false, footer: 'All archived projects', last: true });
+    });
+});
+
+test('CollectionSection and CollectionCard draw one descriptor the same way: the card adds its border and padding and nothing else; axe passes, light and dark', async () => {
+    // Each element of the section, with what it says and does: tag, accessible attributes and text, children in order. Classes and styles are left out (they
+    // are where the card's padding and rules differ), and so is `data-case`, the page's own hook.
+    const read = async (twin, dark) => {
+        const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+        try {
+            const tab = await context.newPage();
+            const errors = [];
+            tab.on('pageerror', error => errors.push(error.message));
+            await tab.goto(`${url}?collection-section&twin=${twin}${dark}`);
+            await tab.waitForSelector('[data-case="twin"] [data-collection-section] li, [data-case="twin"][data-collection-section] li');
+            const result = await tab.evaluate(() => {
+                const shape = (el) => [el.tagName, [...el.attributes].filter((a) => !['class', 'style', 'data-case'].includes(a.name)).map((a) => `${a.name}=${a.value}`).sort().join(' '), el.children.length ? [...el.children].map(shape) : el.textContent.trim()];
+                const root = document.querySelector('[data-case="twin"]');
+                const section = root.matches('[data-collection-section]') ? root : root.querySelector('[data-collection-section]');
+                const style = (el) => getComputedStyle(el);
+                const pad = (el) => [style(el).paddingLeft, style(el).paddingRight];
+                return {
+                    shape: JSON.stringify(shape(section)),
+                    wrapper: root === section ? null : { only: root.children.length === 1, border: style(root).borderTopWidth !== '0px', fill: style(root).backgroundColor !== 'rgba(0, 0, 0, 0)', radius: style(root).borderTopLeftRadius !== '0px' },
+                    look: [style(section).borderTopWidth, style(section).backgroundColor],
+                    pad: [...pad(section.querySelector('header')), ...pad(section.querySelector('[data-collection-body]')), ...pad(section.querySelector('[data-collection-footer]'))],
+                    rules: [style(section.querySelector('header')).borderBottomWidth, style(section.querySelector('[data-collection-footer]')).borderTopWidth],
+                };
+            });
+            const part = tab.locator('[data-case="twin"]');
+            result.title = await part.getByRole('heading', { name: 'Due this week' }).getByRole('link', { name: 'Due this week', exact: true }).getAttribute('href');
+            result.seeAll = await part.getByRole('link', { name: 'All cases due this week', exact: true }).count();
+            result.aria = await tab.locator('[data-collection-section]').ariaSnapshot();
+            result.axe = await notesAxe(tab);
+            assert.deepEqual(errors, []);
+            return result;
+        } finally {
+            await context.close();
+        }
+    };
+    for (const [mode, dark] of [['light', ''], ['dark', '&dark']]) {
+        const bare = await read('section', dark);
+        const card = await read('card', dark);
+        assert.equal(card.shape, bare.shape, `${mode}: inside the card, the section has the same elements, attributes, roles, names, links and text as the bare one`);
+        assert.equal(card.aria, bare.aria, `${mode}: the same accessibility tree`);
+        for (const [name, one] of [['bare', bare], ['card', card]]) {
+            assert.deepEqual([one.title, one.seeAll], ['/@acme/cases?due=week', 1], `${mode} ${name}: the title links to the see-all's URL, and there is one see-all`);
+            assert.deepEqual(one.axe, [], `${mode} ${name}: axe`);
+            assert.deepEqual(one.look, ['0px', 'rgba(0, 0, 0, 0)'], `${mode} ${name}: the section itself draws no border or fill`);
+        }
+        assert.equal(bare.wrapper, null, `${mode}: the bare section is the root`);
+        assert.deepEqual(card.wrapper, { only: true, border: true, fill: true, radius: true }, `${mode}: the card holds the section and nothing else, with a border, a fill and rounded corners`);
+        assert.deepEqual(bare.pad, Array(6).fill('0px'), `${mode}: the bare section's header, body and footer have no padding`);
+        assert.deepEqual(card.pad, Array(6).fill('16px'), `${mode}: on the card they take its padding`);
+        assert.deepEqual([bare.rules, card.rules], [['0px', '0px'], ['1px', '1px']], `${mode}: rules under the header and over the footer on the card only`);
+    }
+});
+
+test('CollectionSection: header actions keep their descriptor: a confirmed POST asks first and visits only on confirm, a disabled one does nothing and gives its reason; a new-tab twin of the see-all stays; an empty state\'s POST is a button; an error card links nothing; an empty card never shows its items', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        await tab.goto(`${url}?collection-section&edge`);
+        await tab.waitForSelector('[data-case="actions"] [data-collection-header]');
+        // At rest, before any action runs (a running action is dimmed while its visit is in flight, and this page's router never finishes one).
+        assert.deepEqual(await notesAxe(tab), [], 'axe');
+        const card = tab.locator('[data-case="actions"]');
+        const plainLink = card.getByRole('link', { name: 'Add an open case', exact: true });
+        assert.deepEqual([await plainLink.getAttribute('href'), (await plainLink.innerText()).trim()], ['/@acme/cases/new', 'New case'], 'a plain GET stays a link, named by its ariaLabel');
+        // The ActionBar places it (inline or behind its More menu); either way it is a button or a menu item, never a link.
+        assert.equal(await card.getByRole('link', { name: 'Close all' }).count(), 0, 'a confirmed POST is not a link');
+        const close = async () => {
+            const inline = card.getByRole('button', { name: 'Close all', exact: true });
+            if (await inline.isVisible().catch(() => false)) return inline.click();
+            await card.getByRole('button', { name: /^More actions/ }).click();
+            await tab.getByRole('menuitem', { name: 'Close all' }).click();
+        };
+        await close();
+        const dialog = tab.getByRole('alertdialog', { name: 'Close all open cases?' }).or(tab.getByRole('dialog', { name: 'Close all open cases?' }));
+        await dialog.waitFor();
+        assert.deepEqual(await tab.evaluate(() => window.kitVisits ?? []), [], 'asking sends nothing');
+        await dialog.getByRole('button', { name: 'Cancel' }).click();
+        await dialog.waitFor({ state: 'hidden' });
+        assert.deepEqual(await tab.evaluate(() => window.kitVisits ?? []), [], 'cancelling sends nothing');
+        await close();
+        await dialog.waitFor();
+        await dialog.getByRole('button', { name: 'Close all', exact: true }).click();
+        await tab.waitForFunction(() => (window.kitVisits ?? []).length > 0);
+        assert.deepEqual((await tab.evaluate(() => window.kitVisits)).map(({ url, method }) => [url, method]), [['/@acme/cases/close', 'post']], 'confirming makes one POST');
+        const exportButton = card.getByRole('button', { name: 'Export', exact: true });
+        assert.deepEqual([await exportButton.getAttribute('aria-disabled'), await exportButton.getAttribute('title')], ['true', 'Exports are off on this plan'], 'a disabled action is marked so, with its reason');
+        assert.equal(await card.getByRole('link', { name: 'Export' }).count(), 0, 'and is no link');
+        await exportButton.click({ force: true });
+        assert.equal((await tab.evaluate(() => window.kitVisits)).length, 1, 'clicking it sends nothing');
+        const twin = await card.locator('a[href="/@acme/cases?status=open"]:not([data-see-all]):not([data-see-all-title])').evaluateAll((els) => els.map((el) => [el.textContent.trim(), el.getAttribute('target'), el.getAttribute('rel')]));
+        assert.deepEqual(twin, [['Open in a new tab (opens in new tab)', '_blank', 'noopener noreferrer']], 'a new-tab action to the see-all\'s URL stays, opening a new tab: only a plain twin is folded into the see-all');
+        const importing = tab.locator('[data-case="empty-action"]');
+        assert.equal(await importing.getByRole('link', { name: 'Import cases' }).count(), 0, 'an empty state\'s POST action is no link');
+        await importing.getByRole('button', { name: 'Import cases', exact: true }).click();
+        await tab.waitForFunction(() => window.kitVisits.length === 2);
+        assert.deepEqual((await tab.evaluate(() => window.kitVisits)).map(({ url, method }) => [url, method])[1], ['/@acme/cases/import', 'post'], 'it makes its POST');
+        const failed = tab.locator('[data-case="error"]');
+        assert.equal(await failed.getByRole('alert').count(), 1, 'the error card shows its error');
+        assert.deepEqual([await failed.locator('h2 a').count(), await failed.locator('a[data-see-all]').count(), (await failed.locator('h2').innerText()).trim()], [0, 0, 'Due cases'], 'an error card\'s title is plain text and it has no see-all');
+        assert.deepEqual([await failed.getByRole('button', { name: 'Assign' }).count(), await failed.getByRole('button', { name: 'Only mine' }).count(), await failed.locator('[data-collection-filters]').count()], [0, 0, 0], 'an error card hides what its #actions and #filters slots hold, as it hides its own actions and tabs');
+        const empty = await tab.evaluate(() => {
+            const card = document.querySelector('[data-case="bare-empty"]');
+            return { state: card.querySelector('[data-collection-section]').dataset.state, items: card.textContent.includes('never shown'), body: card.querySelector('[data-collection-empty]') !== null, seeAll: card.querySelector('[data-collection-footer] a[data-see-all]')?.textContent.trim() ?? null };
+        });
+        assert.deepEqual(empty, { state: 'empty', items: false, body: true, seeAll: 'All stalled cases' }, 'an empty card with no copy and no slot still never shows its items, and keeps its see-all');
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+});
+
+test('SearchBox: the results end with "All results" and an arrow, kept in view while they scroll, and it visits the full results page', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 700 } });
+    try {
+        const tab = await context.newPage();
+        await tab.route(/\/search\?q=/, route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ partial: false, groups: [{ key: 'cases', label: 'Cases', results: Array.from({ length: 30 }, (_, i) => ({ id: String(i), label: `Case ${101 + i}`, url: `/@acme/cases/${i}`, description: null, meta: null })) }] }) }));
+        await tab.goto(`${url}?collection-section`);
+        await tab.getByRole('combobox', { name: 'Search' }).fill('case');
+        await tab.waitForSelector('[data-search-option]');
+        const link = tab.getByRole('link', { name: 'All results', exact: true });
+        assert.equal(await link.count(), 1);
+        assert.equal(await link.getAttribute('href'), '/search?q=case');
+        assert.equal(await tab.getByText('See all results').count(), 0, 'the old "See all results" label is gone');
+        const pinned = () => tab.evaluate(() => {
+            const box = document.querySelector('[data-search-results]');
+            const anchor = document.querySelector('[data-search-popup] [data-search-all] a');
+            const link = anchor.getBoundingClientRect();
+            const r = document.querySelector('[data-search-popup]').getBoundingClientRect();
+            const hit = document.elementFromPoint(link.left + link.width / 2, link.top + link.height / 2);
+            return { scrolls: box.scrollHeight > box.clientHeight, scrollTop: box.scrollTop, inside: link.top >= r.top && link.bottom <= r.bottom + 0.5, hit: Boolean(hit?.closest('[data-search-all]')), outsideListbox: anchor.closest('[role="listbox"]') === null && !box.contains(anchor), owned: [...box.querySelectorAll('[role="group"] > *')].every((el) => el.getAttribute('role') === 'option' || el.getAttribute('aria-hidden') === 'true') };
+        });
+        const top = await pinned();
+        assert.ok(top.scrolls && top.inside && top.hit, 'the results scroll and the link is in view at the top of them');
+        assert.ok(top.outsideListbox && top.owned, 'the link is outside the listbox and its scroll; the listbox\'s groups hold only options (and their hidden labels)');
+        await tab.locator('[data-search-results]').evaluate(el => { el.scrollTop = el.scrollHeight / 2; });
+        const middle = await pinned();
+        assert.ok(middle.scrollTop > 0 && middle.inside && middle.hit, 'and part way down');
+        await link.click();
+        assert.deepEqual(await tab.evaluate(() => (window.kitVisits ?? []).map(v => v.url)), ['/search?q=case'], 'one visit to the full results page');
+        assert.equal(await tab.getByRole('combobox', { name: 'Search' }).inputValue(), '', 'the field is cleared');
+        assert.equal(await tab.locator('[data-search-results]').isVisible(), false, 'and the results close');
     } finally {
         await context.close();
     }
@@ -7208,6 +7910,7 @@ function securityAccount({ twoFactor = 'off', passkeys = [{ id: 7, name: 'MacBoo
                         two_factor: { state: store.twoFactor, qr_svg: store.twoFactor === 'pending' ? '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 4 4"><rect width="2" height="2"/></svg>' : null, secret_key: store.twoFactor === 'pending' ? 'JBSWY3DPEHPK3PXP' : null, codes_left: store.twoFactor === 'on' ? store.codes.length : 0, recovery_codes: shown },
                         sessions: { supported: true, items: [{ agent: 'Chrome on macOS', ip: '203.0.113.5', last_active: '2026-11-09T09:00:00+00:00', current: true }, ...Array.from({ length: store.sessions - 1 }, () => ({ agent: 'Safari on iOS', ip: '198.51.100.7', last_active: '2026-11-08T18:00:00+00:00', current: false }))] },
                         events: [],
+                        log: { title: 'Security log', description: 'Your recent sign-ins and security changes. Only you can see this.', state: 'empty', empty: { variant: 'first-use', title: 'Nothing yet', description: 'Your sign-ins and security changes show up here.', action: null }, error: null, actions: [], segments: [], sortBy: null, seeAll: null, maxHeight: null },
                         two_factor_url: '/me/security/two-factor',
                         recovery_codes_url: '/me/security/recovery-codes',
                         sessions_url: '/me/security/sessions',
@@ -8261,7 +8964,7 @@ async function securityPasskeys(run, { confirmation = true, page: auth = 'Worksp
         tab.on('pageerror', error => pageErrors.push(error.message));
         const requests = [];
         // With the confirmation off (fortify-options.passkeys.confirmPassword false), Fortify serves the options without it.
-        const server = { confirmed: !confirmation, passkeys: [{ id: 7, name: 'MacBook passkey', created: '2026-10-01T09:00:00+00:00', last_used: null }] };
+        const server = { confirmed: !confirmation, passkeys: [{ id: 7, name: 'MacBook passkey', created: '2026-10-01T09:00:00+00:00', last_used: null }], events: [] };
         await tab.route('**/user/confirm-password', async (route) => {
             const body = route.request().postDataJSON();
             requests.push(['POST', '/user/confirm-password', body]);
@@ -8279,14 +8982,19 @@ async function securityPasskeys(run, { confirmation = true, page: auth = 'Worksp
             requests.push(['POST', '/user/passkeys', body]);
             if (!server.confirmed) return route.fulfill({ status: 423, contentType: 'application/json', body: '{}' });
             server.passkeys.push({ id: 8, name: body.name, created: '2026-11-09T10:00:00+00:00', last_used: null });
+            // SecurityLog records Fortify's PasskeyRegistered.
+            server.events.unshift({ type: 'passkey_added', label: 'Passkey added', ip: '203.0.113.5', agent: 'Chrome on macOS', at: '2026-11-09T10:00:00+00:00' });
             await route.fulfill({ status: 201, contentType: 'application/json', body: '{"id":8}' });
         });
-        // The page's reload after a passkey is added (router.reload({ only: ['passkeys', 'events'] })).
+        // The page's reload after a passkey is added (router.reload({ only: [...] })): as Inertia's server, a partial reload gets only the props it names
+        // (and `errors`), and the page keeps the rest as they were.
         await tab.route('**/me/security', async (route) => {
-            requests.push(['GET', '/me/security']);
+            const only = (route.request().headers()['x-inertia-partial-data'] ?? '').split(',').filter(Boolean);
+            requests.push(['GET', '/me/security', only]);
             const page = await tab.evaluate(() => window.kitInitialPage);
-            const passkeys = { ...page.props.passkeys, items: server.passkeys };
-            await route.fulfill({ status: 200, headers: { 'Content-Type': 'application/json', 'X-Inertia': 'true', Vary: 'X-Inertia' }, body: JSON.stringify({ ...page, props: { ...page.props, passkeys } }) });
+            const props = { ...page.props, passkeys: { ...page.props.passkeys, items: server.passkeys }, events: server.events, log: await tab.evaluate((events) => window.kitSecurityLog(events), server.events) };
+            const sent = only.length ? Object.fromEntries(Object.entries(props).filter(([key]) => key === 'errors' || only.includes(key))) : props;
+            await route.fulfill({ status: 200, headers: { 'Content-Type': 'application/json', 'X-Inertia': 'true', Vary: 'X-Inertia' }, body: JSON.stringify({ ...page, props: sent }) });
         });
         // The passkey offer's close once a passkey is added (router.delete(dismiss_url)): the page again, with the offer gone.
         await tab.route('**/me/passkey-offer', async (route) => {
@@ -8317,6 +9025,26 @@ test('Security, Add a passkey: the password is asked for inline and confirmed wi
         assert.deepEqual(await passkeyNames(tab), ['MacBook passkey', requests[2][2].name]);
         assert.equal(await tab.locator('[data-passkey-add-failed]').count(), 0, 'no failure alert');
         assert.equal(await tab.inputValue('#passkey-add-password'), '', 'the password is cleared');
+    });
+});
+
+test('Security, Add a passkey: the security log, empty before, shows the new "Passkey added" event after the reload, not its stale "Nothing yet"', async () => {
+    await securityPasskeys(async ({ tab, requests }) => {
+        const card = tab.locator('[data-security-log-card]');
+        const read = () => card.evaluate((el) => ({
+            state: el.querySelector('[data-collection-section]')?.dataset.state ?? null,
+            empty: el.querySelector('[data-collection-empty]')?.innerText.split('\n').map((line) => line.trim()).filter(Boolean) ?? null,
+            events: [...el.querySelectorAll('[data-security-log] [data-event]')].map((li) => li.dataset.event),
+        }));
+        assert.deepEqual(await read(), { state: 'empty', empty: ['Nothing yet', 'Your sign-ins and security changes show up here.'], events: [] }, 'before: the empty state, and no events');
+        const add = tab.locator('[data-passkey-add-form]');
+        await add.getByLabel('Your password').fill('correct horse battery staple');
+        await add.getByRole('button', { name: 'Add a passkey' }).click();
+        await tab.locator('[data-passkey="8"]').waitFor();
+        assert.deepEqual(requests.at(-1), ['GET', '/me/security', ['passkeys', 'events', 'log']], 'the reload asks for the log\'s section with its events');
+        await tab.locator('[data-security-log-card] [data-event="passkey_added"]').waitFor();
+        assert.deepEqual(await read(), { state: 'ready', empty: null, events: ['passkey_added'] }, 'after: the new event, and the empty state gone');
+        assert.equal((await card.locator('[data-event="passkey_added"]').innerText()).includes('Passkey added'), true);
     });
 });
 

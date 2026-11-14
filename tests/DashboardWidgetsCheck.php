@@ -146,6 +146,32 @@ final class OddKindWidget extends Widget
     }
 }
 
+/** A state the dashboard does not know. */
+final class LimboWidget extends Widget
+{
+    public static bool $gone = false;
+
+    public function visible(): bool
+    {
+        return ! self::$gone;
+    }
+
+    public function title(): string
+    {
+        return 'Limbo';
+    }
+
+    public function component(): string
+    {
+        return 'limbo';
+    }
+
+    public function state(): string
+    {
+        return 'loading';
+    }
+}
+
 /** Holds its body's place while its list loads: a declared loading height. */
 final class TallWidget extends Widget implements Tey\Kit\Features\SessionUi\Dashboard\DeclaresLoadingHeight
 {
@@ -207,12 +233,81 @@ final class OwnHeightWidget extends Widget
     }
 }
 
+/** A list widget with its see-all link: in the footer by default. */
+final class CasesWidget extends Widget
+{
+    public function title(): string
+    {
+        return 'Open cases';
+    }
+
+    public function component(): string
+    {
+        return 'cases';
+    }
+
+    public function seeAll(): ?Tey\Kit\Features\Core\Data\SeeAll
+    {
+        return Tey\Kit\Features\Core\Data\SeeAll::to('All cases', '/@acme/cases');
+    }
+}
+
+/** A stat card: its see-all in the header, with a count, beside an action of its own. */
+final class CaseStatsWidget extends Widget
+{
+    public function title(): string
+    {
+        return 'Cases this week';
+    }
+
+    public function component(): string
+    {
+        return 'stat';
+    }
+
+    public function actions(): array
+    {
+        return [new Tey\Kit\Features\Core\Data\Action('Export', '/@acme/cases/export', 'get', key: 'export')];
+    }
+
+    public function seeAll(): ?Tey\Kit\Features\Core\Data\SeeAll
+    {
+        return Tey\Kit\Features\Core\Data\SeeAll::to('All cases', '/@acme/cases')->withCount(42)->inHeader();
+    }
+}
+
+/** A widget written before the descriptor: its see-all is a "View all" header action (the deprecated alias). */
+final class LegacyCasesWidget extends Widget
+{
+    public function title(): string
+    {
+        return 'Recent cases';
+    }
+
+    public function component(): string
+    {
+        return 'cases';
+    }
+
+    public function actions(): array
+    {
+        return [new Tey\Kit\Features\Core\Data\Action('New case', '/@acme/cases/new', 'get', key: 'new'), new Tey\Kit\Features\Core\Data\Action('View all cases', '/@acme/cases', 'get', key: 'cases')];
+    }
+}
+
 final class NotAWidget {}
 
 /** An "Ongoing"-style list that offers three orders, "Last touched" by default; its rows name the order its query was given. */
 final class SortedWidget extends Widget
 {
     public static ?string $default = 'touched';
+
+    public static bool $gone = false;
+
+    public function visible(): bool
+    {
+        return ! self::$gone;
+    }
 
     public function title(): string
     {
@@ -348,7 +443,7 @@ try {
     ] as $provider) {
         $app->register($provider);
     }
-    $app->make(Registry::class)->widget('app.queue', QueueWidget::class, -40)->widget('app.broken', BrokenWidget::class, 5)->widget('app.admin', QueueWidget::class, 6, 'members.manage')->widget('app.sideways', SidewaysWidget::class, 7)->widget('app.oddkind', OddKindWidget::class, 8)->widget('app.tall', TallWidget::class, 9)->widget('app.stretchy', StretchyWidget::class, 10)->widget('app.ownheight', OwnHeightWidget::class, 11);
+    $app->make(Registry::class)->widget('app.queue', QueueWidget::class, -40)->widget('app.broken', BrokenWidget::class, 5)->widget('app.admin', QueueWidget::class, 6, 'members.manage')->widget('app.sideways', SidewaysWidget::class, 7)->widget('app.oddkind', OddKindWidget::class, 8)->widget('app.tall', TallWidget::class, 9)->widget('app.stretchy', StretchyWidget::class, 10)->widget('app.ownheight', OwnHeightWidget::class, 11)->widget('app.cases', CasesWidget::class, 12)->widget('app.case-stats', CaseStatsWidget::class, 13)->widget('app.legacy-cases', LegacyCasesWidget::class, 14)->widget('app.limbo', LimboWidget::class, 15);
     // The host's `web` group, with an Inertia middleware (the kit's plain one): session-ui's props are shared by its provider, not by a middleware.
     $app->make(Illuminate\Contracts\Http\Kernel::class)->setMiddlewareGroups(['web' => [Illuminate\Session\Middleware\StartSession::class, Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests::class]]);
     $app->boot();
@@ -435,7 +530,7 @@ try {
     check($refused(fn (Registry $r) => $r->widget('a', QueueWidget::class)->widget('a', QueueWidget::class)), 'a widget key registered twice is refused');
     check($refused(fn (Registry $r) => $r->widget('a', NotAWidget::class)), 'a class that is not a Widget is refused');
     check(array_column((new Registry)->widget('c', QueueWidget::class, 1)->widget('a', QueueWidget::class, 0)->widget('b', QueueWidget::class, 1)->widgets(), 'key') === ['a', 'c', 'b'], 'widgets sort by order, then registration');
-    check(array_column($registry->widgets(), 'key') === ['app.queue', 'kit.you', 'kit.activity', 'kit.people', 'app.broken', 'app.admin', 'app.sideways', 'app.oddkind', 'app.tall', 'app.stretchy', 'app.ownheight', 'kit.setup'], 'the kit registers you, activity, people and setup around the app\'s own');
+    check(array_column($registry->widgets(), 'key') === ['app.queue', 'kit.you', 'kit.activity', 'kit.people', 'app.broken', 'app.admin', 'app.sideways', 'app.oddkind', 'app.tall', 'app.stretchy', 'app.ownheight', 'app.cases', 'app.case-stats', 'app.legacy-cases', 'app.limbo', 'kit.setup'], 'the kit registers you, activity, people and setup around the app\'s own');
     check(array_column($registry->widgets(), 'ability', 'key')['kit.setup'] === 'settings.write', 'the setup card is gated on the workspace settings ability (settings.write)');
     // An app replaces or suppresses a widget by key, whichever registers first.
     $replaced = (new Registry)->replaceWidget('kit.activity', QueueWidget::class)->widget('kit.you', BrokenWidget::class, -30)->widget('kit.activity', BrokenWidget::class, -20, 'members.manage')->widgets();
@@ -502,7 +597,7 @@ try {
     check(RecordingShell::$builtIn === [$workspace->id] && Tey\Kit\Features\Workspaces\Workspaces::current() === null, 'and builds it inside the workspace too, with none current after');
     check(! array_key_exists('welcome', $owner['props']) && $owner['props']['aside'] === 'narrow', 'the dashboard has no welcome prop (removed in 0.17), and the aside is narrow by default');
     $widgets = array_column($owner['props']['widgets'], null, 'key');
-    check(array_keys($widgets) === ['app.queue', 'kit.you', 'kit.activity', 'kit.people', 'app.broken', 'app.admin', 'app.sideways', 'app.oddkind', 'app.tall', 'app.stretchy', 'app.ownheight', 'kit.setup'], 'the owner sees every widget, in order, the setup card last');
+    check(array_keys($widgets) === ['app.queue', 'kit.you', 'kit.activity', 'kit.people', 'app.broken', 'app.admin', 'app.sideways', 'app.oddkind', 'app.tall', 'app.stretchy', 'app.ownheight', 'app.cases', 'app.case-stats', 'app.legacy-cases', 'app.limbo', 'kit.setup'], 'the owner sees every widget, in order, the setup card last');
     check($widgets['app.queue']['rows'] === ['one', 'two'] && $widgets['app.queue']['region'] === 'main' && $widgets['app.queue']['state'] === 'ready', 'an app widget carries its frame and its own typed props, in main by default');
     check($widgets['app.queue']['span'] === ['md' => 6, 'lg' => 12], 'a widget that still overrides the deprecated span() keeps compiling and sends it');
     check(array_map(fn (string $key) => $widgets[$key]['region'], ['kit.activity', 'kit.you', 'kit.people']) === ['main', 'aside', 'aside'], 'Recent activity is in main; You and People are in aside');
@@ -512,7 +607,43 @@ try {
     check(array_key_exists('loadingHeight', $widgets['app.queue']) && $widgets['app.queue']['loadingHeight'] === null, 'a widget that does not opt in sends a null loading height');
     check($widgets['app.ownheight']['state'] === 'ready' && $widgets['app.ownheight']['loadingHeight'] === null && OwnHeightWidget::$asked === 0, 'a host widget with its own loadingHeight() that does not implement DeclaresLoadingHeight is never asked for it and sends null, not its unvalidated value');
     check(! (new ReflectionClass(Widget::class))->hasMethod('loadingHeight'), 'the Widget base class declares no loadingHeight(), so a host widget\'s own method of that name still loads');
+
+    // The see-all descriptor (docs/see-all.md): what it serializes to, and how a widget's frame carries it.
+    $seeAll = Tey\Kit\Features\Core\Data\SeeAll::to('All cases', '/@acme/cases');
+    check($seeAll->toArray() === ['label' => 'All cases', 'url' => '/@acme/cases', 'count' => null, 'placement' => 'footer', 'linkTitle' => true] && json_encode($seeAll) === '{"label":"All cases","url":"\\/@acme\\/cases","count":null,"placement":"footer","linkTitle":true}', 'SeeAll::to() serializes to label, url, a null count and the footer placement');
+    check($seeAll->withCount(42)->inHeader()->toArray() === ['label' => 'All cases', 'url' => '/@acme/cases', 'count' => 42, 'placement' => 'header', 'linkTitle' => true] && $seeAll->placement === 'footer' && $seeAll->count === null && $seeAll->withCount(0)->count === 0, 'withCount() and inHeader() return a new descriptor (a count of zero is kept) and leave the original as it was');
+    check($seeAll->withoutTitleLink()->withCount(3)->inHeader()->toArray() === ['label' => 'All cases', 'url' => '/@acme/cases', 'count' => 3, 'placement' => 'header', 'linkTitle' => false] && $seeAll->linkTitle, 'withoutTitleLink() opts the card\'s title out of linking (sent as linkTitle false, kept through withCount() and inHeader()); the title links by default');
+    $refused = [];
+    foreach ([fn () => Tey\Kit\Features\Core\Data\SeeAll::to(' ', '/@acme/cases'), fn () => Tey\Kit\Features\Core\Data\SeeAll::to('All cases', ''), fn () => Tey\Kit\Features\Core\Data\SeeAll::to('All cases', '/@acme/cases', -1), fn () => new Tey\Kit\Features\Core\Data\SeeAll('All cases', '/@acme/cases', null, 'aside')] as $make) {
+        try {
+            $make();
+        } catch (InvalidArgumentException $exception) {
+            $refused[] = $exception->getMessage();
+        }
+    }
+    check($refused === array_fill(0, 4, 'see_all_invalid'), 'a blank label, a blank url, a negative count and an unknown placement are refused (fail closed)');
+    $legacy = fn (string $label, string $method = 'get', array $more = []) => Tey\Kit\Features\Core\Data\SeeAll::fromAction(new Tey\Kit\Features\Core\Data\Action($label, '/@acme/cases', $method, ...$more))?->toArray();
+    check(array_map($legacy, ['View all cases', 'See all results', 'show all  open cases', 'All notes']) === [['label' => 'All cases', 'url' => '/@acme/cases', 'count' => null, 'placement' => 'footer', 'linkTitle' => true], ['label' => 'All results', 'url' => '/@acme/cases', 'count' => null, 'placement' => 'footer', 'linkTitle' => true], ['label' => 'All open cases', 'url' => '/@acme/cases', 'count' => null, 'placement' => 'footer', 'linkTitle' => true], ['label' => 'All notes', 'url' => '/@acme/cases', 'count' => null, 'placement' => 'footer', 'linkTitle' => true]], 'the deprecated alias: a "View all", "See all", "Show all" or "All" header link maps onto the descriptor as "All <noun>" in the footer');
+    check([$legacy('Manage people'), $legacy('Allocate cases'), $legacy('View all'), $legacy('All cases', 'post'), $legacy('All cases', 'get', ['disabled' => true]), $legacy('All cases', 'get', ['confirm' => ['description' => 'Sure?', 'label' => 'Go']]), $legacy('All cases', 'get', ['menu' => true]), $legacy('View all cases', 'get', ['intent' => 'dialog']), $legacy('All cases', 'get', ['intent' => 'document']), $legacy('All cases', 'get', ['newTab' => true])] === array_fill(0, 10, null), 'anything else stays an action: another label, a bare "View all", a POST, a disabled, confirmed or menu action, a dialog or document intent, a new tab');
+    // The CollectionSection descriptor (docs/collection-section.md).
+    $collection = new Tey\Kit\Features\Core\Data\CollectionSectionData('Open cases', segments: [new Tey\Kit\Features\Core\Data\CollectionSegment('all', 'All', '/@acme/cases', true, 12), new Tey\Kit\Features\Core\Data\CollectionSegment('new', 'New', '/@acme/cases?segment=new')], sortBy: new Tey\Kit\Features\Core\Data\CollectionSortData([['key' => 'due', 'label' => 'Due soonest']], 'due', '/@acme'), seeAll: Tey\Kit\Features\Core\Data\SeeAll::to('All open cases', '/@acme/cases?status=open'), maxHeight: '18rem');
+    check($collection->toArray() === ['title' => 'Open cases', 'description' => null, 'state' => 'ready', 'empty' => null, 'error' => null, 'actions' => [], 'segments' => [['key' => 'all', 'label' => 'All', 'url' => '/@acme/cases', 'current' => true, 'count' => 12], ['key' => 'new', 'label' => 'New', 'url' => '/@acme/cases?segment=new', 'current' => false, 'count' => null]], 'sortBy' => ['options' => [['key' => 'due', 'label' => 'Due soonest']], 'current' => 'due', 'url' => '/@acme', 'method' => 'get', 'reload' => [], 'label' => 'Sort by', 'token' => null], 'seeAll' => ['label' => 'All open cases', 'url' => '/@acme/cases?status=open', 'count' => null, 'placement' => 'footer', 'linkTitle' => true], 'maxHeight' => '18rem'], 'CollectionSectionData serializes its title, state, segments (one current, counts kept or null), sort menu (a GET by default), see-all and max height');
+    $refused = [];
+    foreach ([fn () => new Tey\Kit\Features\Core\Data\CollectionSectionData(' '), fn () => new Tey\Kit\Features\Core\Data\CollectionSectionData('Cases', state: 'loading'), fn () => new Tey\Kit\Features\Core\Data\CollectionSectionData('Cases', segments: [new Tey\Kit\Features\Core\Data\CollectionSegment('a', 'A', '/a', true), new Tey\Kit\Features\Core\Data\CollectionSegment('b', 'B', '/b', true)]), fn () => new Tey\Kit\Features\Core\Data\CollectionSectionData('Cases', maxHeight: 'calc(100vh)'), fn () => new Tey\Kit\Features\Core\Data\CollectionSectionData('Cases', maxHeight: '50%')] as $make) {
+        try {
+            $make();
+        } catch (InvalidArgumentException $exception) {
+            $refused[] = $exception->getMessage();
+        }
+    }
+    check($refused === array_fill(0, 5, 'collection_section_invalid'), 'a blank title, an unknown state, two current segments and a max height that is not a px, rem or em length are refused (fail closed)');
+    check(array_key_exists('seeAll', $widgets['app.queue']) && $widgets['app.queue']['seeAll'] === null && $widgets['app.queue']['actions'] === [], 'a widget with no see-all sends a null seeAll and no extra action');
+    check($widgets['app.cases']['seeAll'] === ['label' => 'All cases', 'url' => '/@acme/cases', 'count' => null, 'placement' => 'footer', 'linkTitle' => true], 'a list widget\'s seeAll() is in its frame, in the footer');
+    check(array_map(fn (array $action) => [$action['label'], $action['url'], $action['method'], $action['key']], $widgets['app.cases']['actions']) === [['All cases', '/@acme/cases', 'get', 'see-all']], 'and is also sent as a GET header action (key see-all), so a WidgetCard copied before the descriptor still draws it');
+    check($widgets['app.case-stats']['seeAll'] === ['label' => 'All cases', 'url' => '/@acme/cases', 'count' => 42, 'placement' => 'header', 'linkTitle' => true] && array_column($widgets['app.case-stats']['actions'], 'key') === ['export', 'see-all'], 'a stat card\'s see-all is in the header with its count, after its own actions');
+    check($widgets['app.legacy-cases']['seeAll'] === ['label' => 'All cases', 'url' => '/@acme/cases', 'count' => null, 'placement' => 'footer', 'linkTitle' => true] && array_column($widgets['app.legacy-cases']['actions'], 'key') === ['new', 'cases'], 'a widget\'s "View all cases" header action maps onto its see-all as "All cases", and stays an action (no second one is added) for an older WidgetCard');
     check($widgets['app.stretchy']['state'] === 'error' && $widgets['app.stretchy']['component'] === 'error', 'a loading height that is not a px, rem or em length becomes an error card (fail closed)');
+    check($widgets['app.limbo']['state'] === 'error' && $widgets['app.limbo']['component'] === 'error' && $widgets['app.limbo']['title'] === 'Limbo', 'a widget whose state is not ready, empty or error becomes an error card (fail closed): the frame\'s state is always one CollectionSectionData takes');
     check($widgets['app.sideways']['state'] === 'error' && $widgets['app.sideways']['component'] === 'error' && $widgets['app.sideways']['region'] === 'main', 'a widget naming neither main nor aside becomes an error card (fail closed)');
     check($widgets['app.broken']['state'] === 'error' && $widgets['app.broken']['component'] === 'error' && $widgets['app.broken']['error']['message'] === "This couldn't load." && ! array_key_exists('rows', $widgets['app.broken']), 'a widget that throws becomes an error card with none of its props');
     check(! str_contains(json_encode($owner), 'secret detail'), 'the failure\'s message never reaches the page');
@@ -696,6 +827,54 @@ try {
 
     [$status, $location] = $put('owner', $control['url'], ['sort' => 'due']);
     check($status === 303 && in_array($location, ['https://kit.test', 'https://kit.test/'], true) && $stored('owner', $workspace->id) === 'due', 'choosing an order saves it for the viewer in this workspace and returns to the dashboard (303)');
+    // The reload after a choice names it in the request itself (X-Kit-Sort: the frame's token and the order, as CollectionSection sends it and the PUT's
+    // redirect carries it). It builds only that widget, merged into the page's widgets by key, while the viewer still sees the widgets the page was drawn
+    // with and the widget shows that order; otherwise every widget is sent. Nothing is kept between requests.
+    $token = fn (array $page, string $key = 'app.sorted') => $sorted($page, $key)['sortBy']['token'];
+    parse_str($token($fresh), $parts);
+    check(array_keys($parts) === ['widget', 'set'] && $parts['widget'] === 'app.sorted' && preg_match('/\A[0-9a-f]{16}\z/', $parts['set']) === 1
+        && $token($fresh, 'app.sorted-admin') === http_build_query(['widget' => 'app.sorted-admin', 'set' => $parts['set']]), 'each sortable widget\'s frame carries a token: its key and a digest of the widgets the page was drawn with');
+    $reload = fn (?string $tokenOf = null, ?string $sort = null, array $more = []) => ['HTTP_X_INERTIA_PARTIAL_COMPONENT' => 'Workspace/Dashboard/Page', 'HTTP_X_INERTIA_PARTIAL_DATA' => 'widgets', ...($tokenOf === null ? [] : ['HTTP_X_KIT_SORT' => $tokenOf.'&sort='.$sort]), ...$more];
+    $all = fn (array $page, int $more = 2) => count($page['props']['widgets']) === count($widgets) + $more && ! in_array('widgets', $page['mergeProps'] ?? [], true);
+    $one = fn (array $page, string $key, string $order) => array_column($page['props']['widgets'], 'key') === [$key] && $sorted($page, $key)['sortBy']['current'] === $order
+        && ($page['mergeProps'] ?? []) === ['widgets'] && ($page['matchPropsOn'] ?? []) === ['widgets.key'];
+    $put('owner', $control['url'], ['sort' => 'opened']);
+    [, $merged] = $page('owner', $reload($token($fresh), 'opened'));
+    check($one($merged, 'app.sorted', 'opened') && $sorted($merged)['rows'] === ['sorted by opened'], 'the reload after a choice sends only that widget, in its new order, merged into the page\'s widgets by key');
+    [, $again] = $page('owner', $reload());
+    check($all($again), 'a partial reload of widgets that names no choice (an app\'s older WidgetCard) sends every widget, replacing them');
+    // Two tabs, each choosing on a different widget before either reload arrives: each reload carries its own choice, so each gets its own widget.
+    $put('owner', $control['url'], ['sort' => 'due']);
+    $put('owner', $sorted($fresh, 'app.sorted-admin')['sortBy']['url'], ['sort' => 'opened']);
+    [, $tabB] = $page('owner', $reload($token($fresh, 'app.sorted-admin'), 'opened'));
+    [, $tabA] = $page('owner', $reload($token($fresh), 'due'));
+    check($one($tabB, 'app.sorted-admin', 'opened') && $one($tabA, 'app.sorted', 'due'), 'two tabs\' choices on different widgets each reach their own reload, in either order');
+    $put('owner', $sorted($fresh, 'app.sorted-admin')['sortBy']['url'], ['sort' => 'touched']);
+    // Another tab's later choice on the same widget: this tab's reload no longer matches what the widget shows, so every widget is sent.
+    $put('owner', $control['url'], ['sort' => 'opened']);
+    [, $overtaken] = $page('owner', $reload($token($fresh), 'due'));
+    check($all($overtaken) && $sorted($overtaken)['sortBy']['current'] === 'opened', 'a reload whose order the widget no longer shows (another tab chose since) sends every widget, with the order saved last');
+    $put('owner', $control['url'], ['sort' => 'opened']);
+    [, $full] = $page('owner', ['HTTP_X_KIT_SORT' => $token($fresh).'&sort=opened']);
+    [, $otherComponent] = $page('owner', $reload($token($fresh), 'opened', ['HTTP_X_INERTIA_PARTIAL_COMPONENT' => 'Workspace/Settings/Page']));
+    [, $reset] = $page('owner', $reload($token($fresh), 'opened', ['HTTP_X_INERTIA_RESET' => 'widgets']));
+    [, $malformed] = $page('owner', $reload('widget[]=app.sorted&set=x', 'opened'));
+    [, $forged] = $page('owner', $reload(http_build_query(['widget' => 'app.sorted', 'set' => '0000000000000000']), 'opened'));
+    check($all($full) && $all($otherComponent) && $all($reset) && $all($malformed) && $all($forged), 'a full load, a reload for another component, one that resets widgets, a malformed choice and one drawn with other widgets each send every widget');
+    // A widget hidden since the page was drawn: a merge by key could not take its card away, so every widget the viewer still sees is sent, whichever
+    // widget the choice was on. The fresh frames carry a new token, and the next choice merges again.
+    LimboWidget::$gone = true;
+    $put('owner', $control['url'], ['sort' => 'opened']);
+    [, $other] = $page('owner', $reload($token($fresh), 'opened'));
+    check($all($other, 1) && ! in_array('app.limbo', array_column($other['props']['widgets'], 'key'), true) && $token($other) !== $token($fresh), 'after another widget is hidden, the reload of a choice sends every widget without it, with a new token');
+    [, $next] = $page('owner', $reload($token($other), 'opened'));
+    check($one($next, 'app.sorted', 'opened'), 'and a choice with the new token merges only its widget again');
+    LimboWidget::$gone = false;
+    SortedWidget::$gone = true;
+    [, $gone] = $page('owner', $reload($token($fresh), 'opened'));
+    SortedWidget::$gone = false;
+    check($all($gone, 0) && array_intersect(['app.sorted', 'app.sorted-admin'], array_column($gone['props']['widgets'], 'key')) === [], 'a sorted widget hidden before its reload is left out of every widget sent, so its card goes');
+    $put('owner', $control['url'], ['sort' => 'due']);
     [, $chosen] = $page('owner');
     check($sorted($chosen)['sortBy']['current'] === 'due' && $sorted($chosen)['rows'] === ['sorted by due'], 'the saved order is current next time, and the query is given it');
     $refusals = [$put('owner', $control['url'], ['sort' => 'Bad Key']), $put('owner', $control['url'], ['sort' => 'priority']), $put('owner', $control['url'], ['sort' => ['due']]), $put('owner', $control['url'], [])];

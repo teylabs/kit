@@ -33,10 +33,14 @@ const register = {
 const consent = { client: 'Acme Assistant', scopes: [{ key: 'read', label: 'Read your workspace data' }, { key: 'write', label: 'Create and edit records' }], workspaces: [{ id: 1, name: 'Northwind Farms' }, ...(query.has('two') ? [{ id: 2, name: 'Globex Labs' }] : [])], workspace: query.has('unchosen') ? null : 1, approve_url: '/oauth/authorize', deny_url: '/oauth/authorize', auth_token: 't', csrf_token: 'c', redirect_host: 'assistant.example.com', registered: false, grants: [{ scope: 'files', label: 'Files', explains: 'read uploaded files', checked: false }] };
 // ?auth=Workspace/Account/Security: Settings › Security with two-factor off, one passkey, and Fortify's passkey endpoints with its password confirmation (`&noconfirm`: the host turned
 // that confirmation off, so no confirm_url).
+// The security log's section, as SecurityViewModel::log() sends it: empty until there are events.
+const securityLog = (events: unknown[]) => ({ title: 'Security log', description: 'Your recent sign-ins and security changes. Only you can see this.', state: events.length ? 'ready' : 'empty', empty: { variant: 'first-use', title: 'Nothing yet', description: 'Your sign-ins and security changes show up here.', action: null }, error: null, actions: [], segments: [], sortBy: null, seeAll: null, maxHeight: null });
+(window as unknown as { kitSecurityLog: unknown }).kitSecurityLog = securityLog;
 const security = {
     two_factor: { state: 'off', qr_svg: null, secret_key: null, codes_left: 0, recovery_codes: [] },
     sessions: { supported: false, items: [] },
     events: [],
+    log: securityLog([]),
     two_factor_url: '/me/security/two-factor',
     recovery_codes_url: '/me/security/recovery-codes',
     sessions_url: '/me/security/sessions',

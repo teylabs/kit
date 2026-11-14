@@ -126,10 +126,11 @@ Every widget's props start with the same frame, and the class adds its own:
 | `kind` | `task`, `feed`, `status` (the default) or `setup`. See Kinds. |
 | `region` | `main` (the default) or `aside`: the column the card stacks in. |
 | `span` | Deprecated: `WidgetSpanData`, no longer used for layout. |
-| `state` | `ready`, `empty` (the card shows `empty`) or `error` (the card shows `error`, with Retry). |
+| `state` | `ready`, `empty` (the card shows `empty`) or `error` (the card shows `error`, with Retry). Any other value makes the widget an error card, so the frame's `state` is always one a CollectionSection takes. |
 | `empty` | `WidgetEmptyData`: a title, a description and an optional action. |
 | `error` | `WidgetErrorData`: a fixed message and a retry. Never exception text. |
 | `actions` | `list<Action>` shown in the card header. |
+| `seeAll` | The card's one `SeeAll` link ("All cases →"), or null: in a footer at the bottom right, after the body and outside its scroll (the default, for a list), or last in the header (`->inHeader()`, for a summary, stat or chart). A plain "All …", "View all …" or "See all …" header action is the deprecated way, mapped onto it. See [docs/see-all.md](see-all.md). |
 | `sortBy` | `WidgetSortData` for the header's Sort by control, or null when the widget declares no orders. See Sort by. |
 
 Props follow the `ViewModel` rules: every public method with no required parameters is a prop, with a declared return type and a docblock shape for arrays.
@@ -141,6 +142,21 @@ A widget that throws, while it is built or while its props are read, becomes an 
 ## Lists
 
 A widget that shows a scrolling list returns `ScrollListViewModel`s from `lists()` and names the list's key in a prop. Each list becomes a deferred page prop under its key, and the card renders `<ScrollList :list-key="…">`. A list key that clashes with another widget's list or a dashboard prop turns the widget into an error card. See the kit's `PeopleWidget` and `PeopleList`.
+
+## See all
+
+A widget that shows the first few of something links to the rest with `seeAll()`, never with a hand-written link or a "View all" action:
+
+```php
+use Tey\Kit\Features\Core\Data\SeeAll;
+
+public function seeAll(): ?SeeAll
+{
+    return SeeAll::to('All cases', WorkspaceUrl::to($this->context->workspace, 'cases', null, $this->context->request));
+}
+```
+
+`WidgetCard` draws it as "All cases →" in a footer at the card's bottom right, after the list's end and outside its scroll, so it stays in view while the list scrolls, and links the card's title to the same place (opt out with `->withoutTitleLink()`). A stat or chart card puts it in its header with `->inHeader()`. Point it at the index filtered to match the card: an "Ongoing cases" card at the cases index filtered to ongoing. See [docs/see-all.md](see-all.md).
 
 ## Sort by
 
@@ -201,7 +217,7 @@ final class OngoingWorkWidget extends Widget
 
 The choice is kept per person, per workspace and per widget key, in `user_state` (the kit's per-person store, with the workspace's id), so it follows the person across devices. Two people never share an order, and neither do one person's two workspaces. The same widget class registered under two keys keeps two choices. It goes with the account (`UserState::forgetAll()`).
 
-Choosing an order sends `PUT widgets/{key}/sort` (`{ sort }`) in the workspace. `SaveWidgetSort` authorises as the card is shown: `dashboard.read`, then the widget's own ability. It builds the widget for the viewer and stores the order only if the widget declares it. An undeclared order is a validation error on `sort`, and the control puts the previous order back. A widget nobody registered, or one hidden from the viewer, is a 404. The response sends the person back to the dashboard as a partial Inertia visit for the props in `sortBy.reload`: the widget's own lists (each reset to its first page), or `widgets` when it has none. Nothing else on the page reloads, and the card's body remounts on the new order.
+Choosing an order sends `PUT widgets/{key}/sort` (`{ sort }`) in the workspace. `SaveWidgetSort` authorises as the card is shown: `dashboard.read`, then the widget's own ability. It builds the widget for the viewer and stores the order only if the widget declares it. An undeclared order is a validation error on `sort`, and the control puts the previous order back. A widget nobody registered, or one hidden from the viewer, is a 404. The response sends the person back to the dashboard as a partial Inertia visit for the props in `sortBy.reload`: the widget's own lists (each reset to its first page), or `widgets` when it has none. For `widgets`, that reload builds only the sorted widget and sends its frame as a merge prop matched on `key`, so the page swaps that one frame in where it was and every other card keeps its own frame, scroll and loaded rows. The request names the choice itself, and nothing is kept between requests: each sortable frame's `sortBy.token` holds its key and a digest of the widgets the viewer sees, and the choice's visit sends it with the order as `X-Kit-Sort` (`widget=…&set=…&sort=…`), which the redirect's follow-up carries too. The merge happens only while the viewer still sees exactly those widgets and the widget shows that order. Otherwise (a widget hidden or added since, or another tab's later choice on the same widget) every widget is sent and replaced, since a merge by key cannot take a card away. A full page load, a reload with no `X-Kit-Sort`, or one that resets `widgets` builds every widget as before. Nothing else on the page reloads, and the card's body remounts on the new order.
 
 The control is the kit's `InputSelect`, labelled by its visible "Sort by" text, shown only while the card is `ready`. From the keyboard, Tab reaches it, the arrow keys or Enter open it, the arrows move, Enter picks and Escape closes without a change.
 
@@ -229,7 +245,7 @@ Onboarding::step('branding', 'Workspace branding', 30, fn (int $user, ?int $work
 
 A widget may leave itself out for a viewer by returning false from `visible()` (checked after its ability, before its props are read); the setup card does once every step is done. When it is the only widget, it takes the grid's full width.
 
-The notes feature's `notes.recent` (order 0, `notes.read`) is a task in main: its composer and two-up notes need the width, and the one feed is Recent activity.
+The notes feature's `notes.recent` (order 0, `notes.read`) is a task in main: its composer and two-up notes need the width, and the one feed is Recent activity. Its "All notes" is a see-all in the card's footer, after the last note ([docs/see-all.md](see-all.md)).
 
 Each is optional. `kit.dashboard.widgets` in `config/kit.php` lists the ones to keep, and it defaults to all four:
 
@@ -265,7 +281,7 @@ A hidden member is absent by URL too: their Change role and Transfer ownership p
 
 ## Frontend
 
-`pages/Workspace/Dashboard/Page.vue` renders the greeting as its heading, then `Partials/WidgetGrid.vue`, or the empty state when the viewer has no widgets. The grid is a PageGrid `main-aside` (or `main-aside-wide`, from the `aside` prop) with a Stack of cards in each column (see Layout). `Partials/WidgetCard.vue` is the card shell: the title, the header actions, then the body, the empty state or the error with Retry. An app's widget body is a component in `resources/js/widgets/` that takes a `widget` prop, typed as `WidgetFrame` from `Partials/types.ts` plus its own props.
+`pages/Workspace/Dashboard/Page.vue` renders the greeting as its heading, then `Partials/WidgetGrid.vue`, or the empty state when the viewer has no widgets. The grid is a PageGrid `main-aside` (or `main-aside-wide`, from the `aside` prop) with a Stack of cards in each column (see Layout). `Partials/WidgetCard.vue` is the card shell: a [CollectionCard](collection-section.md) built from the widget's frame, with the title, the header actions, then the body, the empty state or the error with Retry, then the see-all footer. An app's widget body is a component in `resources/js/widgets/` that takes a `widget` prop, typed as `WidgetFrame` from `Partials/types.ts` plus its own props.
 
 An app that still registers its own dashboard component (`Registry::dashboardComponent()`) gets `widgets` and any list props too, and can render `<WidgetGrid>` itself.
 

@@ -5,6 +5,8 @@ namespace Tey\Kit\Features\SessionUi\Dashboard;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Tey\Kit\Features\Access\Access;
+use Tey\Kit\Features\Core\Data\Action;
+use Tey\Kit\Features\Core\Data\SeeAll;
 use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Core\Savepoint;
@@ -17,13 +19,31 @@ use Throwable;
  */
 final class Widgets
 {
-    /** @return array{widgets: list<array<string, mixed>>, lists: array<string, mixed>} the frames, and each list's deferred prop by key */
-    public function resolve(Request $request, Principal $principal, int $workspace, array $reserved = []): array
+    /**
+     * @param  ?string  $only  build just this widget's frame (the one a Sort by choice names); every other widget is only checked for whether it shows
+     * @return array{widgets: list<array<string, mixed>>, lists: array<string, mixed>, set: string} the frames, each list's deferred prop by key, and a digest of the keys of every widget the viewer sees, in order
+     */
+    public function resolve(Request $request, Principal $principal, int $workspace, array $reserved = [], ?string $only = null): array
     {
         $widgets = [];
         $lists = [];
+        $keys = [];
         foreach (app(Registry::class)->widgets() as $entry) {
             if (! $this->visible($principal, $entry['ability'])) {
+                continue;
+            }
+            if ($only !== null && $entry['key'] !== $only) {
+                // Shown or not is all that is needed of it (a failure would show its error card, so it counts as shown).
+                $context = new WidgetContext($entry['key'], $request, $principal, $workspace);
+                try {
+                    $shown = Savepoint::run(fn (): bool => (new $entry['widget']($context))->visible());
+                } catch (Throwable) {
+                    $shown = true;
+                }
+                if ($shown) {
+                    $keys[] = $entry['key'];
+                }
+
                 continue;
             }
             $context = new WidgetContext($entry['key'], $request, $principal, $workspace);
@@ -35,12 +55,30 @@ final class Widgets
                         return null;
                     }
                     $frame = $widget->toArray();
-                    // Fail closed: a widget names one of the two columns, or it is an error card.
+                    // Fail closed: a widget names one of the two columns, one of the four kinds and one of the three states (the frame's `state` is
+                    // CollectionSectionData's), or it is an error card.
                     if (! in_array($frame['region'] ?? null, ['main', 'aside'], true)) {
                         throw new \RuntimeException('dashboard_widget_region');
                     }
                     if (! in_array($frame['kind'] ?? null, ['task', 'feed', 'status', 'setup'], true)) {
                         throw new \RuntimeException('dashboard_widget_kind');
+                    }
+                    if (! in_array($frame['state'] ?? null, ['ready', 'empty', 'error'], true)) {
+                        throw new \RuntimeException('dashboard_widget_state');
+                    }
+                    // The see-all link and its deprecated alias, a plain "All …", "View all …" or "See all …" header action, each fill in the other. A widget
+                    // with no seeAll() gets its first such action as one; a seeAll() with no such action is also sent as one (key `see-all`). So a
+                    // WidgetCard an app copied before the descriptor still draws the link in its header, and the current one draws it once, from `seeAll`,
+                    // leaving out the action that repeats its URL.
+                    $links = [];
+                    foreach ($frame['actions'] as $action) {
+                        $frame['seeAll'] ??= SeeAll::fromAction($action)?->toArray();
+                        if (strtolower((string) ($action['method'] ?? '')) === 'get') {
+                            $links[] = $action['url'] ?? null;
+                        }
+                    }
+                    if ($frame['seeAll'] !== null && ! in_array($frame['seeAll']['url'], $links, true)) {
+                        $frame['actions'][] = (new Action($frame['seeAll']['label'], $frame['seeAll']['url'], 'get', key: 'see-all'))->toArray();
                     }
                     // Only a widget that opts in (DeclaresLoadingHeight) is asked for its loading height, and only a validated one is sent; every other
                     // widget sends null, even one with a loadingHeight() of its own.
@@ -68,17 +106,30 @@ final class Widgets
                 }
                 [$frame, $own] = $built;
                 $widgets[] = $frame;
+                $keys[] = $entry['key'];
                 $lists = [...$lists, ...$own];
             } catch (Throwable $exception) {
                 $this->report($entry['key'], $exception);
                 $widgets[] = (new FailedWidget($context))->toArray();
+                $keys[] = $entry['key'];
             }
         }
 
         // The kit's setup card is the aside's last, whatever order an app gives its own widgets.
-        usort($widgets, fn (array $a, array $b): int => ($a['key'] === 'kit.setup') <=> ($b['key'] === 'kit.setup'));
+        $setupLast = fn (string $a, string $b): int => ($a === 'kit.setup') <=> ($b === 'kit.setup');
+        usort($widgets, fn (array $a, array $b): int => $setupLast($a['key'], $b['key']));
+        usort($keys, $setupLast);
+        // A Sort by choice sends its widget's token back (CollectionSection's X-Kit-Sort), naming the widget and the widgets the page was drawn with: the reload
+        // it leads to can then merge that one frame only while the page still holds the same widgets (DashboardController).
+        $set = substr(hash('sha256', implode("\n", $keys)), 0, 16);
+        foreach ($widgets as &$frame) {
+            if (is_array($frame['sortBy'] ?? null)) {
+                $frame['sortBy']['token'] = http_build_query(['widget' => $frame['key'], 'set' => $set]);
+            }
+        }
+        unset($frame);
 
-        return ['widgets' => $widgets, 'lists' => $lists];
+        return ['widgets' => $widgets, 'lists' => $lists, 'set' => $set];
     }
 
     /** Fail closed: an ability no feature declares, or any refusal, hides the widget. */

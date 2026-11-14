@@ -888,6 +888,30 @@ export interface SectionHeaderProps {
 }
 
 /**
+ * A section showing a collection (docs/collection-section.md), driven by the server's `CollectionSectionData` (`section`): the title (a link to the see-all's URL
+ * unless `linkTitle` is false), description, header actions and Sort by menu, segment tabs, the empty state (or the `#empty` slot) or error, an optional scrolling
+ * body (`maxHeight`) and the see-all footer. Slots: default (the items), `actions`, `filters`, `empty`, `footer`. `level` is the title's heading level (3). Emits `action` with a header or empty-state
+ * descriptor that is not plain navigation (a confirmation, intent, new tab, another method) when the host listens; otherwise its ActionBar runs it. It
+ * draws no card: for a grid or list whose items carry their own look.
+ */
+export interface CollectionSectionProps {
+    section: import('./Layout/collectionSection').CollectionSectionData;
+    level?: 2 | 3 | 4 | 5 | 6;
+    headless?: boolean;
+    minHeight?: string | null;
+}
+
+/** The same CollectionSection on a kit Card, with the same props and slots: it adds the card, its padding and rules, and nothing else. */
+export type CollectionCardProps = CollectionSectionProps;
+
+/** A list's one "see all" link from the server's `SeeAll` descriptor (docs/see-all.md): "All cases →", or "All cases (42) →" with a count; the arrow is hidden from the accessible name. An Inertia link that places nothing itself. */
+export interface SeeAllLinkProps {
+    seeAll: import('./Action/seeAll').SeeAll;
+    /** `title`: the card's title linking to the same URL (the default slot is the title), heading-coloured with an underline on hover. Default `link`. */
+    variant?: 'link' | 'title';
+}
+
+/**
  * The menu family (Dropdown.md, DropdownItem.md and the DropdownLink/Confirm/Action/Delete/ModalLink specs, ButtonDropdown.md). Menus: `Dropdown` (`type="button"` for the labelled trigger, else an icon one; `label`, `alignLeft`, `horizontal`, `chevron`, `spin`,
  * `colorClasses`, `menuClasses`; slots default, `header`, `buttontext`, `trigger`; attributes land on the trigger) and `ButtonDropdown` (`label`, `offset` [skid, gap]; slots default, `menu`, `menuheader`). Items must sit inside a kit menu. As specced, `active` (DropdownItem,
  * DropdownLink) and `noun` (DropdownConfirm) do nothing, and DropdownLink's button form is always `type="submit"`.

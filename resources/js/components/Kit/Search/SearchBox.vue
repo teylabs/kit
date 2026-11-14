@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { router } from '@inertiajs/vue3';
 import { computed, onBeforeUnmount, ref, useId, watch } from 'vue';
+import SeeAllLink from '@/components/Kit/Action/SeeAllLink.vue';
 import { flatten, move, type SearchGroup, type SearchOption } from './search';
 
 /*
  * A search field with a live list of results (an ARIA combobox): typing waits 250ms, then asks `url` for JSON (`{ groups, partial }`, each provider's
  * first few results). Arrow keys move through every result across groups; Enter opens the active one, or with none active goes to the full results
- * page (`url?q=`). Escape clears, then closes. A stale answer (the person typed on, or left) is dropped. It renders the server's results as they are:
+ * page (`url?q=`), as the list's "All results →" link does. Escape clears, then closes. A stale answer (the person typed on, or left) is dropped. It renders the server's results as they are:
  * labels and descriptions are text, never markup. The host focuses it with the exposed `focus()`.
  */
 const props = withDefaults(
@@ -149,89 +150,102 @@ defineExpose({ focus: () => input.value?.focus() });
             @blur="open = false"
             @focus="open = term.length >= minLength"
         />
+        <!-- The popup: the listbox, which scrolls and owns only the results, then the see-all under it, outside the listbox and its scroll. -->
         <div
             v-show="open"
-            :id="`${id}-list`"
-            role="listbox"
-            :aria-label="label"
-            class="border-border bg-popover text-popover-foreground absolute inset-x-0 top-full z-50 mt-1 max-h-[60svh] min-w-72 overflow-y-auto rounded-md border p-1 text-sm shadow-lg"
-            data-search-results
+            class="border-border bg-popover text-popover-foreground absolute inset-x-0 top-full z-50 mt-1 flex max-h-[60svh] min-w-72 flex-col rounded-md border text-sm shadow-lg"
+            data-search-popup
             @mousedown.prevent
         >
-            <p v-if="busy" class="text-muted-foreground px-2 py-1.5">
-                Searching…
-            </p>
-            <p v-else-if="failed" class="text-destructive-text px-2 py-1.5">
-                Search is unavailable. Try again.
-            </p>
-            <p
-                v-else-if="!options.length"
-                class="text-muted-foreground px-2 py-1.5"
-                data-search-empty
+            <div
+                :id="`${id}-list`"
+                role="listbox"
+                :aria-label="label"
+                class="min-h-0 flex-1 overflow-y-auto p-1"
+                data-search-results
             >
-                No results
-            </p>
-            <template v-else>
-                <div
-                    v-for="group in groups"
-                    :key="group.key"
-                    role="group"
-                    :aria-label="group.label"
-                    :data-search-group="group.key"
-                >
-                    <p
-                        aria-hidden="true"
-                        class="text-muted-foreground px-2 pt-2 pb-1 text-xs font-medium"
-                    >
-                        {{ group.label }}
-                    </p>
-                    <div
-                        v-for="option in options.filter(
-                            (candidate) => candidate.group === group.key,
-                        )"
-                        :id="option.optionId"
-                        :key="option.optionId"
-                        role="option"
-                        :aria-selected="
-                            options[active]?.optionId === option.optionId
-                        "
-                        :aria-disabled="option.url ? undefined : 'true'"
-                        :class="[
-                            'grid gap-0.5 rounded-sm px-2 py-1.5',
-                            options[active]?.optionId === option.optionId &&
-                                'bg-accent text-accent-foreground',
-                            option.url ? 'cursor-pointer' : 'cursor-default',
-                        ]"
-                        data-search-option
-                        @click="option.url && go(option.url)"
-                    >
-                        <span class="font-medium">{{ option.label }}</span>
-                        <span
-                            v-if="option.description || option.meta"
-                            class="text-muted-foreground text-xs"
-                            >{{
-                                [option.description, option.meta]
-                                    .filter(Boolean)
-                                    .join(' · ')
-                            }}</span
-                        >
-                    </div>
-                </div>
-                <p
-                    v-if="partial"
-                    class="text-muted-foreground px-2 py-1.5 text-xs"
-                >
-                    Some sources could not be searched.
+                <p v-if="busy" class="text-muted-foreground px-2 py-1.5">
+                    Searching…
                 </p>
-            </template>
-            <a
+                <p v-else-if="failed" class="text-destructive-text px-2 py-1.5">
+                    Search is unavailable. Try again.
+                </p>
+                <p
+                    v-else-if="!options.length"
+                    class="text-muted-foreground px-2 py-1.5"
+                    data-search-empty
+                >
+                    No results
+                </p>
+                <template v-else>
+                    <div
+                        v-for="group in groups"
+                        :key="group.key"
+                        role="group"
+                        :aria-label="group.label"
+                        :data-search-group="group.key"
+                    >
+                        <p
+                            aria-hidden="true"
+                            class="text-muted-foreground px-2 pt-2 pb-1 text-xs font-medium"
+                        >
+                            {{ group.label }}
+                        </p>
+                        <div
+                            v-for="option in options.filter(
+                                (candidate) => candidate.group === group.key,
+                            )"
+                            :id="option.optionId"
+                            :key="option.optionId"
+                            role="option"
+                            :aria-selected="
+                                options[active]?.optionId === option.optionId
+                            "
+                            :aria-disabled="option.url ? undefined : 'true'"
+                            :class="[
+                                'grid gap-0.5 rounded-sm px-2 py-1.5',
+                                options[active]?.optionId === option.optionId &&
+                                    'bg-accent text-accent-foreground',
+                                option.url
+                                    ? 'cursor-pointer'
+                                    : 'cursor-default',
+                            ]"
+                            data-search-option
+                            @click="option.url && go(option.url)"
+                        >
+                            <span class="font-medium">{{ option.label }}</span>
+                            <span
+                                v-if="option.description || option.meta"
+                                class="text-muted-foreground text-xs"
+                                >{{
+                                    [option.description, option.meta]
+                                        .filter(Boolean)
+                                        .join(' · ')
+                                }}</span
+                            >
+                        </div>
+                    </div>
+                    <p
+                        v-if="partial"
+                        class="text-muted-foreground px-2 py-1.5 text-xs"
+                    >
+                        Some sources could not be searched.
+                    </p>
+                </template>
+            </div>
+            <!-- The kit's see-all link (docs/see-all.md), "All results →": outside the listbox (which owns only options), and outside its scroll, so it stays in
+                 view at the bottom while the results scroll. The click is taken on the way down so `go` closes the list and clears the field before it visits,
+                 and the link's own visit never starts. -->
+            <div
                 v-if="term"
-                :href="allResults"
-                class="border-border text-muted-foreground hover:bg-accent mt-1 block rounded-sm border-t px-2 py-1.5"
+                class="border-border flex shrink-0 justify-end border-t p-1"
                 data-search-all
-                @click.prevent="go(allResults)"
-                >See all results</a
+                @click.capture.prevent="go(allResults)"
             >
+                <SeeAllLink
+                    :see-all="{ label: 'All results', url: allResults }"
+                />
+            </div>
         </div>
         <span class="sr-only" role="status" aria-live="polite">{{
             status

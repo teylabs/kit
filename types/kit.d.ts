@@ -80,6 +80,37 @@ reason: string | null,
 required: boolean,
 action: Tey.Kit.Features.Core.Data.ChecklistAction | null,
 };
+export type CollectionSectionData = {
+title: string,
+description: string | null,
+state: 'ready' | 'empty' | 'error',
+empty: Tey.Kit.Features.Core.Lists.ListEmptyData | null,
+error: Tey.Kit.Features.Core.Lists.ListErrorData | null,
+actions: Tey.Kit.Features.Core.Data.Action[],
+segments: Tey.Kit.Features.Core.Data.CollectionSegment[],
+sortBy: Tey.Kit.Features.Core.Data.CollectionSortData | null,
+seeAll: Tey.Kit.Features.Core.Data.SeeAll | null,
+maxHeight: string | null,
+};
+export type CollectionSegment = {
+key: string,
+label: string,
+url: string,
+current: boolean,
+count: number | null,
+};
+export type CollectionSortData = {
+options: {
+key: string,
+label: string,
+}[],
+current: string,
+url: string,
+method: string,
+reload: string[],
+label: string,
+token?: string | null,
+};
 export type NavGroup = {
 label: string | null,
 items: Tey.Kit.Features.Core.Data.NavItem[],
@@ -103,6 +134,13 @@ breadcrumbs: Tey.Kit.Features.Core.Data.Breadcrumb[],
 navigationHeader: Tey.Kit.Features.Core.Data.NavigationHeader | null,
 };
 export type PageWidth = 'xs' | 'sm' | 'md' | 'lg' | 'xl' | 'full';
+export type SeeAll = {
+label: string,
+url: string,
+count: number | null,
+placement: 'footer' | 'header',
+linkTitle: boolean,
+};
 export type TableColumn = {
 key: string,
 label: string,
@@ -501,7 +539,8 @@ readonly span: Tey.Kit.Features.SessionUi.Dashboard.WidgetSpanData,
 readonly state: string,
 readonly empty: Tey.Kit.Features.SessionUi.Dashboard.WidgetEmptyData | null,
 readonly error: Tey.Kit.Features.SessionUi.Dashboard.WidgetErrorData | null,
-readonly actions: Array<any>,
+readonly actions: Tey.Kit.Features.Core.Data.Action[],
+readonly seeAll: Tey.Kit.Features.Core.Data.SeeAll | null,
 readonly sortBy: Tey.Kit.Features.SessionUi.Dashboard.WidgetSortData | null,
 readonly composer: Tey.Kit.Features.Notes.Data.NoteComposerData | null,
 readonly notes: Tey.Kit.Features.Notes.Data.NoteRecord[],
@@ -521,6 +560,7 @@ readonly state: string,
 readonly empty: Tey.Kit.Features.SessionUi.Dashboard.WidgetEmptyData | null,
 readonly error: Tey.Kit.Features.SessionUi.Dashboard.WidgetErrorData | null,
 readonly actions: Tey.Kit.Features.Core.Data.Action[],
+readonly seeAll: Tey.Kit.Features.Core.Data.SeeAll | null,
 readonly sortBy: Tey.Kit.Features.SessionUi.Dashboard.WidgetSortData | null,
 readonly items: Tey.Kit.Features.Core.Data.ActivityEntryData[],
 };
@@ -535,6 +575,7 @@ readonly state: string,
 readonly empty: Tey.Kit.Features.SessionUi.Dashboard.WidgetEmptyData | null,
 readonly error: Tey.Kit.Features.SessionUi.Dashboard.WidgetErrorData | null,
 readonly actions: Tey.Kit.Features.Core.Data.Action[],
+readonly seeAll: Tey.Kit.Features.Core.Data.SeeAll | null,
 readonly sortBy: Tey.Kit.Features.SessionUi.Dashboard.WidgetSortData | null,
 };
 export type PeopleWidget = {
@@ -548,6 +589,7 @@ readonly state: string,
 readonly empty: Tey.Kit.Features.SessionUi.Dashboard.WidgetEmptyData | null,
 readonly error: Tey.Kit.Features.SessionUi.Dashboard.WidgetErrorData | null,
 readonly actions: Array<any>,
+readonly seeAll: Tey.Kit.Features.Core.Data.SeeAll | null,
 readonly sortBy: Tey.Kit.Features.SessionUi.Dashboard.WidgetSortData | null,
 readonly list: string,
 };
@@ -562,6 +604,7 @@ readonly state: string,
 readonly empty: Tey.Kit.Features.SessionUi.Dashboard.WidgetEmptyData | null,
 readonly error: Tey.Kit.Features.SessionUi.Dashboard.WidgetErrorData | null,
 readonly actions: Tey.Kit.Features.Core.Data.Action[],
+readonly seeAll: Tey.Kit.Features.Core.Data.SeeAll | null,
 readonly sortBy: Tey.Kit.Features.SessionUi.Dashboard.WidgetSortData | null,
 readonly checklist: Tey.Kit.Features.Core.Data.ChecklistItem[],
 };
@@ -585,6 +628,7 @@ current: string,
 url: string,
 method: string,
 reload: string[],
+token?: string | null,
 };
 export type WidgetSpanData = {
 md: number,
@@ -601,6 +645,7 @@ readonly state: string,
 readonly empty: Tey.Kit.Features.SessionUi.Dashboard.WidgetEmptyData | null,
 readonly error: Tey.Kit.Features.SessionUi.Dashboard.WidgetErrorData | null,
 readonly actions: Array<any>,
+readonly seeAll: Tey.Kit.Features.Core.Data.SeeAll | null,
 readonly sortBy: Tey.Kit.Features.SessionUi.Dashboard.WidgetSortData | null,
 readonly person: {
 name: string,
@@ -912,6 +957,7 @@ last_used: string | null,
 }[],
 } | null,
 readonly notice: string | null,
+readonly log: Tey.Kit.Features.Core.Data.CollectionSectionData,
 };
 export type TransferOwnershipViewModel = {
 readonly title: string,

@@ -3,7 +3,7 @@ import { Pin } from '@lucide/vue';
 import NoteComposer from '@/pages/Workspace/Notes/Index/Partials/NoteComposer.vue';
 import { tone } from '@/pages/Workspace/Notes/Index/Partials/colours';
 
-// The dashboard's notes card body (the `notes.recent` widget): the composer for someone who may write, then the latest notes, pinned first. "All notes" is the card's action.
+// The dashboard's notes card body (the `notes.recent` widget): the composer for someone who may write, then the latest notes, pinned first. "All notes" is the card's see-all, in its footer (the widget's `seeAll`).
 type Widget = { title: string; composer: Tey.Kit.Features.Notes.Data.NoteComposerData | null; notes: Tey.Kit.Features.Notes.Data.NoteRecord[] };
 defineProps<{ widget: Widget }>();
 </script>

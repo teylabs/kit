@@ -5,7 +5,7 @@ namespace Tey\Kit\Features\Notes\ViewModels;
 use RuntimeException;
 use Spatie\TypeScriptTransformer\Attributes\TypeScript;
 use Tey\Kit\Features\Access\Access;
-use Tey\Kit\Features\Core\Data\Action;
+use Tey\Kit\Features\Core\Data\SeeAll;
 use Tey\Kit\Features\Notes\Composer;
 use Tey\Kit\Features\Notes\Data\NoteComposerData;
 use Tey\Kit\Features\Notes\Data\NoteRecord;
@@ -74,8 +74,9 @@ final class NotesWidget extends Widget
         return $this->notes ??= array_slice(app(WorkspaceNotes::class)->listing($this->context->principal), 0, self::LIMIT);
     }
 
-    public function actions(): array
+    // The latest notes are a list, so "All notes" is the card's see-all, in its footer after the last note (until v0.19.0 it was a header action).
+    public function seeAll(): ?SeeAll
     {
-        return [new Action('All notes', NoteUrls::index($this->context->workspace), 'get', key: 'notes')];
+        return SeeAll::to('All notes', NoteUrls::index($this->context->workspace));
     }
 }
