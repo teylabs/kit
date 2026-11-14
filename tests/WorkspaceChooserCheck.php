@@ -54,6 +54,7 @@ use Monolog\Handler\NullHandler;
 use Spatie\LaravelData\LaravelDataServiceProvider;
 use Spatie\LaravelSettings\LaravelSettingsServiceProvider;
 use Spatie\Multitenancy\MultitenancyServiceProvider;
+use Spatie\Permission\PermissionRegistrar;
 use Spatie\Permission\PermissionServiceProvider;
 use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Output\NullOutput;
@@ -70,6 +71,7 @@ use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Core\RequestMemo;
 use Tey\Kit\Features\FeaturesServiceProvider;
 use Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests;
+use Tey\Kit\Features\SessionUi\PageShell;
 use Tey\Kit\Features\Workspaces\Concerns\HasWorkspaces;
 use Tey\Kit\Features\Workspaces\Models\Workspace;
 use Tey\Mod\ModServiceProvider;
@@ -351,6 +353,46 @@ try {
     httpCheck($status === 200 && $choices === ['Switch Home' => '/@switch-home/people', 'Switch Admin' => '/@switch-admin/people', 'Switch Member' => '/@switch-member', 'Switch Unplanned' => '/@switch-unplanned/settings', 'Switch Off' => null], 'five workspaces: each choice lands on the first page she may open there, decided by its own role, grant, plan and overrides, and none in Switch Off ('.json_encode($choices).')');
     httpCheck(array_column($shell['navigation'], 'url') === ['/@switch-home/people', '/@switch-home', '/@switch-home/settings'], 'five workspaces: the page\'s own navigation is unchanged ('.json_encode(array_column($shell['navigation'], 'url')).')');
     httpCheck($one === $five, 'the shell\'s page costs the same queries with one workspace and with five ('.$one.' and '.$five.')');
+
+    // The batch reads every kind of permission the per-workspace path reads, and only that: (a) a global role (a role row with no workspace, held in one), (b) a
+    // direct permission, (c) a role of one workspace's own, and (d) a permission granted to a role (the kit's sync grants a default to member). Each kind
+    // leads its own link, ahead of People, so a kind the batch dropped moves that workspace's switcher entry. A pivot row naming another workspace's role is
+    // read by neither path. The batched switcher must equal the shell built with no request memo, where every check is spatie's own, read in its workspace.
+    foreach (['audit' => -60, 'billing' => -50, 'reports' => -40, 'files' => -30] as $name => $order) {
+        $registry->abilities(['switch.'.$name => 'workspace.search'])->permission('workspace.switch.'.$name, $name === 'files' ? ['member'] : [], 'workspace.search', ['switch.'.$name]);
+        $registry->navigation('switch.'.$name, ucfirst($name), $name, order: $order);
+    }
+    $sync->run(new ArrayInput([]), new NullOutput);
+    $roleClass = app(PermissionRegistrar::class)->getRoleClass();
+    $auditor = $roleClass::create(['name' => 'auditor', 'guard_name' => 'web'])->givePermissionTo('workspace.switch.audit');
+    $gil = HttpUser::create(['name' => 'Gil Granted', 'email' => 'gil@example.test', 'email_verified_at' => now()]);
+    $in = fn (Workspace $workspace, Closure $do) => app(Concierge::class)->context()->run($workspace, $do, [$gil]);
+    $reviewer = fn (Workspace $workspace) => $in($workspace, fn () => $roleClass::create(['name' => 'reviewer', 'guard_name' => 'web'])->givePermissionTo('workspace.switch.reports'));
+    // Mixed, on the plan: a member (Files) with the global auditor role, a direct Billing grant and Mixed's own reviewer role: every kind at once.
+    $join($gil, $mixed = $provision('Grant Mixed', 'grant-mixed'), 'member');
+    $plan($mixed);
+    $mixedReviewer = $reviewer($mixed);
+    $in($mixed, fn () => $gil->assignRole($auditor, $mixedReviewer)->givePermissionTo('workspace.switch.billing'));
+    // One kind each, on an admin (People) or a member (Files) below it.
+    $join($gil, $global = $provision('Grant Global', 'grant-global'), 'admin');
+    $in($global, fn () => $gil->assignRole($auditor));
+    $join($gil, $direct = $provision('Grant Direct', 'grant-direct'), 'admin');
+    $in($direct, fn () => $gil->givePermissionTo('workspace.switch.billing'));
+    $join($gil, $scoped = $provision('Grant Scoped', 'grant-scoped'), 'admin');
+    $in($scoped, fn () => $gil->assignRole($reviewer($scoped)));
+    $join($gil, $granted = $provision('Grant Role', 'grant-role'), 'member');
+    DB::table('model_has_roles')->insert(['role_id' => $mixedReviewer->id, 'model_type' => $gil->getMorphClass(), 'model_id' => $gil->id, 'workspace_id' => $granted->id]);
+    [$status, $page] = $send($gil, '/@grant-mixed');
+    $batched = collect($page['props']['shell']['switcher']['choices'] ?? [])->pluck('url', 'name')->all();
+    $app->forgetScopedInstances();
+    $request = Request::create('https://kit.test/@grant-mixed');
+    $request->setUserResolver(fn () => $gil);
+    $request->setLaravelSession($app['session']->driver());
+    $app->instance('request', $request);
+    $unbatched = collect(app(PageShell::class)->forRequest($request)->switcher['choices'] ?? [])->pluck('url', 'name')->all();
+    httpCheck($status === 200 && $batched === ['Grant Mixed' => '/@grant-mixed/audit', 'Grant Global' => '/@grant-global/audit', 'Grant Direct' => '/@grant-direct/billing', 'Grant Scoped' => '/@grant-scoped/reports', 'Grant Role' => '/@grant-role/files'], 'a global role, a direct permission, a workspace\'s own role and a role grant each open their workspace\'s first page; another workspace\'s role does not ('.json_encode($batched).')');
+    httpCheck($batched === $unbatched, 'the batched switcher matches the shell read without the batch, workspace by workspace ('.json_encode($unbatched).')');
+    httpCheck(array_column($page['props']['shell']['navigation'], 'label') === ['Audit', 'Billing', 'Reports', 'Files', 'Dashboard', 'Settings'], 'Grant Mixed\'s own navigation holds every kind at once ('.json_encode(array_column($page['props']['shell']['navigation'], 'label')).')');
     echo "Workspace list checks on SQLite memory with real Concierge, Fortify and Inertia. No browser.\n";
 } catch (Throwable $error) {
     fwrite(STDERR, 'FAIL '.$error->getMessage()."\n".$error->getTraceAsString()."\n");
