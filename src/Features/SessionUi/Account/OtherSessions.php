@@ -4,6 +4,7 @@ namespace Tey\Kit\Features\SessionUi\Account;
 
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Tey\Concierge\Support\UserSessions;
 
 /** A user's signed-in devices, listed and ended on every session driver but `array` (tests only), from `signed_in_devices` (SignedInDevices). */
@@ -44,18 +45,24 @@ final class OtherSessions
         }, SignedInDevices::live($user->getAuthIdentifier()));
     }
 
-    /** Ends every session of the user but this one, and cycles the remember-me token; returns how many ended, or null when sessions cannot be listed. */
+    /**
+     * Ends every session of the user but this one, and cycles the remember-me token, in one transaction (the caller's too: a password change's), so a
+     * failure, a missing table among them (#967), changes neither. The sessions end, and the security log records it, after the commit. Returns how many
+     * ended, or null when sessions cannot be listed.
+     */
     public static function end(Authenticatable $user): ?int
     {
-        UserSessions::cycleRememberToken($user);
-        if (method_exists($user, 'save')) {
-            $user->save();
+        $ended = DB::transaction(function () use ($user): ?int {
+            UserSessions::cycleRememberToken($user);
+            if (method_exists($user, 'save')) {
+                $user->save();
+            }
+
+            return self::supported() ? SignedInDevices::endAll($user, request()->session()->getId()) : null;
+        });
+        if ($ended !== null) {
+            DB::afterCommit(fn () => SecurityLog::record($user->getAuthIdentifier(), 'sessions_ended'));
         }
-        if (! self::supported()) {
-            return null;
-        }
-        $ended = SignedInDevices::endAll($user, request()->session()->getId());
-        SecurityLog::record($user->getAuthIdentifier(), 'sessions_ended');
 
         return $ended;
     }

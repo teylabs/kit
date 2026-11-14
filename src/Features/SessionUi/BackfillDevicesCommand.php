@@ -11,7 +11,8 @@ use Tey\Kit\Features\SessionUi\Account\SignedInDevices;
 /**
  * Once after upgrading to 0.23, on the database session driver: a `signed_in_devices` row for each signed-in session in the sessions table that has not
  * expired, so the Security page lists the devices signed in before the upgrade. It reads the sessions table once and changes nothing in it. A second run
- * adds nothing (each session's row is keyed by its HMAC). Other drivers can't list a person's sessions: their devices get a row on their next request.
+ * adds nothing (each session's row is keyed by its HMAC). A session of a person whose other sessions were all signed out since the upgrade gets none
+ * (SignedInDevices::adopt). Other drivers can't list a person's sessions: their devices get a row on their next request.
  */
 final class BackfillDevicesCommand extends Command
 {
@@ -51,7 +52,7 @@ final class BackfillDevicesCommand extends Command
                     $added += (int) SignedInDevices::adopt((string) $row->id, $row->user_id, $row->user_agent ?? null, $row->ip_address ?? null, now()->setTimestamp((int) $row->last_activity));
                 }
             });
-        $this->info('Signed-in devices: '.$added.' added for '.$sessions.' signed-in '.($sessions === 1 ? 'session' : 'sessions').' ('.($sessions - $added).' had one already).');
+        $this->info('Signed-in devices: '.$added.' added for '.$sessions.' signed-in '.($sessions === 1 ? 'session' : 'sessions').' ('.($sessions - $added).' had one already, or their person\'s other sessions were signed out since).');
 
         return self::SUCCESS;
     }

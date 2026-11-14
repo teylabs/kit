@@ -21,6 +21,7 @@ use Illuminate\Support\Facades\DB;
 use RuntimeException;
 use Tey\Concierge\Support\UserSessions;
 use Tey\Kit\Features\Core\Kit;
+use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\SessionUi\UserState;
 use Throwable;
 
@@ -37,6 +38,10 @@ use Throwable;
  * (decrypted only to destroy it) and its HMAC with the app key (to find it); the IP only as its /24 or /48, the user agent only as its browser and
  * platform, and a country only from Cloudflare's CF-IPCountry when the host names it. Every write is conditioned on the row's id, its user and the
  * session's current HMAC, so a request carrying an old session id never moves a row back, and a session whose row is gone is never given a new one.
+ *
+ * Each sign-out (this device, another one, every other one) changes the database in one transaction, and only after it commits marks the sessions revoked
+ * and destroys them, both idempotent: a rollback leaves every session as it was. Giving a session a row and ending a person's sessions each lock that
+ * person's user row first, so they never interleave, and a person who is gone is never given a row.
  */
 final class SignedInDevices
 {
@@ -54,7 +59,8 @@ final class SignedInDevices
     /**
      * The sign-in and sign-out ends, on the web guard. Login can't key the row: Fortify regenerates the session id after it (PrepareAuthenticatedSession), so
      * it only leaves `pending` for the middleware, which writes the row once the request ends. Another sign-in over a session that has a row ends that row.
-     * Logout (and CurrentDeviceLogout) deletes this session's row. Neither runs a query on an ordinary sign-in.
+     * Logout (and CurrentDeviceLogout) retires this session's row and marks the session revoked, so a request still in flight that writes the session back
+     * is signed out too (endHere). Neither runs a query on an ordinary sign-in.
      */
     public static function listen(Dispatcher $events): void
     {
@@ -72,7 +78,7 @@ final class SignedInDevices
                 return;
             }
             if (self::tracked($device = $session->get(self::KEY))) {
-                self::forget($device, $event->user?->getAuthIdentifier());
+                self::endHere($device, $session->getId(), $event->user?->getAuthIdentifier() ?? $device['user']);
             }
             $session->forget(self::KEY);
         });
@@ -182,42 +188,55 @@ final class SignedInDevices
      * found when a concurrent first request of the same session got there first (the unique HMAC). Null when no row of this user holds the session: the
      * caller signs it out. A legacy session signed out by its row is refused by that row's retired HMAC. Once every other session of the person has been
      * ended (closeLegacy), a legacy session is never given a new row either, since endAll could not reach one that had none: it keeps only a row that still
-     * holds it (a backfilled one), else it signs out.
+     * holds it (a backfilled one), else it signs out. A person who is gone (deleted, or deleted while this request ran) is never given a row: null.
      */
     public static function track(Request $request, string $sessionId, int|string $userId, bool $remembered, bool $legacy = false): ?int
     {
-        // After an APP_KEY rotation, a row under a previous key's HMAC (a backfilled session, say) is this session's: adopted with its id and rewritten
-        // with the current key, never a second row. Another person's row is never adopted.
-        $previous = self::previous($sessionId);
-        $held = $previous === [] ? null : DB::table(self::TABLE)->whereIn('session_hash', $previous)->first(['id', 'user_id']);
-        if ($held !== null) {
-            if ((string) $held->user_id !== (string) $userId) {
+        return DB::transaction(function () use ($request, $sessionId, $userId, $remembered, $legacy): ?int {
+            // The person's row, locked: an endAll or a deletion running now finishes first, or waits for this row to commit and then retires it.
+            if (! self::lockUser($userId)) {
                 return null;
             }
-            DB::table(self::TABLE)->where('id', $held->id)->whereIn('session_hash', $previous)->update(['session_hash' => self::hash($sessionId)]);
+            // After an APP_KEY rotation, a row under a previous key's HMAC (a backfilled session, say) is this session's: adopted with its id and rewritten
+            // with the current key, never a second row. Another person's row is never adopted.
+            $previous = self::previous($sessionId);
+            $held = $previous === [] ? null : DB::table(self::TABLE)->whereIn('session_hash', $previous)->first(['id', 'user_id']);
+            if ($held !== null) {
+                if ((string) $held->user_id !== (string) $userId) {
+                    return null;
+                }
+                DB::table(self::TABLE)->where('id', $held->id)->whereIn('session_hash', $previous)->update(['session_hash' => self::hash($sessionId)]);
 
-            return (int) $held->id;
-        }
-        if (! $legacy || ! UserState::has((int) $userId, self::LEGACY_CLOSED)) {
-            DB::table(self::TABLE)->insertOrIgnore(self::row($sessionId, $userId, $request->userAgent(), $request->ip(), self::country($request), $remembered, now()));
-        }
-        $id = DB::table(self::TABLE)->where('session_hash', self::hash($sessionId))->where('user_id', $userId)->value('id');
+                return (int) $held->id;
+            }
+            if (! $legacy || ! UserState::has((int) $userId, self::LEGACY_CLOSED)) {
+                DB::table(self::TABLE)->insertOrIgnore(self::row($sessionId, $userId, $request->userAgent(), $request->ip(), self::country($request), $remembered, now()));
+            }
+            $id = DB::table(self::TABLE)->where('session_hash', self::hash($sessionId))->where('user_id', $userId)->value('id');
 
-        return $id === null ? null : (int) $id;
+            return $id === null ? null : (int) $id;
+        });
     }
 
     /**
      * kit:devices:backfill's row for a session from the database session table, signed in before 0.23: its user agent and IP as the table holds them, cut
-     * to the browser, platform and prefix, and its last activity as both times. False when the session already has a row (a second run adds nothing).
+     * to the browser, platform and prefix, and its last activity as both times. False when the session already has a row (a second run adds nothing), when
+     * the person is gone, and once every other session of theirs was ended (closeLegacy): a legacy session written back after that is never adopted.
      */
     public static function adopt(string $sessionId, int|string $userId, ?string $agent, ?string $ip, CarbonInterface $lastActive): bool
     {
-        $previous = self::previous($sessionId);
-        if ($previous !== [] && DB::table(self::TABLE)->whereIn('session_hash', $previous)->exists()) {
-            return false;
-        }
+        return DB::transaction(function () use ($sessionId, $userId, $agent, $ip, $lastActive): bool {
+            // Locked as track() locks it, so an endAll running now either finishes first (and this sees its mark) or retires this row after.
+            if (! self::lockUser($userId) || UserState::has((int) $userId, self::LEGACY_CLOSED)) {
+                return false;
+            }
+            $previous = self::previous($sessionId);
+            if ($previous !== [] && DB::table(self::TABLE)->whereIn('session_hash', $previous)->exists()) {
+                return false;
+            }
 
-        return DB::table(self::TABLE)->insertOrIgnore(self::row($sessionId, $userId, $agent, $ip, null, false, $lastActive)) > 0;
+            return DB::table(self::TABLE)->insertOrIgnore(self::row($sessionId, $userId, $agent, $ip, null, false, $lastActive)) > 0;
+        });
     }
 
     /**
@@ -258,13 +277,25 @@ final class SignedInDevices
     }
 
     /**
-     * A sign-out on this device (Logout): its row goes.
+     * Another sign-in over this session (Login): the row it had goes, so the session's next id gets a row of its own.
      *
      * @param  array{id: int, user: int|string, sid: string, at: int}  $device
      */
-    public static function forget(array $device, int|string|null $userId = null): void
+    public static function forget(array $device): void
     {
-        self::held(['user' => $userId ?? $device['user']] + $device, $device['sid'])->delete();
+        self::held($device, $device['sid'])->delete();
+    }
+
+    /**
+     * A sign-out on this device (Logout): its row retired, keeping its HMAC, then after the commit the session marked revoked. A request that was in flight
+     * and writes the session back is cut off by the mark, and with the mark gone by the retired row: its touch fails, and it is never given a new row.
+     *
+     * @param  array{id: int, user: int|string, sid: string, at: int}  $device
+     */
+    private static function endHere(array $device, string $sessionId, int|string $userId): void
+    {
+        self::held(['user' => $userId] + $device, $sessionId)->update(self::retired());
+        DB::afterCommit(fn () => self::mark(self::hash($sessionId)));
     }
 
     /**
@@ -304,20 +335,30 @@ final class SignedInDevices
         if ($confirm !== null) {
             $confirm();
         }
-        // The row first: it is the authority, so even with the store down that session fails its next touch. Gone meanwhile (another tab): already signed out.
-        if (self::retire($row) === 0) {
+        $remembered = (bool) $row->remembered;
+        // One transaction: the row and the remember-me token change together, or neither does.
+        $ending = DB::transaction(function () use ($row, $remembered, $user): ?array {
+            // The row first: it is the authority, so even with the store down that session fails its next touch. Gone meanwhile (another tab): already
+            // signed out. The conditional update takes the row's lock, so two sign-outs of one device end it once.
+            if (self::retire($row) === 0) {
+                return null;
+            }
+            // Laravel keeps one remember-me token per person: a remembered device can only be kept from signing back in by cycling it, which ends
+            // remember-me on the person's other devices too (they stay signed in, and sign in again next time).
+            if ($remembered && $user->getRememberTokenName()) {
+                UserSessions::cycleRememberToken($user);
+                if (method_exists($user, 'save')) {
+                    $user->save();
+                }
+            }
+
+            return self::ending($row);
+        });
+        if ($ending === null) {
             return ['status' => 'missing'];
         }
-        $atOnce = self::end($row);
-        $remembered = (bool) $row->remembered;
-        // Laravel keeps one remember-me token per person: a remembered device can only be kept from signing back in by cycling it, which ends remember-me on
-        // the person's other devices too (they stay signed in, and sign in again next time).
-        if ($remembered && $user->getRememberTokenName()) {
-            UserSessions::cycleRememberToken($user);
-            if (method_exists($user, 'save')) {
-                $user->save();
-            }
-        }
+        // Committed: now the session is marked revoked and destroyed.
+        $atOnce = self::end(...$ending);
         $agent = SecurityLog::describeDevice($row->browser, $row->platform);
         SecurityLog::record($user->getAuthIdentifier(), 'device_signed_out', $request, ['agent' => $agent, 'ip' => $row->ip_prefix]);
 
@@ -325,33 +366,55 @@ final class SignedInDevices
     }
 
     /**
-     * Ends every session of the person but $except (none for an account deletion): each row retired, its session marked revoked and destroyed through the
-     * handler. On the database driver the sessions table is swept too, for sessions from before tracking. A missing table while session-ui is on throws
-     * (#967). Returns how many live sessions ended.
+     * Ends every session of the person but $except (none for an account deletion), in one transaction (the caller's, when it has one): the person's row
+     * locked, legacy sessions closed, each row retired. Once it commits, each session is marked revoked and destroyed through the handler, and on the
+     * database driver the person's other rows in the sessions table (sessions from before tracking) are deleted; a rollback ends none. With session-ui on,
+     * a missing signed_in_devices or user_state table throws before anything changes, rolling the caller's changes back too (#967). Returns how many live
+     * sessions end.
      */
     public static function endAll(Authenticatable $user, ?string $except = null): int
     {
-        $ended = 0;
-        if (Kit::present('session-ui', self::TABLE)) {
-            // Every other session ends, legacy ones too: those with no row (which this can't reach) are signed out at their next request instead. First and
-            // durably, so a failure part-way still leaves them refused.
-            self::closeLegacy($user->getAuthIdentifier());
-            $keep = $except === null ? [] : self::hashes($except);
-            $live = self::staleBefore();
-            foreach (DB::table(self::TABLE)->where('user_id', $user->getAuthIdentifier())->orderBy('id')->get() as $row) {
-                if (in_array($row->session_hash, $keep, true) || self::retire($row) === 0) {
-                    continue;
-                }
-                self::end($row);
-                $ended += (int) Carbon::parse($row->last_seen_at)->greaterThan($live);
-            }
-        }
-        if (config('session.driver') === 'database') {
-            $ended += DB::connection(config('session.connection'))->table(config('session.table', 'sessions'))
-                ->where('user_id', $user->getAuthIdentifier())->when($except !== null, fn ($query) => $query->where('id', '!=', $except))->delete();
-        }
+        $userId = $user->getAuthIdentifier();
 
-        return $ended;
+        return DB::transaction(function () use ($userId, $except): int {
+            $ended = 0;
+            $endings = [];
+            if (Kit::present('session-ui', self::TABLE) && Kit::present('session-ui', 'user_state')) {
+                // Locked first, so a session given a row now (track, adopt) is either retired below or refused by the mark.
+                self::lockUser($userId);
+                // Every other session ends, legacy ones too: those with no row (which this can't reach) are signed out at their next request instead.
+                self::closeLegacy($userId);
+                $keep = $except === null ? [] : self::hashes($except);
+                $live = self::staleBefore();
+                foreach (DB::table(self::TABLE)->where('user_id', $userId)->orderBy('id')->lockForUpdate()->get() as $row) {
+                    if (in_array($row->session_hash, $keep, true) || self::retire($row) === 0) {
+                        continue;
+                    }
+                    $endings[] = self::ending($row);
+                    $ended += (int) Carbon::parse($row->last_seen_at)->greaterThan($live);
+                }
+            }
+            $swept = [];
+            if (config('session.driver') === 'database') {
+                // The rest of the person's database sessions, by id (those with a row are destroyed through the handler): counted now, deleted after the commit.
+                $swept = array_values(array_diff(
+                    DB::connection(config('session.connection'))->table(config('session.table', 'sessions'))->where('user_id', $userId)
+                        ->when($except !== null, fn ($query) => $query->where('id', '!=', $except))->pluck('id')->map(fn ($id): string => (string) $id)->all(),
+                    array_column($endings, 0),
+                ));
+                $ended += count($swept);
+            }
+            DB::afterCommit(function () use ($endings, $swept): void {
+                foreach ($endings as $ending) {
+                    self::end(...$ending);
+                }
+                foreach (array_chunk($swept, 500) as $ids) {
+                    DB::connection(config('session.connection'))->table(config('session.table', 'sessions'))->whereIn('id', $ids)->delete();
+                }
+            });
+
+            return $ended;
+        });
     }
 
     /**
@@ -371,8 +434,13 @@ final class SignedInDevices
      */
     private static function retire(object $row): int
     {
-        return DB::table(self::TABLE)->where('id', $row->id)->where('user_id', $row->user_id)->where('session_hash', $row->session_hash)
-            ->update(['user_id' => null, 'session_id' => null, 'browser' => null, 'platform' => null, 'ip_prefix' => null, 'country' => null, 'remembered' => false, 'last_seen_at' => now()]);
+        return DB::table(self::TABLE)->where('id', $row->id)->where('user_id', $row->user_id)->where('session_hash', $row->session_hash)->update(self::retired());
+    }
+
+    /** @return array<string, mixed> what a retired row keeps: its HMAC alone, last seen now */
+    private static function retired(): array
+    {
+        return ['user_id' => null, 'session_id' => null, 'browser' => null, 'platform' => null, 'ip_prefix' => null, 'country' => null, 'remembered' => false, 'last_seen_at' => now()];
     }
 
     /** @return array<string, mixed> a new row: the session id encrypted and its HMAC, the browser and platform alone, the IP's prefix alone */
@@ -395,10 +463,12 @@ final class SignedInDevices
     }
 
     /**
-     * A deleted row's session: marked revoked (by its id's HMAC with the current key, which the middleware reads), then destroyed through the handler.
-     * An id that won't decrypt is reported, scrubbed, and its stored HMAC marked instead. True when either reached its store, so it ends on its next request.
+     * What ending a retired row's session takes, read before the commit: its id, decrypted, and the HMAC to mark (its id's with the current key, which
+     * the middleware reads). An id that won't decrypt is reported, scrubbed, and its stored HMAC is marked instead.
+     *
+     * @return array{?string, string}
      */
-    private static function end(object $row): bool
+    private static function ending(object $row): array
     {
         try {
             $id = Crypt::decryptString((string) $row->session_id);
@@ -406,7 +476,17 @@ final class SignedInDevices
             report(new RuntimeException('A signed-in device\'s session id could not be decrypted ('.$e::class.'); its row is gone, so it is signed out at its next request.'));
             $id = null;
         }
-        $marked = self::mark($id === null ? (string) $row->session_hash : self::hash($id));
+
+        return [$id, $id === null ? (string) $row->session_hash : self::hash($id)];
+    }
+
+    /**
+     * After the commit: a retired row's session marked revoked, then destroyed through the handler. Both are idempotent, so running it again changes
+     * nothing. True when either reached its store, so it ends on its next request.
+     */
+    private static function end(?string $id, string $hash): bool
+    {
+        $marked = self::mark($hash);
 
         return ($id !== null && self::destroy($id)) || $marked;
     }
@@ -444,10 +524,21 @@ final class SignedInDevices
         }
     }
 
-    /** From now on none of the person's legacy sessions is given a new row (track): kept in user_state, not the cache store, so a flush can't undo it. */
-    private static function closeLegacy(int|string $userId): void
+    /**
+     * From now on none of the person's legacy sessions is given a new row (track, adopt): kept in user_state, not the cache store, so a flush can't undo
+     * it. Also set again on a deleted account's kept row (DeleteAccount::deleteRows), whose user_state went with the rest.
+     */
+    public static function closeLegacy(int|string $userId): void
     {
         UserState::set((int) $userId, self::LEGACY_CLOSED);
+    }
+
+    /** Locks the person's user row until the transaction ends (track, adopt and endAll each take it first). False when there is none: the person is gone. */
+    private static function lockUser(int|string $userId): bool
+    {
+        $model = Users::model();
+
+        return $model::query()->whereKey($userId)->toBase()->lockForUpdate()->value((new $model)->getKeyName()) !== null;
     }
 
     private static function session(): ?Session

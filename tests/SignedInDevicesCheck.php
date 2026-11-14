@@ -22,6 +22,7 @@ use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Database\Console\PruneCommand;
 use Illuminate\Database\DatabaseServiceProvider;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\QueryException;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Encryption\EncryptionServiceProvider;
 use Illuminate\Events\EventServiceProvider;
@@ -83,11 +84,13 @@ use Tey\Kit\Features\SessionUi\Account\SecurityLog;
 use Tey\Kit\Features\SessionUi\Account\SignedInDevices;
 use Tey\Kit\Features\SessionUi\BackfillDevicesCommand;
 use Tey\Kit\Features\SessionUi\Contracts\DefersAccountPurge;
+use Tey\Kit\Features\SessionUi\Contracts\DeletesAccountRow;
 use Tey\Kit\Features\SessionUi\Contracts\PurgesAccountData;
 use Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests;
 use Tey\Kit\Features\SessionUi\Http\Middleware\TrackSignedInDevice;
 use Tey\Kit\Features\SessionUi\Models\SignedInDevice;
 use Tey\Kit\Features\SessionUi\Notifications\SecurityNotice;
+use Tey\Kit\Features\SessionUi\UserState;
 use Tey\Kit\Features\Workspaces\Concerns\HasWorkspaces;
 use Tey\Kit\Features\Workspaces\Models\Workspace;
 use Tey\Mod\ModServiceProvider;
@@ -371,8 +374,9 @@ try {
     Carbon::setTestNow(Carbon::now()->startOfSecond());
     $travel = fn (int $seconds) => Carbon::setTestNow(Carbon::now()->addSeconds($seconds));
     // One request, as a fresh one in a long-lived worker: the guards, the session store and scoped instances forgotten first. The browser keeps the
-    // cookies the response sets. [status, Location, decoded body, the response].
-    $send = function (Browser $browser, string $method, string $path, array $data = []) use ($app): array {
+    // cookies the response sets. [status, Location, decoded body, the response]. A 5xx is printed, unless a check expects it ($expectFailure).
+    $expectFailure = false;
+    $send = function (Browser $browser, string $method, string $path, array $data = []) use ($app, &$expectFailure): array {
         $app['auth']->forgetGuards();
         $app['session']->forgetDrivers();
         $app->forgetInstance('session.store');
@@ -390,7 +394,7 @@ try {
         } catch (Throwable $error) {
             $response = $app->make(ExceptionHandler::class)->render($request, $error);
         }
-        if ($response->getStatusCode() >= 500) {
+        if ($response->getStatusCode() >= 500 && ! $expectFailure) {
             fwrite(STDERR, $method.' '.$path.' answered '.$response->getStatusCode().': '.substr((string) $response->getContent(), 0, 600)."\n".implode("\n", $app->make(ExceptionHandler::class)->reported)."\n");
         }
         foreach ($response->headers->getCookies() as $cookie) {
@@ -760,6 +764,32 @@ try {
     check(! $signedIn($legacy) && $rowOf($legacyId) === null && DB::table('signed_in_devices')->whereNotNull('user_id')->count() === $count, 'a signed-out session from before 0.23, written back with its marker gone, is signed out on its next request and given no new row');
     $retired = DB::table('signed_in_devices')->where('session_hash', SignedInDevices::hash($legacyId))->first();
     check($retired !== null && $retired->user_id === null && $retired->session_id === null && $retired->browser === null && $retired->platform === null && $retired->ip_prefix === null && $retired->country === null && Carbon::parse($retired->last_seen_at)->greaterThan(SignedInDevices::staleBefore()), 'its retired row keeps only the HMAC: no person, session id, device or network, and is pruned once that session would have expired');
+    // The same race on this device's own Sign out (Logout): a request in flight writes the session back under its old id after the sign-out.
+    $d = new Browser(WINDOWS, '198.51.100.52');
+    $dId = $signIn($d, $race);
+    $dAt = Carbon::now();
+    $dFile = $base.'/storage/framework/sessions/'.$dId;
+    $inFlight = (string) file_get_contents($dFile);
+    [$status] = $send($d, 'POST', '/logout');
+    $writeBack = function (string $payload) use ($d, $dId, $dFile): void {
+        file_put_contents($dFile, $payload);
+        $d->cookies = ['s' => $dId];
+    };
+    $writeBack($inFlight);
+    $count = DB::table('signed_in_devices')->whereNotNull('user_id')->count();
+    $retired = DB::table('signed_in_devices')->where('session_hash', SignedInDevices::hash($dId))->first();
+    check($status < 400 && $retired !== null && $retired->user_id === null && $retired->session_id === null && $app['cache']->store('array')->get('kit.devices.revoked.'.SignedInDevices::hash($dId)) === true, 'Sign out on this device retires its row to the HMAC and marks the session revoked, rather than deleting the row');
+    check(! $signedIn($d) && $rowOf($dId) === null && DB::table('signed_in_devices')->whereNotNull('user_id')->count() === $count, 'after Sign out, the session written back by a request in flight is signed out on its next request, and given no new row');
+    $app['cache']->store('array')->forget('kit.devices.revoked.'.SignedInDevices::hash($dId));
+    $writeBack($inFlight);
+    Carbon::setTestNow($dAt->copy()->addSeconds(5 * 60 - 1));
+    check($signedIn($d) && $rowOf($dId) === null, 'with its marker gone too, it is still signed in before N minutes');
+    Carbon::setTestNow($dAt->copy()->addSeconds(5 * 60));
+    check(! $signedIn($d) && $rowOf($dId) === null && DB::table('signed_in_devices')->whereNotNull('user_id')->count() === $count, 'and signed out at its touch, never given a new row');
+    $legacyPayload = unserialize($inFlight);
+    unset($legacyPayload['kit']);
+    $writeBack(serialize($legacyPayload));
+    check(! isset(unserialize((string) file_get_contents($dFile))['kit']) && ! $signedIn($d) && $rowOf($dId) === null && DB::table('signed_in_devices')->whereNotNull('user_id')->count() === $count, 'and written back with no kit.device and no marker, it is signed out on its next request: the retired HMAC refuses it a new row');
     unset($bAt);
 
     // ── 8. Concurrency ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -777,6 +807,38 @@ try {
     file_put_contents($base.'/storage/framework/sessions/'.$sessionId, $legacy);
     check($signedIn($second) && $rows($twin)->count() === 1, 'two first requests of one session produce one row');
     check(SignedInDevices::track(Request::create('/'), $sessionId, $twin->id, false) === (int) $rows($twin)->sole()->id && $rows($twin)->count() === 1, 'the unique session hash dedupes: a third insert finds the same row');
+    // Giving a session a row (track, the backfill's adopt) and ending a person's sessions (endAll) each lock the person's user row first, so they never
+    // interleave. Another transaction holds that lock here (an endAll or a deletion part way): each waits for it first, before it reads the person's
+    // mark or writes anything. PostgreSQL only;
+    // SQLite runs one write transaction at a time.
+    if ($pgsql) {
+        $config->set('database.connections.peer', $testing);
+        $locked = $person('locked');
+        DB::connection('peer')->beginTransaction();
+        DB::connection('peer')->table('users')->where('id', $locked->id)->lockForUpdate()->first();
+        DB::statement("set lock_timeout = '300ms'");
+        $waited = [];
+        try {
+            foreach ([
+                'track' => fn () => SignedInDevices::track(Request::create('/'), bin2hex(random_bytes(20)), $locked->id, false),
+                'adopt' => fn () => SignedInDevices::adopt(bin2hex(random_bytes(20)), $locked->id, MAC, '192.0.2.1', Carbon::now()),
+                'endAll' => fn () => SignedInDevices::endAll($locked),
+            ] as $what => $call) {
+                try {
+                    $call();
+                    $waited[$what] = false;
+                } catch (QueryException $e) {
+                    // The statement that waited is the lock itself, before anything is read or written (a foreign key would make a later insert wait too).
+                    $waited[$what] = $e->getCode() === '55P03' && str_contains($e->getSql(), 'from "users"') && str_ends_with($e->getSql(), 'for update');
+                }
+            }
+        } finally {
+            DB::statement('reset lock_timeout');
+            DB::connection('peer')->rollBack();
+            DB::disconnect('peer');
+        }
+        check($waited === ['track' => true, 'adopt' => true, 'endAll' => true] && $rows($locked)->count() === 0 && ! UserState::has($locked->id, SignedInDevices::LEGACY_CLOSED), 'pgsql: with the person\'s user row locked by another transaction, track, adopt and endAll each wait on that lock first, and write nothing'.json_encode($waited));
+    }
 
     // ── 11. Adoption ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
     $pre = $person('pre');
@@ -856,6 +918,22 @@ try {
     $fresh = new Browser(IPHONE, '198.51.100.92');
     $signIn($fresh, $legacyOwner);
     check($signedIn($fresh) && $rowOf((string) $fresh->session()) !== null, 'database: a new sign-in of the same person still gets its row');
+    // The backfill after Sign out other sessions: a session from before 0.23 the sweep deleted, written back by a request in flight, is never adopted by
+    // a later backfill, and is signed out on its next request with no row.
+    DB::table('sessions')->delete();
+    $swept = $person('swept');
+    $a = new Browser;
+    $signIn($a, $swept);
+    $sweptSession = ['id' => bin2hex(random_bytes(20)), 'user_id' => $swept->id, 'ip_address' => '192.0.2.94', 'user_agent' => WINDOWS, 'payload' => base64_encode(serialize(['_token' => str_repeat('w', 40), $guardKey => $swept->id])), 'last_activity' => Carbon::now()->getTimestamp()];
+    DB::table('sessions')->insert($sweptSession);
+    [$status] = $send($a, 'DELETE', '/me/security/sessions', ['password' => PASSWORD]);
+    check($status < 400 && DB::table('sessions')->where('id', $sweptSession['id'])->doesntExist(), 'database: Sign out other sessions sweeps a session from before 0.23 from the sessions table');
+    DB::table('sessions')->insert($sweptSession);
+    [$code, $out] = $backfill();
+    $sweptBrowser = new Browser(WINDOWS, '192.0.2.94');
+    $sweptBrowser->cookies = ['s' => $sweptSession['id']];
+    check($code === 0 && $rowOf($sweptSession['id']) === null && str_contains($out, '0 added for 2'), 'database: written back after that, a later backfill adopts it not ('.trim($out).')');
+    check(! $signedIn($sweptBrowser) && $rowOf($sweptSession['id']) === null && $rows($swept)->count() === 1 && $signedIn($a), 'database: and its next request is signed out with no row; the device that signed it out stays');
     DB::table('sessions')->delete();
     $driver('file');
     // A session from before 0.23 with no row (file), which Sign out other sessions can't reach: the same cookie on its next request is signed out.
@@ -893,7 +971,7 @@ try {
     $leave = $person('leave');
     $leaving = new Browser;
     $leavingId = $signIn($leaving, $leave);
-    check($rowOf($leavingId) !== null && $send($leaving, 'POST', '/logout')[0] < 400 && $rowOf($leavingId) === null && ! $signedIn($leaving), 'Sign out deletes this device\'s row');
+    check($rowOf($leavingId) !== null && $send($leaving, 'POST', '/logout')[0] < 400 && $rowOf($leavingId) === null && DB::table('signed_in_devices')->where('session_hash', SignedInDevices::hash($leavingId))->value('user_id') === null && ! $signedIn($leaving), 'Sign out retires this device\'s row');
     $app->instance(PurgesAccountData::class, new NoAccountPurge);
     $ends = [
         'Sign out other sessions' => [fn (Browser $a) => $send($a, 'DELETE', '/me/security/sessions', ['password' => PASSWORD]), true],
@@ -931,6 +1009,57 @@ try {
         }
     }
     $driver('file');
+    // A session left over from a deleted account (a stale cookie, or a request in flight that writes it back after the deletion), with no kit.device:
+    // its next request is signed out, not a 500, and given no row. The user row deleted, or kept by the app's own DeletesAccountRow as a tombstone.
+    $tombstone = new class implements DeletesAccountRow
+    {
+        public function delete(Model $user): void
+        {
+            $user->forceFill(['name' => 'Gone', 'email' => 'gone-'.$user->getKey().'@deleted.invalid'])->saveQuietly();
+        }
+    };
+    foreach (['deleted' => null, 'kept by the app' => $tombstone] as $what => $rowHandler) {
+        $user = $person('left-'.substr(md5($what), 0, 8));
+        $a = new Browser;
+        $signIn($a, $user);
+        $leftId = bin2hex(random_bytes(20));
+        if ($rowHandler !== null) {
+            $app->instance(DeletesAccountRow::class, $rowHandler);
+        }
+        try {
+            [$status] = $send($a, 'DELETE', '/me/delete', ['password' => PASSWORD]);
+        } finally {
+            unset($app[DeletesAccountRow::class]);
+        }
+        file_put_contents($base.'/storage/framework/sessions/'.$leftId, serialize(['_token' => str_repeat('g', 40), $guardKey => $user->id]));
+        $left = new Browser(WINDOWS, '192.0.2.95');
+        $left->cookies = ['s' => $leftId];
+        [$leftStatus] = $send($left, 'GET', '/me/profile');
+        $kept = DeviceUser::query()->whereKey($user->id)->exists();
+        check($status < 400 && $kept === ($rowHandler !== null) && $leftStatus === 401 && DB::table('signed_in_devices')->where('user_id', $user->id)->doesntExist() && DB::table('signed_in_devices')->where('session_hash', SignedInDevices::hash($leftId))->doesntExist() && $reported() === [], 'an account deletion with the user row '.$what.': a session left over with no kit.device is signed out on its next request ('.$leftStatus.'), and given no row');
+    }
+    // A missing table rolls the whole change back (#967). With signed_in_devices or user_state renamed away, Sign out other sessions and a password change
+    // each fail before anything stands: the password and the remember-me token are as they were, and the other device keeps its row and its session.
+    foreach (['signed_in_devices', 'user_state'] as $missing) {
+        $user = $person('missing-'.substr(md5($missing), 0, 8));
+        $a = new Browser;
+        $b = new Browser(IPHONE, '198.51.100.72');
+        $signIn($a, $user, remember: true);
+        $bId = $signIn($b, $user);
+        $before = DeviceUser::query()->findOrFail($user->id)->only(['password', 'remember_token']);
+        Schema::rename($missing, $missing.'_away');
+        $expectFailure = true;
+        try {
+            [$sessionsStatus] = $send($a, 'DELETE', '/me/security/sessions', ['password' => PASSWORD]);
+            [$passwordStatus] = $send($a, 'PUT', '/user/password', ['current_password' => PASSWORD, 'password' => 'another long passphrase', 'password_confirmation' => 'another long passphrase']);
+        } finally {
+            $expectFailure = false;
+            Schema::rename($missing.'_away', $missing);
+        }
+        $failures = array_values(array_filter($reported(), fn (string $line): bool => str_contains($line, 'its table '.$missing.' is missing')));
+        check($sessionsStatus === 500 && $passwordStatus === 500 && count($failures) === 2 && DeviceUser::query()->findOrFail($user->id)->only(['password', 'remember_token']) === $before && $before['remember_token'] !== null, $missing.' missing: Sign out other sessions and a password change each fail on it, and neither the password nor the remember-me token changed');
+        check($stored('file', $bId) && $rowOf($bId) !== null && $signedIn($b) && $signedIn($a), $missing.' missing: the other device kept its row and its session, and both stay signed in');
+    }
     // FK cascade on a hard delete, and the model listener where keys can't apply.
     $hard = $person('hard');
     $signIn(new Browser, $hard);

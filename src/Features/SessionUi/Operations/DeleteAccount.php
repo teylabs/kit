@@ -213,6 +213,10 @@ class DeleteAccount
             }
         }
         self::deleteUserRow($user);
+        // A kept (anonymised) row: its user_state went above, so its legacy sessions are closed again, and a session left over is never given a row.
+        if (Kit::enabled('session-ui') && ConciergeModels::user()::query()->whereKey($id)->exists()) {
+            SignedInDevices::closeLegacy($id);
+        }
     }
 
     /**

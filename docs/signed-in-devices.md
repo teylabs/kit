@@ -24,7 +24,8 @@ The table has no workspace column. Nobody but the person sees their devices, and
 - **Every signed-in request** reads one key from the cache store, to see whether the session was revoked. It never queries the database on an ordinary page, and never loads the user.
 - **Every `touch_minutes`** (5 by default) one request updates `last_seen_at`. It checks that the row still holds this session for this person. If the row is gone, the session is signed out.
 - **A regenerate** (an invitation, the demo sign-in) moves the row to the new id by compare-and-swap. A request still carrying the old id is signed out.
-- **Sign out** deletes the row.
+- **Sign out** retires the row and marks the session revoked. A request still in flight that writes the session back afterwards is signed out on its next request. If the mark is lost, the next touch signs it out. It is never given a new row.
+- **A session with no row yet** (a sign-in, or a session from before 0.23) gets one only while its person's user row exists. A session left over from a deleted account is signed out on its next request.
 
 A guest's request reads nothing.
 
@@ -37,9 +38,15 @@ A guest's request reads nothing.
 - a remembered device also cycles the remember-me token. Laravel keeps one per person, so the person's other devices will ask them to sign in again next time. The page says so;
 - the security log records `device_signed_out` with that device's browser, platform and network, and the person is mailed a SecurityNotice (`kit.security_mail`). The mail never names the device.
 
+The row and the remember-me token change in one transaction. The mark and the destroy run only after it commits, and both are idempotent.
+
 Another person's device id, a device already signed out and a non-numeric id are each a 404. The current device is a 422: signing it out is the app's own Sign out.
 
 "Sign out other sessions", a password change, account deletion (immediate or deferred) and the kit's anonymiser end every other device the same way. On the database driver they also delete the person's rows from the `sessions` table, for sessions from before 0.23.
+
+Each runs in one transaction with the change it belongs to: the new password, the cycled remember-me token, or the deletion. The sessions are marked revoked and destroyed only after it commits. With session-ui on, a missing `signed_in_devices` or `user_state` table throws, and the whole change rolls back: the password, the token and every session stay as they were (#967).
+
+Giving a session a row and ending a person's sessions each lock that person's user row first, so they never interleave. A sign-in or a backfill that runs during "Sign out other sessions" either finishes first, and its row is retired, or waits and then sees that the other sessions were ended.
 
 ## Configuration
 
@@ -69,7 +76,7 @@ Schedule::command('model:prune', ['--model' => [SignedInDevice::class]])->daily(
 ## Upgrading from 0.22
 
 - Run `php artisan migrate`.
-- On the database session driver, run `php artisan kit:devices:backfill` once. It adds a row for each signed-in session in the `sessions` table, and a second run adds nothing. Other drivers can't list a person's sessions; each of their devices gets its row on its next request.
+- On the database session driver, run `php artisan kit:devices:backfill` once. It adds a row for each signed-in session in the `sessions` table, and a second run adds nothing. It adds none for a person whose other sessions were all ended since the upgrade. Other drivers can't list a person's sessions; each of their devices gets its row on its next request.
 - A session from before the upgrade gets its row on its next request, until every other session of the person is ended ("Sign out other sessions", a password change or an account deletion). Those can't reach a session that has no row yet, so from then on such a session keeps only a row that still holds it (a backfilled one) and is otherwise signed out on its next request. The mark is kept in `user_state`, not the cache store.
 - Take the new Security page for the per-device Sign out: `php artisan kit:scaffold workspace-ui --diff --only=resources/js/pages/Workspace/Account/Security`. Until then the old page lists every device on every driver, and its "Sign out other sessions" works everywhere.
 

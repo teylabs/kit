@@ -2,6 +2,7 @@
 
 namespace Tey\Kit\Features\SessionUi\Fortify;
 
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rules\Password;
@@ -9,7 +10,7 @@ use Laravel\Fortify\Contracts\UpdatesUserPasswords;
 use Tey\Kit\Features\SessionUi\Account\OtherSessions;
 use Tey\Kit\Features\SessionUi\PasswordPolicy;
 
-/** Fortify's password update for the account page: the current password, then a new one, confirmed. Every other session is signed out afterwards. */
+/** Fortify's password update for the account page: the current password, then a new one, confirmed. Every other session is signed out with it. */
 final class UpdatePassword implements UpdatesUserPasswords
 {
     /** @param  array<string, mixed>  $input */
@@ -20,8 +21,11 @@ final class UpdatePassword implements UpdatesUserPasswords
             'password' => ['required', 'string', Password::defaults(), 'confirmed'],
         ], ['current_password.current_password' => 'That is not your current password.', ...PasswordPolicy::messages()])->validate();
 
-        $user->forceFill(['password' => Hash::make($input['password'])])->save();
-        OtherSessions::end($user);
+        // One transaction: the new password stands only once every other session is ended, so a failure there (a missing table, #967) keeps the old one.
+        DB::transaction(function () use ($user, $input): void {
+            $user->forceFill(['password' => Hash::make($input['password'])])->save();
+            OtherSessions::end($user);
+        });
         session()->flash('account_notice', 'Your password was changed and your other sessions were signed out.');
     }
 }
