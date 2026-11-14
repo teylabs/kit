@@ -7,6 +7,7 @@ use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Laravel\Fortify\Events\PasswordUpdatedViaController;
 use Laravel\Fortify\Events\RecoveryCodesGenerated;
@@ -40,16 +41,26 @@ final class SecurityLog
         'sessions_ended' => 'Other sessions signed out',
         'passkey_added' => 'Passkey added',
         'passkey_removed' => 'Passkey removed',
+        'device_signed_out' => 'Signed out a device',
     ];
 
-    public static function record(int|string|null $userId, string $type, ?Request $request = null): void
+    /** The kit's own reading of a device, as describeDevice() writes it: stored as a device_signed_out row's agent, and shown as it is. */
+    private const string DESCRIBED = '/\A(?:Unknown device|(?:Edge|Opera|Firefox|Chrome|Safari|Browser)(?: on (?:iOS|Android|macOS|Windows|Linux))?)\z/';
+
+    /**
+     * Writes one event of the user's, from this request's IP and user agent. `$about` names another device instead (`ip` and `agent`): a device signed out
+     * from this one is logged with its own IP prefix and browser and platform. The mail still says where the change came from: this request.
+     *
+     * @param  array{ip?: ?string, agent?: string}  $about
+     */
+    public static function record(int|string|null $userId, string $type, ?Request $request = null, array $about = []): void
     {
         if ($userId === null || ! array_key_exists($type, self::LABELS)) {
             return;
         }
         $request ??= app()->bound('request') ? request() : null;
         try {
-            Kit::model('security_event')::query()->create(['user_id' => $userId, 'type' => $type, 'ip' => $request?->ip(), 'agent' => $request === null ? null : mb_substr((string) $request->userAgent(), 0, 255)]);
+            Kit::model('security_event')::query()->create([...['user_id' => $userId, 'type' => $type, 'ip' => $request?->ip(), 'agent' => $request === null ? null : mb_substr((string) $request->userAgent(), 0, 255)], ...array_intersect_key($about, ['ip' => true, 'agent' => true])]);
         } catch (\Throwable $e) {
             // A history that cannot be written (the migration has not run yet) is reported, and never stops someone signing in. The report is
             // scrubbed: the query exception carries the bindings (the IP and user agent), so only its class and the event type go out.
@@ -169,15 +180,44 @@ final class SecurityLog
             return;
         }
         Kit::model('security_event')::query()->where('user_id', $user->getKey())->delete();
+        // Their signed-in devices too (the foreign key does it where it applies); a missing table while session-ui is on throws (#967).
+        if (Kit::present('session-ui', SignedInDevices::TABLE)) {
+            DB::table(SignedInDevices::TABLE)->where('user_id', $user->getKey())->delete();
+        }
         // What the kit remembers about the person (timezone, welcome steps, dismissed cards) goes with them, by the same rule.
         UserState::forgetAll((int) $user->getKey());
     }
 
-    /** A short, human reading of a user-agent string: "Chrome on macOS". */
+    /** A short, human reading of a user-agent string: "Chrome on macOS". A device's reading the kit already wrote (describeDevice()) is shown as it is. */
     public static function describeAgent(?string $agent): string
     {
         if ($agent === null || trim($agent) === '') {
             return 'Unknown device';
+        }
+        if (preg_match(self::DESCRIBED, $agent) === 1) {
+            return $agent;
+        }
+        [$browser, $system] = self::agentParts($agent);
+
+        return ($browser ?? 'Browser').($system === null ? '' : ' on '.$system);
+    }
+
+    /** A signed-in device's reading from its stored browser and platform: "Chrome on macOS", "Browser on Linux", or "Unknown device" with neither. */
+    public static function describeDevice(?string $browser, ?string $platform): string
+    {
+        return $browser === null && $platform === null ? 'Unknown device' : ($browser ?? 'Browser').($platform === null ? '' : ' on '.$platform);
+    }
+
+    /**
+     * The browser and the platform a user-agent string names ("Chrome", "macOS"), each null when it names none. Nothing else of it is kept: no
+     * version or build.
+     *
+     * @return array{?string, ?string}
+     */
+    public static function agentParts(?string $agent): array
+    {
+        if ($agent === null || trim($agent) === '') {
+            return [null, null];
         }
         $browser = match (true) {
             str_contains($agent, 'Edg/') => 'Edge',
@@ -185,7 +225,7 @@ final class SecurityLog
             str_contains($agent, 'Firefox/') => 'Firefox',
             str_contains($agent, 'Chrome/') || str_contains($agent, 'CriOS') => 'Chrome',
             str_contains($agent, 'Safari/') => 'Safari',
-            default => 'Browser',
+            default => null,
         };
         $system = match (true) {
             str_contains($agent, 'iPhone') || str_contains($agent, 'iPad') => 'iOS',
@@ -196,6 +236,6 @@ final class SecurityLog
             default => null,
         };
 
-        return $system === null ? $browser : $browser.' on '.$system;
+        return [$browser, $system];
     }
 }

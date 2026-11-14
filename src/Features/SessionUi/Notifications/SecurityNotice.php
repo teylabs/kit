@@ -9,7 +9,7 @@ use Tey\Kit\Mail\MailUrl;
 
 /**
  * "This changed on your account" mail: a password changed, an email address changed (sent to the old address), two-factor turned on or off,
- * recovery codes regenerated, a passkey added or removed. Security mail: no manage-notifications link, and it can't be turned off per person
+ * recovery codes regenerated, a passkey added or removed, a signed-in device signed out. Security mail: no manage-notifications link, and it can't be turned off per person
  * (an app turns all of it off with `kit.security_mail`). It says when and from where, and what to do if it wasn't them.
  */
 final class SecurityNotice extends Notification
@@ -23,6 +23,8 @@ final class SecurityNotice extends Notification
         'recovery_codes_regenerated' => ['New recovery codes for your :product account', 'New two-factor recovery codes were made for your :product account. The old ones no longer work.'],
         'passkey_added' => ['A passkey was added to your :product account', 'A passkey was added to your :product account.'],
         'passkey_removed' => ['A passkey was removed from your :product account', 'A passkey was removed from your :product account.'],
+        // Which device is never named: a device's details are shown on the Security page alone. When and where are the request's that signed it out.
+        'device_signed_out' => ['A device was signed out of your :product account', 'A device signed in to your :product account was signed out from the account\'s Security page.'],
     ];
 
     public function __construct(public readonly string $type, public readonly string $when, public readonly ?string $ip = null, public readonly ?string $agent = null, public readonly ?string $newEmail = null) {}

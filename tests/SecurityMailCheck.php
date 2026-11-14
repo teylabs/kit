@@ -144,8 +144,19 @@ try {
         }
     }
     $sent = Notification::sent($ada, SecurityNotice::class)->map(fn (SecurityNotice $n) => $n->type)->all();
-    securityCheck($sent === ['password_changed', 'two_factor_confirmed', 'two_factor_disabled', 'recovery_codes_regenerated', 'passkey_added', 'passkey_removed'], 'each security change is mailed to the account owner');
-    securityCheck(DB::table('kit_security_events')->where('user_id', $ada->id)->count() === 6, 'and is still written to the security log');
+    securityCheck($sent === ['password_changed', 'two_factor_confirmed', 'two_factor_disabled', 'recovery_codes_regenerated', 'passkey_added', 'passkey_removed', 'device_signed_out'], 'each security change is mailed to the account owner, a signed-out device too');
+    securityCheck(DB::table('kit_security_events')->where('user_id', $ada->id)->count() === 7, 'and is still written to the security log');
+
+    // A device signed out from this one: the log names that device (its browser and platform, its network's prefix); the mail never does, only when and
+    // from where the sign-out came (this request).
+    Notification::fake();
+    SecurityLog::record($ada->id, 'device_signed_out', $request, ['agent' => 'Safari on iOS', 'ip' => '198.51.100.0/24']);
+    $row = DB::table('kit_security_events')->where('user_id', $ada->id)->latest('id')->first();
+    securityCheck($row->type === 'device_signed_out' && $row->agent === 'Safari on iOS' && $row->ip === '198.51.100.0/24' && SecurityLog::describeAgent($row->agent) === 'Safari on iOS' && SecurityLog::LABELS['device_signed_out'] === 'Signed out a device', 'a signed-out device is logged as "Signed out a device" with its own browser, platform and network, shown as they are');
+    $notice = Notification::sent($ada, SecurityNotice::class)->first();
+    $html = (string) preg_replace('/ style="[^"]*"/', '', (string) $notice->toMail($ada)->render());
+    securityCheck($notice->type === 'device_signed_out' && $notice->ip === '203.0.113.9' && $notice->agent === 'Synthetic/1.0' && str_contains($html, 'A device signed in to your Northwind account was signed out') && ! str_contains($html, 'Safari') && ! str_contains($html, '198.51.100'), 'its mail says a device was signed out, from this request\'s address and browser, and never names the device');
+    securityCheck(SecurityLog::describeAgent('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1') === 'Safari on iOS' && SecurityLog::describeAgent('Safari on iOS (spoofed)') === 'Browser', 'a raw user agent is still read; only the kit\'s own exact readings pass through');
 
     Notification::fake();
     SecurityLog::record($ada->id, 'sign_in', $request);

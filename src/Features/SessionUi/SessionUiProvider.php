@@ -34,6 +34,7 @@ use Tey\Kit\Features\Core\Resolved;
 use Tey\Kit\Features\Core\ViewModels\PageLayouts;
 use Tey\Kit\Features\Core\Workbench\WorkbenchPreferences;
 use Tey\Kit\Features\SessionUi\Account\SecurityLog;
+use Tey\Kit\Features\SessionUi\Account\SignedInDevices;
 use Tey\Kit\Features\SessionUi\Contracts\ConfirmPasswordCancelUrl;
 use Tey\Kit\Features\SessionUi\Fortify\NeutralResetLinkResponse;
 use Tey\Kit\Features\SessionUi\Fortify\PasswordConfirmed;
@@ -43,6 +44,7 @@ use Tey\Kit\Features\SessionUi\Fortify\UpdateProfile;
 use Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests;
 use Tey\Kit\Features\SessionUi\Http\Middleware\PrepareKitRequest;
 use Tey\Kit\Features\SessionUi\Http\Middleware\RefreshTimezone;
+use Tey\Kit\Features\SessionUi\Http\Middleware\TrackSignedInDevice;
 use Tey\Kit\Features\SessionUi\Models\SecurityEvent;
 use Tey\Kit\Features\SessionUi\Models\UserAvatar;
 use Tey\Kit\Features\SessionUi\Notifications\AccountMail;
@@ -130,6 +132,9 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
         // added again here. The registry's late hooks run once the session has started (PrepareKitRequest).
         $kernel = $this->app->make(Kernel::class);
         $kernel->appendMiddlewareToGroup('web', PrepareKitRequest::class);
+        // Each signed-in session's device row, and a device signed out elsewhere cut off on its next request (SignedInDevices). A bad kit.devices stops the boot.
+        SignedInDevices::validate();
+        $kernel->appendMiddlewareToGroup('web', TrackSignedInDevice::class);
         // Inertia still needs one middleware for the root view and asset version: the host's own, or, when its `web` group has none, the kit's plain one.
         $inertia = array_filter($kernel->getMiddlewareGroups()['web'] ?? [], fn (mixed $middleware): bool => is_string($middleware) && is_a(explode(':', $middleware)[0], InertiaMiddleware::class, true));
         if ($inertia === []) {
@@ -178,6 +183,9 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
         Fortify::twoFactorChallengeView(fn () => Inertia::render('Auth/TwoFactor/Page', new ChallengeViewModel('Two-factor verification')));
         Fortify::verifyEmailView(fn () => Inertia::render('Auth/VerifyEmail/Page', new ChallengeViewModel('Verify your email address', session('status'), request()->user()?->email)));
         SecurityLog::listen($this->app->make('events'));
+        SignedInDevices::listen($this->app->make('events'));
+        // On the database session driver, once after upgrading: a row for each session signed in before 0.22.
+        $this->commands([BackfillDevicesCommand::class]);
         // A passkey signs in without a password, so Laravel's Validated event (where Concierge refuses a deactivated account) never fires: the same refusal is
         // passkeys' login check. Fails closed: anything that is not a Concierge member with an active account is refused. An app that sets its own check replaces this one, so it must refuse an inactive account too.
         if (class_exists(Passkeys::class)) {

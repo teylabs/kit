@@ -2,7 +2,7 @@
 
 // The browser job's recorded account and session payloads (tests/fixtures/form-payloads, written by browser/run.mjs's Save tests) posted to the real routes,
 // as the page sends them (X-Inertia, a JSON body, or multipart with the photo's own bytes), by a signed-in person on SQLite memory: Account › Profile and its
-// photo and date & time, Password, Security (two-factor on, confirmed and off, recovery codes, passkeys renamed and removed, other sessions signed out), Delete account, the
+// photo and date & time, Password, Security (two-factor on, confirmed and off, recovery codes, passkeys renamed and removed, one device and the other sessions signed out), Delete account, the
 // welcome flow's timezone and photo steps, and the notes wall as a member of a synthetic workspace. Each must answer with a redirect, no validation errors,
 // and the values stored. Two values are the server's, not the page's, and are swapped in: the authenticator app's TOTP code (computed from the secret the
 // enable step stored), and nothing else. A passkey's credential needs a real authenticator's attestation, so its fixture is checked for the field names
@@ -82,6 +82,7 @@ use Tey\Kit\Features\Access\Console\SyncPermissionsCommand;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Core\Clock;
 use Tey\Kit\Features\FeaturesServiceProvider;
+use Tey\Kit\Features\SessionUi\Account\SignedInDevices;
 use Tey\Kit\Features\SessionUi\Contracts\PurgesAccountData;
 use Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests;
 use Tey\Kit\Features\SessionUi\Welcome\Onboarding;
@@ -384,6 +385,17 @@ try {
     $result = $send('robin', 'DELETE', '/me/security/sessions', $fixture('sessions-sign-out'));
     httpCheck($redirected($result), 'Signed-in devices: the recorded payload signs the others out, redirecting back with no errors'.$describe($result));
     httpCheck(DB::table('sessions')->where('id', str_repeat('o', 40))->doesntExist() && DB::table('sessions')->where('id', $sessions['robin'])->exists(), 'Signed-in devices: the other session is ended, this one kept');
+
+    // Security › Signed-in devices, one device: another of Sam's devices (Sam: every throttled route counts against one per-person limit, which Robin's steps above used) (its row as the sign-in writes it) signed out with the recorded payload.
+    $phone = 'phone-session-'.bin2hex(random_bytes(8));
+    $device = SignedInDevices::track(Request::create('https://kit.test/login', 'POST', server: ['REMOTE_ADDR' => '198.51.100.7', 'HTTP_USER_AGENT' => 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) Version/18.1 Mobile/15E148 Safari/604.1']), $phone, $people['sam']->id, false);
+    $page = json_decode((string) $send('sam', 'GET', '/me/security', [])[3]->getContent(), true);
+    $item = collect($page['props']['sessions']['items'] ?? [])->firstWhere('id', $device);
+    // The 0.21 scaffolded page reads `supported` and each item's agent, ip, last_active and current: still there, with the same types, so it renders unchanged.
+    httpCheck(($page['props']['sessions']['supported'] ?? null) === true && $item !== null && $item['agent'] === 'Safari on iOS' && $item['ip'] === '198.51.100.0/24' && is_string($item['last_active']) && $item['current'] === false && $item['url'] === 'https://kit.test/me/security/devices/'.$device, 'Signed-in devices: on the database driver the page lists the other device with the keys the old page reads (agent, ip, last_active, current) and its sign-out url'.json_encode($item));
+    $result = $send('sam', 'DELETE', '/me/security/devices/'.$device, $fixture('device-sign-out'));
+    httpCheck($redirected($result), 'Signed-in devices, one device: the recorded payload signs it out, redirecting back with no errors'.$describe($result));
+    httpCheck(DB::table('signed_in_devices')->where('id', $device)->doesntExist() && DB::table('kit_security_events')->where('user_id', $people['sam']->id)->where('type', 'device_signed_out')->exists(), 'Signed-in devices, one device: its row is gone and the security log records it');
 
     // The welcome flow: the timezone saved as it changes, then confirmed; then the photo step's upload.
     $result = $send('sam', 'PUT', '/welcome/timezone', $fixture('welcome-timezone-save'));

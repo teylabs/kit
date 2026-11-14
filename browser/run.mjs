@@ -7958,7 +7958,12 @@ test('Account sections in the shell under load: ten rounds of click, Back and Fo
 // Account › Security: TwoFactorController, RecoveryCodesController, PasskeysController (and Fortify's passkey registration), SessionsController.
 const TOTP = '492039';
 function securityAccount({ twoFactor = 'off', passkeys = [{ id: 7, name: 'MacBook passkey', created: '2026-10-01T09:00:00+00:00', last_used: null }], events = [] } = {}) {
-    const store = { twoFactor, codes: twoFactor === 'on' ? ['aaaa-1111', 'bbbb-2222'] : [], shown: [], passkeys, nextPasskey: 8, sessions: 2, notice: null };
+    // The other signed-in devices, as OtherSessions::list sends them: each with its sign-out url (DevicesController).
+    const devices = [
+        { agent: 'Safari on iOS', ip: '198.51.100.0/24', last_active: '2026-11-08T18:00:00+00:00', current: false, id: 2, signed_in_at: '2026-11-02T08:00:00+00:00', country: 'CA', remembered: true, url: '/me/security/devices/2' },
+        { agent: 'Firefox on Windows', ip: '2001:db8:abcd::/48', last_active: '2026-11-07T18:00:00+00:00', current: false, id: 3, signed_in_at: '2026-11-03T08:00:00+00:00', country: null, remembered: false, url: '/me/security/devices/3' },
+    ];
+    const store = { twoFactor, codes: twoFactor === 'on' ? ['aaaa-1111', 'bbbb-2222'] : [], shown: [], passkeys, nextPasskey: 8, sessions: 2, devices, notice: null };
     const make = (n) => Array.from({ length: 8 }, (_, i) => `code${n}-${String(i + 1).padStart(4, '0')}`);
     let generation = 0;
     return {
@@ -7974,7 +7979,7 @@ function securityAccount({ twoFactor = 'off', passkeys = [{ id: 7, name: 'MacBoo
                     props: {
                         ...titled('Security'),
                         two_factor: { state: store.twoFactor, qr_svg: store.twoFactor === 'pending' ? '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 4 4"><rect width="2" height="2"/></svg>' : null, secret_key: store.twoFactor === 'pending' ? 'JBSWY3DPEHPK3PXP' : null, codes_left: store.twoFactor === 'on' ? store.codes.length : 0, recovery_codes: shown },
-                        sessions: { supported: true, items: [{ agent: 'Chrome on macOS', ip: '203.0.113.5', last_active: '2026-11-09T09:00:00+00:00', current: true }, ...Array.from({ length: store.sessions - 1 }, () => ({ agent: 'Safari on iOS', ip: '198.51.100.7', last_active: '2026-11-08T18:00:00+00:00', current: false }))] },
+                        sessions: { supported: true, items: [{ agent: 'Chrome on macOS', ip: '203.0.113.0/24', last_active: '2026-11-09T09:00:00+00:00', current: true, id: 1, signed_in_at: '2026-11-01T08:00:00+00:00', country: null, remembered: false, url: null }, ...store.devices.slice(0, store.sessions - 1)] },
                         events,
                         log: { title: 'Security log', description: 'Your recent sign-ins and security changes. Only you can see this.', state: events.length ? 'ready' : 'empty', empty: { variant: 'first-use', title: 'Nothing yet', description: 'Your sign-ins and security changes show up here.', action: null }, error: null, actions: [], segments: [], sortBy: null, seeAll: null, maxHeight: null },
                         two_factor_url: '/me/security/two-factor',
@@ -8033,11 +8038,21 @@ function securityAccount({ twoFactor = 'off', passkeys = [{ id: 7, name: 'MacBoo
                 store.passkeys = [...store.passkeys, { id: store.nextPasskey++, name: body.name, created: '2026-11-09T10:00:00+00:00', last_used: null }];
                 return { json: { id: store.nextPasskey - 1 }, status: 201 };
             }],
+            ['DELETE', /^\/me\/security\/devices\/(\d+)$/, (body, match) => {
+                const refused = passwordError(body);
+                if (refused) return { errors: refused };
+                const device = store.devices.find(item => item.id === Number(match[1]));
+                store.devices = store.devices.filter(item => item !== device);
+                store.sessions -= 1;
+                store.notice = `Signed out ${device.agent}.${device.remembered ? ' It was remembered, so your other devices will ask you to sign in again next time.' : ''}`;
+                return {};
+            }],
             ['DELETE', '/me/security/sessions', (body) => {
                 const refused = passwordError(body);
                 if (refused) return { errors: refused };
                 const ended = store.sessions - 1;
                 store.sessions = 1;
+                store.devices = [];
                 store.notice = ended === 0 ? 'There were no other sessions.' : `Signed out ${ended} other ${ended === 1 ? 'session' : 'sessions'}.`;
                 return {};
             }],
@@ -8331,6 +8346,54 @@ test('Signed-in devices: Sign out other sessions asks first, posts the password,
         await reload();
         assert.equal(await tab.locator('[data-sessions] li').count(), 1, 'only this device after a reload');
         if (accountShots) await accountShot(tab, 'security');
+    });
+});
+
+// One device signed out from Security (DevicesController), at 1280 and 390px: each other device has its own Sign out, with the password and a confirm
+// dialog; this device has none. The dialog says what happens to a remembered device's other devices.
+test('Signed-in devices: each other device has a Sign out with the password and a confirm dialog, this device none; signing one out posts the password to its url, says so, and the list keeps the rest; axe with contrast at 1280 and 390px', async () => {
+    const security = securityAccount();
+    security.store.sessions = 3;
+    await accountPage(security, async ({ tab, posts, reload, confirm, settle }) => {
+        for (const width of [1280, 390]) {
+            await tab.setViewportSize({ width, height: 900 });
+            await tab.locator('[data-sessions] [data-device]').first().waitFor();
+            const rows = await tab.$$eval('[data-sessions] [data-device]', (items) => items.map((li) => ({ id: li.dataset.device, current: Boolean(li.querySelector('[data-this-device]')), button: [...li.querySelectorAll('button')].map((b) => b.textContent.trim()).filter(Boolean), password: Boolean(li.querySelector('input[type=password]')) })));
+            assert.deepEqual(rows, [{ id: '1', current: true, button: [], password: false }, { id: '2', current: false, button: ['Sign out'], password: true }, { id: '3', current: false, button: ['Sign out'], password: true }], `${width}: this device without a button, each other with its own`);
+            assert.equal(await tab.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth), false, `${width}: no sideways scroll`);
+            const text = await tab.textContent('[data-device="2"]');
+            assert.match(text, /198\.51\.100\.0\/24 · CA · Signed in/, `${width}: the network's prefix, the country and when it signed in`);
+            const result = await axeScopedContrast(tab, '[data-sessions]');
+            assert.deepEqual(result.violations, [], `${width}: axe passes`);
+            assert.ok(result.contrast > 0, `${width}: contrast was checked on the device rows`);
+            if (accountShots) await tab.locator('[data-sessions]').locator('xpath=ancestor::section[1]').screenshot({ path: `${accountShots}/security-devices-section-${width}.png` });
+        }
+        await tab.setViewportSize({ width: 1280, height: 900 });
+        const row = tab.locator('[data-device="2"]');
+        await row.locator('#device-password-2').fill(PASSWORD);
+        await row.getByRole('button', { name: 'Sign out', exact: true }).click();
+        const dialog = tab.getByRole('alertdialog');
+        assert.equal(await dialog.getByRole('heading').textContent(), 'Sign out Safari on iOS?');
+        assert.match(await dialog.textContent(), /your other devices will ask you to sign in again next time/, 'a remembered device: the dialog says the other devices sign in again next time');
+        const dialogAxe = await axeScopedContrast(tab, '[role=alertdialog]');
+        assert.deepEqual(dialogAxe.violations, [], 'the dialog passes axe');
+        if (accountShots) await tab.screenshot({ path: `${accountShots}/security-devices-dialog.png` });
+        await dialog.getByRole('button', { name: 'Sign out device', exact: true }).click();
+        await settle(1);
+        await tab.waitForSelector('[data-account-notice]');
+        assert.deepEqual(posts.map(({ method, url }) => [method, url]), [['DELETE', '/me/security/devices/2']]);
+        assert.deepEqual({ ...posts[0].body }, { password: PASSWORD });
+        payloadFixture('device-sign-out', posts[0].body);
+        assert.equal(await tab.textContent('[data-account-notice]'), 'Signed out Safari on iOS. It was remembered, so your other devices will ask you to sign in again next time.');
+        await reload();
+        assert.deepEqual(await tab.$$eval('[data-sessions] [data-device]', (items) => items.map((li) => li.dataset.device)), ['1', '3'], 'after a reload the list keeps this device and the other one');
+        // A wrong password is refused inline on that device's field, and nothing is signed out.
+        await tab.locator('#device-password-3').fill('not it at all');
+        await confirm(tab.locator('[data-device="3"]'), 'Sign out', 'Sign out device');
+        await tab.waitForSelector('#device-password-3-error');
+        assert.equal(await tab.textContent('#device-password-3-error'), 'That password is not right.');
+        assert.equal(security.store.devices.length, 1, 'not signed out');
+        if (accountShots) await accountShot(tab, 'security-devices');
     });
 });
 
