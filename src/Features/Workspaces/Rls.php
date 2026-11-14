@@ -7,6 +7,7 @@ use Illuminate\Database\Connection;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use RuntimeException;
+use Tey\Kit\Features\Core\RequestMemo;
 use Throwable;
 
 /**
@@ -31,10 +32,24 @@ final class Rls
         return (bool) config('kit.tenancy.rls.enabled', false) && self::driver(self::connection()) === 'pgsql';
     }
 
-    /** Whether a read sees every workspace's rows of the table: RLS is off, or the table is listed in `kit.tenancy.rls.except`. A batched read across workspaces needs it. */
+    /**
+     * Whether a read sees every workspace's rows of the table: RLS is off, or the table is listed in `kit.tenancy.rls.except` and the database enforces no
+     * row-level security on it either. A batched read across workspaces needs it. Fails closed: a table `except` lists but a migration protected anyway
+     * would show such a read only some rows, or none, so it is not shared. The tables with RLS on are asked of the database once per request.
+     */
     public static function shared(string $table): bool
     {
-        return ! self::enabled() || in_array($table, (array) config('kit.tenancy.rls.except', []), true);
+        if (! self::enabled()) {
+            return true;
+        }
+        if (! in_array($table, (array) config('kit.tenancy.rls.except', []), true)) {
+            return false;
+        }
+        $enforced = RequestMemo::instance()->get('rls:enforced', fn (): array => array_map(fn (object $row): string => (string) $row->name, DB::connection(self::connection())->select(
+            "select c.relname as name from pg_class c where c.relkind in ('r', 'p') and c.relrowsecurity and pg_table_is_visible(c.oid)"
+        )));
+
+        return ! in_array($table, $enforced, true);
     }
 
     /** The runtime (app) connection: NOBYPASSRLS, not the tables' owner. */

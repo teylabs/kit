@@ -67,6 +67,8 @@ Some tables have a `workspace_id` column but are read before a workspace is chos
 - Concierge's membership tables, which admission reads before the workspace transaction starts;
 - the permission tables (`roles`, `model_has_roles`, `model_has_permissions`), whose team column is `workspace_id` and which hold global roles.
 
+The shell's switcher reads what each of the viewer's workspaces' checks look up in one batch across them, but only from a table `except` lists **and** the database leaves unprotected (`Rls::shared()`). A table you list here but protect anyway is read inside each workspace instead, as is every protected one.
+
 The kit's other tables with a `workspace_id` column (`audit_events`, `kit_notes`, `entitlements`, settings, MCP and delivery tables, and so on) have **not been verified under RLS**. Some are read outside a workspace, or keep rows whose `workspace_id` is null. Protect each one in your own migration once your app's paths are checked, or list it in `except`. The preflight lists every one you haven't decided on.
 
 ## Pitfalls
@@ -103,4 +105,6 @@ Laravel Cloud's Serverless Postgres is Neon. From the documentation (not verifie
 - the guard and `kit:preflight`'s RLS problems (superuser, `BYPASSRLS`, owner, unprotected table, admin as runtime);
 - the no-op on SQLite.
 
-**Not covered:** a real pooler (PgBouncer), Octane, Horizon or a long-running worker process, Laravel Cloud or Neon, Inertia pages under RLS, MySQL, and the kit's own feature tables protected under RLS.
+`composer test:switcher-rls` (PostgreSQL only, also in the PostgreSQL job) covers the shell's batched switcher on Inertia pages: protected tables read only inside their own workspace, the excepted ones batched, a table listed in `except` but protected anyway read per workspace (fail closed), the tenant, permission team and RLS setting restored after the batch, also when it throws, and roles changed mid-request answered afresh.
+
+**Not covered:** a real pooler (PgBouncer), Octane, Horizon or a long-running worker process, Laravel Cloud or Neon, Inertia pages under RLS other than the shell's switcher, MySQL, and the kit's own feature tables protected under RLS.

@@ -26,6 +26,22 @@ final class Permissions
         $this->memo = [];
     }
 
+    /** Empties the request's answers and permission sets, batched or not, when a role or grant changes (AccessProvider): the next check reads afresh. */
+    public function forget(): void
+    {
+        $this->memo = $this->memo === null ? null : [];
+    }
+
+    /** Whether a statement writes a role, a permission or one of their pivots, by any path (spatie, Concierge, the kit, a raw query). */
+    public static function writes(string $sql): bool
+    {
+        if (preg_match('/^\s*(?:insert\s+into|update|delete\s+from)\s+[`"\[]?([A-Za-z0-9_]+)/i', $sql, $match) !== 1) {
+            return false;
+        }
+
+        return in_array($match[1], array_values((array) config('permission.table_names')), true);
+    }
+
     /** Whether the member's roles in the workspace grant the permission. A permission no feature declares is never granted. */
     public function granted(Member&Model $user, string $permission, Workspace $workspace): bool
     {
