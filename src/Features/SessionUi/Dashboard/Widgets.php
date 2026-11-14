@@ -37,12 +37,16 @@ final class Widgets
                         return null;
                     }
                     $frame = $widget->toArray();
-                    // Fail closed: a widget names one of the two columns, or it is an error card.
+                    // Fail closed: a widget names one of the two columns, one of the four kinds and one of the three states (the frame's `state` is
+                    // CollectionSectionData's), or it is an error card.
                     if (! in_array($frame['region'] ?? null, ['main', 'aside'], true)) {
                         throw new \RuntimeException('dashboard_widget_region');
                     }
                     if (! in_array($frame['kind'] ?? null, ['task', 'feed', 'status', 'setup'], true)) {
                         throw new \RuntimeException('dashboard_widget_kind');
+                    }
+                    if (! in_array($frame['state'] ?? null, ['ready', 'empty', 'error'], true)) {
+                        throw new \RuntimeException('dashboard_widget_state');
                     }
                     // The see-all link and its deprecated alias, a plain "All …", "View all …" or "See all …" header action, each fill in the other. A widget
                     // with no seeAll() gets its first such action as one; a seeAll() with no such action is also sent as one (key `see-all`). So a

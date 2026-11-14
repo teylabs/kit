@@ -73,7 +73,7 @@ abstract class Widget extends ViewModel
         return true;
     }
 
-    /** `ready`, `empty` (show `empty()`) or `error` (show `error()`). */
+    /** `ready`, `empty` (show `empty()`) or `error` (show `error()`); any other value makes the widget an error card. */
     public function state(): string
     {
         return 'ready';

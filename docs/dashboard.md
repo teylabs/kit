@@ -126,7 +126,7 @@ Every widget's props start with the same frame, and the class adds its own:
 | `kind` | `task`, `feed`, `status` (the default) or `setup`. See Kinds. |
 | `region` | `main` (the default) or `aside`: the column the card stacks in. |
 | `span` | Deprecated: `WidgetSpanData`, no longer used for layout. |
-| `state` | `ready`, `empty` (the card shows `empty`) or `error` (the card shows `error`, with Retry). |
+| `state` | `ready`, `empty` (the card shows `empty`) or `error` (the card shows `error`, with Retry). Any other value makes the widget an error card, so the frame's `state` is always one a CollectionSection takes. |
 | `empty` | `WidgetEmptyData`: a title, a description and an optional action. |
 | `error` | `WidgetErrorData`: a fixed message and a retry. Never exception text. |
 | `actions` | `list<Action>` shown in the card header. |
