@@ -30,8 +30,10 @@ use Throwable;
  * middleware compares (`kit.device`: the row's id, the user, the session id the row knows and when it was last touched), so a normal page runs no
  * query against the table; it reads one revocation marker from the cache store instead (TrackSignedInDevice).
  *
- * Signing a device out deletes its row first, which is the authority (that session fails its next touch), then marks its session revoked in the
- * cache store, so its next request is cut off, then destroys the session through the configured handler. The row holds the session id encrypted
+ * Signing a device out retires its row first, which is the authority (that session fails its next touch): the row keeps only its HMAC, with no
+ * person, device or address, until the session would have expired, so the unique HMAC refuses that session a new row even when it carries no
+ * `kit.device` (a session from before 0.23). Then it marks the session revoked in the cache store, so its next request is cut off, and destroys the
+ * session through the configured handler. The row holds the session id encrypted
  * (decrypted only to destroy it) and its HMAC with the app key (to find it); the IP only as its /24 or /48, the user agent only as its browser and
  * platform, and a country only from Cloudflare's CF-IPCountry when the host names it. Every write is conditioned on the row's id, its user and the
  * session's current HMAC, so a request carrying an old session id never moves a row back, and a session whose row is gone is never given a new one.
@@ -46,7 +48,7 @@ final class SignedInDevices
     /** The one header a country is read from, when `kit.devices.country_header` names it: Cloudflare's, set by its proxy, never by the browser. */
     public const string COUNTRY_HEADER = 'CF-IPCountry';
 
-    /** The person's user_state key, set before any of their devices is signed out: from then on a legacy session is never given a new row (track). */
+    /** The person's user_state key, set when every other session of theirs is ended (endAll): from then on a legacy session is never given a new row (track). */
     public const string LEGACY_CLOSED = 'devices.legacy_closed';
 
     /**
@@ -113,7 +115,7 @@ final class SignedInDevices
         if ($store !== null && ! is_string($store)) {
             throw new RuntimeException('kit.devices.store names a cache store, or is null for the default one.');
         }
-        if ($store !== null && ($store === '' || ! is_array(((array) config('cache.stores', []))[$store] ?? null))) {
+        if ($store !== null && (trim($store) === '' || ! is_array(((array) config('cache.stores', []))[$store] ?? null))) {
             $message = 'kit.devices.store '.json_encode($store).' names no cache store in cache.stores, so the revocation marks would have nowhere to go.';
             if (app()->environment('local', 'testing')) {
                 throw new RuntimeException($message.' Name one, or null for the default store.');
@@ -178,8 +180,9 @@ final class SignedInDevices
     /**
      * The row of a session that has none yet (it signed in during this request, or it is `$legacy`: signed in before 0.23, or backfilled): inserted, or
      * found when a concurrent first request of the same session got there first (the unique HMAC). Null when no row of this user holds the session: the
-     * caller signs it out. Once one of the person's devices has been signed out (closeLegacy), a legacy session is never given a new row: its own row may
-     * have been the one deleted, and nothing else tells them apart, so it keeps only a row that still holds it (a backfilled one), else it signs out.
+     * caller signs it out. A legacy session signed out by its row is refused by that row's retired HMAC. Once every other session of the person has been
+     * ended (closeLegacy), a legacy session is never given a new row either, since endAll could not reach one that had none: it keeps only a row that still
+     * holds it (a backfilled one), else it signs out.
      */
     public static function track(Request $request, string $sessionId, int|string $userId, bool $remembered, bool $legacy = false): ?int
     {
@@ -301,10 +304,8 @@ final class SignedInDevices
         if ($confirm !== null) {
             $confirm();
         }
-        // Before the row goes, durably: the row may be a legacy session's (backfilled), which has no kit.device to tell it from one never tracked.
-        self::closeLegacy($user->getAuthIdentifier());
         // The row first: it is the authority, so even with the store down that session fails its next touch. Gone meanwhile (another tab): already signed out.
-        if (DB::table(self::TABLE)->where('id', $row->id)->where('user_id', $user->getAuthIdentifier())->where('session_hash', $row->session_hash)->delete() === 0) {
+        if (self::retire($row) === 0) {
             return ['status' => 'missing'];
         }
         $atOnce = self::end($row);
@@ -324,7 +325,7 @@ final class SignedInDevices
     }
 
     /**
-     * Ends every session of the person but $except (none for an account deletion): each row deleted, its session marked revoked and destroyed through the
+     * Ends every session of the person but $except (none for an account deletion): each row retired, its session marked revoked and destroyed through the
      * handler. On the database driver the sessions table is swept too, for sessions from before tracking. A missing table while session-ui is on throws
      * (#967). Returns how many live sessions ended.
      */
@@ -332,12 +333,13 @@ final class SignedInDevices
     {
         $ended = 0;
         if (Kit::present('session-ui', self::TABLE)) {
-            // Every other session ends, legacy ones too: those without a row (which this can't reach) are signed out at their next request instead.
+            // Every other session ends, legacy ones too: those with no row (which this can't reach) are signed out at their next request instead. First and
+            // durably, so a failure part-way still leaves them refused.
             self::closeLegacy($user->getAuthIdentifier());
             $keep = $except === null ? [] : self::hashes($except);
             $live = self::staleBefore();
             foreach (DB::table(self::TABLE)->where('user_id', $user->getAuthIdentifier())->orderBy('id')->get() as $row) {
-                if (in_array($row->session_hash, $keep, true) || DB::table(self::TABLE)->where('id', $row->id)->where('session_hash', $row->session_hash)->delete() === 0) {
+                if (in_array($row->session_hash, $keep, true) || self::retire($row) === 0) {
                     continue;
                 }
                 self::end($row);
@@ -360,6 +362,17 @@ final class SignedInDevices
     public static function live(int|string $userId): array
     {
         return DB::table(self::TABLE)->where('user_id', $userId)->where('last_seen_at', '>', self::staleBefore())->orderByDesc('last_seen_at')->orderByDesc('id')->limit(50)->get()->all();
+    }
+
+    /**
+     * A signed-out session's row, retired while it still holds that session: its person, session id, device and network cleared, only its HMAC kept,
+     * last seen now, so it is pruned once that session would have expired anyway. Every read is by person, so it is never listed, touched or moved, and
+     * the unique HMAC refuses that session a new row (track() then finds none of the person's: signed out). Zero when the row is gone or moved meanwhile.
+     */
+    private static function retire(object $row): int
+    {
+        return DB::table(self::TABLE)->where('id', $row->id)->where('user_id', $row->user_id)->where('session_hash', $row->session_hash)
+            ->update(['user_id' => null, 'session_id' => null, 'browser' => null, 'platform' => null, 'ip_prefix' => null, 'country' => null, 'remembered' => false, 'last_seen_at' => now()]);
     }
 
     /** @return array<string, mixed> a new row: the session id encrypted and its HMAC, the browser and platform alone, the IP's prefix alone */

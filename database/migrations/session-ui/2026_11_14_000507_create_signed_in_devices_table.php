@@ -16,9 +16,10 @@ return new class extends Migration
         }
         Schema::create('signed_in_devices', function (Blueprint $t): void {
             $t->id();
-            $t->unsignedBigInteger('user_id');
+            // Null once signed out: the row is retired, keeping only its HMAC until that session would have expired (SignedInDevices::retire).
+            $t->unsignedBigInteger('user_id')->nullable();
             $t->char('session_hash', 64)->unique();
-            $t->text('session_id');
+            $t->text('session_id')->nullable();
             $t->string('browser', 40)->nullable();
             $t->string('platform', 40)->nullable();
             $t->string('ip_prefix', 45)->nullable();

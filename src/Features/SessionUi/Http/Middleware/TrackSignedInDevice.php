@@ -111,7 +111,7 @@ final class TrackSignedInDevice
     /**
      * Writes the row of a signed-in session that has none, and names it in the session. Remembered: as the sign-in said (`pending`), else (a legacy
      * session: from before 0.23, or backfilled) when the request carries the recaller cookie. Null when no row of this user holds the session; a legacy
-     * session of a person who has signed a device out is never given a new one.
+     * session of a person whose other sessions were all ended is never given a new one.
      */
     private function track(Request $request, Session $session, SessionGuard $guard, int|string $userId, mixed $device): ?int
     {

@@ -8,9 +8,9 @@ Each signed-in session has one row in `signed_in_devices`, an infrastructure tab
 
 | Column | Holds |
 | --- | --- |
-| `user_id` | The person. The foreign key cascades, so the rows go with the account. |
+| `user_id` | The person. The foreign key cascades, so the rows go with the account. Null once the device is signed out (the row is retired). |
 | `session_hash` | The HMAC-SHA256 of the session id with the app key. Unique; never sent to the page. |
-| `session_id` | The session id, encrypted with the app key. It is decrypted only to destroy that session. |
+| `session_id` | The session id, encrypted with the app key. It is decrypted only to destroy that session. Null once retired. |
 | `browser`, `platform` | Parsed from the user agent ("Chrome", "macOS"). The user agent itself is not stored. |
 | `ip_prefix` | The IPv4 /24 or IPv6 /48. The full address is not stored. |
 | `country` | A two-letter code, only from Cloudflare's `CF-IPCountry` and only when `kit.devices.country_header` names it. |
@@ -30,7 +30,7 @@ A guest's request reads nothing.
 
 ## Signing a device out
 
-`DELETE /me/security/devices/{id}` asks for the password, like the page's other actions, and is throttled to 10 a minute. The row is deleted first, so even with the session store down, that device is signed out at its next touch. Then:
+`DELETE /me/security/devices/{id}` asks for the password, like the page's other actions, and is throttled to 10 a minute. The row is retired first, so even with the session store down, that device is signed out at its next touch. A retired row keeps only the session id's HMAC (no person, session id, device or network) until that session would have expired. Its unique HMAC refuses the session a new row, so even a session from before 0.23 can't come back if its revocation mark is lost. Then:
 
 - its session id is marked revoked in the cache store, so its next request is signed out;
 - its session is destroyed through the configured handler (a cookie session can't be reached, so it is skipped);
@@ -70,7 +70,7 @@ Schedule::command('model:prune', ['--model' => [SignedInDevice::class]])->daily(
 
 - Run `php artisan migrate`.
 - On the database session driver, run `php artisan kit:devices:backfill` once. It adds a row for each signed-in session in the `sessions` table, and a second run adds nothing. Other drivers can't list a person's sessions; each of their devices gets its row on its next request.
-- A session from before the upgrade gets its row only until one of the person's devices is signed out (one device, every other one, a password change or an account deletion). From then on it keeps a row that still holds it (a backfilled one) and is otherwise signed out, because its own row may have been the one deleted. The mark is kept in `user_state`, not the cache store. Such a session that has made no request since the upgrade signs in again.
+- A session from before the upgrade gets its row on its next request, until every other session of the person is ended ("Sign out other sessions", a password change or an account deletion). Those can't reach a session that has no row yet, so from then on such a session keeps only a row that still holds it (a backfilled one) and is otherwise signed out on its next request. The mark is kept in `user_state`, not the cache store.
 - Take the new Security page for the per-device Sign out: `php artisan kit:scaffold workspace-ui --diff --only=resources/js/pages/Workspace/Account/Security`. Until then the old page lists every device on every driver, and its "Sign out other sessions" works everywhere.
 
 ## Checks

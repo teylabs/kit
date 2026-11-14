@@ -403,7 +403,8 @@ try {
     };
     $signedIn = fn (Browser $browser): bool => $send($browser, 'GET', '/me/profile')[0] === 200;
     $rows = fn (DeviceUser $user) => DB::table('signed_in_devices')->where('user_id', $user->id)->orderBy('id')->get();
-    $rowOf = fn (string $sessionId): ?object => DB::table('signed_in_devices')->whereIn('session_hash', SignedInDevices::hashes($sessionId))->first();
+    // A device's row while it is signed in; a signed-out one's is retired (no person), so it is null.
+    $rowOf = fn (string $sessionId): ?object => DB::table('signed_in_devices')->whereIn('session_hash', SignedInDevices::hashes($sessionId))->whereNotNull('user_id')->first();
     $signOut = fn (Browser $from, int $device, ?string $password = PASSWORD): array => $send($from, 'DELETE', '/me/security/devices/'.$device, $password === null ? [] : ['password' => $password]);
     // Whether the store still holds a session, per driver.
     $stored = function (string $driver, string $id) use ($base, $app): bool {
@@ -457,7 +458,7 @@ try {
     $config->set('kit.devices.country_header', null);
     check($countries === ['NL' => 'NL', 'XX' => null, 'nl' => null, 'NLD' => null], 'with CF-IPCountry named, only a two-letter code is stored (not XX, lower case or three letters)'.json_encode($countries));
     check(SignedInDevices::ipPrefix('::ffff:192.0.2.130') === '192.0.2.0/24' && SignedInDevices::ipPrefix('not an ip') === null && SignedInDevices::ipPrefix(null) === null, 'an IPv4-mapped IPv6 address is kept as its IPv4 /24; anything else is no prefix');
-    foreach ([['country_header' => 'X-Country'], ['touch_minutes' => 0], ['touch_minutes' => '5'], ['sweep' => true]] as $bad) {
+    foreach ([['country_header' => 'X-Country'], ['touch_minutes' => 0], ['touch_minutes' => '5'], ['sweep' => true], ['store' => ''], ['store' => 5]] as $bad) {
         $config->set('kit.devices', $bad + ['touch_minutes' => 5, 'country_header' => null, 'store' => null]);
         $refused = false;
         try {
@@ -470,7 +471,7 @@ try {
     // An empty or unknown store: the boot stops in local and testing. Anywhere else it is reported, and the default store holds the marks (never no check).
     foreach (['local', 'testing', 'production'] as $env) {
         $app->instance('env', $env);
-        foreach (['', 'nope'] as $store) {
+        foreach (['', ' ', 'nope'] as $store) {
             $config->set('kit.devices', ['touch_minutes' => 5, 'country_header' => null, 'store' => $store]);
             $refused = false;
             try {
@@ -701,8 +702,8 @@ try {
     $signOut($a, (int) $rowOf($bId)->id);
     // B's request that was in flight finishes, and writes its session back.
     file_put_contents($base.'/storage/framework/sessions/'.$bId, $inFlight);
-    $count = DB::table('signed_in_devices')->count();
-    check(! $signedIn($b) && DB::table('signed_in_devices')->count() === $count && $rowOf($bId) === null, 'B\'s session written back after the destroy is signed out on its next request, and given no new row');
+    $count = DB::table('signed_in_devices')->whereNotNull('user_id')->count();
+    check(! $signedIn($b) && DB::table('signed_in_devices')->whereNotNull('user_id')->count() === $count && $rowOf($bId) === null, 'B\'s session written back after the destroy is signed out on its next request, and given no new row');
     // The same with its marker gone (the cache flushed): still signed in before N minutes, out at the touch, and never a new row.
     $c = new Browser(WINDOWS, '198.51.100.51');
     $cId = $signIn($c, $race);
@@ -714,7 +715,22 @@ try {
     Carbon::setTestNow($cAt->copy()->addSeconds(5 * 60 - 1));
     check($signedIn($c) && $rowOf($cId) === null, 'with its marker gone, a written-back session is still signed in before N minutes');
     Carbon::setTestNow($cAt->copy()->addSeconds(5 * 60));
-    check(! $signedIn($c) && $rowOf($cId) === null && DB::table('signed_in_devices')->count() === $count, 'and signed out at its touch, never given a new row');
+    check(! $signedIn($c) && $rowOf($cId) === null && DB::table('signed_in_devices')->whereNotNull('user_id')->count() === $count, 'and signed out at its touch, never given a new row');
+    // A session from before 0.23 (no kit.device), backfilled, signed out before its first request since: written back, its marker gone, it is still
+    // signed out on its next request, because its retired row's HMAC refuses it a new one.
+    $legacyId = bin2hex(random_bytes(20));
+    $guardName = $app['auth']->guard('web')->getName();
+    file_put_contents($base.'/storage/framework/sessions/'.$legacyId, $legacyPayload = serialize(['_token' => str_repeat('l', 40), $guardName => $race->id]));
+    SignedInDevices::adopt($legacyId, $race->id, WINDOWS, '192.0.2.70', Carbon::now());
+    $signOut($a, (int) $rowOf($legacyId)->id);
+    file_put_contents($base.'/storage/framework/sessions/'.$legacyId, $legacyPayload);
+    $app['cache']->store('array')->forget('kit.devices.revoked.'.SignedInDevices::hash($legacyId));
+    $legacy = new Browser(WINDOWS, '192.0.2.70');
+    $legacy->cookies = ['s' => $legacyId];
+    $count = DB::table('signed_in_devices')->whereNotNull('user_id')->count();
+    check(! $signedIn($legacy) && $rowOf($legacyId) === null && DB::table('signed_in_devices')->whereNotNull('user_id')->count() === $count, 'a signed-out session from before 0.23, written back with its marker gone, is signed out on its next request and given no new row');
+    $retired = DB::table('signed_in_devices')->where('session_hash', SignedInDevices::hash($legacyId))->first();
+    check($retired !== null && $retired->user_id === null && $retired->session_id === null && $retired->browser === null && $retired->platform === null && $retired->ip_prefix === null && $retired->country === null && Carbon::parse($retired->last_seen_at)->greaterThan(SignedInDevices::staleBefore()), 'its retired row keeps only the HMAC: no person, session id, device or network, and is pruned once that session would have expired');
     unset($bAt);
 
     // ── 8. Concurrency ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
