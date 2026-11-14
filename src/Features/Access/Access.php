@@ -66,13 +66,14 @@ final class Access
      * Reads what authorize() looks up in each of several workspaces in one batch: the person's memberships, the capability overrides, the plan rows and the person's
      * permission sets, a fixed number of queries for any number of workspaces, skipping what the request has already read. For a request that checks abilities in
      * many workspaces (the shell's switcher). It decides nothing: authorize() still runs inside each workspace and refuses as before, answering from these reads.
-     * Outside a request's memo nothing is read, and a table whose other workspaces' rows RLS hides is left to be read in each workspace.
+     * Outside a request's memo, or without the access feature, nothing is read, and a table whose other workspaces' rows RLS hides is left to be read in each workspace.
      *
      * @param  list<Workspace>  $workspaces
      */
     public function prime(Member&Model $user, array $workspaces): void
     {
-        if ($workspaces === []) {
+        // Without the access feature its memos never begin, so there is nothing to seed.
+        if ($workspaces === [] || ! app(Registry::class)->adopts('access')) {
             return;
         }
         $memberships = ConciergeModels::membership();

@@ -70,9 +70,13 @@ final class Permissions
      */
     public function prime(Member&Model $user, array $workspaces): void
     {
+        if ($this->memo === null) {
+            return;
+        }
         $registrar = app(PermissionRegistrar::class);
         $tables = (array) config('permission.table_names');
-        if ($this->memo === null || ! $registrar->teams || ! Rls::shared($tables['model_has_roles']) || ! Rls::shared($tables['model_has_permissions'])) {
+        // Every joined table with a workspace column must be readable across workspaces: a hidden role or grant row would seed a set too small.
+        if (! $registrar->teams || ! Rls::shared($tables['roles']) || ! Rls::shared($tables['model_has_roles']) || ! Rls::shared($tables['model_has_permissions'])) {
             return;
         }
         $ids = array_values(array_filter(array_map(fn (Workspace $workspace): int => (int) $workspace->getKey(), $workspaces), fn (int $id): bool => ! isset($this->memo['set:'.$user->getKey().':'.$id])));
