@@ -1055,3 +1055,95 @@ export interface MiddleTruncateProps {
     kind?: 'file' | 'path' | 'url' | 'auto';
     minTail?: number;
 }
+
+/** Running text: `text` is plain text with its line breaks kept (never markup); the default slot takes the app's own markup, styled from the kit's tokens. `size` sm (default), base or lg. */
+export interface TextProseProps {
+    text?: string | null;
+    size?: 'sm' | 'base' | 'lg';
+}
+
+/** Raw text kept as written in a <pre> (`content`, or the slot), bounded by `maxHeight` and scrolling inside as a focusable region named by `title`. `wrap` (default true) wraps long lines. `card` frames it in a Card with `title` as its heading (at `level`) and Copy and Wrap; `toolbar` shows those without the card. */
+export interface TextCodeProps {
+    content?: string | number | null;
+    title?: string;
+    card?: boolean;
+    toolbar?: boolean;
+    maxHeight?: 'sm' | 'md' | 'lg' | 'none';
+    wrap?: boolean;
+    level?: 1 | 2 | 3 | 4 | 5 | 6;
+}
+
+/** A plain <table> in the slot, styled for reading and scrolling sideways in its own focusable box, a region named by `label`. */
+export interface TextTableProps {
+    label?: string;
+    size?: 'sm' | 'base' | 'lg';
+}
+
+/** Plain text cut to `limit` characters (graphemes, default 360) with a Show more button (aria-expanded); `v-model:expanded`; `collapsible` false shows it whole. */
+export interface TextLongProps {
+    text: string;
+    limit?: number;
+    collapsible?: boolean;
+    expanded?: boolean;
+    moreLabel?: string;
+    lessLabel?: string;
+}
+
+/** Text cut at its end: one line (`lines` 1, default) or clamped to 2 to 6 lines, bounded by `maxWidth` (a CSS length). The whole text stays in the DOM; once cut, it is the title. */
+export interface TextTruncateProps {
+    text?: string | null;
+    lines?: 1 | 2 | 3 | 4 | 5 | 6;
+    maxWidth?: string;
+}
+
+/** The copy primitive: inline text (the slot, else `value`) that copies `value` when pressed, `tooltip` its title; `button` is a labelled button (CopyButton), `icon` a small icon button named by `label`. Success only once the write resolves. */
+export interface TextCopyProps {
+    value: string | number;
+    tooltip?: string;
+    button?: boolean;
+    label?: string;
+    copiedLabel?: string;
+    icon?: boolean;
+    variant?: 'secondary' | 'ghost';
+}
+
+/** A labelled read-only field (a textarea with `multiline`) with a Copy button named "Copy {label}"; a refused copy selects the field to copy by hand. */
+export interface CopyFieldProps {
+    label: string;
+    value: string;
+    description?: string;
+    multiline?: boolean;
+    id?: string;
+}
+
+/** A plain number in the locale's grouping, tabular figures; `decimals` fixes the places, `notation` compact writes 1.2K; `prefix` and `suffix` (or slots) sit outside it; `negative` parentheses is the accounting form, read as "negative". Not a number: nothing. */
+export interface TextNumericProps {
+    value: number | string | null | undefined;
+    decimals?: number;
+    notation?: 'standard' | 'compact';
+    locale?: string;
+    prefix?: string;
+    suffix?: string;
+    negative?: 'minus' | 'parentheses';
+}
+
+/** A postal address in an <address> element, from `address` (as AddressText) or from `lines` already written (an array, or a string split on line breaks, else commas), or the slot. `size` sm, base or lg. */
+export interface TextAddressProps extends Partial<AddressTextProps> {
+    lines?: readonly string[] | string | null;
+    size?: 'sm' | 'base' | 'lg';
+}
+
+/** A list of Badges, each a label or a label with its value ("Plan: Pro") and its own `tone`; `label` names the list. */
+export interface TextChipsProps {
+    items: readonly import('./Text/text').TextChip[] | null | undefined;
+    label?: string;
+    size?: 'sm' | 'md';
+}
+
+/** A list of short labels as neutral Badges (`tone` for all of them); `label` names the list. */
+export interface TextTagsProps {
+    items: readonly string[] | null | undefined;
+    label?: string;
+    tone?: 'neutral' | 'info' | 'success' | 'warning' | 'danger';
+    size?: 'sm' | 'md';
+}

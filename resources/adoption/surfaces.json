@@ -1840,11 +1840,13 @@
         "imports": [
           "@/components/Kit:AddressFieldset",
           "@/components/Kit:AddressText",
+          "@/components/Kit:TextAddress",
           "@/components/Kit:RegionSelect"
         ],
         "components": [
           "AddressFieldset",
           "AddressText",
+          "TextAddress",
           "RegionSelect"
         ]
       },
@@ -2280,7 +2282,9 @@
         "imports": [
           "@/components/Kit:ScrollList",
           "@/components/Kit:DescriptionList",
-          "@/components/Kit:CopyButton"
+          "@/components/Kit:CopyButton",
+          "@/components/Kit:TextCopy",
+          "@/components/Kit:CopyField"
         ]
       },
       "handRolled": [
@@ -3551,6 +3555,90 @@
     {
       "ref": "@/components/Kit:truncationKind",
       "reason": "Helper behind MiddleTruncate."
+    },
+    {
+      "ref": "@/components/Kit:TextProse",
+      "reason": "Text family display primitive: running text, rendered inside a host page."
+    },
+    {
+      "ref": "@/components/Kit:TextCode",
+      "reason": "Text family display primitive: raw code or output in a bounded, scrolling block, rendered inside a host page."
+    },
+    {
+      "ref": "@/components/Kit:TextTable",
+      "reason": "Text family display primitive: a plain table styled for reading, rendered inside a host page."
+    },
+    {
+      "ref": "@/components/Kit:TextLong",
+      "reason": "Text family display primitive: long text with Show more, rendered inside a host page."
+    },
+    {
+      "ref": "@/components/Kit:TextTruncate",
+      "reason": "Text family display primitive: text cut at its end or clamped to lines, rendered inside a host page or a kit component."
+    },
+    {
+      "ref": "@/components/Kit:TextNumeric",
+      "reason": "Text family display primitive: a plain number in the locale's format, rendered inside a host page."
+    },
+    {
+      "ref": "@/components/Kit:TextChips",
+      "reason": "Text family display primitive: read-only chips over Badge, rendered inside a host page."
+    },
+    {
+      "ref": "@/components/Kit:TextTags",
+      "reason": "Text family display primitive: read-only tags over Badge, rendered inside a host page."
+    },
+    {
+      "ref": "@/components/Kit:copyText",
+      "reason": "Helper behind the copy family (TextCopy, CopyField, CopyButton)."
+    },
+    {
+      "ref": "@/components/Kit:useCopy",
+      "reason": "Helper behind the copy family (TextCopy, CopyField, CopyButton)."
+    },
+    {
+      "ref": "@/components/Kit:badgeItems",
+      "reason": "Helper behind TextChips and TextTags."
+    },
+    {
+      "ref": "@/components/Kit:formatNumeric",
+      "reason": "Helper behind TextNumeric."
+    },
+    {
+      "ref": "@/components/Kit:isNumeric",
+      "reason": "Helper behind TextNumeric."
+    },
+    {
+      "ref": "@/components/Kit:longTextCut",
+      "reason": "Helper behind TextLong."
+    },
+    {
+      "ref": "@/components/Kit:textLines",
+      "reason": "Helper behind TextAddress."
+    },
+    {
+      "ref": "@/components/Kit:ProseCode",
+      "reason": "Deprecated alias of TextCode, kept for one release."
+    },
+    {
+      "ref": "@/components/Kit:ProseTable",
+      "reason": "Deprecated alias of TextTable, kept for one release."
+    },
+    {
+      "ref": "@/components/Kit:LongText",
+      "reason": "Deprecated alias of TextLong, kept for one release."
+    },
+    {
+      "ref": "@/components/Kit:ClickToCopy",
+      "reason": "Deprecated alias of TextCopy, kept for one release."
+    },
+    {
+      "ref": "@/components/Kit:RawOutputCard",
+      "reason": "Deprecated alias of TextCode with card, kept for one release."
+    },
+    {
+      "ref": "@/components/Kit:TextDollars",
+      "reason": "Deprecated: a symbol-prefixed two-place number, kept for one release; use Amount."
     },
     {
       "ref": "@/components/Kit:RowSaveStatus",
