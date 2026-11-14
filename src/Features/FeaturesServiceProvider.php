@@ -7,7 +7,6 @@ use Illuminate\Database\Events\MigrationsEnded;
 use Illuminate\Database\Events\NoPendingMigrations;
 use Illuminate\Foundation\Events\DiagnosingHealth;
 use Illuminate\Mail\Events\MessageSending;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\View\Compilers\BladeCompiler;
@@ -36,6 +35,7 @@ use Tey\Kit\Features\SessionUi\FirstRunDemoCommand;
 use Tey\Kit\Features\SessionUi\SessionUiProvider;
 use Tey\Kit\Features\Settings\SettingsProvider;
 use Tey\Kit\Features\Shell\ShellProvider;
+use Tey\Kit\Features\Workspaces\WorkspaceColumns;
 use Tey\Kit\Features\Workspaces\WorkspacesProvider;
 use Tey\Kit\Features\WorkspaceUi\WorkspaceUiProvider;
 use Tey\Kit\Fonts;
@@ -213,6 +213,8 @@ final class FeaturesServiceProvider extends ServiceProvider
         }));
         // One per request: what the shell, the layout and the page all look up is read once, and any Eloquent write empties it.
         $this->app->scoped(RequestMemo::class);
+        // One per request too: the workspace column answers it has read (the shared cache holds each column's for a day).
+        $this->app->scoped(WorkspaceColumns::class);
         Event::listen(['eloquent.saved: *', 'eloquent.deleted: *'], static function (): void {
             if (app()->resolved(RequestMemo::class)) {
                 app(RequestMemo::class)->flush();
@@ -248,11 +250,10 @@ final class FeaturesServiceProvider extends ServiceProvider
         $brandMail = config('kit.brand_mail');
         $branded = $brandMail === true || ($brandMail === null && in_array('session-ui', $features, true) && Brand::placeholders() === []);
         $placeholderCheck = $brandMail === true;
-        // The workspace column checks are cached across requests (IsKitWorkspace); any migration, up or down, may change them, so it forgets them (and the request's copy).
-        // A braced closure, never an arrow function: forget() answers false when nothing was cached, and a listener that returns false stops
-        // the event, so CatalogSync (below) would never run after a migrate on a cold cache.
+        // The workspace column checks are cached across requests (WorkspaceColumns); any migration, up or down, may change them, so it forgets them (and the request's).
+        // A braced closure, never an arrow function: a listener that returns false stops the event, so CatalogSync (below) would never run after a migrate.
         Event::listen(MigrationsEnded::class, function (): void {
-            rescue(fn () => Cache::memo()->forget('kit-workspace-columns'), report: false);
+            rescue(fn () => app(WorkspaceColumns::class)->forget(), report: false);
         });
         if (in_array('access', $features, true)) {
             Event::listen([MigrationsEnded::class, NoPendingMigrations::class], CatalogSync::class);

@@ -44,9 +44,9 @@ final class AccessProvider extends ServiceProvider implements Contributes
         Gate::policy(Workspace::class, WorkspacePolicy::class);
         $this->commands([SyncPermissionsCommand::class, CapabilityCommand::class]);
         // A role or grant written mid-request empties the request's permission sets, including those the shell's batch read for workspaces not asked yet:
-        // spatie's pivot writes fire no model event, so the statement itself is the signal. Never answered from a set read before the change.
+        // spatie's pivot writes fire no model event, so the statement itself is the signal, read with its connection's table prefix. Never answered from a set read before the change.
         Event::listen(QueryExecuted::class, static function (QueryExecuted $query): void {
-            if (app()->resolved(Permissions::class) && Permissions::writes($query->sql)) {
+            if (app()->resolved(Permissions::class) && Permissions::writes($query->sql, $query->connection->getTablePrefix())) {
                 app(Permissions::class)->forget();
             }
         });

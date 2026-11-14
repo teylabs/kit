@@ -527,6 +527,19 @@ try {
     [$status, $page] = $send('/@switch-home');
     switcherCheck($status === 200 && $choices($page) === $expected, 'the next request reads the restored roles ('.json_encode($choices($page)).')');
 
+    // (5) The same switches with spatie's tables configured schema-qualified (kit_switcher_rls.roles and so on), as spatie then writes them
+    // ("kit_switcher_rls"."model_has_permissions"): Member, asked first, is given the grant and answers at once, not from the set read before.
+    $tables = (array) $config->get('permission.table_names');
+    $config->set('permission.table_names', array_map(fn (string $table): string => 'kit_switcher_rls.'.$table, $tables));
+    [$status, $body] = $send('/@switch-home/switcher-switch');
+    $config->set('permission.table_names', $tables);
+    $steps = $body['steps'] ?? [];
+    switcherCheck($status === 200 && ($steps['member'] ?? null) === [false, false, true] && ($steps['member after the grant'] ?? null) === [true, true, true] && ($steps['admin after the role is removed'] ?? null) === [false, false, true], 'with schema-qualified table names, a grant and a role removed mid-request are answered at once ('.json_encode($steps).')');
+    $seed(function () use ($sam, $admin_, $member): void {
+        app(Concierge::class)->context()->run($admin_, fn () => $sam->assignRole('admin'), [$sam]);
+        app(Concierge::class)->context()->run($member, fn () => $sam->revokePermissionTo('workspace.members.manage'), [$sam]);
+    });
+
     echo "Batched switcher under PostgreSQL RLS: protected and excepted tables, restoration after a throw, mid-request switches; no pooler, Octane or browser.\n";
     $code = 0;
 } catch (Throwable $error) {

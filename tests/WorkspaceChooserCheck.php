@@ -393,6 +393,103 @@ try {
     httpCheck($status === 200 && $batched === ['Grant Mixed' => '/@grant-mixed/audit', 'Grant Global' => '/@grant-global/audit', 'Grant Direct' => '/@grant-direct/billing', 'Grant Scoped' => '/@grant-scoped/reports', 'Grant Role' => '/@grant-role/files'], 'a global role, a direct permission, a workspace\'s own role and a role grant each open their workspace\'s first page; another workspace\'s role does not ('.json_encode($batched).')');
     httpCheck($batched === $unbatched, 'the batched switcher matches the shell read without the batch, workspace by workspace ('.json_encode($unbatched).')');
     httpCheck(array_column($page['props']['shell']['navigation'], 'label') === ['Audit', 'Billing', 'Reports', 'Files', 'Dashboard', 'Settings'], 'Grant Mixed\'s own navigation holds every kind at once ('.json_encode(array_column($page['props']['shell']['navigation'], 'label')).')');
+
+    // A role or grant written mid-request empties the request's permission sets, under whatever names the tables carry: spatie's configured names (also
+    // schema-qualified), with the connection's table prefix, as each grammar writes them. (a) Every write form each grammar compiles for each of spatie's
+    // tables, as the listener receives it (the statement and its connection's prefix), is a write; a read of them, or a write of a table that only shares a
+    // part of the name, is not.
+    $tables = (array) $config->get('permission.table_names');
+    $statements = function (string $driver, string $prefix, Closure $run) use ($config): ?array {
+        $config->set('database.connections.grammar', ['driver' => $driver, 'database' => $driver === 'sqlite' ? ':memory:' : 'kit', 'prefix' => $prefix]);
+        DB::purge('grammar');
+        $seen = [];
+        $db = DB::connection('grammar');
+        $db->listen(function ($query) use (&$seen): void {
+            $seen[] = [$query->sql, $query->connection->getTablePrefix()];
+        });
+        try {
+            $db->pretend(fn () => $run($db));
+        } catch (RuntimeException $unsupported) {
+            // A form the grammar does not compile (SQL Server's insert or ignore) is never sent.
+            return str_contains($unsupported->getMessage(), 'does not support') ? null : throw $unsupported;
+        }
+
+        return $seen;
+    };
+    // No bindings (raw values, raw wheres): pretending substitutes them into its log through the driver's PDO, which only SQLite has here.
+    $writes = [
+        'insert' => fn ($db, string $table) => $db->table($table)->insert(['name' => $db->raw("'x'")]),
+        'insert or ignore' => fn ($db, string $table) => $db->table($table)->insertOrIgnore(['name' => $db->raw("'x'")]),
+        'upsert' => fn ($db, string $table) => $db->table($table)->upsert(['name' => $db->raw("'x'")], ['name']),
+        'update' => fn ($db, string $table) => $db->table($table)->whereRaw('1 = 1')->update(['name' => $db->raw("'y'")]),
+        'update with a join' => fn ($db, string $table) => $db->table($table)->join('users', 'users.id', '=', $table.'.id')->whereRaw('1 = 1')->update(['name' => $db->raw("'y'")]),
+        'delete' => fn ($db, string $table) => $db->table($table)->whereRaw('1 = 1')->delete(),
+        'delete with a join and an alias' => fn ($db, string $table) => $db->table($table.' as t')->join('users', 'users.id', '=', 't.id')->whereRaw('1 = 1')->delete(),
+        'truncate' => fn ($db, string $table) => $db->table($table)->truncate(),
+    ];
+    $reads = [
+        'select' => fn ($db, string $table) => $db->table($table)->whereRaw('1 = 1')->get(),
+        'select for update' => fn ($db, string $table) => $db->table($table)->whereRaw('1 = 1')->lockForUpdate()->get(),
+        'insert into a table named like one' => fn ($db, string $table) => $db->table(str_replace('roles', 'roles_archive', str_replace('permissions', 'permissions_log', $table)))->insert(['name' => $db->raw("'x'")]),
+        'update of another table' => fn ($db, string $table) => $db->table('users')->whereRaw('1 = 1')->update(['name' => $db->raw("'y'")]),
+    ];
+    $missed = [];
+    $wrong = [];
+    $forms = 0;
+    foreach (['sqlite', 'mysql', 'pgsql', 'sqlsrv'] as $driver) {
+        foreach (['', 'kit_'] as $prefix) {
+            foreach (['unqualified' => '', 'schema-qualified' => 'auth.'] as $qualified => $schema) {
+                $config->set('permission.table_names', array_map(fn (string $table): string => $schema.$table, $tables));
+                foreach ($tables as $table) {
+                    foreach ($writes as $form => $write) {
+                        $seen = $statements($driver, $prefix, fn ($db) => $write($db, $schema.$table));
+                        $forms += $seen === null ? 0 : 1;
+                        if ($seen === [] || $seen !== null && ! collect($seen)->contains(fn (array $statement): bool => Tey\Kit\Features\Access\Permissions::writes(...$statement))) {
+                            $missed[] = "{$driver} '{$prefix}' {$qualified} {$table} {$form}: ".json_encode(array_column($seen, 0));
+                        }
+                    }
+                    foreach ($reads as $form => $read) {
+                        foreach ($statements($driver, $prefix, fn ($db) => $read($db, $schema.$table)) ?? [] as $statement) {
+                            if (Tey\Kit\Features\Access\Permissions::writes(...$statement)) {
+                                $wrong[] = "{$driver} '{$prefix}' {$qualified} {$table} {$form}: {$statement[0]}";
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    $config->set('permission.table_names', $tables);
+    httpCheck($missed === [], $forms.' writes of spatie\'s five tables (insert, insert or ignore, upsert, update, update with a join, delete, delete with a join and an alias, truncate) on SQLite, MySQL, PostgreSQL and SQL Server grammars, with and without a connection prefix, unqualified and schema-qualified, each empty the permission sets ('.json_encode($missed).')');
+    httpCheck($wrong === [], 'a read of them (also for update), and a write of another table or one that only shares part of a name (roles_archive, permissions_log), empties nothing ('.json_encode($wrong).')');
+
+    // (b) Through the listener, on a real connection with a table prefix: a write to kit_model_has_roles there empties the request's sets, so the next
+    // check reads its workspace's set again; a read of it does not.
+    $permissions = app(Tey\Kit\Features\Access\Permissions::class);
+    $config->set('database.connections.prefixed', ['driver' => 'sqlite', 'database' => ':memory:', 'prefix' => 'kit_', 'foreign_key_constraints' => false]);
+    Schema::connection('prefixed')->create($tables['model_has_roles'], function (Blueprint $table): void {
+        $table->unsignedBigInteger('role_id');
+        $table->string('model_type');
+        $table->unsignedBigInteger('model_id');
+        $table->unsignedBigInteger('workspace_id');
+    });
+    $reads = 0;
+    DB::listen(function ($query) use (&$reads): void {
+        $reads += $query->connectionName === 'testing' ? 1 : 0;
+    });
+    $permissions->remember();
+    $check = function () use ($permissions, $gil, $global, &$reads): array {
+        $reads = 0;
+
+        return [$permissions->granted($gil, 'workspace.switch.audit', $global), $reads];
+    };
+    $first = $check();
+    $memoized = $check();
+    DB::connection('prefixed')->table($tables['model_has_roles'])->get();
+    $afterRead = $check();
+    DB::connection('prefixed')->table($tables['model_has_roles'])->insert(['role_id' => $auditor->id, 'model_type' => $gil->getMorphClass(), 'model_id' => $gil->id, 'workspace_id' => $global->id]);
+    $afterWrite = $check();
+    httpCheck($first[0] && $first[1] > 0 && $memoized === [true, 0] && $afterRead === [true, 0] && $afterWrite[0] && $afterWrite[1] > 0, 'a write to kit_model_has_roles on a connection prefixed kit_ empties the sets: the next check reads afresh; a read of it keeps them ('.json_encode([$first, $memoized, $afterRead, $afterWrite]).')');
     echo "Workspace list checks on SQLite memory with real Concierge, Fortify and Inertia. No browser.\n";
 } catch (Throwable $error) {
     fwrite(STDERR, 'FAIL '.$error->getMessage()."\n".$error->getTraceAsString()."\n");

@@ -4,12 +4,11 @@ namespace Tey\Kit\Features\Workspaces\Concerns;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Schema;
 use Tey\Concierge\Contracts\Member;
 use Tey\Concierge\Enums\MembershipStatus;
 use Tey\Concierge\Support\ConciergeModels;
 use Tey\Kit\Features\Workspaces\Slugs;
+use Tey\Kit\Features\Workspaces\WorkspaceColumns;
 
 /**
  * The kit's workspace behaviour: slugs, the member-of scope and Concierge's naming and admission. The kit's own model uses it,
@@ -17,11 +16,8 @@ use Tey\Kit\Features\Workspaces\Slugs;
  */
 trait IsKitWorkspace
 {
-    /** The cache key of the workspace table columns checked, found or not; `migrate` forgets it. */
-    public const string KIT_COLUMNS_KEY = 'kit-workspace-columns';
-
-    /** How long the column checks are cached, in seconds: a day. */
-    public const int KIT_COLUMNS_TTL = 86400;
+    /** The cache key `migrate` forgets to forget the workspace column checks (WorkspaceColumns::KEY). */
+    public const string KIT_COLUMNS_KEY = WorkspaceColumns::KEY;
 
     public static function bootIsKitWorkspace(): void
     {
@@ -76,30 +72,10 @@ trait IsKitWorkspace
         return self::kitHasColumn($this->getConnectionName(), $this->getTable(), 'deleting_at');
     }
 
-    /**
-     * Whether a column is there, asked of the database once a day rather than once per request (FPM drops statics after each one). The answer, found or not, is
-     * cached for a day (one key for every table; a key with a TTL can be evicted under a volatile-* policy) and kept in memory for the request (Cache::memo()).
-     * A `migrate` forgets it, so a column a migration adds is seen at once; one added any other way is seen within the day. A table that is not there yet
-     * caches nothing: it is asked again, so the table's columns are seen as soon as it is created.
-     */
+    /** Whether a column is there, asked of the database once a day rather than once per request (WorkspaceColumns: the request's answers, then the shared cache). */
     private static function kitHasColumn(?string $connection, string $table, string $column): bool
     {
-        $name = ($connection ?? '').'|'.$table.'|'.$column;
-        try {
-            $known = (array) Cache::memo()->get(self::KIT_COLUMNS_KEY, []);
-            if (array_key_exists($name, $known)) {
-                return (bool) $known[$name];
-            }
-            $schema = Schema::connection($connection);
-            $known[$name] = $schema->hasColumn($table, $column);
-            if ($known[$name] || $schema->hasTable($table)) {
-                Cache::memo()->put(self::KIT_COLUMNS_KEY, $known, self::KIT_COLUMNS_TTL);
-            }
-
-            return $known[$name];
-        } catch (\Throwable) {
-            return false;
-        }
+        return app(WorkspaceColumns::class)->has($connection, $table, $column);
     }
 
     public function conciergeName(): string
