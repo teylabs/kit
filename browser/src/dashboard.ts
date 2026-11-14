@@ -7,8 +7,9 @@ import WidgetGrid from '@/pages/Workspace/Dashboard/Partials/WidgetGrid.vue';
 // The dashboard's widget grid with every kit widget on (dashboard.html, built with the auth pages by vite.auth.config.js), on the real @inertiajs/vue3, so the
 // People widget's ScrollList reads its list prop as in an app. `?dark` paints the dark tokens; `?setup` adds the You card's personal steps and the "Set up this
 // workspace" card; `?solo` sends the setup card alone; `?wide` sets the wide aside; `&done` (with `?setup`) marks every personal step done; `?sorted` adds an
-// "Ongoing items" card first in main with a Sort by control ("Last touched" by default), whose rows `window.kitOngoing(order)` builds (with `&see-all`, the
-// "Open cases" list card follows it); `window.kitPage` is the live Inertia page, so a check can see which props a visit kept; `?tall` gives Recent activity a `loadingHeight` of 18rem; `?see-all` adds an
+// "Ongoing items" card first in main with a Sort by control ("Last touched" by default), whose rows `window.kitOngoing(order)` builds (`kitOngoing(order, key, title, set)` for
+// another such card; with `&two`, a "Follow-ups" one follows it; with `&see-all`, the "Open cases" list card follows them; each card's Sort by token names it and
+// the widgets the page was drawn with, `set=drawn`); `window.kitPage` is the live Inertia page, so a check can see which props a visit kept; `?tall` gives Recent activity a `loadingHeight` of 18rem; `?see-all` adds an
 // "Open cases" list card first in main, 30 linked rows in a ScrollList with its see-all ("All cases") in the footer and its title linking there too (and, as
 // the server sends it, also a header action the card must not draw twice), and a "Cases this week" stat card last in the aside with its see-all in the header,
 // a count of 42 and `linkTitle: false` (a plain title). Invented people only.
@@ -25,10 +26,10 @@ const all = [
     ...(query.has('setup') ? [setup] : []),
 ];
 const ongoingRows: Record<string, string[]> = { touched: ['Roof survey', 'Lease renewal', 'Boiler check'], opened: ['Boiler check', 'Roof survey', 'Lease renewal'], due: ['Lease renewal', 'Boiler check', 'Roof survey'] };
-const ongoing = (order: string) => ({
-    ...frame('app.ongoing', 'Ongoing items', 'activity', 'main'), kind: 'task',
+const ongoing = (order: string, key = 'app.ongoing', title = 'Ongoing items', set = 'drawn') => ({
+    ...frame(key, title, 'activity', 'main'), kind: 'task',
     items: ongoingRows[order].map((title, i) => ({ id: `${order}-${i}`, kind: 'activity', headline: { text: title }, occurredAt: '2026-11-06T10:00:00Z', timestamp: null, timestampTitle: null, intent: null, meta: [], count: null, truncated: false, children: [], day: null })),
-    sortBy: { label: 'Sort by', options: [{ key: 'touched', label: 'Last touched' }, { key: 'opened', label: 'Newest' }, { key: 'due', label: 'Due soonest' }], current: order, url: '/@acme/widgets/app.ongoing/sort', method: 'put', reload: ['widgets'] },
+    sortBy: { label: 'Sort by', options: [{ key: 'touched', label: 'Last touched' }, { key: 'opened', label: 'Newest' }, { key: 'due', label: 'Due soonest' }], current: order, url: `/@acme/widgets/${key}/sort`, method: 'put', reload: ['widgets'], token: `widget=${key}&set=${set}` },
 });
 (window as unknown as { kitOngoing: unknown }).kitOngoing = ongoing;
 const seeAll = { label: 'All cases', url: '/@acme/cases', count: null, placement: 'footer' };
@@ -36,7 +37,7 @@ const alias = { label: 'All cases', url: '/@acme/cases', method: 'get', key: 'se
 const cases = { key: 'cases', title: 'Open cases', state: 'ready', data: Array.from({ length: 30 }, (_, i) => ({ ...person(`c${i + 1}`, `Case ${101 + i}`, i % 2 ? 'Waiting on a reply' : 'Open'), url: `/@acme/cases/${101 + i}` })), empty: null, error: null };
 const casesCard = { ...frame('app.cases', 'Open cases', 'people', 'main'), kind: 'task', list: 'cases', seeAll, actions: [alias] };
 const statCard = { ...frame('app.case-stats', 'Cases this week', 'stat', 'aside'), seeAll: { ...seeAll, count: 42, placement: 'header', linkTitle: false }, actions: [alias] };
-const widgets = query.has('solo') ? [setup] : query.has('sorted') ? [ongoing('touched'), ...(query.has('see-all') ? [casesCard] : []), ...all] : query.has('see-all') ? [casesCard, ...all, statCard] : all;
+const widgets = query.has('solo') ? [setup] : query.has('sorted') ? [ongoing('touched'), ...(query.has('two') ? [ongoing('touched', 'app.followups', 'Follow-ups')] : []), ...(query.has('see-all') ? [casesCard] : []), ...all] : query.has('see-all') ? [casesCard, ...all, statCard] : all;
 const people = { key: 'people', title: 'People', state: 'ready', data: [person('1', 'Ada Example', 'Owner'), person('2', 'Ben Sample', 'Member')], empty: null, error: null };
 // `?legacy`: the whole dashboard Page with a `welcome` prop, as an app on the pre-0.15.41 WelcomeCardData still sends it; since 0.17 the Page renders no card for it.
 const welcome = { title: 'Welcome to Acme, Ada.', body: 'Your workspace is ready.', dismiss: { label: 'Dismiss welcome', url: '/me/welcome/1', method: 'delete' }, checklist: [{ id: 'timezone', label: 'Your timezone', hint: 'Confirm your timezone', url: '/welcome/timezone', state: 'done' }, { id: 'photo', label: 'Your photo', hint: 'Add a photo', url: '/welcome/photo', state: 'skipped' }], done: 1, total: 2 };

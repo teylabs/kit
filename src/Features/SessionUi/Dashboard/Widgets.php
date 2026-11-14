@@ -20,18 +20,30 @@ use Throwable;
 final class Widgets
 {
     /**
-     * @param  ?string  $only  build just this widget (the one a Sort by choice saved), for the partial reload that merges its frame into the page's
-     * @return array{widgets: list<array<string, mixed>>, lists: array<string, mixed>} the frames, and each list's deferred prop by key
+     * @param  ?string  $only  build just this widget's frame (the one a Sort by choice names); every other widget is only checked for whether it shows
+     * @return array{widgets: list<array<string, mixed>>, lists: array<string, mixed>, set: string} the frames, each list's deferred prop by key, and a digest of the keys of every widget the viewer sees, in order
      */
     public function resolve(Request $request, Principal $principal, int $workspace, array $reserved = [], ?string $only = null): array
     {
         $widgets = [];
         $lists = [];
+        $keys = [];
         foreach (app(Registry::class)->widgets() as $entry) {
-            if ($only !== null && $entry['key'] !== $only) {
+            if (! $this->visible($principal, $entry['ability'])) {
                 continue;
             }
-            if (! $this->visible($principal, $entry['ability'])) {
+            if ($only !== null && $entry['key'] !== $only) {
+                // Shown or not is all that is needed of it (a failure would show its error card, so it counts as shown).
+                $context = new WidgetContext($entry['key'], $request, $principal, $workspace);
+                try {
+                    $shown = Savepoint::run(fn (): bool => (new $entry['widget']($context))->visible());
+                } catch (Throwable) {
+                    $shown = true;
+                }
+                if ($shown) {
+                    $keys[] = $entry['key'];
+                }
+
                 continue;
             }
             $context = new WidgetContext($entry['key'], $request, $principal, $workspace);
@@ -94,17 +106,30 @@ final class Widgets
                 }
                 [$frame, $own] = $built;
                 $widgets[] = $frame;
+                $keys[] = $entry['key'];
                 $lists = [...$lists, ...$own];
             } catch (Throwable $exception) {
                 $this->report($entry['key'], $exception);
                 $widgets[] = (new FailedWidget($context))->toArray();
+                $keys[] = $entry['key'];
             }
         }
 
         // The kit's setup card is the aside's last, whatever order an app gives its own widgets.
-        usort($widgets, fn (array $a, array $b): int => ($a['key'] === 'kit.setup') <=> ($b['key'] === 'kit.setup'));
+        $setupLast = fn (string $a, string $b): int => ($a === 'kit.setup') <=> ($b === 'kit.setup');
+        usort($widgets, fn (array $a, array $b): int => $setupLast($a['key'], $b['key']));
+        usort($keys, $setupLast);
+        // A Sort by choice sends its widget's token back (CollectionSection's X-Kit-Sort), naming the widget and the widgets the page was drawn with: the reload
+        // it leads to can then merge that one frame only while the page still holds the same widgets (DashboardController).
+        $set = substr(hash('sha256', implode("\n", $keys)), 0, 16);
+        foreach ($widgets as &$frame) {
+            if (is_array($frame['sortBy'] ?? null)) {
+                $frame['sortBy']['token'] = http_build_query(['widget' => $frame['key'], 'set' => $set]);
+            }
+        }
+        unset($frame);
 
-        return ['widgets' => $widgets, 'lists' => $lists];
+        return ['widgets' => $widgets, 'lists' => $lists, 'set' => $set];
     }
 
     /** Fail closed: an ability no feature declares, or any refusal, hides the widget. */

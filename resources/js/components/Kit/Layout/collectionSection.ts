@@ -20,6 +20,8 @@ export type CollectionSort = {
     url: string;
     method: string;
     reload: string[];
+    /** The server's token for a choice, sent back with it as `X-Kit-Sort: <token>&sort=<order>` (a dashboard widget's). */
+    token?: string | null;
 };
 /** A header action: the kit's Action descriptor (its confirmation, `disabled` with its reason, `newTab` and the rest), its method GET when left out. */
 export type CollectionAction = Omit<ActionDescriptor, 'method'> & {

@@ -109,6 +109,7 @@ url: string,
 method: string,
 reload: string[],
 label: string,
+token?: string | null,
 };
 export type NavGroup = {
 label: string | null,
@@ -627,6 +628,7 @@ current: string,
 url: string,
 method: string,
 reload: string[],
+token?: string | null,
 };
 export type WidgetSpanData = {
 md: number,

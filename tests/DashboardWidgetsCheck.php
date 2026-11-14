@@ -149,6 +149,13 @@ final class OddKindWidget extends Widget
 /** A state the dashboard does not know. */
 final class LimboWidget extends Widget
 {
+    public static bool $gone = false;
+
+    public function visible(): bool
+    {
+        return ! self::$gone;
+    }
+
     public function title(): string
     {
         return 'Limbo';
@@ -294,6 +301,13 @@ final class NotAWidget {}
 final class SortedWidget extends Widget
 {
     public static ?string $default = 'touched';
+
+    public static bool $gone = false;
+
+    public function visible(): bool
+    {
+        return ! self::$gone;
+    }
 
     public function title(): string
     {
@@ -613,7 +627,7 @@ try {
     check([$legacy('Manage people'), $legacy('Allocate cases'), $legacy('View all'), $legacy('All cases', 'post'), $legacy('All cases', 'get', ['disabled' => true]), $legacy('All cases', 'get', ['confirm' => ['description' => 'Sure?', 'label' => 'Go']]), $legacy('All cases', 'get', ['menu' => true]), $legacy('View all cases', 'get', ['intent' => 'dialog']), $legacy('All cases', 'get', ['intent' => 'document']), $legacy('All cases', 'get', ['newTab' => true])] === array_fill(0, 10, null), 'anything else stays an action: another label, a bare "View all", a POST, a disabled, confirmed or menu action, a dialog or document intent, a new tab');
     // The CollectionSection descriptor (docs/collection-section.md).
     $collection = new Tey\Kit\Features\Core\Data\CollectionSectionData('Open cases', segments: [new Tey\Kit\Features\Core\Data\CollectionSegment('all', 'All', '/@acme/cases', true, 12), new Tey\Kit\Features\Core\Data\CollectionSegment('new', 'New', '/@acme/cases?segment=new')], sortBy: new Tey\Kit\Features\Core\Data\CollectionSortData([['key' => 'due', 'label' => 'Due soonest']], 'due', '/@acme'), seeAll: Tey\Kit\Features\Core\Data\SeeAll::to('All open cases', '/@acme/cases?status=open'), maxHeight: '18rem');
-    check($collection->toArray() === ['title' => 'Open cases', 'description' => null, 'state' => 'ready', 'empty' => null, 'error' => null, 'actions' => [], 'segments' => [['key' => 'all', 'label' => 'All', 'url' => '/@acme/cases', 'current' => true, 'count' => 12], ['key' => 'new', 'label' => 'New', 'url' => '/@acme/cases?segment=new', 'current' => false, 'count' => null]], 'sortBy' => ['options' => [['key' => 'due', 'label' => 'Due soonest']], 'current' => 'due', 'url' => '/@acme', 'method' => 'get', 'reload' => [], 'label' => 'Sort by'], 'seeAll' => ['label' => 'All open cases', 'url' => '/@acme/cases?status=open', 'count' => null, 'placement' => 'footer', 'linkTitle' => true], 'maxHeight' => '18rem'], 'CollectionSectionData serializes its title, state, segments (one current, counts kept or null), sort menu (a GET by default), see-all and max height');
+    check($collection->toArray() === ['title' => 'Open cases', 'description' => null, 'state' => 'ready', 'empty' => null, 'error' => null, 'actions' => [], 'segments' => [['key' => 'all', 'label' => 'All', 'url' => '/@acme/cases', 'current' => true, 'count' => 12], ['key' => 'new', 'label' => 'New', 'url' => '/@acme/cases?segment=new', 'current' => false, 'count' => null]], 'sortBy' => ['options' => [['key' => 'due', 'label' => 'Due soonest']], 'current' => 'due', 'url' => '/@acme', 'method' => 'get', 'reload' => [], 'label' => 'Sort by', 'token' => null], 'seeAll' => ['label' => 'All open cases', 'url' => '/@acme/cases?status=open', 'count' => null, 'placement' => 'footer', 'linkTitle' => true], 'maxHeight' => '18rem'], 'CollectionSectionData serializes its title, state, segments (one current, counts kept or null), sort menu (a GET by default), see-all and max height');
     $refused = [];
     foreach ([fn () => new Tey\Kit\Features\Core\Data\CollectionSectionData(' '), fn () => new Tey\Kit\Features\Core\Data\CollectionSectionData('Cases', state: 'loading'), fn () => new Tey\Kit\Features\Core\Data\CollectionSectionData('Cases', segments: [new Tey\Kit\Features\Core\Data\CollectionSegment('a', 'A', '/a', true), new Tey\Kit\Features\Core\Data\CollectionSegment('b', 'B', '/b', true)]), fn () => new Tey\Kit\Features\Core\Data\CollectionSectionData('Cases', maxHeight: 'calc(100vh)'), fn () => new Tey\Kit\Features\Core\Data\CollectionSectionData('Cases', maxHeight: '50%')] as $make) {
         try {
@@ -813,24 +827,53 @@ try {
 
     [$status, $location] = $put('owner', $control['url'], ['sort' => 'due']);
     check($status === 303 && in_array($location, ['https://kit.test', 'https://kit.test/'], true) && $stored('owner', $workspace->id) === 'due', 'choosing an order saves it for the viewer in this workspace and returns to the dashboard (303)');
-    // The partial reload that follows a choice carries only that widget, as a frame Inertia merges into the page's by key; the next one, and a full load, carry every widget.
-    $partialWidgets = ['HTTP_X_INERTIA_PARTIAL_COMPONENT' => 'Workspace/Dashboard/Page', 'HTTP_X_INERTIA_PARTIAL_DATA' => 'widgets'];
+    // The reload after a choice names it in the request itself (X-Kit-Sort: the frame's token and the order, as CollectionSection sends it and the PUT's
+    // redirect carries it). It builds only that widget, merged into the page's widgets by key, while the viewer still sees the widgets the page was drawn
+    // with and the widget shows that order; otherwise every widget is sent. Nothing is kept between requests.
+    $token = fn (array $page, string $key = 'app.sorted') => $sorted($page, $key)['sortBy']['token'];
+    parse_str($token($fresh), $parts);
+    check(array_keys($parts) === ['widget', 'set'] && $parts['widget'] === 'app.sorted' && preg_match('/\A[0-9a-f]{16}\z/', $parts['set']) === 1
+        && $token($fresh, 'app.sorted-admin') === http_build_query(['widget' => 'app.sorted-admin', 'set' => $parts['set']]), 'each sortable widget\'s frame carries a token: its key and a digest of the widgets the page was drawn with');
+    $reload = fn (?string $tokenOf = null, ?string $sort = null, array $more = []) => ['HTTP_X_INERTIA_PARTIAL_COMPONENT' => 'Workspace/Dashboard/Page', 'HTTP_X_INERTIA_PARTIAL_DATA' => 'widgets', ...($tokenOf === null ? [] : ['HTTP_X_KIT_SORT' => $tokenOf.'&sort='.$sort]), ...$more];
+    $all = fn (array $page, int $more = 2) => count($page['props']['widgets']) === count($widgets) + $more && ! in_array('widgets', $page['mergeProps'] ?? [], true);
+    $one = fn (array $page, string $key, string $order) => array_column($page['props']['widgets'], 'key') === [$key] && $sorted($page, $key)['sortBy']['current'] === $order
+        && ($page['mergeProps'] ?? []) === ['widgets'] && ($page['matchPropsOn'] ?? []) === ['widgets.key'];
     $put('owner', $control['url'], ['sort' => 'opened']);
-    [, $merged] = $page('owner', $partialWidgets);
-    check(array_column($merged['props']['widgets'], 'key') === ['app.sorted'] && $sorted($merged)['sortBy']['current'] === 'opened' && $sorted($merged)['rows'] === ['sorted by opened']
-        && ($merged['mergeProps'] ?? []) === ['widgets'] && ($merged['matchPropsOn'] ?? []) === ['widgets.key'], 'the partial reload after a choice sends only that widget, in its new order, merged into the page\'s widgets by key');
-    [, $again] = $page('owner', $partialWidgets);
-    check(count($again['props']['widgets']) === count($widgets) + 2 && ! in_array('widgets', $again['mergeProps'] ?? [], true), 'a later partial reload of widgets, with no new choice, sends every widget, replacing them');
+    [, $merged] = $page('owner', $reload($token($fresh), 'opened'));
+    check($one($merged, 'app.sorted', 'opened') && $sorted($merged)['rows'] === ['sorted by opened'], 'the reload after a choice sends only that widget, in its new order, merged into the page\'s widgets by key');
+    [, $again] = $page('owner', $reload());
+    check($all($again), 'a partial reload of widgets that names no choice (an app\'s older WidgetCard) sends every widget, replacing them');
+    // Two tabs, each choosing on a different widget before either reload arrives: each reload carries its own choice, so each gets its own widget.
+    $put('owner', $control['url'], ['sort' => 'due']);
+    $put('owner', $sorted($fresh, 'app.sorted-admin')['sortBy']['url'], ['sort' => 'opened']);
+    [, $tabB] = $page('owner', $reload($token($fresh, 'app.sorted-admin'), 'opened'));
+    [, $tabA] = $page('owner', $reload($token($fresh), 'due'));
+    check($one($tabB, 'app.sorted-admin', 'opened') && $one($tabA, 'app.sorted', 'due'), 'two tabs\' choices on different widgets each reach their own reload, in either order');
+    $put('owner', $sorted($fresh, 'app.sorted-admin')['sortBy']['url'], ['sort' => 'touched']);
+    // Another tab's later choice on the same widget: this tab's reload no longer matches what the widget shows, so every widget is sent.
     $put('owner', $control['url'], ['sort' => 'opened']);
-    [, $full] = $page('owner');
-    [, $afterFull] = $page('owner', $partialWidgets);
-    check(count($full['props']['widgets']) === count($widgets) + 2 && ! in_array('widgets', $full['mergeProps'] ?? [], true) && ! in_array('widgets', $afterFull['mergeProps'] ?? [], true), 'a full page load after a choice sends every widget, and uses the choice up');
+    [, $overtaken] = $page('owner', $reload($token($fresh), 'due'));
+    check($all($overtaken) && $sorted($overtaken)['sortBy']['current'] === 'opened', 'a reload whose order the widget no longer shows (another tab chose since) sends every widget, with the order saved last');
     $put('owner', $control['url'], ['sort' => 'opened']);
-    [, $otherComponent] = $page('owner', ['HTTP_X_INERTIA_PARTIAL_COMPONENT' => 'Workspace/Settings/Page', 'HTTP_X_INERTIA_PARTIAL_DATA' => 'widgets']);
-    check(count($otherComponent['props']['widgets']) === count($widgets) + 2 && ! in_array('widgets', $otherComponent['mergeProps'] ?? [], true), 'a partial reload for another component (which Inertia answers in full) sends every widget');
+    [, $full] = $page('owner', ['HTTP_X_KIT_SORT' => $token($fresh).'&sort=opened']);
+    [, $otherComponent] = $page('owner', $reload($token($fresh), 'opened', ['HTTP_X_INERTIA_PARTIAL_COMPONENT' => 'Workspace/Settings/Page']));
+    [, $reset] = $page('owner', $reload($token($fresh), 'opened', ['HTTP_X_INERTIA_RESET' => 'widgets']));
+    [, $malformed] = $page('owner', $reload('widget[]=app.sorted&set=x', 'opened'));
+    [, $forged] = $page('owner', $reload(http_build_query(['widget' => 'app.sorted', 'set' => '0000000000000000']), 'opened'));
+    check($all($full) && $all($otherComponent) && $all($reset) && $all($malformed) && $all($forged), 'a full load, a reload for another component, one that resets widgets, a malformed choice and one drawn with other widgets each send every widget');
+    // A widget hidden since the page was drawn: a merge by key could not take its card away, so every widget the viewer still sees is sent, whichever
+    // widget the choice was on. The fresh frames carry a new token, and the next choice merges again.
+    LimboWidget::$gone = true;
     $put('owner', $control['url'], ['sort' => 'opened']);
-    [, $reset] = $page('owner', [...$partialWidgets, 'HTTP_X_INERTIA_RESET' => 'widgets']);
-    check(count($reset['props']['widgets']) === count($widgets) + 2 && ! in_array('widgets', $reset['mergeProps'] ?? [], true), 'a partial reload that resets widgets sends every widget: one frame alone would replace the rest');
+    [, $other] = $page('owner', $reload($token($fresh), 'opened'));
+    check($all($other, 1) && ! in_array('app.limbo', array_column($other['props']['widgets'], 'key'), true) && $token($other) !== $token($fresh), 'after another widget is hidden, the reload of a choice sends every widget without it, with a new token');
+    [, $next] = $page('owner', $reload($token($other), 'opened'));
+    check($one($next, 'app.sorted', 'opened'), 'and a choice with the new token merges only its widget again');
+    LimboWidget::$gone = false;
+    SortedWidget::$gone = true;
+    [, $gone] = $page('owner', $reload($token($fresh), 'opened'));
+    SortedWidget::$gone = false;
+    check($all($gone, 0) && array_intersect(['app.sorted', 'app.sorted-admin'], array_column($gone['props']['widgets'], 'key')) === [], 'a sorted widget hidden before its reload is left out of every widget sent, so its card goes');
     $put('owner', $control['url'], ['sort' => 'due']);
     [, $chosen] = $page('owner');
     check($sorted($chosen)['sortBy']['current'] === 'due' && $sorted($chosen)['rows'] === ['sorted by due'], 'the saved order is current next time, and the query is given it');

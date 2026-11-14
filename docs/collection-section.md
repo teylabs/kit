@@ -122,7 +122,7 @@ Props (the same on both) besides `section`: `level`, `headless` (no title bar; t
 | `error` | A `ListErrorData`, drawn when `state` is `error`. |
 | `actions` | `Action`s for the header. |
 | `segments` | `CollectionSegment`s: `key`, `label`, `url`, `current`, an optional `count`. |
-| `sortBy` | A `CollectionSortData`: `options` (`key`, `label`), `current`, `url`, `method` (`get`), `reload` (`[]`, the whole page), `label` ("Sort by"). The same shape as a widget's `sortBy`. |
+| `sortBy` | A `CollectionSortData`: `options` (`key`, `label`), `current`, `url`, `method` (`get`), `reload` (`[]`, the whole page), `label` ("Sort by"), `token` (optional: sent back with the choice as `X-Kit-Sort: <token>&sort=<order>`, so the reload can tell from the request what was chosen). The same shape as a widget's `sortBy`. |
 | `seeAll` | A `SeeAll`, or null. |
 | `maxHeight` | A `px`, `rem` or `em` length, or null for no scroll. |
 

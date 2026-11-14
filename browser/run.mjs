@@ -5379,7 +5379,49 @@ test('the dashboard setup card at 1280 and 375, light and dark: personal steps i
 // with the keyboard PUTs it to the widget's sort URL as a partial visit for the widget's props, and the card shows the new order; a refused choice reverts.
 // At 1280 and 1600, light and dark, axe-clean, the title not truncated, nothing overflowing ──────────────────────────────────────────────────────────────────
 const sortShots = process.env.KIT_SORT_SCREENSHOTS;
-const sortedTitles = (tab) => tab.$$eval('[data-widget="app.ongoing"] li, [data-widget="app.ongoing"] article', els => els.map(el => el.textContent.replace(/\s+/g, ' ').replace(/\s*[A-Z][a-z]{2} \d{1,2}, \d{4}.*$/, '').trim()).filter(Boolean));
+const sortedTitles = (tab, key = 'app.ongoing') => tab.$$eval(`[data-widget="${key}"] li, [data-widget="${key}"] article`, els => els.map(el => el.textContent.replace(/\s+/g, ' ').replace(/\s*[A-Z][a-z]{2} \d{1,2}, \d{4}.*$/, '').trim()).filter(Boolean));
+// The dashboard's sort endpoint and the reload it leads to, as WidgetSortController and DashboardController answer them. Laravel's 303 to the dashboard,
+// followed: Playwright does not route a redirect it fulfilled itself, so the PUT is answered with the page the redirect lands on, and its headers are the
+// ones the browser's follow-up GET carries. The choice saves the order; the reload reads the choice from its own X-Kit-Sort header (nothing else is kept)
+// and merges only that widget's frame (matched on `key`) while the viewer sees the widgets the page was drawn with (`set`) and the widget shows that order;
+// otherwise, or when it resets `widgets`, every widget the viewer sees, fresh, with no merge. `server.hidden` hides widgets on the server since the page
+// was drawn (the set is then `changed`); `server.hold(key)` delays a PUT's answer.
+const sortServer = async (tab, server) => {
+    await tab.route(/\/@acme\/widgets\/[a-z.]+\/sort$/, async (route) => {
+        const request = route.request();
+        const headers = request.headers();
+        const list = (name) => (headers[name] ?? '').split(',').filter(Boolean);
+        const widget = request.url().match(/widgets\/([a-z.]+)\/sort$/)[1];
+        const chosen = JSON.parse(request.postData() ?? '{}').sort;
+        server.saved[widget] = chosen;
+        server.sent.push({ widget, sort: chosen, kitSort: headers['x-kit-sort'] ?? null, only: list('x-inertia-partial-data'), reset: list('x-inertia-reset') });
+        await server.hold?.(widget);
+        const page = await tab.evaluate(() => window.kitInitialPage);
+        const set = server.hidden.length ? 'changed' : 'drawn';
+        const shown = page.props.widgets.filter((w) => !server.hidden.includes(w.key));
+        const frame = (w) => (w.sortBy ? tab.evaluate(([key, title, order, at]) => window.kitOngoing(order, key, title, at), [w.key, w.title, server.saved[w.key] ?? w.sortBy.current, set]) : w);
+        const choice = Object.fromEntries(new URLSearchParams(headers['x-kit-sort'] ?? ''));
+        const own = shown.find((w) => w.key === choice.widget);
+        const merge = !list('x-inertia-reset').includes('widgets') && own && choice.set === set && choice.sort === server.saved[choice.widget];
+        const answer = merge
+            ? { ...page, props: { errors: {}, widgets: [await frame(own)] }, mergeProps: ['widgets'], matchPropsOn: ['widgets.key'] }
+            : { ...page, props: { errors: {}, widgets: await Promise.all(shown.map(frame)) } };
+        server.answered.push(merge ? 'merge' : 'all');
+        await route.fulfill({ status: 200, contentType: 'application/json', headers: { 'X-Inertia': 'true', Vary: 'X-Inertia' }, body: JSON.stringify(answer) });
+    });
+};
+const newSortServer = () => ({ saved: {}, hidden: [], sent: [], answered: [] });
+const chooseOrder = async (tab, key, label) => {
+    await tab.locator(`[data-widget="${key}"]`).getByRole('combobox', { name: 'Sort by' }).click();
+    await tab.getByRole('option', { name: label }).click();
+};
+const showsOrder = (tab, key, label) => tab.waitForFunction(([k, l]) => {
+    const input = document.querySelector(`[data-widget="${k}"] [data-collection-sort] input`);
+    return input && !input.disabled && input.value.trim() === l;
+}, [key, label]);
+// The page's frames by identity (window.kitPage is the live Inertia page), to tell a kept frame from a reloaded one.
+const snapshotFrames = (tab) => tab.evaluate(() => { window.kitBefore = { widgets: [...window.kitPage.props.widgets], cases: window.kitPage.props.cases, people: window.kitPage.props.people }; });
+const keptFrames = (tab) => tab.evaluate(() => Object.fromEntries(window.kitPage.props.widgets.map((w) => [w.key, window.kitBefore.widgets.includes(w)])));
 test('a dashboard widget\'s Sort by control: labelled, top right of the header, keyboard-operable, saves and reloads only the widget\'s props, axe passes', async () => {
     for (const width of [1280, 1600]) {
         for (const [mode, dark] of [['light', ''], ['dark', '&dark']]) {
@@ -5455,22 +5497,8 @@ test('a dashboard widget\'s Sort by control: the choice reloads only that widget
         const tab = await context.newPage();
         const errors = [];
         tab.on('pageerror', error => errors.push(error.message));
-        const sent = [];
-        // As the server answers the partial reload after a choice: only the sorted widget, as a merge prop matched on `key`; a request that resets `widgets`
-        // gets every widget, fresh, with no merge (the adapter leaves a reset prop out of mergeProps).
-        await tab.route(/\/@acme\/widgets\/app\.ongoing\/sort$/, async (route) => {
-            const request = route.request();
-            const body = JSON.parse(request.postData() ?? '{}');
-            const headers = request.headers();
-            const list = (name) => (headers[name] ?? '').split(',').filter(Boolean);
-            sent.push({ sort: body.sort, only: list('x-inertia-partial-data'), reset: list('x-inertia-reset') });
-            const page = await tab.evaluate(() => window.kitInitialPage);
-            const ongoing = await tab.evaluate((order) => window.kitOngoing(order), body.sort);
-            const answer = list('x-inertia-reset').includes('widgets')
-                ? { ...page, props: { errors: {}, widgets: [ongoing, ...page.props.widgets.slice(1)] } }
-                : { ...page, props: { errors: {}, widgets: [ongoing] }, mergeProps: ['widgets'], matchPropsOn: ['widgets.key'] };
-            await route.fulfill({ status: 200, contentType: 'application/json', headers: { 'X-Inertia': 'true', Vary: 'X-Inertia' }, body: JSON.stringify(answer) });
-        });
+        const server = newSortServer();
+        await sortServer(tab, server);
         await tab.goto(`${authUrl}dashboard.html?sorted&see-all`);
         await tab.waitForSelector('[data-widget="app.ongoing"] [data-collection-sort]');
         await tab.waitForSelector('[data-widget="app.cases"] [data-scroll-list="cases"] li');
@@ -5492,7 +5520,8 @@ test('a dashboard widget\'s Sort by control: the choice reloads only that widget
         await tab.getByRole('option', { name: 'Due soonest' }).click();
         await tab.waitForFunction(() => !document.querySelector('[data-widget="app.ongoing"] [data-collection-sort] input')?.disabled);
         await tab.waitForFunction(() => document.querySelector('[data-widget="app.ongoing"] [data-collection-sort] input')?.value.trim() === 'Due soonest');
-        assert.deepEqual(sent, [{ sort: 'due', only: ['widgets'], reset: [] }], 'one partial visit for widgets, which it does not reset');
+        assert.deepEqual(server.sent, [{ widget: 'app.ongoing', sort: 'due', kitSort: 'widget=app.ongoing&set=drawn&sort=due', only: ['widgets'], reset: [] }], 'one choice, naming itself in X-Kit-Sort (its token and the order), a partial reload of widgets that resets nothing');
+        assert.deepEqual(server.answered, ['merge']);
         assert.deepEqual(await sortedTitles(tab), ['Lease renewal', 'Boiler check', 'Roof survey'], 'the sorted card shows its new order');
         const after = await tab.evaluate(() => {
             const props = window.kitPage.props;
@@ -5516,6 +5545,75 @@ test('a dashboard widget\'s Sort by control: the choice reloads only that widget
         assert.deepEqual(after.cases, { mark: 'kept', scrollTop: scrolled, rows: 30 }, 'the cases list is the same element, at the same scroll, with all 30 rows it loaded');
         assert.deepEqual(after.people, { mark: 'kept', rows: 2 }, 'the People list is the same element with its rows');
         assert.deepEqual(after.cards, ['app.ongoing', 'app.cases', 'kit.activity', 'kit.you', 'kit.people'], 'every card is drawn, main then aside');
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+});
+
+test('a dashboard widget\'s Sort by control: two tabs choosing on different widgets each get their own widget back, whichever reload is answered first', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    try {
+        const server = newSortServer();
+        const [first, second] = [await context.newPage(), await context.newPage()];
+        const errors = [];
+        for (const tab of [first, second]) {
+            tab.on('pageerror', error => errors.push(error.message));
+            await sortServer(tab, server);
+            await tab.goto(`${authUrl}dashboard.html?sorted&two`);
+            await tab.waitForSelector('[data-widget="app.followups"] [data-collection-sort]');
+            await snapshotFrames(tab);
+        }
+        // The first tab's choice is answered only after the second tab's: with anything shared between requests, one reload would take the other's.
+        let secondDone;
+        const afterSecond = new Promise((resolve) => { secondDone = resolve; });
+        server.hold = (widget) => (widget === 'app.ongoing' ? afterSecond : null);
+        await chooseOrder(first, 'app.ongoing', 'Due soonest');
+        await first.waitForFunction(() => document.querySelector('[data-widget="app.ongoing"] [data-collection-sort] input')?.disabled);
+        await chooseOrder(second, 'app.followups', 'Newest');
+        await showsOrder(second, 'app.followups', 'Newest');
+        secondDone();
+        await showsOrder(first, 'app.ongoing', 'Due soonest');
+        assert.deepEqual(server.sent.map(({ widget, kitSort }) => [widget, kitSort]), [['app.ongoing', 'widget=app.ongoing&set=drawn&sort=due'], ['app.followups', 'widget=app.followups&set=drawn&sort=opened']], 'each tab\'s request names its own widget and order');
+        assert.deepEqual(server.answered, ['merge', 'merge'], 'the second tab\'s reload answered first, both merge only their own widget');
+        assert.deepEqual([await sortedTitles(first), await sortedTitles(first, 'app.followups')], [['Lease renewal', 'Boiler check', 'Roof survey'], ['Roof survey', 'Lease renewal', 'Boiler check']], 'the first tab: Ongoing items in its new order, Follow-ups as it was');
+        assert.deepEqual([await sortedTitles(second), await sortedTitles(second, 'app.followups')], [['Roof survey', 'Lease renewal', 'Boiler check'], ['Boiler check', 'Roof survey', 'Lease renewal']], 'the second tab: Follow-ups in its new order, Ongoing items as it was');
+        const keep = (sorted) => ({ 'app.ongoing': sorted !== 'app.ongoing', 'app.followups': sorted !== 'app.followups', 'kit.you': true, 'kit.activity': true, 'kit.people': true });
+        assert.deepEqual([await keptFrames(first), await keptFrames(second)], [keep('app.ongoing'), keep('app.followups')], 'in each tab only its own sorted widget\'s frame changed');
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+});
+
+test('a dashboard widget\'s Sort by control: after a widget is hidden on the server, sorting another one takes the hidden card away, and the next choice merges again', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        const server = newSortServer();
+        await sortServer(tab, server);
+        await tab.goto(`${authUrl}dashboard.html?sorted&two`);
+        await tab.waitForSelector('[data-widget="kit.people"] [data-scroll-list="people"] li');
+        const cards = () => tab.evaluate(() => [...document.querySelectorAll('[data-widget]')].map((e) => e.dataset.widget));
+        assert.deepEqual(await cards(), ['app.ongoing', 'app.followups', 'kit.activity', 'kit.you', 'kit.people']);
+        // People is hidden from the viewer on the server since the page was drawn; the viewer then sorts Ongoing items.
+        server.hidden = ['kit.people'];
+        await chooseOrder(tab, 'app.ongoing', 'Due soonest');
+        await showsOrder(tab, 'app.ongoing', 'Due soonest');
+        await tab.waitForFunction(() => !document.querySelector('[data-widget="kit.people"]'));
+        assert.deepEqual(server.answered, ['all'], 'the page was drawn with other widgets, so every widget the viewer sees is sent, not a merge');
+        assert.deepEqual(await cards(), ['app.ongoing', 'app.followups', 'kit.activity', 'kit.you'], 'the People card is gone, every other card stays');
+        assert.deepEqual(await sortedTitles(tab), ['Lease renewal', 'Boiler check', 'Roof survey'], 'Ongoing items shows its new order');
+        // The fresh frames carry the new set, so the next choice merges only its widget.
+        await snapshotFrames(tab);
+        await chooseOrder(tab, 'app.followups', 'Newest');
+        await showsOrder(tab, 'app.followups', 'Newest');
+        assert.deepEqual(server.sent.map((sent) => sent.kitSort), ['widget=app.ongoing&set=drawn&sort=due', 'widget=app.followups&set=changed&sort=opened'], 'the second choice sends the token of the frames it was drawn with');
+        assert.deepEqual(server.answered, ['all', 'merge']);
+        assert.deepEqual(await keptFrames(tab), { 'app.ongoing': true, 'app.followups': false, 'kit.you': true, 'kit.activity': true }, 'only Follow-ups\' frame changed, and People stays gone');
+        assert.deepEqual(await sortedTitles(tab, 'app.followups'), ['Boiler check', 'Roof survey', 'Lease renewal']);
         assert.deepEqual(errors, []);
     } finally {
         await context.close();

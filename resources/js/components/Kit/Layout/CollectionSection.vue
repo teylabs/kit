@@ -161,6 +161,13 @@ function choose(value: unknown): void {
     router.visit(sort.value.url, {
         method: sort.value.method as 'get',
         data: { sort: next },
+        // The server's token for this choice, with the order, so the reload the visit leads to can tell it apart from the request alone (a dashboard
+        // widget's, DashboardController). The headers go with the redirect's follow-up too.
+        headers: sort.value.token
+            ? {
+                  'X-Kit-Sort': `${sort.value.token}&sort=${encodeURIComponent(next)}`,
+              }
+            : {},
         only: sort.value.reload,
         // A list (a scroll prop) starts again from its first page. Any other prop is not reset, so one the server sends as a merge prop (a dashboard widget's
         // frame, matched on its key) is swapped in where it was, and the rest of the page keeps what it had.
