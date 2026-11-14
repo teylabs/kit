@@ -9071,6 +9071,18 @@ test('TextTruncate: one line ends in an ellipsis with the whole text as its titl
     });
 });
 
+test('TextTruncate keeps the whole text verbatim, leading, trailing and repeated whitespace included, in its title and its text, from `text` and from the slot', async () => {
+    await textPage('text', async (tab) => {
+        const padded = '  Quarterly board report:  appendix B, every table and the minutes  ';
+        for (const selector of ['[data-truncate-padded]', '[data-truncate-padded-slot]']) {
+            const el = await tab.$eval(selector, (node) => ({ cut: node.hasAttribute('data-truncated'), title: node.getAttribute('title'), text: node.textContent }));
+            assert.equal(el.cut, true, `${selector} is cut`);
+            assert.equal(el.title, padded, `${selector}: the title is the text as given, not trimmed`);
+            assert.equal(el.text, padded, `${selector}: the element keeps it as given, so a selection and a copy start from all of it`);
+        }
+    });
+});
+
 test('TextLong: cut with an ellipsis and a Show more button that expands it in place by pointer and keyboard; a short text has none', async () => {
     await textPage('text', async (tab) => {
         const long = tab.locator('[data-long]');

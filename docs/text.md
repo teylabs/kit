@@ -66,7 +66,7 @@ import { CopyField, TextAddress, TextChips, TextCode, TextCopy, TextLong, TextNu
 ```
 
 - `lines` 1 (the default) is one line with an end ellipsis; 2 to 6 clamp to that many lines. `max-width` (a CSS length) bounds it; otherwise it takes the width it is given, so a flex child needs `min-w-0`.
-- The whole text stays in the element, so its accessible name, a selection and a copy are all of it. Once mounted it measures whether the end was cut, with the same content-box measure as `MiddleTruncate` (`contentWidth`), and only then puts the whole text in `title` and marks `data-truncated`. It measures again when its box resizes.
+- The whole text stays in the element, so its accessible name, a selection and a copy are all of it. Once mounted it measures whether the end was cut, with the same content-box measure as `MiddleTruncate` (`contentWidth`), and only then puts the whole text in `title`, verbatim (leading and trailing whitespace kept), and marks `data-truncated`. It measures again when its box resizes.
 - On the server it is the CSS truncation alone: no title, observer or timer.
 
 ## Copy

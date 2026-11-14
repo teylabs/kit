@@ -19,6 +19,8 @@ if (new URLSearchParams(window.location.search).get('text') === 'dark') document
 const log = Array.from({ length: 60 }, (_, index) => `${String(index + 1).padStart(3, '0')} worker.info job=export-${index + 1} status=done rows=${(index + 1) * 120} <b>not markup</b> ${'x'.repeat(index % 7 === 0 ? 180 : 10)}`).join('\n');
 const longBody = `First paragraph of a long note about the quarterly figures.\n\nSecond paragraph, which goes on for a while so the cut lands inside it: ${'more words '.repeat(30)}and ends here. 👨‍👩‍👧‍👦`;
 const title = 'Quarterly board report appendix with every table and the minutes of the meeting';
+// Leading, trailing and repeated whitespace a TextTruncate keeps verbatim in its title and its text.
+const padded = '  Quarterly board report:  appendix B, every table and the minutes  ';
 // Slot text that changes two ways: from this page ([data-slot-swap] re-renders TextCode's slot), and from a child that writes its own DOM outside Vue's
 // render, as a highlighter or a log stream would ([data-slot-tick]), which no update hook of TextCode sees.
 const slotLine = ref('build 1 started');
@@ -51,6 +53,10 @@ const Ticker = defineComponent({
                     <TextTruncate :lines="2" data-truncate-two>{{ title }} {{ title }}</TextTruncate>
                 </div>
                 <TextTruncate text="Short" max-width="16rem" data-truncate-short />
+                <div class="w-40 rounded-md border p-2">
+                    <TextTruncate :text="padded" data-truncate-padded />
+                    <TextTruncate :lines="2" data-truncate-padded-slot>{{ padded }}</TextTruncate>
+                </div>
             </section>
             <section data-case="long">
                 <TextLong :text="longBody" :limit="80" data-long />

@@ -26,7 +26,8 @@ let observer: ResizeObserver | null = null;
 function measure(): void {
     const el = root.value;
     if (!el) return;
-    full.value = (props.text ?? el.textContent ?? '').trim();
+    // Verbatim, as the element keeps it: the title is the whole text, its leading and trailing whitespace included. Only the cut is measured.
+    full.value = props.text ?? el.textContent ?? '';
     if (props.lines > 1) {
         cut.value = el.scrollHeight - el.clientHeight > 1;
         return;

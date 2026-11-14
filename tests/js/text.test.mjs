@@ -223,6 +223,7 @@ test('TextTruncate: CSS truncation or a line clamp from whole class strings, the
     const setup = vue.slice(vue.indexOf('<script'), vue.indexOf('onMounted('));
     assert.doesNotMatch(setup.replace(/function measure[\s\S]*?\n}\n/, ''), /new ResizeObserver|document\.|window\.|setTimeout|setInterval/, 'no observer, timer or DOM access outside onMounted');
     assert.match(vue, /:title="cut \? full : undefined"/, 'a title only once the end was cut');
+    assert.match(vue, /full\.value = props\.text \?\? el\.textContent \?\? '';/, 'the title is the text verbatim, never trimmed');
     assert.match(vue, /max-w-\(--kit-text-max-width\)/, 'a width through a custom property, so the style rule holds');
 });
 
