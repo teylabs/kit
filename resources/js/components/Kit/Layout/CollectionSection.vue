@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { Link, router } from '@inertiajs/vue3';
 import { computed, inject, provide, ref, useId, watch } from 'vue';
+import InertiaAction from '@/components/Kit/Action/InertiaAction.vue';
 import SeeAllLink from '@/components/Kit/Action/SeeAllLink.vue';
+import { normalAction } from '@/components/Kit/Action/singleAction';
 import { seeAllPlacement } from '@/components/Kit/Action/seeAll';
 import Button from '@/components/Kit/Form/Button.vue';
 import InputSelect from '@/components/Kit/Form/InputSelect.vue';
@@ -17,12 +19,14 @@ import {
  * - the title, a heading at `level` (3 by default) that links to `seeAll`'s URL unless it says `linkTitle: false` (heading-coloured, underlined on hover);
  *   `description` under it;
  * - on the header's right, the Sort by menu (`sortBy`, while ready), the `#actions` slot, the descriptor `actions` (a GET action with the see-all's URL is
- *   left out, so the link is drawn once) and a header see-all;
+ *   left out, so the link is drawn once) and a header see-all. A plain GET action is a compact link; one with a confirmation, `disabled`, `newTab` or another
+ *   method keeps its meaning through InertiaAction (it asks first, shows its reason, and is a button);
  * - below the header, the `segments` (tabs such as All / New / In progress: links to the same page, the current one `aria-current`, named "New (4)" with a
  *   count) and the `#filters` slot;
- * - the body: the items, or the empty state (`empty`, or the `#empty` slot), or the error with Retry. With `maxHeight` the body scrolls (a focusable region
+ * - the body: the items, or the empty state (`empty`, or the `#empty` slot; an empty section never shows its items, even with neither), or the error with
+ *   Retry. With `maxHeight` the body scrolls (a focusable region
  *   named "<title> items"), and the footer stays in view under it;
- * - the footer: the `#footer` slot and, at the bottom right, the see-all ("All cases →"). Never on an error section.
+ * - the footer: the `#footer` slot and, at the bottom right, the see-all ("All cases →"). An error section has no see-all, and its title is plain text.
  * It draws no card: on its own it is a bare section, for a grid or list whose items carry their own look (a grid of note cards), with the see-all under the
  * items at the right. CollectionCard puts it in a kit Card, with the same descriptor, by handing it a frame: the classes for its parts' padding and rules.
  * Choosing an order visits `sortBy.url` with `{ sort }` (its method; a partial visit for `sortBy.reload`), puts the old order back when refused, and remounts
@@ -51,21 +55,32 @@ const seeAll = computed(() =>
 );
 const placement = computed(() => seeAllPlacement(seeAll.value));
 const titleSeeAll = computed(() =>
-    props.section.seeAll && props.section.seeAll.linkTitle !== false
-        ? props.section.seeAll
-        : null,
+    seeAll.value && seeAll.value.linkTitle !== false ? seeAll.value : null,
 );
 const actions = computed(() =>
     state.value === 'error'
         ? []
-        : (props.section.actions ?? []).filter(
-              (action) =>
-                  !(
-                      props.section.seeAll &&
-                      (action.method ?? 'get') === 'get' &&
-                      action.url === props.section.seeAll.url
-                  ),
-          ),
+        : (props.section.actions ?? [])
+              .filter(
+                  (action) =>
+                      !(
+                          props.section.seeAll &&
+                          (action.method ?? 'get') === 'get' &&
+                          action.url === props.section.seeAll.url
+                      ),
+              )
+              .map((action) => {
+                  const normal = normalAction({
+                      ...action,
+                      method: action.method ?? 'get',
+                  });
+                  const plain =
+                      normal.method === 'get' &&
+                      !normal.confirm &&
+                      !normal.disabled &&
+                      !normal.newTab;
+                  return { action, plain };
+              }),
 );
 const segments = computed(() =>
     state.value === 'error' ? [] : (props.section.segments ?? []),
@@ -195,14 +210,23 @@ function choose(value: unknown): void {
                     </div>
                 </div>
                 <slot name="actions" />
-                <Link
-                    v-for="action in actions"
+                <template
+                    v-for="{ action, plain } in actions"
                     :key="action.key ?? action.url"
-                    :href="action.url"
-                    :method="(action.method ?? 'get') as 'get'"
-                    class="text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-ring rounded-md px-2 py-1 text-xs font-medium focus-visible:ring-2 focus-visible:outline-none"
-                    >{{ action.label }}</Link
                 >
+                    <Link
+                        v-if="plain"
+                        :href="action.url"
+                        class="text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-ring rounded-md px-2 py-1 text-xs font-medium focus-visible:ring-2 focus-visible:outline-none"
+                        >{{ action.label }}</Link
+                    >
+                    <InertiaAction
+                        v-else
+                        :action="action"
+                        size="sm"
+                        variant="ghost"
+                    />
+                </template>
                 <SeeAllLink
                     v-if="seeAll && placement === 'header'"
                     :see-all="seeAll"
@@ -290,7 +314,7 @@ function choose(value: unknown): void {
                 }}</Button>
             </div>
             <div
-                v-else-if="state === 'empty' && (section.empty || $slots.empty)"
+                v-else-if="state === 'empty'"
                 class="grid justify-items-start gap-1"
                 data-collection-empty
                 :data-variant="section.empty?.variant"

@@ -7,7 +7,8 @@ import type { SeeAll } from './seeAll';
 /*
  * A list's "see all" link, drawn one way everywhere (docs/see-all.md): the server's noun-specific label, its count in brackets when it has one, then an
  * arrow: "All cases →", "All cases (42) →". The arrow is decoration, so the accessible name is the words ("All cases", "All cases (42)"). An Inertia link.
- * It places nothing: WidgetCard, SummaryCard and PageSection put it in their footer or header by `placement`.
+ * It places nothing: CollectionSection (and so CollectionCard and every dashboard widget) puts it in its footer or header by `placement`, and an app's
+ * own layout may too.
  * `variant="title"` is the card's title linking to the same place (the default slot is the title): in the heading's own colour, never a body link's, with
  * an underline on hover and an inset focus ring, so a heading that truncates does not clip it. The card draws it only while `seeAll.linkTitle` is not false.
  */

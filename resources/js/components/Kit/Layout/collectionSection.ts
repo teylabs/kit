@@ -1,4 +1,5 @@
 import type { InjectionKey } from 'vue';
+import type { ActionDescriptor } from '@/components/Kit/Action/actionPlacement';
 import type { SeeAll } from '@/components/Kit/Action/seeAll';
 
 /**
@@ -20,11 +21,9 @@ export type CollectionSort = {
     method: string;
     reload: string[];
 };
-export type CollectionAction = {
-    label: string;
-    url: string;
+/** A header action: the kit's Action descriptor (its confirmation, `disabled` with its reason, `newTab` and the rest), its method GET when left out. */
+export type CollectionAction = Omit<ActionDescriptor, 'method'> & {
     method?: string;
-    key?: string | null;
 };
 export type CollectionSectionData = {
     title: string;

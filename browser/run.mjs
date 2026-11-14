@@ -6066,6 +6066,51 @@ test('CollectionSection and CollectionCard draw one descriptor the same way: the
     }
 });
 
+test('CollectionSection: header actions keep their descriptor: a confirmed POST asks first and visits only on confirm, a disabled one does nothing and gives its reason; an error card links nothing; an empty card never shows its items', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        await tab.goto(`${url}?collection-section&edge`);
+        await tab.waitForSelector('[data-case="actions"] [data-collection-header]');
+        const card = tab.locator('[data-case="actions"]');
+        assert.equal(await card.getByRole('link', { name: 'New case', exact: true }).getAttribute('href'), '/@acme/cases/new', 'a plain GET stays a link');
+        const close = card.getByRole('button', { name: 'Close all', exact: true });
+        assert.equal(await close.count(), 1, 'a confirmed POST is a button, not a link');
+        assert.equal(await card.getByRole('link', { name: 'Close all' }).count(), 0);
+        await close.click();
+        const dialog = tab.getByRole('alertdialog', { name: 'Close all open cases?' }).or(tab.getByRole('dialog', { name: 'Close all open cases?' }));
+        await dialog.waitFor();
+        assert.deepEqual(await tab.evaluate(() => window.kitVisits ?? []), [], 'asking sends nothing');
+        await dialog.getByRole('button', { name: 'Cancel' }).click();
+        await dialog.waitFor({ state: 'hidden' });
+        assert.deepEqual(await tab.evaluate(() => window.kitVisits ?? []), [], 'cancelling sends nothing');
+        await close.click();
+        await dialog.waitFor();
+        await dialog.getByRole('button', { name: 'Close all', exact: true }).click();
+        await tab.waitForFunction(() => (window.kitVisits ?? []).length > 0);
+        assert.deepEqual((await tab.evaluate(() => window.kitVisits)).map(({ url, method }) => [url, method]), [['/@acme/cases/close', 'post']], 'confirming makes one POST');
+        const exportButton = card.getByRole('button', { name: 'Export', exact: true });
+        assert.deepEqual([await exportButton.getAttribute('aria-disabled'), await exportButton.getAttribute('title')], ['true', 'Exports are off on this plan'], 'a disabled action is marked so, with its reason');
+        assert.equal(await card.getByRole('link', { name: 'Export' }).count(), 0, 'and is no link');
+        await exportButton.click({ force: true });
+        assert.equal((await tab.evaluate(() => window.kitVisits)).length, 1, 'clicking it sends nothing');
+        const failed = tab.locator('[data-case="error"]');
+        assert.equal(await failed.getByRole('alert').count(), 1, 'the error card shows its error');
+        assert.deepEqual([await failed.locator('h2 a').count(), await failed.locator('a[data-see-all]').count(), (await failed.locator('h2').innerText()).trim()], [0, 0, 'Due cases'], 'an error card\'s title is plain text and it has no see-all');
+        const empty = await tab.evaluate(() => {
+            const card = document.querySelector('[data-case="bare-empty"]');
+            return { state: card.querySelector('[data-collection-section]').dataset.state, items: card.textContent.includes('never shown'), body: card.querySelector('[data-collection-empty]') !== null, seeAll: card.querySelector('[data-collection-footer] a[data-see-all]')?.textContent.trim() ?? null };
+        });
+        assert.deepEqual(empty, { state: 'empty', items: false, body: true, seeAll: 'All stalled cases' }, 'an empty card with no copy and no slot still never shows its items, and keeps its see-all');
+        assert.deepEqual(await notesAxe(tab), []);
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+});
+
 test('SearchBox: the results end with "All results" and an arrow, kept in view while they scroll, and it visits the full results page', async () => {
     const context = await browser.newContext({ viewport: { width: 1280, height: 700 } });
     try {
