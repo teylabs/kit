@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { provide } from 'vue';
+import { computed, getCurrentInstance, provide } from 'vue';
 import Card from '@/components/Kit/Card/Card.vue';
 import CollectionSection from '@/components/Kit/Layout/CollectionSection.vue';
 import {
     collectionFrameKey,
+    type CollectionAction,
     type CollectionSectionData,
 } from '@/components/Kit/Layout/collectionSection';
 
@@ -11,7 +12,8 @@ import {
  * A CollectionSection on a kit Card (docs/collection-section.md): the same props, slots and descriptor, so swapping one for the other is only the name. It adds
  * the card and nothing else: the Card's surface, and a frame for the section's parts (the card's padding, a rule under the header and the tabs and over the
  * footer, and a body that fills the card, so its footer stays at the bottom while the body scrolls). Everything the section shows and does is the section's.
- * Attributes (a class, `data-*`) go on the card.
+ * Attributes (a class, `data-*`) go on the card; the `action` event is the section's, relayed only when the host listens, so the section's ActionBar runs an
+ * action itself otherwise.
  */
 const props = withDefaults(
     defineProps<{
@@ -21,6 +23,13 @@ const props = withDefaults(
         minHeight?: string | null;
     }>(),
     { level: 3, headless: false, minHeight: null },
+);
+const emit = defineEmits<{ action: [action: CollectionAction] }>();
+const instance = getCurrentInstance();
+const relay = computed(() =>
+    instance?.vnode.props?.onAction
+        ? { action: (action: CollectionAction) => emit('action', action) }
+        : {},
 );
 provide(collectionFrameKey, {
     root: 'h-full gap-0',
@@ -37,7 +46,7 @@ provide(collectionFrameKey, {
         data-collection-card
         :data-state="section.state ?? 'ready'"
     >
-        <CollectionSection v-bind="props">
+        <CollectionSection v-bind="props" v-on="relay">
             <template v-for="(_, name) in $slots" #[name]="scope">
                 <slot :name="name" v-bind="scope ?? {}" />
             </template>

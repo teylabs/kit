@@ -58,7 +58,7 @@ final class SeeAll extends Data
 
     /**
      * The deprecated way to offer one: a header action that is a plain link labelled "All cases", "View all cases", "See all cases" or "Show all cases" (a GET
-     * with no confirmation, enabled, not in a menu). It maps onto the descriptor as "All cases" in the footer; anything else is null and stays an action.
+     * with no confirmation, enabled, not in a menu, with no intent and not opening a new tab: a dialog, panel or document action keeps its behaviour). It maps onto the descriptor as "All cases" in the footer; anything else is null and stays an action.
      *
      * @param  \Tey\Kit\Features\Core\Data\Action|array<string, mixed>  $action
      */
@@ -67,7 +67,7 @@ final class SeeAll extends Data
         $action = $action instanceof Action ? $action->toArray() : $action;
         $label = trim((string) ($action['label'] ?? ''));
         $url = (string) ($action['url'] ?? '');
-        if (strtolower((string) ($action['method'] ?? 'get')) !== 'get' || ($action['disabled'] ?? false) || ($action['confirm'] ?? null) !== null || ($action['menu'] ?? false) || ($action['destructive'] ?? false) || $url === '') {
+        if (strtolower((string) ($action['method'] ?? 'get')) !== 'get' || ($action['disabled'] ?? false) || ($action['confirm'] ?? null) !== null || ($action['menu'] ?? false) || ($action['destructive'] ?? false) || ($action['intent'] ?? null) !== null || ($action['newTab'] ?? false) || $url === '') {
             return null;
         }
         if (preg_match(self::LEGACY, $label, $noun) === 1) {

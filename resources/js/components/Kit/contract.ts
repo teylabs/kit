@@ -890,7 +890,8 @@ export interface SectionHeaderProps {
 /**
  * A section showing a collection (docs/collection-section.md), driven by the server's `CollectionSectionData` (`section`): the title (a link to the see-all's URL
  * unless `linkTitle` is false), description, header actions and Sort by menu, segment tabs, the empty state (or the `#empty` slot) or error, an optional scrolling
- * body (`maxHeight`) and the see-all footer. Slots: default (the items), `actions`, `filters`, `empty`, `footer`. `level` is the title's heading level (3). It
+ * body (`maxHeight`) and the see-all footer. Slots: default (the items), `actions`, `filters`, `empty`, `footer`. `level` is the title's heading level (3). Emits `action` with a header or empty-state
+ * descriptor that is not plain navigation (a confirmation, intent, new tab, another method) when the host listens; otherwise its ActionBar runs it. It
  * draws no card: for a grid or list whose items carry their own look.
  */
 export interface CollectionSectionProps {

@@ -6066,7 +6066,7 @@ test('CollectionSection and CollectionCard draw one descriptor the same way: the
     }
 });
 
-test('CollectionSection: header actions keep their descriptor: a confirmed POST asks first and visits only on confirm, a disabled one does nothing and gives its reason; an error card links nothing; an empty card never shows its items', async () => {
+test('CollectionSection: header actions keep their descriptor: a confirmed POST asks first and visits only on confirm, a disabled one does nothing and gives its reason; a new-tab twin of the see-all stays; an empty state\'s POST is a button; an error card links nothing; an empty card never shows its items', async () => {
     const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
     try {
         const tab = await context.newPage();
@@ -6074,19 +6074,26 @@ test('CollectionSection: header actions keep their descriptor: a confirmed POST 
         tab.on('pageerror', error => errors.push(error.message));
         await tab.goto(`${url}?collection-section&edge`);
         await tab.waitForSelector('[data-case="actions"] [data-collection-header]');
+        // At rest, before any action runs (a running action is dimmed while its visit is in flight, and this page's router never finishes one).
+        assert.deepEqual(await notesAxe(tab), [], 'axe');
         const card = tab.locator('[data-case="actions"]');
         assert.equal(await card.getByRole('link', { name: 'New case', exact: true }).getAttribute('href'), '/@acme/cases/new', 'a plain GET stays a link');
-        const close = card.getByRole('button', { name: 'Close all', exact: true });
-        assert.equal(await close.count(), 1, 'a confirmed POST is a button, not a link');
-        assert.equal(await card.getByRole('link', { name: 'Close all' }).count(), 0);
-        await close.click();
+        // The ActionBar places it (inline or behind its More menu); either way it is a button or a menu item, never a link.
+        assert.equal(await card.getByRole('link', { name: 'Close all' }).count(), 0, 'a confirmed POST is not a link');
+        const close = async () => {
+            const inline = card.getByRole('button', { name: 'Close all', exact: true });
+            if (await inline.isVisible().catch(() => false)) return inline.click();
+            await card.getByRole('button', { name: /^More actions/ }).click();
+            await tab.getByRole('menuitem', { name: 'Close all' }).click();
+        };
+        await close();
         const dialog = tab.getByRole('alertdialog', { name: 'Close all open cases?' }).or(tab.getByRole('dialog', { name: 'Close all open cases?' }));
         await dialog.waitFor();
         assert.deepEqual(await tab.evaluate(() => window.kitVisits ?? []), [], 'asking sends nothing');
         await dialog.getByRole('button', { name: 'Cancel' }).click();
         await dialog.waitFor({ state: 'hidden' });
         assert.deepEqual(await tab.evaluate(() => window.kitVisits ?? []), [], 'cancelling sends nothing');
-        await close.click();
+        await close();
         await dialog.waitFor();
         await dialog.getByRole('button', { name: 'Close all', exact: true }).click();
         await tab.waitForFunction(() => (window.kitVisits ?? []).length > 0);
@@ -6096,6 +6103,13 @@ test('CollectionSection: header actions keep their descriptor: a confirmed POST 
         assert.equal(await card.getByRole('link', { name: 'Export' }).count(), 0, 'and is no link');
         await exportButton.click({ force: true });
         assert.equal((await tab.evaluate(() => window.kitVisits)).length, 1, 'clicking it sends nothing');
+        const twin = await card.locator('a[href="/@acme/cases?status=open"]:not([data-see-all]):not([data-see-all-title])').evaluateAll((els) => els.map((el) => [el.textContent.trim(), el.getAttribute('target'), el.getAttribute('rel')]));
+        assert.deepEqual(twin, [['Open in a new tab (opens in new tab)', '_blank', 'noopener noreferrer']], 'a new-tab action to the see-all\'s URL stays, opening a new tab: only a plain twin is folded into the see-all');
+        const importing = tab.locator('[data-case="empty-action"]');
+        assert.equal(await importing.getByRole('link', { name: 'Import cases' }).count(), 0, 'an empty state\'s POST action is no link');
+        await importing.getByRole('button', { name: 'Import cases', exact: true }).click();
+        await tab.waitForFunction(() => window.kitVisits.length === 2);
+        assert.deepEqual((await tab.evaluate(() => window.kitVisits)).map(({ url, method }) => [url, method])[1], ['/@acme/cases/import', 'post'], 'it makes its POST');
         const failed = tab.locator('[data-case="error"]');
         assert.equal(await failed.getByRole('alert').count(), 1, 'the error card shows its error');
         assert.deepEqual([await failed.locator('h2 a').count(), await failed.locator('a[data-see-all]').count(), (await failed.locator('h2').innerText()).trim()], [0, 0, 'Due cases'], 'an error card\'s title is plain text and it has no see-all');
@@ -6104,7 +6118,6 @@ test('CollectionSection: header actions keep their descriptor: a confirmed POST 
             return { state: card.querySelector('[data-collection-section]').dataset.state, items: card.textContent.includes('never shown'), body: card.querySelector('[data-collection-empty]') !== null, seeAll: card.querySelector('[data-collection-footer] a[data-see-all]')?.textContent.trim() ?? null };
         });
         assert.deepEqual(empty, { state: 'empty', items: false, body: true, seeAll: 'All stalled cases' }, 'an empty card with no copy and no slot still never shows its items, and keeps its see-all');
-        assert.deepEqual(await notesAxe(tab), []);
         assert.deepEqual(errors, []);
     } finally {
         await context.close();

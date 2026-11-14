@@ -8,8 +8,8 @@ import SearchBox from '@/components/Kit/Search/SearchBox.vue';
 // see-all in the footer, its title linking there; a stat card with its see-all in the header, a count and a plain title (`linkTitle: false`); an empty card with
 // the descriptor's empty state and one with the `#empty` slot. Bare, on a CollectionSection: a grid of six project cards with a header action and its see-all
 // under the grid, and an empty one. And, first so its results open in view, a SearchBox, whose results end with "All results →". With `&twin=section` or
-// `&twin=card` the page holds only one descriptor (`twin`) with the same items, drawn by that component, so a test compares the two loads. With `&edge`: a card whose header actions are a plain link, a confirmed POST and a disabled
-// action with its reason; an error card that has a see-all; and an empty card with no empty copy and no `#empty` slot.
+// `&twin=card` the page holds only one descriptor (`twin`) with the same items, drawn by that component, so a test compares the two loads. With `&edge`: a card whose header actions are a plain link, a confirmed POST, a disabled
+// action with its reason and a new-tab link to the see-all's URL; an empty card whose action is a POST; an error card that has a see-all; and an empty card with no empty copy and no `#empty` slot.
 const rows = Array.from({ length: 30 }, (_, i) => 101 + i);
 const cases = {
     title: 'Ongoing cases',
@@ -48,10 +48,12 @@ const withActions = {
         { label: 'New case', url: '/@acme/cases/new', method: 'get', key: 'new' },
         { label: 'Close all', url: '/@acme/cases/close', method: 'post', key: 'close', destructive: true, confirm: { title: 'Close all open cases?', description: 'Every open case is closed.', label: 'Close all' } },
         { label: 'Export', url: '/@acme/cases/export', method: 'get', key: 'export', disabled: true, reason: 'Exports are off on this plan' },
+        { label: 'Open in a new tab', url: '/@acme/cases?status=open', method: 'get', key: 'tab', newTab: true },
     ],
     seeAll: { label: 'All open cases', url: '/@acme/cases?status=open' },
 };
 const failed = { title: 'Due cases', state: 'error' as const, error: { message: "This couldn't load." }, seeAll: { label: 'All due cases', url: '/@acme/cases?due=1' } };
+const importable = { title: 'Imported cases', state: 'empty' as const, empty: { variant: 'first-use', title: 'Nothing imported', description: 'Cases you import show up here.', action: { label: 'Import cases', url: '/@acme/cases/import', method: 'post', key: 'import' } } };
 const bareEmpty = { title: 'Stalled cases', state: 'empty' as const, seeAll: { label: 'All stalled cases', url: '/@acme/cases?stalled=1' } };
 const slotted = { title: 'Flagged cases', state: 'empty' as const };
 </script>
@@ -61,6 +63,7 @@ const slotted = { title: 'Flagged cases', state: 'empty' as const };
         <CollectionCard :section="withActions" :level="2" data-case="actions"><p>Case 301</p></CollectionCard>
         <CollectionCard :section="failed" :level="2" data-case="error"><p>never shown</p></CollectionCard>
         <CollectionCard :section="bareEmpty" :level="2" data-case="bare-empty"><p>never shown</p></CollectionCard>
+        <CollectionCard :section="importable" :level="2" data-case="empty-action"><p>never shown</p></CollectionCard>
     </main>
     <main v-else-if="twinOf" class="grid min-h-screen content-start gap-6 bg-background p-4 text-foreground sm:p-8">
         <h1 class="text-lg font-medium">Cases</h1>

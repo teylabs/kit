@@ -81,7 +81,7 @@ The notes widget (`notes.recent`) is a list, so its "All notes" is a see-all in 
 
 Before the descriptor, a widget offered its see-all as a header action, such as `new Action('All notes', $url, 'get')`. That still works, and maps onto the descriptor:
 
-- A widget with no `seeAll()` whose `actions()` include a plain link labelled "All …", "View all …", "See all …" or "Show all …" (a GET, enabled, unconfirmed, not destructive, not in a menu) gets the first one as its `seeAll`, in the footer. "View all cases" becomes "All cases". A bare "View all" names no noun and stays an action.
+- A widget with no `seeAll()` whose `actions()` include a plain link labelled "All …", "View all …", "See all …" or "Show all …" (a GET, enabled, unconfirmed, not destructive, not in a menu, with no intent and not opening a new tab) gets the first one as its `seeAll`, in the footer. "View all cases" becomes "All cases". A bare "View all" names no noun and stays an action.
 - The other way round, a widget with a `seeAll()` also sends it as a header action (key `see-all`), unless one of its GET actions already has that URL. So a `WidgetCard` an app copied before the descriptor still draws the link, in its header as before. The current `WidgetCard` leaves out the GET action whose URL is the see-all's, so the link is drawn once.
 
 Move a widget to `seeAll()` when you next touch it: the alias stays for now, and will be removed in a later release.

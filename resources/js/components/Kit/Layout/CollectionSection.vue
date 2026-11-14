@@ -1,15 +1,27 @@
 <script setup lang="ts">
 import { Link, router } from '@inertiajs/vue3';
-import { computed, inject, provide, ref, useId, watch } from 'vue';
-import InertiaAction from '@/components/Kit/Action/InertiaAction.vue';
+import {
+    computed,
+    getCurrentInstance,
+    inject,
+    provide,
+    ref,
+    useId,
+    watch,
+} from 'vue';
+import ActionBar from '@/components/Kit/Action/ActionBar.vue';
+import {
+    rendersAsLink,
+    type ActionDescriptor,
+} from '@/components/Kit/Action/actionPlacement';
 import SeeAllLink from '@/components/Kit/Action/SeeAllLink.vue';
-import { normalAction } from '@/components/Kit/Action/singleAction';
 import { seeAllPlacement } from '@/components/Kit/Action/seeAll';
 import Button from '@/components/Kit/Form/Button.vue';
 import InputSelect from '@/components/Kit/Form/InputSelect.vue';
 import { cn } from '@/components/Kit/utils';
 import {
     collectionFrameKey,
+    type CollectionAction,
     type CollectionSectionData,
 } from './collectionSection';
 
@@ -19,8 +31,10 @@ import {
  * - the title, a heading at `level` (3 by default) that links to `seeAll`'s URL unless it says `linkTitle: false` (heading-coloured, underlined on hover);
  *   `description` under it;
  * - on the header's right, the Sort by menu (`sortBy`, while ready), the `#actions` slot, the descriptor `actions` (a GET action with the see-all's URL is
- *   left out, so the link is drawn once) and a header see-all. A plain GET action is a compact link; one with a confirmation, `disabled`, `newTab` or another
- *   method keeps its meaning through InertiaAction (it asks first, shows its reason, and is a button);
+ *   left out, so the link is drawn once; one with a confirmation, intent or new tab stays) and a header see-all. Plain GET navigation is a compact link; every other
+ *   action (a confirmation, `disabled`, a `dialog`, `panel` or `document` intent, `newTab`, another method) goes to one ActionBar after the links, which keeps
+ *   its meaning: it asks first, shows its reason, opens the route modal or a new tab. A host that listens to `action` runs those itself (a `panel` needs it);
+ *   otherwise the bar runs them;
  * - below the header, the `segments` (tabs such as All / New / In progress: links to the same page, the current one `aria-current`, named "New (4)" with a
  *   count) and the `#filters` slot;
  * - the body: the items, or the empty state (`empty`, or the `#empty` slot; an empty section never shows its items, even with neither), or the error with
@@ -57,30 +71,53 @@ const placement = computed(() => seeAllPlacement(seeAll.value));
 const titleSeeAll = computed(() =>
     seeAll.value && seeAll.value.linkTitle !== false ? seeAll.value : null,
 );
+// A descriptor with its method filled in (GET when left out), and whether it is plain navigation: a link in this tab with no confirmation, no intent the host
+// or a new tab handles, enabled.
+const descriptor = (action: CollectionAction): ActionDescriptor => ({
+    ...action,
+    method: action.method ?? 'get',
+});
+const navigates = (action: ActionDescriptor) =>
+    rendersAsLink(action) && !action.newTab && action.intent !== 'document';
 const actions = computed(() =>
     state.value === 'error'
         ? []
         : (props.section.actions ?? [])
+              .map(descriptor)
+              // The see-all's twin (plain navigation to its URL) is drawn once, as the see-all.
               .filter(
                   (action) =>
                       !(
                           props.section.seeAll &&
-                          (action.method ?? 'get') === 'get' &&
+                          navigates(action) &&
                           action.url === props.section.seeAll.url
                       ),
-              )
-              .map((action) => {
-                  const normal = normalAction({
-                      ...action,
-                      method: action.method ?? 'get',
-                  });
-                  const plain =
-                      normal.method === 'get' &&
-                      !normal.confirm &&
-                      !normal.disabled &&
-                      !normal.newTab;
-                  return { action, plain };
-              }),
+              ),
+);
+const links = computed(() => actions.value.filter(navigates));
+const operations = computed(() =>
+    actions.value.filter((action) => !navigates(action)),
+);
+const emptyAction = computed(() =>
+    props.section.empty?.action ? descriptor(props.section.empty.action) : null,
+);
+// ActionBar runs an action itself unless someone listens; this listens only when its own host does, and hands back the host's descriptor.
+const emit = defineEmits<{ action: [action: CollectionAction] }>();
+const instance = getCurrentInstance();
+const original = (action: ActionDescriptor): CollectionAction =>
+    [...(props.section.actions ?? []), props.section.empty?.action].find(
+        (item) =>
+            item &&
+            (item.key ?? item.url) === (action.key ?? action.url) &&
+            item.label === action.label,
+    ) ?? action;
+const relay = computed(() =>
+    instance?.vnode.props?.onAction
+        ? {
+              action: (action: ActionDescriptor) =>
+                  emit('action', original(action)),
+          }
+        : {},
 );
 const segments = computed(() =>
     state.value === 'error' ? [] : (props.section.segments ?? []),
@@ -182,7 +219,8 @@ function choose(value: unknown): void {
                 v-if="
                     sort ||
                     $slots.actions ||
-                    actions.length ||
+                    links.length ||
+                    operations.length ||
                     placement === 'header'
                 "
                 class="flex shrink-0 flex-wrap items-center justify-end gap-2"
@@ -210,23 +248,18 @@ function choose(value: unknown): void {
                     </div>
                 </div>
                 <slot name="actions" />
-                <template
-                    v-for="{ action, plain } in actions"
+                <Link
+                    v-for="action in links"
                     :key="action.key ?? action.url"
+                    :href="action.url"
+                    class="text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-ring rounded-md px-2 py-1 text-xs font-medium focus-visible:ring-2 focus-visible:outline-none"
+                    >{{ action.label }}</Link
                 >
-                    <Link
-                        v-if="plain"
-                        :href="action.url"
-                        class="text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-ring rounded-md px-2 py-1 text-xs font-medium focus-visible:ring-2 focus-visible:outline-none"
-                        >{{ action.label }}</Link
-                    >
-                    <InertiaAction
-                        v-else
-                        :action="action"
-                        size="sm"
-                        variant="ghost"
-                    />
-                </template>
+                <ActionBar
+                    v-if="operations.length"
+                    :actions="operations"
+                    v-on="relay"
+                />
                 <SeeAllLink
                     v-if="seeAll && placement === 'header'"
                     :see-all="seeAll"
@@ -326,13 +359,15 @@ function choose(value: unknown): void {
                             {{ section.empty.description }}
                         </p>
                         <Link
-                            v-if="section.empty.action"
-                            :href="section.empty.action.url"
+                            v-if="emptyAction && navigates(emptyAction)"
+                            :href="emptyAction.url"
                             class="bg-primary text-primary-foreground hover:bg-primary/90 focus-visible:ring-ring mt-2 inline-flex min-h-11 items-center rounded-md px-4 text-sm font-medium focus-visible:ring-2 focus-visible:outline-none"
-                            >{{ section.empty.action.label }}</Link
+                            >{{ emptyAction.label }}</Link
                         >
-                    </template></slot
-                >
+                        <div v-else-if="emptyAction" class="mt-2">
+                            <ActionBar :actions="[emptyAction]" v-on="relay" />
+                        </div> </template
+                ></slot>
             </div>
             <div v-else :key="shown ?? ''" class="contents"><slot /></div>
         </div>
