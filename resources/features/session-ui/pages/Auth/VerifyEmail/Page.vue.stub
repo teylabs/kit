@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Form, Head, Link, router, usePage } from '@inertiajs/vue3';
 import { ref } from 'vue';
-import { ActionGroup, Alert, Button, FormStatus, Page } from '@kit/ui';
+import { ActionGroup, Alert, Button, FormStatus, Page, Stack } from '@kit/ui';
 
 // Shown until the email address is confirmed: a link was sent, and it can be sent again. A guest card: its actions stack full-width (ActionGroup's column), Send the link again first.
 defineProps<Tey.Kit.Features.SessionUi.ViewModels.ChallengeViewModel>();
@@ -29,10 +29,10 @@ const formOptions = failureHandlers as FormOptions;
 <template>
     <Head :title="title" />
     <Page xs :heading="false">
-        <div class="space-y-2">
+        <Stack class="gap-2">
             <h1 class="text-xl font-medium">Verify your email address</h1>
             <p class="text-sm text-muted-foreground">We sent a link to <template v-if="email">{{ email }}</template><template v-else>your email address</template>. Follow it to confirm the address.</p>
-        </div>
+        </Stack>
         <Form ref="form" v-slot="{ processing }" action="/email/verification-notification" method="post" class="grid gap-3" @start="throttled = null" :options="formOptions">
             <Alert v-if="throttled" variant="danger" live="alert" data-auth-throttled>{{ throttled }}</Alert>
             <FormStatus :message="status === 'verification-link-sent' ? 'A new link is on its way.' : null" data-verification-sent />
