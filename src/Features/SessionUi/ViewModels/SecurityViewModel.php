@@ -3,7 +3,7 @@
 namespace Tey\Kit\Features\SessionUi\ViewModels;
 
 use Spatie\TypeScriptTransformer\Attributes\TypeScript;
-use Tey\Kit\Features\Core\Data\CollectionCardData;
+use Tey\Kit\Features\Core\Data\CollectionSectionData;
 use Tey\Kit\Features\Core\Lists\ListEmptyData;
 use Tey\Kit\Features\Core\ViewModels\PageViewModel;
 
@@ -72,10 +72,10 @@ final class SecurityViewModel extends PageViewModel
         return $this->notice;
     }
 
-    /** The security log's card (a CollectionCard over `events`): its title, what it holds, and what it says before there is anything to show. */
-    public function log(): CollectionCardData
+    /** The security log's section (a CollectionSection over `events`, on a card): its title, what it holds, and what it says before there is anything to show. */
+    public function log(): CollectionSectionData
     {
-        return new CollectionCardData('Security log', 'Your recent sign-ins and security changes. Only you can see this.', $this->events === [] ? 'empty' : 'ready',
+        return new CollectionSectionData('Security log', 'Your recent sign-ins and security changes. Only you can see this.', $this->events === [] ? 'empty' : 'ready',
             new ListEmptyData('first-use', 'Nothing yet', 'Your sign-ins and security changes show up here.'));
     }
 

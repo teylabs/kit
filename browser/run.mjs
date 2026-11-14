@@ -5759,7 +5759,7 @@ test('keyboard: a list card\'s focus order is its title link, its list and items
 });
 
 // ── A see-all card's title (docs/see-all.md): a link to the same URL by default, plain text with `linkTitle: false`; in the heading's colour (never a body
-// link's, even where the host colours links), underlined on hover, with a visible focus ring. On the dashboard and on CollectionCard (?collection-card) ────────
+// link's, even where the host colours links), underlined on hover, with a visible focus ring. On the dashboard and on CollectionSection (?collection-section) ────────
 const titleLinks = (tab) => tab.evaluate(() => [...document.querySelectorAll('[data-widget], [data-case]')].filter(card => card.querySelector('h1, h2, h3, h4, h5, h6')).map(card => {
     const heading = card.querySelector('h1, h2, h3, h4, h5, h6');
     const link = heading.querySelector('a');
@@ -5772,7 +5772,7 @@ async function collectionPage(dark, check, viewport = { width: 1280, height: 900
         const tab = await context.newPage();
         const errors = [];
         tab.on('pageerror', error => errors.push(error.message));
-        await tab.goto(`${url}?collection-card${dark}`);
+        await tab.goto(`${url}?collection-section${dark}`);
         await tab.waitForSelector('[data-case="list"] [data-collection-body] li');
         await check(tab);
         assert.deepEqual(errors, []);
@@ -5795,7 +5795,9 @@ test('a see-all card\'s title links to the same URL as its see-all; with linkTit
             { card: 'list', title: 'Ongoing cases', link: { href: '/@acme/cases?status=ongoing', name: 'Ongoing cases', title: true }, seeAll: '/@acme/cases?status=ongoing' },
             { card: 'stat', title: 'Cases this week', link: null, seeAll: '/@acme/cases?week=current' },
             { card: 'empty', title: 'Overdue cases', link: { href: '/@acme/cases?overdue=1', name: 'Overdue cases', title: true }, seeAll: '/@acme/cases?overdue=1' },
-        ], 'CollectionCard: a list card and an empty card link their titles to the filtered index; the opted-out stat card\'s is plain text');
+            { card: 'grid', title: 'Active projects', link: { href: '/@acme/projects?status=active', name: 'Active projects', title: true }, seeAll: '/@acme/projects?status=active' },
+            { card: 'grid-empty', title: 'Archived projects', link: { href: '/@acme/projects?status=archived', name: 'Archived projects', title: true }, seeAll: '/@acme/projects?status=archived' },
+        ], 'CollectionSection: a list card, an empty card and both surface="none" sections link their titles to the filtered index; the opted-out stat card\'s is plain text');
         assert.equal(await tab.locator('[data-case="empty-slot"] h2 a').count(), 0, 'a card with no see-all keeps a plain title');
     });
 });
@@ -5837,13 +5839,13 @@ test('a see-all title link keeps the heading\'s colour, not a body link\'s, is u
     };
     for (const [mode, dark] of [['light', ''], ['dark', '&dark']]) {
         await seeAllDashboard(dark, (tab) => check(tab, '[data-widget="app.cases"] h2 a[data-see-all-title]', `dashboard ${mode}`));
-        await collectionPage(dark, (tab) => check(tab, '[data-case="list"] h2 a[data-see-all-title]', `CollectionCard ${mode}`));
+        await collectionPage(dark, (tab) => check(tab, '[data-case="list"] h2 a[data-see-all-title]', `CollectionSection ${mode}`));
     }
 });
 
-// ── CollectionCard's parts (?collection-card, docs/collection-card.md): segment tabs and the Sort by menu, the empty state from the descriptor or a slot,
+// ── CollectionSection's parts (?collection-section, docs/collection-section.md): segment tabs and the Sort by menu, the empty state from the descriptor or a slot,
 // the scrolling body with the footer in view, the see-all in the footer or the header, axe light and dark ──────────────────────────────────────────────────────
-test('CollectionCard: segment tabs are links named by the card, the current one aria-current, with counts; Sort by is keyboard-operable and visits with the order', async () => {
+test('CollectionSection: segment tabs are links named by the card, the current one aria-current, with counts; Sort by is keyboard-operable and visits with the order', async () => {
     for (const [mode, dark] of [['light', ''], ['dark', '&dark']]) {
         await collectionPage(dark, async (tab) => {
             const card = tab.locator('[data-case="list"]');
@@ -5881,7 +5883,7 @@ test('CollectionCard: segment tabs are links named by the card, the current one 
     }
 });
 
-test('CollectionCard: an empty card shows the descriptor\'s empty state, or its #empty slot, never the items; its see-all stays', async () => {
+test('CollectionSection: an empty card shows the descriptor\'s empty state, or its #empty slot, never the items; its see-all stays', async () => {
     await collectionPage('', async (tab) => {
         const read = (key) => tab.evaluate((k) => {
             const card = document.querySelector(`[data-case="${k}"]`);
@@ -5893,7 +5895,7 @@ test('CollectionCard: an empty card shows the descriptor\'s empty state, or its 
     });
 });
 
-test('CollectionCard: with maxHeight the items scroll inside the card, a named, focusable region, and the footer\'s see-all stays in view and in place', async () => {
+test('CollectionSection: with maxHeight the items scroll inside the card, a named, focusable region, and the footer\'s see-all stays in view and in place', async () => {
     await collectionPage('', async (tab) => {
         const at = () => tab.evaluate(() => {
             const card = document.querySelector('[data-case="list"]');
@@ -5926,7 +5928,7 @@ test('CollectionCard: with maxHeight the items scroll inside the card, a named, 
     });
 });
 
-test('CollectionCard: the see-all is one link, "All <noun>" with an arrow: in the footer for a list, in the header with its count for a stat card; axe passes, light and dark', async () => {
+test('CollectionSection: the see-all is one link, "All <noun>" with an arrow: in the footer for a list, in the header with its count for a stat card; axe passes, light and dark', async () => {
     for (const [mode, dark] of [['light', ''], ['dark', '&dark']]) {
         await collectionPage(dark, async (tab) => {
             const read = (key) => tab.evaluate((k) => {
@@ -5943,9 +5945,71 @@ test('CollectionCard: the see-all is one link, "All <noun>" with an arrow: in th
             assert.ok(list.right <= 24 && stat.right <= 24, `${mode}: both at the card's right`);
             assert.equal(await tab.locator('[data-case="stat"] [data-collection-footer]').count(), 0, `${mode}: a header see-all leaves no footer`);
             assert.deepEqual(await notesAxe(tab), [], mode);
-            if (seeAllShots) await tab.screenshot({ path: `${seeAllShots}/collection-card-${mode}.png`, fullPage: true });
+            if (seeAllShots) await tab.screenshot({ path: `${seeAllShots}/collection-section-${mode}.png`, fullPage: true });
         });
     }
+});
+
+test('CollectionSection with surface="none": no card, a grid of cards as its items, the linked title and header action above, and "All <noun>" under the grid at its right; axe passes, light and dark', async () => {
+    for (const [mode, dark] of [['light', ''], ['dark', '&dark']]) {
+        await collectionPage(dark, async (tab) => {
+            const read = await tab.evaluate(() => {
+                const style = (el) => getComputedStyle(el);
+                const section = document.querySelector('[data-case="grid"]');
+                const list = document.querySelector('[data-case="list"]');
+                const header = section.querySelector('header');
+                const grid = section.querySelector('[data-project-grid]').getBoundingClientRect();
+                const cards = [...section.querySelectorAll('[data-project-card]')];
+                const footer = section.querySelector('[data-collection-footer]');
+                const link = footer?.querySelector('a[data-see-all]');
+                const r = link.getBoundingClientRect();
+                return {
+                    surfaces: [section.dataset.surface, list.dataset.surface],
+                    noCard: style(section).borderTopWidth === '0px' && style(section).backgroundColor === 'rgba(0, 0, 0, 0)' && style(section).boxShadow === 'none',
+                    listCard: style(list).borderTopWidth !== '0px',
+                    rules: [style(header).borderBottomWidth, style(footer).borderTopWidth],
+                    cards: cards.length,
+                    cardsBordered: cards.every((card) => style(card).borderTopWidth !== '0px'),
+                    firstRow: cards.filter((card) => Math.abs(card.getBoundingClientRect().top - cards[0].getBoundingClientRect().top) < 1).length,
+                    below: r.top >= grid.bottom - 0.5,
+                    right: Math.round(grid.right - r.right),
+                    after: Boolean(section.querySelector('[data-collection-body]').compareDocumentPosition(footer) & Node.DOCUMENT_POSITION_FOLLOWING) && footer === section.lastElementChild,
+                    inCard: Boolean(link.closest('[data-project-card]')),
+                    arrow: link.querySelector('svg')?.getAttribute('aria-hidden'),
+                    title: section.querySelector('h2 a[data-see-all-title]')?.getAttribute('href') ?? null,
+                };
+            });
+            assert.deepEqual(read.surfaces, ['none', 'card'], `${mode}: the grid section has no surface, the list one a card`);
+            assert.ok(read.noCard && read.listCard, `${mode}: no border, fill or shadow around the grid section; the list section has its card`);
+            assert.deepEqual(read.rules, ['0px', '0px'], `${mode}: no rule under the header or over the footer without a card`);
+            assert.ok(read.cards === 6 && read.cardsBordered && read.firstRow === 3, `${mode}: the items are a grid of six cards, three to a row at 1280px`);
+            assert.ok(read.below && read.after && !read.inCard && read.right <= 1, `${mode}: the see-all sits under the grid, after it, outside every card, flush with the grid's right edge (${read.right}px)`);
+            assert.equal(read.arrow, 'true', `${mode}: the arrow is hidden`);
+            assert.equal(read.title, '/@acme/projects?status=active', `${mode}: the title links to the see-all's URL`);
+            const section = tab.locator('[data-case="grid"]');
+            assert.equal(await section.getByRole('link', { name: 'All active projects', exact: true }).count(), 1, `${mode}: one link named "All active projects"`);
+            assert.equal(await section.getByRole('link', { name: 'New project', exact: true }).count(), 1, `${mode}: the header action`);
+            assert.deepEqual(await notesAxe(tab), [], mode);
+            if (dark) return;
+            await section.locator('h2 a').focus();
+            const order = [];
+            for (let i = 0; i < 9; i++) {
+                order.push(await tab.evaluate(() => document.activeElement.textContent.trim()));
+                await tab.keyboard.press('Tab');
+            }
+            assert.deepEqual(order, ['Active projects', 'New project', 'Harbour', 'Lantern', 'Meadow', 'Orchard', 'Quarry', 'Willow', 'All active projects'], 'keyboard: the title, the header action, each card, then the see-all');
+        });
+    }
+});
+
+test('CollectionSection with surface="none": an empty section shows its empty state in place of the grid, and keeps its see-all under it', async () => {
+    await collectionPage('', async (tab) => {
+        const read = await tab.evaluate(() => {
+            const section = document.querySelector('[data-case="grid-empty"]');
+            return { surface: section.dataset.surface, border: getComputedStyle(section).borderTopWidth, empty: section.querySelector('[data-collection-empty]')?.innerText.replace(/\s+/g, ' ').trim() ?? null, items: section.textContent.includes('never shown'), footer: section.querySelector('[data-collection-footer] a[data-see-all]')?.textContent.trim() ?? null, last: section.querySelector('[data-collection-footer]') === section.lastElementChild };
+        });
+        assert.deepEqual(read, { surface: 'none', border: '0px', empty: 'Nothing archived Projects you archive show up here.', items: false, footer: 'All archived projects', last: true });
+    });
 });
 
 test('SearchBox: the results end with "All results" and an arrow, kept in view while they scroll, and it visits the full results page', async () => {
@@ -5953,7 +6017,7 @@ test('SearchBox: the results end with "All results" and an arrow, kept in view w
     try {
         const tab = await context.newPage();
         await tab.route(/\/search\?q=/, route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ partial: false, groups: [{ key: 'cases', label: 'Cases', results: Array.from({ length: 30 }, (_, i) => ({ id: String(i), label: `Case ${101 + i}`, url: `/@acme/cases/${i}`, description: null, meta: null })) }] }) }));
-        await tab.goto(`${url}?collection-card`);
+        await tab.goto(`${url}?collection-section`);
         await tab.getByRole('combobox', { name: 'Search' }).fill('case');
         await tab.waitForSelector('[data-search-option]');
         const link = tab.getByRole('link', { name: 'All results', exact: true });

@@ -80,7 +80,7 @@ reason: string | null,
 required: boolean,
 action: Tey.Kit.Features.Core.Data.ChecklistAction | null,
 };
-export type CollectionCardData = {
+export type CollectionSectionData = {
 title: string,
 description: string | null,
 state: 'ready' | 'empty' | 'error',
@@ -954,7 +954,7 @@ last_used: string | null,
 }[],
 } | null,
 readonly notice: string | null,
-readonly log: Tey.Kit.Features.Core.Data.CollectionCardData,
+readonly log: Tey.Kit.Features.Core.Data.CollectionSectionData,
 };
 export type TransferOwnershipViewModel = {
 readonly title: string,

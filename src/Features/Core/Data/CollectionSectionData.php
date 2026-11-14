@@ -10,14 +10,15 @@ use Tey\Kit\Features\Core\Lists\ListEmptyData;
 use Tey\Kit\Features\Core\Lists\ListErrorData;
 
 /**
- * Everything a CollectionCard draws around its items (docs/collection-card.md), decided on the server: a card or section showing a collection (a list, a grid,
+ * Everything a CollectionSection draws around its items (docs/collection-section.md), decided on the server: a section showing a collection (a list, a grid,
  * a feed or table rows). Its `title` (a link to `seeAll`'s URL when there is one), an optional `description`, header `actions`, `segments` (tabs such as
  * All / New / In progress) and a `sortBy` menu, the `state` (`ready`, `empty` with `empty`, or `error` with `error`), an optional `maxHeight` past which the items
- * scroll inside the card, and `seeAll`, the "All cases →" link in its footer. The items themselves are the component's default slot.
- * A dashboard widget's frame carries the same fields, so WidgetCard draws a widget through the same component.
+ * scroll inside the section, and `seeAll`, the "All cases →" link in its footer. The items themselves are the component's default slot.
+ * A dashboard widget's frame carries the same fields, so WidgetCard draws a widget through the same component. Whether a card is drawn around it all is the
+ * component's `surface` (`card` for a list of rows, `none` for items that are cards themselves): a page's layout, not the server's.
  */
 #[TypeScript]
-final class CollectionCardData extends Data
+final class CollectionSectionData extends Data
 {
     /**
      * @param  list<\Tey\Kit\Features\Core\Data\Action>  $actions
@@ -39,7 +40,7 @@ final class CollectionCardData extends Data
         $current = count(array_filter($segments, fn (CollectionSegment $segment): bool => $segment->current));
         if (trim($title) === '' || ! in_array($state, ['ready', 'empty', 'error'], true) || $current > 1
             || ($maxHeight !== null && (strlen($maxHeight) > 32 || preg_match('/\A(?:\d+(?:\.\d+)?|\.\d+)(?:px|rem|em)\z/', $maxHeight) !== 1))) {
-            throw new InvalidArgumentException('collection_card_invalid');
+            throw new InvalidArgumentException('collection_section_invalid');
         }
     }
 }

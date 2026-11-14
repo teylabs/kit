@@ -888,12 +888,14 @@ export interface SectionHeaderProps {
 }
 
 /**
- * A card or section showing a collection (docs/collection-card.md), driven by the server's `CollectionCardData` (`card`): the title (a link to the see-all's URL
+ * A section showing a collection (docs/collection-section.md), driven by the server's `CollectionSectionData` (`section`): the title (a link to the see-all's URL
  * unless `linkTitle` is false), description, header actions and Sort by menu, segment tabs, the empty state (or the `#empty` slot) or error, an optional scrolling
  * body (`maxHeight`) and the see-all footer. Slots: default (the items), `actions`, `filters`, `empty`, `footer`. `level` is the title's heading level (3).
+ * `surface`: `card` (the default) draws a bordered card around it all, for a list of rows; `none` draws none, for items that are cards themselves.
  */
-export interface CollectionCardProps {
-    card: import('./Card/collectionCard').CollectionCardData;
+export interface CollectionSectionProps {
+    section: import('./Layout/collectionSection').CollectionSectionData;
+    surface?: 'card' | 'none';
     level?: 2 | 3 | 4 | 5 | 6;
     headless?: boolean;
     minHeight?: string | null;

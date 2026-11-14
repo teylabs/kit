@@ -1,8 +1,8 @@
 import type { SeeAll } from '@/components/Kit/Action/seeAll';
 
 /**
- * What a CollectionCard draws around its items (docs/collection-card.md), as the server sends it (`Tey\Kit\Features\Core\Data\CollectionCardData`). A
- * dashboard widget's frame has the same fields, so it is one too. Only `title` is required: the rest default to a ready card with no header extras.
+ * What a CollectionSection draws around its items (docs/collection-section.md), as the server sends it (`Tey\Kit\Features\Core\Data\CollectionSectionData`). A
+ * dashboard widget's frame has the same fields, so it is one too. Only `title` is required: the rest default to a ready section with no header extras. Whether it draws a card is the component's `surface`, not the server's.
  */
 export type CollectionSegment = {
     key: string;
@@ -25,7 +25,7 @@ export type CollectionAction = {
     method?: string;
     key?: string | null;
 };
-export type CollectionCardData = {
+export type CollectionSectionData = {
     title: string;
     description?: string | null;
     state?: 'ready' | 'empty' | 'error';

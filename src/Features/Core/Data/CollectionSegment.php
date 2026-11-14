@@ -5,7 +5,7 @@ namespace Tey\Kit\Features\Core\Data;
 use Spatie\LaravelData\Data;
 use Spatie\TypeScriptTransformer\Attributes\TypeScript;
 
-/** One segment tab above a CollectionCard's items ("All", "New", "In progress"): a link to the same page showing that segment, its optional count, and whether it is the one shown. */
+/** One segment tab above a CollectionSection's items ("All", "New", "In progress"): a link to the same page showing that segment, its optional count, and whether it is the one shown. */
 #[TypeScript]
 final class CollectionSegment extends Data
 {

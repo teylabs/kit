@@ -3698,11 +3698,11 @@
     },
     {
       "ref": "@/components/Kit:SeeAllLink",
-      "reason": "A list's see-all link: drawn by CollectionCard and SearchBox from the server's SeeAll descriptor."
+      "reason": "A list's see-all link: drawn by CollectionSection and SearchBox from the server's SeeAll descriptor."
     },
     {
-      "ref": "@/components/Kit:CollectionCard",
-      "reason": "The card a collection of items sits in, driven by the server's CollectionCardData: a dashboard widget's and a list section's frame, not a surface of its own."
+      "ref": "@/components/Kit:CollectionSection",
+      "reason": "The section a collection of items sits in, driven by the server's CollectionSectionData, on a card or around a grid of cards: a dashboard widget's and a list section's frame, not a page surface of its own."
     },
     {
       "ref": "@/components/Kit:seeAllPlacement",
