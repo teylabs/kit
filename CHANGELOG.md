@@ -6,7 +6,7 @@ Features affected: core, session-ui, workspace-ui
 
 A minor release: a new infrastructure table, `signed_in_devices`, and new middleware in `web`. Run `php artisan migrate` (see Upgrading).
 
-workspace-ui re-pinned: `sha256:7d96253d…0ca4` → `sha256:7a802ce5…b14b` (the Security page signs out one device at a time, with the password and a confirm dialog; its copy no longer asks for `SESSION_DRIVER=database`). In `history.json` only the `current` block changed.
+workspace-ui re-pinned: `sha256:f372bde6…a03b` → `sha256:2036e0b6…b38a` (the Security page signs out one device at a time, with the password and a confirm dialog; its copy no longer asks for `SESSION_DRIVER=database`). In `history.json` only the `current` block changed.
 
 ### Added
 
@@ -47,7 +47,7 @@ workspace-ui re-pinned: `sha256:7d96253d…0ca4` → `sha256:7a802ce5…b14b` (t
     - **Encryption:** after an `APP_PREVIOUS_KEYS` rotation, devices stay signed in and a sign-out still destroys. A device signed out before the rotation stays out before any touch (the revocation read covers the previous keys' markers in the same single read). A session backfilled under the previous key keeps its one row: its first request adopts it, and the backfill adds no second. A row that won't decrypt is still retired and signed out, and reported without the id.
     - **Octane:** no static state, and two people's alternating requests keep their own `kit.device`.
     - Each of the sign-in, regenerate and touch checks fails with its fix undone.
-  - **Other checks.** `test:migrations`: the pair runs fresh (columns, indexes, cascading key) and on an upgraded app, rolls back and runs again, and an app's own `signed_in_devices` table is refused, named and left as it was. `test:lifecycle-pages`: with session-ui on and the table missing, account deletion fails closed (SQLite and PostgreSQL). `test:security-mail`: `device_signed_out` is logged with the device's details and mailed without them. `test:account-form-payloads`: the page lists another device with the keys the 0.22 page reads, and the recorded payload signs it out on the real route. Browser (`forms.html?form=Security`, at 1280 and 390px): each other device has its own Sign out with the password and this device none. The confirm dialog names the device, and for a remembered one the sign-in-again copy. Signing out posts only the password to the device's url, the notice shows, the list keeps the rest after a reload, and a wrong password is refused on that device's field. axe passes with contrast on the rows and on the dialog. Floor 371 → 372.
+  - **Other checks.** `test:migrations`: the pair runs fresh (columns, indexes, cascading key) and on an upgraded app, rolls back and runs again, and an app's own `signed_in_devices` table is refused, named and left as it was. `test:lifecycle-pages`: with session-ui on and the table missing, account deletion fails closed (SQLite and PostgreSQL). `test:security-mail`: `device_signed_out` is logged with the device's details and mailed without them. `test:account-form-payloads`: the page lists another device with the keys the 0.22 page reads, and the recorded payload signs it out on the real route. Browser (`forms.html?form=Security`, at 1280 and 390px): each other device has its own Sign out with the password and this device none. The confirm dialog names the device, and for a remembered one the sign-in-again copy. Signing out posts only the password to the device's url, the notice shows, the list keeps the rest after a reload, and a wrong password is refused on that device's field. axe passes with contrast on the rows and on the dialog. Floor 372 → 373.
   - **Not covered:** a real Redis, Valkey, Memcached or DynamoDB server (only the shared handler class is exercised), MySQL and SQL Server, file sessions on several servers, a consumer app, and browsers other than Chromium.
 
 ### Not in this release
@@ -61,6 +61,25 @@ workspace-ui re-pinned: `sha256:7d96253d…0ca4` → `sha256:7a802ce5…b14b` (t
 - Each signed-in request now reads one key from the cache store. If your default cache store is `database`, or isn't shared across your servers, set `kit.devices.store` to one that is (Redis, say).
 - Optionally, schedule `model:prune` for `Tey\Kit\Features\SessionUi\Models\SignedInDevice` to keep the table short.
 - Since 0.18 an app owns its Security page, so the per-device Sign out comes only with the new one. Run `php artisan kit:scaffold workspace-ui --diff --only=resources/js/pages/Workspace/Account/Security` (or `--force` that file if you never edited it). Until then the old page lists every device on every driver, and its "Sign out other sessions" works everywhere.
+
+## v0.22.1
+
+Features affected: session-ui, workspace-ui
+
+Features affected: session-ui, workspace-ui
+
+session-ui re-pinned: `sha256:dda4c842…744b` → `sha256:f9aafc30…4a8d` (ConfirmPassword, ForgotPassword, ResetPassword, TwoFactor and VerifyEmail put their heading in a `<Stack class="gap-2">`). workspace-ui re-pinned: `sha256:7d96253d…0ca4` → `sha256:f372bde6…a03b` (the invitation page's heading is a `<Stack class="gap-2">`). In `history.json` only the `current` block changed.
+
+### Fixed
+
+- **The kit's auth pages pass tey/standards' `ui.no-outer-margins` (#1015).** ConfirmPassword, ForgotPassword, ResetPassword, TwoFactor, VerifyEmail and the invitation page each put a `<div class="space-y-2">` heading block directly in `<Page>`, which the rule flags, so an app running standards over its scaffolded pages had to allowlist the kit's own. The heading block is a `<Stack class="gap-2">` now: the same 8px between the heading and its lines, the page's 24px under it. The invitation's note from the inviter is `my-1` where it was `my-3`, so it keeps its 12px above and below (a flex gap adds to a margin where a block's margins collapsed). Nothing looks different. Login and Register already held the heading in a Stack and are unchanged. Run over all 59 `.vue` files the kit's features ship, tey/standards 0.11.101's `ui.no-outer-margins` finds nothing (6 findings before). docs/page-rhythm.md lists the heading block with the compact cards' tighter groups.
+  Features affected: session-ui, workspace-ui
+  - **Tests.** Browser (`auth.html`, at 1280 and 390px, which now gives the invitation a note from the inviter with `&note`): on ConfirmPassword, ForgotPassword, ResetPassword, TwoFactor, VerifyEmail, the invitation and the invitation with a note, the heading block is a Stack directly in `<Page>` with no `space-y-*`; its lines are 8px apart (12px around the note) and the page gap is 24px under it; with the block put back to the 0.22 markup in the same tab, every element's box in the card is where it was, and the card's screenshot is the same but for antialiasing. It fails on the old pages (the block is not a Stack), and with the note left at `my-3` (20px around it). Floor 371 → 372.
+  - **Not covered:** a consumer app, the dark scheme (only spacing changed), and browsers other than Chromium.
+
+### Upgrading
+
+- Since 0.18 an app owns its scaffolded pages, so this reaches them only with the new pages, and nothing changes until then. An app that allowlists the kit's auth pages for `ui.no-outer-margins` can run `php artisan kit:scaffold session-ui --diff --only=resources/js/pages/Auth` and `php artisan kit:scaffold workspace-ui --diff --only=resources/js/pages/Auth/Invitation`, then swap each heading's `<div class="space-y-2">` for `<Stack class="gap-2">` (importing `Stack` from `@kit/ui`) and the invitation note's `my-3` for `my-1` (or `--force` those pages if it never edited them), and drop the allowlist entries.
 
 ## v0.22.0
 

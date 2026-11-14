@@ -2,7 +2,7 @@
 import { Form, Link, usePage } from '@inertiajs/vue3';
 import { ArrowRight } from '@lucide/vue';
 import { computed, onMounted, ref } from 'vue';
-import { ActionGroup, browserTimezone, Button, Field, Input, Page, PasswordInput } from '@kit/ui';
+import { ActionGroup, browserTimezone, Button, Field, Input, Page, PasswordInput, Stack } from '@kit/ui';
 
 // A workspace invitation link: the workspace, who invited you, then the next step for this state, or a clear reason the link no longer works.
 const props = defineProps<Tey.Kit.Features.SessionUi.ViewModels.InvitationViewModel>();
@@ -49,15 +49,16 @@ const body = computed(() => {
 </script>
 <template>
     <Page xs :heading="false">
-        <div class="space-y-2">
+        <!-- The heading block: 8px between its lines, 12px around the inviter's note (the gap plus its my-1). -->
+        <Stack class="gap-2">
             <h1 class="text-xl font-medium" data-invitation-title>{{ title }}</h1>
             <p v-if="context" class="text-sm font-medium" data-invitation-summary>{{ context }}</p>
-            <figure v-if="invitation?.message && joining" class="my-3 border-l-2 pl-3" data-invitation-note>
+            <figure v-if="invitation?.message && joining" class="my-1 border-l-2 pl-3" data-invitation-note>
                 <blockquote class="text-sm">{{ invitation.message }}</blockquote>
                 <figcaption class="mt-1 text-xs text-muted-foreground">{{ who }}</figcaption>
             </figure>
             <p class="text-sm text-muted-foreground" data-invitation-message :data-state="state">{{ body }}</p>
-        </div>
+        </Stack>
         <Form v-if="state === 'ready'" v-slot="{ processing }" :action="accept_url" method="post" class="grid gap-4">
             <Input type="hidden" name="timezone" :model-value="timezone" />
             <ActionGroup direction="column">

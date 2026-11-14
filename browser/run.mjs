@@ -1411,6 +1411,62 @@ const compactAuthCards = async (scheme) => {
 test('Compact auth cards (light): a flashed status sits 16px under the heading and spans the card; Deny sits 12px under Approve', () => compactAuthCards('light'));
 test('Compact auth cards (dark): a flashed status sits 16px under the heading and spans the card; Deny sits 12px under Approve', () => compactAuthCards('dark'));
 
+// The heading block of a compact card with no flashed status (#1015): a `<Stack class="gap-2">` directly in <Page>, which tey/standards' ui.no-outer-margins
+// passes, where 0.22 had a `space-y-2` div. The spacing must not change: 8px between its lines, 12px around the invitation's note (where `my-3` collapsed with
+// the 8px), the page gap (24px) under it. Each card is read and screenshotted as shipped, then with its heading block put back to the 0.22 markup in the same
+// tab: every element's box must be the same to the subpixel, and the screenshots the same but for antialiasing (no channel more than 4 apart; Chromium repaints
+// an input's rounded corner a shade differently when its layer changes). `KIT_AUTH_HEADING_SCREENSHOTS=<dir>` saves the shipped cards.
+test('Compact auth cards: the heading block is a Stack directly in Page, 8px between its lines, and lays out and paints as the 0.22 space-y-2 block did, at 1280 and 390px', async () => {
+    const shots = process.env.KIT_AUTH_HEADING_SCREENSHOTS;
+    for (const width of [1280, 390]) {
+        const context = await browser.newContext({ viewport: { width, height: 900 } });
+        try {
+            const tab = await context.newPage();
+            const boxes = () => tab.$$eval('[data-guest-card] *', (elements) => elements.map((el) => { const r = el.getBoundingClientRect(); return `${el.tagName} ${r.left} ${r.top} ${r.width} ${r.height}`; }));
+            // The largest channel difference between two PNGs, decoded in the page (256 when their sizes differ).
+            const delta = (a, b) => tab.evaluate(async (images) => {
+                const [x, y] = await Promise.all(images.map(async (base64) => {
+                    const bitmap = await createImageBitmap(await (await fetch(`data:image/png;base64,${base64}`)).blob());
+                    const g = new OffscreenCanvas(bitmap.width, bitmap.height).getContext('2d');
+                    g.drawImage(bitmap, 0, 0);
+                    return g.getImageData(0, 0, bitmap.width, bitmap.height).data;
+                }));
+                let max = x.length === y.length ? 0 : 256;
+                for (let i = 0; i < x.length && max < 256; i++) max = Math.max(max, Math.abs(x[i] - y[i]));
+                return max;
+            }, [a.toString('base64'), b.toString('base64')]);
+            for (const [name, query, gaps] of [['ConfirmPassword', '', [8]], ['ForgotPassword', '', [8]], ['ResetPassword', '', [8]], ['TwoFactor', '', [8]], ['VerifyEmail', '', [8]], ['Auth/Invitation/Show', '', [8, 8]], ['Auth/Invitation/Show', '&note', [8, 12, 12]]]) {
+                const label = `${name}${query} at ${width}px`;
+                await tab.goto(`${authUrl}auth.html?auth=${name}${query}`);
+                await tab.waitForSelector('[data-guest-card] h1');
+                await tab.evaluate(() => document.fonts.ready);
+                const block = await tab.$eval('[data-guest-card] h1', (h1) => {
+                    const block = h1.parentElement;
+                    const boxes = [...block.children].map((child) => child.getBoundingClientRect());
+                    return { slot: block.dataset.slot, inPage: block.parentElement.dataset.slot === 'page', className: block.className, gaps: boxes.slice(1).map((box, i) => Math.round(box.top - boxes[i].bottom)), under: Math.round(block.nextElementSibling.getBoundingClientRect().top - block.getBoundingClientRect().bottom) };
+                });
+                assert.equal(block.slot, 'stack', `${label}: the heading block is a Stack`);
+                assert.ok(block.inPage, `${label}: directly in <Page>`);
+                assert.doesNotMatch(block.className, /space-y-/, `${label}: no space-y on the block`);
+                assert.deepEqual(block.gaps, gaps, `${label}: the gaps between the heading block's lines`);
+                assert.equal(block.under, 24, `${label}: the page gap under the heading block`);
+                const card = tab.locator('[data-guest-card]');
+                const [layout, shipped] = [await boxes(), await card.screenshot({ animations: 'disabled' })];
+                if (shots) writeFileSync(path.join(shots, `auth-heading-${name.replaceAll('/', '-')}${query.replace(/\W/g, '-')}-${width}.png`), shipped);
+                await tab.$eval('[data-guest-card] h1', (h1) => {
+                    h1.parentElement.className = 'space-y-2';
+                    h1.parentElement.querySelector('[data-invitation-note]')?.classList.replace('my-1', 'my-3');
+                });
+                assert.deepEqual(await boxes(), layout, `${label}: every box where the 0.22 space-y-2 block put it`);
+                const off = await delta(shipped, await card.screenshot({ animations: 'disabled' }));
+                assert.ok(off <= 4, `${label}: the same pixels as the 0.22 space-y-2 block, but for antialiasing (a channel is ${off} apart)`);
+            }
+        } finally {
+            await context.close();
+        }
+    }
+});
+
 test('Login links to Register only while the view model passes the link', async () => {
     await authPage('Login', async ({ tab, count }) => {
         assert.equal(await count('[data-register-link]'), 0);

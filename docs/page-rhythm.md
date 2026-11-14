@@ -24,6 +24,7 @@ A page's vertical spacing has one owner. `<Page>` puts one gap (`gap-6`) between
 
 The guest pages (Login, Register, ForgotPassword, ResetPassword, ConfirmPassword, TwoFactor, VerifyEmail), the invitation page and the mcp consent page are compact cards (`<Page xs>`), and they keep the page's `gap-6` between the heading and the form. Where two blocks belong together, a card groups them in a `<Stack>` with a tighter gap instead of a margin:
 
+- a heading and the lines under it (ConfirmPassword, ForgotPassword, ResetPassword, TwoFactor, VerifyEmail, the invitation page): `<Stack class="gap-2">`;
 - a heading and its flashed status (Login, Register): `<Stack>` (`gap-4`);
 - the consent request and its scopes: `<Stack>` (`gap-4`); Approve and Deny, one decision: `<Stack class="gap-3">`.
 - stacked actions, the primary first (Login, TwoFactor, VerifyEmail, the invitation page): `<ActionGroup direction="column">` (`gap-3`, every action full-width, at every breakpoint; [action-group.md](action-group.md)).
