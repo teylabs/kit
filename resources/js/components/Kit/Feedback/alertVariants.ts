@@ -113,13 +113,13 @@ export const alertIconClass = (
 
 /*
  * An Alert's actions take its tone (AlertActions provides it as the surface; Button reads it): never the host's grey secondary. `style` is the alert's
- * `actionsStyle`: `link` (the default) is tone text, medium weight, underlined on hover; `soft` a compact button tinted with the tone, `bg-current/8` and 12%
- * on hover (at 20%, light success text falls to 4.1:1). A quiet Button (secondary, ghost, link) is a normal-weight tone link in either style, for a second
- * action such as Dismiss. Focus is a 2px outline in the tone, 2px out. The tone is the pale tier's semantic text token (the icon's; foreground for muted, whose
+ * `actionsStyle`: `soft` (the default) is a compact button tinted with the tone, `bg-current/8` and 12% on hover (at 20%, light success text falls to
+ * 4.1:1); `link` is tone text, medium weight, underlined on hover. A quiet Button (secondary, ghost, link) is a normal-weight tone link in either style, for a
+ * second action such as Dismiss. Focus is a 2px outline in the tone, 2px out. The tone is the pale tier's semantic text token (the icon's; foreground for muted, whose
  * muted-foreground is too faint for a link) and the solid tier's own text. Each pairing keeps 4.5:1 in light and dark, at rest and on hover (browser/run.mjs,
  * ?alert-actions).
  */
-export type AlertActionsStyle = 'link' | 'soft';
+export type AlertActionsStyle = 'soft' | 'link';
 export type AlertActions = {
     variant: AlertVariant;
     tier: AlertTier;

@@ -9342,7 +9342,7 @@ test('a locked FormCard and a lone FormFieldset show their notice by default and
     }
 });
 
-// ── An Alert's actions in its tone (?alert-actions, `=dark`): link and soft, every tone and tier, at rest, on hover and focused; axe with contrast ────────────
+// ── An Alert's actions in its tone (?alert-actions, `=dark`): soft (the default) and link, every tone and tier, at rest, on hover and focused; axe with contrast ─
 // Each alert holds a primary Button and a secondary one in #actions (AlertActionsApp.vue). Colours are read as the browser paints them: the backgrounds from the
 // action up to the page are composited on a canvas, so a translucent tint (bg-current/10, bg-sky-950/60) counts as drawn. KIT_ALERT_ACTIONS_SCREENSHOTS=<dir>
 // saves each pale info, success, warning, danger and muted alert, per style, scheme and width; KIT_ALERT_ACTIONS_CONTRAST=<file> writes the ratios as JSON.
@@ -9482,14 +9482,17 @@ test('an Alert\'s action shows a 2px focus ring in its tone, 2px out, in both st
     }
 });
 
-test('a plain link and a Button with href in an Alert\'s #actions take its tone, a link by default; a Button in its body keeps the host\'s look', async () => {
+test('a plain link and a Button with href in an Alert\'s #actions take its tone, the Button soft by default; a Button in its body keeps the host\'s look', async () => {
     const { context, tab } = await alertActionsPage('light', 1280);
     try {
         const plain = await alertAction(tab, 'href', 'plain');
         const href = await alertAction(tab, 'href', 'primary');
         assert.equal(plain.ink, plain.icon, 'the plain link is the warning tone');
         assert.equal(href.ink, href.icon, 'the Button with href is the warning tone');
-        assert.equal(href.behind, href.alertBehind, 'with no actionsStyle it is a link (the default), on the alert\'s own background');
+        assert.equal(await tab.getAttribute('[data-test-alert="href"] [data-slot="alert-actions"]', 'data-actions-style'), 'soft', 'with no actionsStyle the actions are soft (the default)');
+        assert.notEqual(href.behind, href.alertBehind, 'so the Button with href is tinted with the tone');
+        assert.equal(href.height, 32, 'and compact (h-8)');
+        assert.equal(plain.behind, plain.alertBehind, 'the plain link stays a link, on the alert\'s own background');
         assert.equal(await tab.evaluate(() => document.querySelector('[data-test-alert="href"] [data-test-primary]').tagName), 'A', 'still a link');
         const body = await tab.evaluate(() => {
             const el = document.querySelector('[data-test-body-button]');

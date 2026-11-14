@@ -3,7 +3,8 @@ import Alert from '@/components/Kit/Feedback/Alert.vue';
 import Button from '@/components/Kit/Form/Button.vue';
 
 // An Alert's actions in its tone, for run.mjs (?alert-actions, ?alert-actions=dark under .dark): every tone in both `actionsStyle`s with a primary Button and a
-// quiet secondary one, the solid tier, a Button with `href`, a plain link in the slot, and a Button in the body (which keeps the host's look). Invented copy only.
+// quiet secondary one (soft is the default, so only link is passed), the solid tier, a Button with `href` (the default style), a plain link in the slot, and a
+// Button in the body (which keeps the host's look). Invented copy only.
 if (new URLSearchParams(window.location.search).get('alert-actions') === 'dark') document.documentElement.classList.add('dark');
 const tones = [
     { variant: 'info', title: 'Backups run nightly', body: 'Scheduled backups start at 2:00 each night.', primary: 'View schedule', quiet: 'Dismiss' },
@@ -25,7 +26,7 @@ const tones = [
                     :key="`${style}-${tone.variant}`"
                     :variant="tone.variant"
                     :title="tone.title"
-                    :actions-style="style"
+                    :actions-style="style === 'soft' ? undefined : style"
                     :data-test-alert="`${tone.variant}-${style}`"
                 >
                     {{ tone.body }}
@@ -42,7 +43,7 @@ const tones = [
                     :variant="variant"
                     tier="solid"
                     title="Maintenance tonight"
-                    :actions-style="style"
+                    :actions-style="style === 'soft' ? undefined : style"
                     :data-test-alert="`${variant}-solid-${style}`"
                 >
                     Sign-in pauses for ten minutes at 23:00.

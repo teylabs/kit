@@ -21,8 +21,8 @@ export interface InputProps {
  * solid; `title` is one short line; `icon` is on by default (by variant), `false` hides it. `live`: none (default, already on the page at load), status (polite, appears after
  * something the person did) or alert (assertive, blocks them; sparingly). `dismiss` is a server descriptor and `dismissible` shows the close button: only for what can be ignored.
  * `actionsPlacement`: below (default, under the body) or inline (from sm up, on the right, vertically centred beside the title and body; below them on a phone).
- * `actionsStyle`: how a Button in `actions` draws, in the alert's tone: link (default; tone text, medium weight, underlined on hover) or soft (a tone-tinted
- * button). A secondary, ghost or link Button there is a quiet, normal-weight tone link in either style.
+ * `actionsStyle`: how a Button in `actions` draws, in the alert's tone: soft (default; a compact tone-tinted button) or link (tone text, medium weight,
+ * underlined on hover). A secondary, ghost or link Button there is a quiet, normal-weight tone link in either style.
  */
 export interface AlertProps {
     variant?:
@@ -43,7 +43,7 @@ export interface AlertProps {
         method?: 'post' | 'put' | 'patch' | 'delete';
     } | null;
     actionsPlacement?: 'below' | 'inline';
-    actionsStyle?: 'link' | 'soft';
+    actionsStyle?: 'soft' | 'link';
 }
 
 /**

@@ -27,8 +27,8 @@ import {
  * `actionsPlacement`: `below` (default) puts the actions under the body; `inline` puts them, from sm up, on the right of the title and body, vertically centred
  * beside them, and below them on a phone. Opt in for a short alert with one or two actions, such as a lock notice with Reopen.
  *
- * `actionsStyle`: a kit Button in `#actions` takes the alert's tone, never the host's grey, with no class from the caller. `link` (default) is tone text, medium
- * weight, underlined on hover: it blends into the alert. `soft` is a compact button tinted with the tone, for an alert that exists to get one click. The
+ * `actionsStyle`: a kit Button in `#actions` takes the alert's tone, never the host's grey, with no class from the caller. `soft` (default) is a compact button
+ * tinted with the tone. `link` is tone text, medium weight, underlined on hover: pick it per alert where the action should blend into the message. The
  * Button's variant says how loud it is: primary, success or destructive is that action; secondary, ghost or link a quiet, normal-weight tone link (Dismiss,
  * Learn more). A plain link or button slotted there takes the tone's colour. The focus ring is the tone too. See alertActionClass.
  */
@@ -55,7 +55,7 @@ const props = withDefaults(
         dismissible: false,
         dismiss: null,
         actionsPlacement: 'below',
-        actionsStyle: 'link',
+        actionsStyle: 'soft',
     },
 );
 
