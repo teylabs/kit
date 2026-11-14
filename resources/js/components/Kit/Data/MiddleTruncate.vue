@@ -10,6 +10,7 @@ import {
 import {
     type MiddleTruncateKind,
     canvasFont,
+    contentWidth,
     middleTruncate,
 } from './middleTruncate';
 
@@ -43,17 +44,6 @@ const fontsDone = () => {
     fontsLoaded++;
     update();
 };
-
-// The unrounded content box: clientWidth and scrollWidth round, and a fraction of a pixel over is enough for the CSS ellipsis.
-function contentWidth(el: HTMLElement, style: CSSStyleDeclaration): number {
-    return (
-        el.getBoundingClientRect().width -
-        parseFloat(style.paddingLeft) -
-        parseFloat(style.paddingRight) -
-        parseFloat(style.borderLeftWidth) -
-        parseFloat(style.borderRightWidth)
-    );
-}
 
 function update(): void {
     const el = root.value;

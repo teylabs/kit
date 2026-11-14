@@ -8982,3 +8982,252 @@ test('MiddleTruncate under Vue\'s server renderer: the whole value with a CSS en
         await dev.close();
     }
 });
+
+// ── The Text family (?text): copy, truncate and clamp, long text, a scrolling code block, number and address formats, axe, server render ─────────────────
+async function textPage(query, check, { clipboard = true, init } = {}) {
+    const context = await browser.newContext({ viewport: { width: 1024, height: 900 }, permissions: clipboard ? ['clipboard-read', 'clipboard-write'] : [] });
+    try {
+        const tab = await context.newPage();
+        if (init) await tab.addInitScript(init);
+        await tab.goto(`${url}?${query}`);
+        await tab.waitForSelector('[data-case="badges"] [data-badge]');
+        await check(tab);
+    } finally {
+        await context.close();
+    }
+}
+const clipboardText = (tab) => tab.evaluate(() => navigator.clipboard.readText());
+const nextFrames = (tab) => tab.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+
+test('TextCopy, CopyButton and CopyField copy their value by pointer and keyboard, claim it only once written, and name what they copy', async () => {
+    await textPage('text', async (tab) => {
+        const inline = tab.locator('[data-inline-copy]');
+        const press = inline.getByRole('button', { name: 'INV-2026-0042', exact: true });
+        assert.equal(await press.count(), 1, 'a real button named by the text it shows');
+        assert.equal(await press.getAttribute('title'), 'Copy', 'and described by its tooltip');
+        await press.click();
+        await tab.locator('[data-inline-copy][data-state="copied"]').waitFor();
+        assert.equal(await clipboardText(tab), 'INV-2026-0042');
+        assert.equal(await inline.getByRole('status').textContent(), 'Copied.');
+        await tab.evaluate(() => navigator.clipboard.writeText(''));
+        const order = tab.getByRole('button', { name: '#9', exact: true });
+        assert.equal(await order.getAttribute('title'), 'Copy order number');
+        await order.focus();
+        await tab.keyboard.press('Enter');
+        await tab.waitForFunction(() => document.querySelectorAll('[data-text-copy][data-state="copied"]').length === 2);
+        assert.equal(await clipboardText(tab), 'ORD-9', 'the slot is shown, the value is copied; Enter copies as a click does');
+        await tab.getByRole('button', { name: 'Copy token' }).click();
+        await tab.locator('[data-copy-button][data-state="copied"]').waitFor();
+        assert.equal(await clipboardText(tab), 'tok_button_value', 'CopyButton copies through the same helper');
+        const field = tab.locator('[data-copy-field]');
+        assert.equal(await tab.getByRole('textbox', { name: 'API key' }).getAttribute('readonly'), '', 'a labelled read-only field');
+        await tab.getByRole('button', { name: 'Copy API key' }).click();
+        await tab.locator('[data-copy-field][data-state="copied"]').waitFor();
+        assert.equal(await clipboardText(tab), 'key-demo-0000-0000-0000');
+        assert.equal((await field.getByRole('status').textContent()).trim(), 'Copied API key.');
+    });
+});
+
+test('Copy without the async Clipboard API falls back to execCommand with the exact text; a refused write says so and selects the field to copy by hand', async () => {
+    await textPage('text', async (tab) => {
+        await tab.evaluate(() => {
+            window.copiedText = [];
+            document.addEventListener('copy', (event) => window.copiedText.push(event.target.value));
+        });
+        await tab.getByRole('button', { name: 'INV-2026-0042', exact: true }).click();
+        await tab.locator('[data-inline-copy][data-state="copied"]').waitFor();
+        assert.deepEqual(await tab.evaluate(() => window.copiedText), ['INV-2026-0042'], 'the hidden textarea held the exact value');
+        assert.equal(await tab.locator('textarea[aria-hidden="true"]').count(), 0, 'and is gone');
+        assert.equal(await tab.evaluate(() => document.activeElement.textContent.includes('INV-2026-0042')), true, 'focus is back on the pressed button');
+    }, { clipboard: false, init: () => Object.defineProperty(Navigator.prototype, 'clipboard', { configurable: true, get: () => undefined }) });
+    await textPage('text', async (tab) => {
+        await tab.getByRole('button', { name: 'Copy API key' }).click();
+        await tab.locator('[data-copy-field][data-state="failed"]').waitFor();
+        assert.match(await tab.locator('[data-copy-field]').getByRole('status').textContent(), /Could not copy API key\. It is selected in the field/);
+        assert.deepEqual(await tab.evaluate(() => [document.activeElement.value, document.activeElement.selectionStart, document.activeElement.selectionEnd]), ['key-demo-0000-0000-0000', 0, 23], 'the whole value is selected');
+        await tab.getByRole('button', { name: 'Copy token' }).click();
+        await tab.locator('[data-copy-button][data-state="failed"]').waitFor();
+        assert.equal(await tab.getByRole('textbox', { name: 'Copy: select to copy' }).count() + await tab.getByRole('textbox', { name: 'Copy token: select to copy' }).count(), 1, 'CopyButton shows the value to copy by hand');
+    }, { init: () => Object.defineProperty(Navigator.prototype, 'clipboard', { configurable: true, get: () => ({ writeText: () => Promise.reject(new DOMException('Denied', 'NotAllowedError')) }) }) });
+});
+
+test('TextTruncate: one line ends in an ellipsis with the whole text as its title only while cut, a clamp holds two lines, and a resize measures again', async () => {
+    await textPage('text', async (tab) => {
+        const title = 'Quarterly board report appendix with every table and the minutes of the meeting';
+        const state = (selector) => tab.$eval(selector, (el) => ({ cut: el.hasAttribute('data-truncated'), title: el.getAttribute('title'), text: el.textContent.trim(), lines: Math.round(el.getBoundingClientRect().height / parseFloat(getComputedStyle(el).lineHeight)), overflow: getComputedStyle(el).textOverflow }));
+        const one = await state('[data-truncate-one]');
+        assert.deepEqual([one.cut, one.title, one.text, one.overflow, one.lines], [true, title, title, 'ellipsis', 1], 'cut at the end, the whole text kept in the DOM and the title');
+        const two = await state('[data-truncate-two]');
+        assert.deepEqual([two.cut, two.lines], [true, 2], 'clamped to two lines');
+        const short = await state('[data-truncate-short]');
+        assert.deepEqual([short.cut, short.title], [false, null], 'a text that fits has no title');
+        await tab.$eval('[data-truncate-box]', (el) => { el.style.width = '900px'; });
+        await nextFrames(tab);
+        const wide = await state('[data-truncate-one]');
+        assert.deepEqual([wide.cut, wide.title], [false, null], 'widened, it fits: the title goes');
+        await tab.$eval('[data-truncate-box]', (el) => { el.style.width = '120px'; });
+        await nextFrames(tab);
+        assert.equal((await state('[data-truncate-one]')).cut, true, 'narrowed again, it is cut again');
+    });
+});
+
+test('TextTruncate keeps the whole text verbatim, leading, trailing and repeated whitespace included, in its title and its text, from `text` and from the slot', async () => {
+    await textPage('text', async (tab) => {
+        const padded = '  Quarterly board report:  appendix B, every table and the minutes  ';
+        for (const selector of ['[data-truncate-padded]', '[data-truncate-padded-slot]']) {
+            const el = await tab.$eval(selector, (node) => ({ cut: node.hasAttribute('data-truncated'), title: node.getAttribute('title'), text: node.textContent }));
+            assert.equal(el.cut, true, `${selector} is cut`);
+            assert.equal(el.title, padded, `${selector}: the title is the text as given, not trimmed`);
+            assert.equal(el.text, padded, `${selector}: the element keeps it as given, so a selection and a copy start from all of it`);
+        }
+    });
+});
+
+test('TextLong: cut with an ellipsis and a Show more button that expands it in place by pointer and keyboard; a short text has none', async () => {
+    await textPage('text', async (tab) => {
+        const long = tab.locator('[data-long]');
+        const toggle = long.getByRole('button', { name: 'Show more' });
+        assert.equal(await toggle.getAttribute('aria-expanded'), 'false');
+        const controlled = await toggle.getAttribute('aria-controls');
+        const shown = () => tab.$eval(`[id="${controlled}"]`, (el) => el.textContent);
+        assert.ok((await shown()).endsWith('…') && [...new Intl.Segmenter().segment(await shown())].length === 81, 'eighty characters and the ellipsis');
+        await toggle.click();
+        assert.equal(await long.getByRole('button', { name: 'Show less' }).getAttribute('aria-expanded'), 'true');
+        assert.ok((await shown()).endsWith('ends here. 👨‍👩‍👧‍👦'), 'the whole text, the emoji whole');
+        assert.match(await shown(), /quarterly figures\.\n\nSecond/, 'line breaks kept');
+        await long.getByRole('button', { name: 'Show less' }).focus();
+        await tab.keyboard.press('Enter');
+        assert.equal(await long.getByRole('button', { name: 'Show more' }).getAttribute('aria-expanded'), 'false');
+        assert.equal(await tab.locator('[data-long-short] button').count(), 0);
+    });
+});
+
+test('TextCode: a bounded block that scrolls inside as a focusable named region, the text never parsed, Wrap toggled with aria-pressed, Copy copies all of it', async () => {
+    await textPage('text', async (tab) => {
+        const card = tab.locator('[data-code-card]');
+        const region = card.getByRole('region', { name: 'Export log' });
+        assert.equal(await card.getByRole('heading', { name: 'Export log', level: 2 }).count(), 1);
+        const box = () => region.evaluate((el) => ({ client: el.clientHeight, scroll: el.scrollHeight, width: el.clientWidth, scrollWidth: el.scrollWidth, top: el.scrollTop, bold: el.querySelectorAll('b').length, text: el.textContent }));
+        const start = await box();
+        assert.ok(start.client <= 322 && start.scroll > start.client * 2, `bounded at 20rem and scrolling: ${start.client} of ${start.scroll}`);
+        assert.equal(start.bold, 0, '<b> in the content is text');
+        assert.ok(start.text.includes('<b>not markup</b>'));
+        assert.ok(start.scrollWidth <= start.width + 1, 'long lines wrap by default');
+        await region.focus();
+        await tab.keyboard.press('End');
+        await tab.waitForFunction(() => document.querySelector('[data-code-card] pre').scrollTop > 0);
+        const wrap = card.getByRole('button', { name: 'Wrap' });
+        assert.equal(await wrap.getAttribute('aria-pressed'), 'true');
+        await wrap.click();
+        assert.equal(await wrap.getAttribute('aria-pressed'), 'false');
+        const unwrapped = await box();
+        assert.ok(unwrapped.scrollWidth > unwrapped.width + 50, 'unwrapped, a long line scrolls sideways');
+        await card.getByRole('button', { name: 'Copy' }).click();
+        await tab.locator('[data-code-card] [data-text-code-copy][data-state="copied"]').waitFor();
+        const copied = await clipboardText(tab);
+        assert.equal(copied.split('\n').length, 60, 'every line, also those scrolled out of view');
+        assert.equal(copied, start.text);
+        assert.equal(await tab.locator('[data-code-plain]').getByRole('region', { name: 'Code' }).count(), 1, 'without a title it is named Code');
+    });
+});
+
+test('TextCode with slot text: a copy in flight when the slot changes claims nothing, and the next copy is the new text, whether the page or a child changed it', async () => {
+    // A clipboard whose writes wait until the test settles them, so the slot can change while one is in flight.
+    const init = () => {
+        window.writes = [];
+        window.settle = () => window.writes.at(-1).resolve();
+        Object.defineProperty(Navigator.prototype, 'clipboard', { configurable: true, get: () => ({ writeText: (text) => new Promise((resolve) => window.writes.push({ text, resolve })) }) });
+    };
+    await textPage('text', async (tab) => {
+        const block = tab.locator('[data-code-slot]');
+        const copy = block.locator('[data-text-code-copy]');
+        const state = () => copy.getAttribute('data-state');
+        // Every state the button leaves, so a `copied` that is rendered and reset before the next frame is caught too.
+        await copy.evaluate((button) => {
+            window.left = [];
+            new MutationObserver((records) => window.left.push(...records.map((record) => record.oldValue))).observe(button, { attributes: true, attributeFilter: ['data-state'], attributeOldValue: true });
+        });
+        for (const [change, before, after] of [['[data-slot-swap]', 'build 1 started', 'build 2 started'], ['[data-slot-tick]', 'tick 0', 'tick 1']]) {
+            await copy.click();
+            assert.equal(await state(), 'copying');
+            assert.ok((await tab.evaluate(() => window.writes.at(-1).text)).includes(before), 'the write holds the slot text shown when pressed');
+            await tab.click(change);
+            await nextFrames(tab);
+            assert.ok((await block.locator('pre').textContent()).includes(after), `${change} changed the slot`);
+            await tab.evaluate(() => { window.left = []; window.settle(); });
+            await tab.waitForFunction(() => document.querySelector('[data-code-slot] [data-text-code-copy]').dataset.state !== 'copying');
+            await nextFrames(tab);
+            assert.equal(await state(), 'idle', `${change}: the old write settling is not copied, the text it copied is gone`);
+            assert.deepEqual(await tab.evaluate(() => window.left), ['copying'], `${change}: straight from copying to idle, never copied on the way`);
+            assert.equal((await block.getByRole('status').textContent()).trim(), '', 'and nothing is announced');
+            await copy.click();
+            assert.ok((await tab.evaluate(() => window.writes.at(-1).text)).includes(after), `${change}: the next copy is the new text`);
+            await tab.evaluate(() => window.settle());
+            await tab.waitForFunction(() => document.querySelector('[data-code-slot] [data-text-code-copy]').dataset.state === 'copied');
+        }
+        // Changed outside Vue's render with nothing in flight: the press copies the text shown now, not the text from the last render.
+        await tab.click('[data-slot-tick]');
+        await nextFrames(tab);
+        await copy.click();
+        assert.ok((await tab.evaluate(() => window.writes.at(-1).text)).includes('tick 2'), 'a press after a change outside Vue copies the new text');
+        await tab.evaluate(() => window.settle());
+    }, { clipboard: false, init });
+});
+
+test('TextNumeric and TextAddress: the locale\'s grouping, decimal, compact and accounting forms, nothing for what is not a number, and address lines', async () => {
+    await textPage('text', async (tab) => {
+        // What is seen: the text without the screen-reader-only words.
+        const n = (key) => tab.$eval(`[data-n="${key}"]`, (el) => { const copy = el.cloneNode(true); copy.querySelectorAll('.sr-only').forEach((s) => s.remove()); return copy.textContent.replace(/[\u00a0\u202f]/g, ' '); });
+        assert.equal(await n('en'), '1,234,567');
+        assert.equal(await n('fr'), '1 234,50');
+        assert.equal(await n('compact'), '1.2K');
+        assert.equal(await n('suffix'), '42 items');
+        assert.equal(await n('minus'), '-42');
+        assert.equal(await n('accounting'), '(1,234.50)', 'the accounting form');
+        assert.equal(await tab.$eval('[data-n="accounting"]', (el) => el.hasAttribute('data-negative')), true);
+        assert.match(await tab.locator('[data-case="numbers"] ul').ariaSnapshot(), /negative 1,234\.50/, 'a screen reader hears negative, not a parenthesis');
+        assert.equal(await tab.textContent('[data-n-empty]'), '[]', 'n/a renders nothing, not NaN');
+        assert.equal(await tab.$eval('[data-n="en"]', (el) => getComputedStyle(el).fontVariantNumeric), 'tabular-nums');
+        const lines = (key) => tab.$eval(`[data-address="${key}"]`, (el) => el.innerText.split('\n').map((line) => line.trim()).filter(Boolean).join(' | '));
+        assert.equal(await lines('fr'), '1 Example Way | Unit 4 | Gatineau, Québec J8X 0A1 | Canada', 'the region named in French');
+        assert.equal(await lines('lines'), '200 Sample Ave | Suite 3 | Springfield IL 62701', 'a comma-joined string, one line per part');
+        assert.equal(await lines('alias'), '1 Example Way | Gatineau, Quebec J8X 0A1', 'AddressText renders TextAddress: hide-country drops the country');
+        assert.deepEqual(await tab.$$eval('[data-case="address"] address', (els) => els.length), 3, 'each an <address>');
+    });
+});
+
+test('The Text family passes axe in light and dark: chips and tags as lists of badges, prose text kept as text, a table region', async () => {
+    for (const query of ['text', 'text=dark']) {
+        await textPage(query, async (tab) => {
+            const chips = tab.getByRole('list', { name: 'Details' });
+            assert.deepEqual(await chips.getByRole('listitem').allTextContents(), ['Draft', 'Plan: Pro', 'Overdue']);
+            assert.deepEqual(await tab.getByRole('list', { name: 'Tags' }).getByRole('listitem').allTextContents(), ['design', 'q3', 'design'], 'the blank tag dropped, a repeat kept');
+            assert.equal(await tab.$eval('[data-prose-text]', (el) => [el.querySelectorAll('b').length, el.innerText.includes('Line one\nLine two <b>kept as text</b>')].join()), '0,true');
+            assert.equal(await tab.getByRole('region', { name: 'Totals' }).count(), 1);
+            await tab.addScriptTag({ path: axeSource });
+            const violations = await tab.evaluate(async () => (await window.axe.run(document.querySelector('main'))).violations.map((v) => ({ id: v.id, targets: v.nodes.map((n) => n.target.join(' ')) })));
+            if (violations.length) console.log(query, JSON.stringify(violations, null, 1));
+            assert.deepEqual(violations, []);
+        });
+    }
+});
+
+test('The Text family under Vue\'s server renderer: truncation, copy, code, numbers and addresses render with no DOM, observer or timer', async () => {
+    // The real @inertiajs/vue3, as on a host's server (the page's stand-in, src/inertia.js, is browser-only); listed first, its alias wins.
+    const inertia = decodeURIComponent(new URL(import.meta.resolve('@inertiajs/vue3')).pathname);
+    const dev = await createServer({ root: here, configFile: path.join(here, 'vite.config.js'), logLevel: 'error', appType: 'custom', server: { middlewareMode: true, hmr: false }, resolve: { alias: [{ find: /^@inertiajs\/vue3$/, replacement: inertia }] } });
+    try {
+        const load = async (name) => (await dev.ssrLoadModule(`/.kit/vendor/tey/kit/resources/js/components/Kit/Text/${name}.vue`)).default;
+        const { createSSRApp, h } = await import('vue');
+        const { renderToString } = await import('vue/server-renderer');
+        assert.equal(typeof globalThis.document, 'undefined');
+        const render = async (component, props) => (await renderToString(createSSRApp({ render: () => h(component, props) }))).replace(/<!--.*?-->/g, '');
+        assert.match(await render(await load('TextTruncate'), { text: 'A long title' }), /^<span class="min-w-0 break-words block truncate"(?: style="")? data-slot="text-truncate">A long title<\/span>$/, 'CSS truncation only: no title or data-truncated until measured');
+        assert.match(await render(await load('TextCopy'), { value: 'abc' }), /<button type="button" title="Copy"[^>]*>abc<\/button>/);
+        assert.match(await render(await load('TextCode'), { content: '<b>x</b>', card: true, title: 'Log' }), /<pre role="region" aria-label="Log" tabindex="0"[^>]*>&lt;b&gt;x&lt;\/b&gt;<\/pre>/);
+        assert.match(await render(await load('TextAddress'), { lines: 'a, b' }), /<address[^>]*>a<br>b<\/address>/);
+        assert.match(await render(await load('TextNumeric'), { value: -5, locale: 'en-CA', negative: 'parentheses' }), /<span class="sr-only">negative <\/span><span aria-hidden="true">\(<\/span>5<span aria-hidden="true">\)<\/span>/);
+    } finally {
+        await dev.close();
+    }
+});
