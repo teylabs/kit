@@ -1,0 +1,44 @@
+import type { SeeAll } from '@/components/Kit/Action/seeAll';
+
+/**
+ * What a CollectionCard draws around its items (docs/collection-card.md), as the server sends it (`Tey\Kit\Features\Core\Data\CollectionCardData`). A
+ * dashboard widget's frame has the same fields, so it is one too. Only `title` is required: the rest default to a ready card with no header extras.
+ */
+export type CollectionSegment = {
+    key: string;
+    label: string;
+    url: string;
+    current?: boolean;
+    count?: number | null;
+};
+export type CollectionSort = {
+    label: string;
+    options: { key: string; label: string }[];
+    current: string;
+    url: string;
+    method: string;
+    reload: string[];
+};
+export type CollectionAction = {
+    label: string;
+    url: string;
+    method?: string;
+    key?: string | null;
+};
+export type CollectionCardData = {
+    title: string;
+    description?: string | null;
+    state?: 'ready' | 'empty' | 'error';
+    empty?: {
+        variant?: string;
+        title: string;
+        description: string;
+        action?: CollectionAction | null;
+    } | null;
+    error?: { message: string; retry?: { label: string } | null } | null;
+    actions?: CollectionAction[];
+    segments?: CollectionSegment[];
+    sortBy?: CollectionSort | null;
+    seeAll?: SeeAll | null;
+    maxHeight?: string | null;
+};

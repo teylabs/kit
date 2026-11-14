@@ -44,14 +44,11 @@ test('ActionCard: danger keeps the card background (no tint) and colours only th
     assert.match(action, /<CardBody v-if="hasSlotContent\(\$slots\.default\)"/);
 });
 
-test('SummaryCard (the header band): a muted header with #icon and #actions, no CardBody when the default slot is empty, #body still replaces it, a see-all in the footer or the header', () => {
+test('SummaryCard (the header band): a muted header with #icon and #actions, no CardBody when the default slot is empty, #body still replaces it', () => {
     assert.match(summary, /<CardHeader :title="title" :level="level" tone="muted">/);
     assert.match(summary, /<template v-if="\$slots\.icon" #avatar>/);
     assert.match(summary, /<slot name="body"><CardBody v-if="hasSlotContent\(\$slots\.default\)" class="overflow-auto"><slot \/><\/CardBody><\/slot>/);
-    assert.match(summary, /<CardFooter v-if="\$slots\.footer \|\| placement === 'footer'" sticky>/);
-    // `seeAll` (docs/see-all.md): in the sticky footer by default, after the header's own #actions with `placement: 'header'`.
-    assert.match(summary, /<slot name="actions" \/><SeeAllLink v-if="seeAll && placement === 'header'"/);
-    assert.match(summary, /<div v-if="seeAll && placement === 'footer'" class="flex justify-end"> <SeeAllLink :see-all="seeAll" \/><\/div><\/CardFooter>/);
+    assert.match(summary, /<CardFooter v-if="\$slots\.footer" sticky>/);
 });
 
 test('both names stay exported; no ActionPanel; the helper is registered', () => {

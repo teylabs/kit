@@ -227,6 +227,8 @@ try {
     [$status, $page] = $send('alice', 'GET', '/me/security', json: false);
     $items = $page['props']['passkeys']['items'] ?? null;
     httpCheck($status === 200 && array_column($items ?? [], 'name') === ['Laptop', 'Phone'] && ($page['props']['passkeys']['url'] ?? null) === 'https://kit.test/me/security/passkeys', 'Security lists the person\'s own passkeys, oldest first ('.$status.')');
+    $log = $page['props']['log'] ?? null;
+    httpCheck(($log['title'] ?? null) === 'Security log' && $log['state'] === (($page['props']['events'] ?? []) === [] ? 'empty' : 'ready') && $log['empty']['title'] === 'Nothing yet' && $log['seeAll'] === null && $log['maxHeight'] === null, 'Security\'s log is a CollectionCardData: its title, ready or empty by its events, and the empty state\'s words');
 
     // Rename: their own only; another person's is a 404.
     [$status] = $send('alice', 'PATCH', '/me/security/passkeys/'.$phone, ['name' => '  Work phone ']);

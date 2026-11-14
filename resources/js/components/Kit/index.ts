@@ -371,6 +371,14 @@ export { default as CardFooter } from './Card/CardFooter.vue';
 export { default as CardBanner } from './Card/CardBanner.vue';
 export { default as RecordCard } from './Card/RecordCard.vue';
 export { default as SummaryCard } from './Card/SummaryCard.vue';
+// A card or section showing a collection (docs/collection-card.md): title linked to its see-all, segments, sort, empty state, scroll and the see-all footer.
+export { default as CollectionCard } from './Card/CollectionCard.vue';
+export type {
+    CollectionAction,
+    CollectionCardData,
+    CollectionSegment,
+    CollectionSort,
+} from './Card/collectionCard';
 export { default as ActionCard } from './Card/ActionCard.vue';
 export { CARD_TONES, type CardTone } from './Card/cardTone';
 export {

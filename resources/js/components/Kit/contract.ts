@@ -492,8 +492,6 @@ export interface PageSectionProps {
     level?: 2 | 3 | 4 | 5 | 6;
     /** On a tinted page ground: `card` (the default) puts the content on a card below the header, `none` leaves it on the ground. No effect on a white ground. */
     surface?: 'card' | 'none';
-    /** A list section's see-all link (docs/see-all.md): bottom right after the content (`footer`, the default), or in the header after the actions (`header`). */
-    seeAll?: import('./Action/seeAll').SeeAll | null;
 }
 
 /** A page's aside column: its sections sit `gap-6` apart. From `md` it sticks below the shell header while it fits the viewport, and scrolls with the page when taller; `sticky: false` never sticks. `label` names the landmark. */
@@ -887,8 +885,18 @@ export interface SectionHeaderProps {
     } | null;
     /** `page` sets the title at the page heading's scale, for a page that heads itself. Default `section`. */
     size?: 'section' | 'page';
-    /** A see-all link (docs/see-all.md), drawn after the actions only when its `placement` is `header`; the title links to its URL unless `linkTitle` is false. */
-    seeAll?: import('./Action/seeAll').SeeAll | null;
+}
+
+/**
+ * A card or section showing a collection (docs/collection-card.md), driven by the server's `CollectionCardData` (`card`): the title (a link to the see-all's URL
+ * unless `linkTitle` is false), description, header actions and Sort by menu, segment tabs, the empty state (or the `#empty` slot) or error, an optional scrolling
+ * body (`maxHeight`) and the see-all footer. Slots: default (the items), `actions`, `filters`, `empty`, `footer`. `level` is the title's heading level (3).
+ */
+export interface CollectionCardProps {
+    card: import('./Card/collectionCard').CollectionCardData;
+    level?: 2 | 3 | 4 | 5 | 6;
+    headless?: boolean;
+    minHeight?: string | null;
 }
 
 /** A list's one "see all" link from the server's `SeeAll` descriptor (docs/see-all.md): "All cases →", or "All cases (42) →" with a count; the arrow is hidden from the accessible name. An Inertia link that places nothing itself. */

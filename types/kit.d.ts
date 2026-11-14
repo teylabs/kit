@@ -80,6 +80,36 @@ reason: string | null,
 required: boolean,
 action: Tey.Kit.Features.Core.Data.ChecklistAction | null,
 };
+export type CollectionCardData = {
+title: string,
+description: string | null,
+state: 'ready' | 'empty' | 'error',
+empty: Tey.Kit.Features.Core.Lists.ListEmptyData | null,
+error: Tey.Kit.Features.Core.Lists.ListErrorData | null,
+actions: Tey.Kit.Features.Core.Data.Action[],
+segments: Tey.Kit.Features.Core.Data.CollectionSegment[],
+sortBy: Tey.Kit.Features.Core.Data.CollectionSortData | null,
+seeAll: Tey.Kit.Features.Core.Data.SeeAll | null,
+maxHeight: string | null,
+};
+export type CollectionSegment = {
+key: string,
+label: string,
+url: string,
+current: boolean,
+count: number | null,
+};
+export type CollectionSortData = {
+options: {
+key: string,
+label: string,
+}[],
+current: string,
+url: string,
+method: string,
+reload: string[],
+label: string,
+};
 export type NavGroup = {
 label: string | null,
 items: Tey.Kit.Features.Core.Data.NavItem[],
@@ -924,6 +954,7 @@ last_used: string | null,
 }[],
 } | null,
 readonly notice: string | null,
+readonly log: Tey.Kit.Features.Core.Data.CollectionCardData,
 };
 export type TransferOwnershipViewModel = {
 readonly title: string,

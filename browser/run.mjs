@@ -5398,17 +5398,17 @@ test('a dashboard widget\'s Sort by control: labelled, top right of the header, 
                     await route.fulfill({ status: 200, contentType: 'application/json', headers: { 'X-Inertia': 'true', Vary: 'X-Inertia' }, body: JSON.stringify({ ...page, props: { errors: {}, widgets } }) });
                 });
                 await tab.goto(`${authUrl}dashboard.html?sorted${dark}`);
-                await tab.waitForSelector('[data-widget="app.ongoing"] [data-widget-sort]');
+                await tab.waitForSelector('[data-widget="app.ongoing"] [data-collection-sort]');
                 await tab.waitForSelector('[data-widget="kit.people"] [data-scroll-list="people"]');
                 const control = tab.getByRole('combobox', { name: 'Sort by' });
                 assert.equal(await control.count(), 1, 'one control, named "Sort by" by its visible label');
-                assert.equal(await tab.locator('[data-widget="kit.activity"] [data-widget-sort], [data-widget="kit.people"] [data-widget-sort]').count(), 0, 'a widget that declares no orders has no control');
+                assert.equal(await tab.locator('[data-widget="kit.activity"] [data-collection-sort], [data-widget="kit.people"] [data-collection-sort]').count(), 0, 'a widget that declares no orders has no control');
                 assert.equal((await control.inputValue()).trim(), 'Last touched', 'the default order shows');
                 const geometry = await tab.evaluate(() => {
                     const card = document.querySelector('[data-widget="app.ongoing"]');
                     const header = card.querySelector('header').getBoundingClientRect();
                     const title = card.querySelector('h2');
-                    const sort = card.querySelector('[data-widget-sort]').getBoundingClientRect();
+                    const sort = card.querySelector('[data-collection-sort]').getBoundingClientRect();
                     return { headerRight: header.right, headerTop: header.top, headerBottom: header.bottom, sortRight: sort.right, sortTop: sort.top, sortBottom: sort.bottom, titleRight: title.getBoundingClientRect().right, sortLeft: sort.left, titleCut: title.scrollWidth > title.clientWidth };
                 });
                 assert.ok(geometry.headerRight - geometry.sortRight <= 24, 'the control sits at the header\'s right edge');
@@ -5432,7 +5432,7 @@ test('a dashboard widget\'s Sort by control: labelled, top right of the header, 
                 for (let i = 0; i < 5 && (await tab.locator('[role="option"][data-highlighted]').innerText().catch(() => '')).trim() !== 'Due soonest'; i++) await tab.keyboard.press('ArrowDown');
                 await tab.keyboard.press('Enter');
                 await tab.waitForFunction(() => document.querySelector('[data-widget="app.ongoing"] li, [data-widget="app.ongoing"] article')?.textContent.includes('Lease renewal'));
-                await tab.waitForFunction(() => !document.querySelector('[data-widget="app.ongoing"] [data-widget-sort] input')?.disabled);
+                await tab.waitForFunction(() => !document.querySelector('[data-widget="app.ongoing"] [data-collection-sort] input')?.disabled);
                 assert.deepEqual(sent, [{ method: 'PUT', sort: 'due', only: 'widgets' }], 'one PUT of the chosen order, a partial visit for the widget\'s props only');
                 assert.deepEqual(await sortedTitles(tab), ['Lease renewal', 'Boiler check', 'Roof survey'], 'the card shows the new order');
                 assert.equal((await control.inputValue()).trim(), 'Due soonest');
@@ -5458,12 +5458,12 @@ test('a dashboard widget\'s Sort by control: a choice the server refuses puts th
             await route.fulfill({ status: 200, contentType: 'application/json', headers: { 'X-Inertia': 'true', Vary: 'X-Inertia' }, body: JSON.stringify({ ...page, props: { ...page.props, errors: { sort: 'Choose one of the orders this card offers.' } } }) });
         });
         await tab.goto(`${authUrl}dashboard.html?sorted`);
-        await tab.waitForSelector('[data-widget="app.ongoing"] [data-widget-sort]');
+        await tab.waitForSelector('[data-widget="app.ongoing"] [data-collection-sort]');
         const control = tab.getByRole('combobox', { name: 'Sort by' });
         await control.click();
         await tab.getByRole('option', { name: 'Newest' }).click();
-        await tab.waitForFunction(() => !document.querySelector('[data-widget="app.ongoing"] [data-widget-sort] input')?.disabled);
-        await tab.waitForFunction(() => document.querySelector('[data-widget="app.ongoing"] [data-widget-sort] input')?.value.trim() === 'Last touched');
+        await tab.waitForFunction(() => !document.querySelector('[data-widget="app.ongoing"] [data-collection-sort] input')?.disabled);
+        await tab.waitForFunction(() => document.querySelector('[data-widget="app.ongoing"] [data-collection-sort] input')?.value.trim() === 'Last touched');
         assert.deepEqual(await sortedTitles(tab), ['Roof survey', 'Lease renewal', 'Boiler check'], 'the rows keep the order they had');
     } finally {
         await context.close();
@@ -5611,7 +5611,7 @@ test('a widget with a loadingHeight holds that minimum height on its ready body;
         const tab = await context.newPage();
         const read = () => tab.evaluate(() => {
             const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
-            const body = (key) => { const el = document.querySelector(`[data-widget="${key}"] > header + div`); return { min: getComputedStyle(el).minHeight, height: el.getBoundingClientRect().height, marked: el.hasAttribute('data-widget-loading-height') }; };
+            const body = (key) => { const el = document.querySelector(`[data-widget="${key}"] [data-collection-body]`); return { min: getComputedStyle(el).minHeight, height: el.getBoundingClientRect().height, marked: el.hasAttribute('data-collection-min-height') }; };
             return { rem, activity: body('kit.activity'), people: body('kit.people') };
         });
         await tab.goto(`${authUrl}dashboard.html?tall`);
@@ -5660,7 +5660,7 @@ test('a list widget\'s see-all: one "All cases" link with an arrow, in the card 
             assert.equal(await tab.getByRole('link', { name: /view all|see all/i }).count(), 0, `${mode}: no "View all" or "See all" anywhere`);
             const box = await tab.evaluate(() => {
                 const card = document.querySelector('[data-widget="app.cases"]');
-                const footer = card.querySelector('[data-widget-footer]');
+                const footer = card.querySelector('[data-collection-footer]');
                 const link = footer.querySelector('a[data-see-all]');
                 const list = card.querySelector('[data-scroll-list="cases"]');
                 const r = (el) => el.getBoundingClientRect();
@@ -5686,7 +5686,7 @@ test('a list widget\'s see-all: one "All cases" link with an arrow, in the card 
 test('a list widget\'s see-all stays in view, in the same place, while the list scrolls inside the card', async () => {
     await seeAllDashboard('', async (tab) => {
         const at = () => tab.evaluate(() => {
-            const link = document.querySelector('[data-widget="app.cases"] [data-widget-footer] a[data-see-all]');
+            const link = document.querySelector('[data-widget="app.cases"] [data-collection-footer] a[data-see-all]');
             const list = document.querySelector('[data-scroll-list="cases"]');
             const r = link.getBoundingClientRect();
             const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
@@ -5722,7 +5722,7 @@ test('a stat card\'s see-all is in its header, after its title, with its count: 
                 const link = card.querySelector('a[data-see-all]');
                 const title = header.querySelector('h2').getBoundingClientRect();
                 const r = link.getBoundingClientRect();
-                return { inHeader: header.contains(link), placement: link.dataset.placement, footer: card.querySelectorAll('[data-widget-footer]').length, right: card.getBoundingClientRect().right - r.right, afterTitle: r.left >= title.right, sameRow: r.top < title.bottom && r.bottom > title.top };
+                return { inHeader: header.contains(link), placement: link.dataset.placement, footer: card.querySelectorAll('[data-collection-footer]').length, right: card.getBoundingClientRect().right - r.right, afterTitle: r.left >= title.right, sameRow: r.top < title.bottom && r.bottom > title.top };
             });
             assert.deepEqual([box.inHeader, box.placement, box.footer], [true, 'header', 0], `${mode}: in the header, no footer`);
             assert.ok(box.right <= 24 && box.afterTitle && box.sameRow, `${mode}: at the header's right, on the title's row`);
@@ -5759,13 +5759,27 @@ test('keyboard: a list card\'s focus order is its title link, its list and items
 });
 
 // ── A see-all card's title (docs/see-all.md): a link to the same URL by default, plain text with `linkTitle: false`; in the heading's colour (never a body
-// link's, even where the host colours links), underlined on hover, with a visible focus ring. On the dashboard, PageSection and SummaryCard ───────────────────
+// link's, even where the host colours links), underlined on hover, with a visible focus ring. On the dashboard and on CollectionCard (?collection-card) ────────
 const titleLinks = (tab) => tab.evaluate(() => [...document.querySelectorAll('[data-widget], [data-case]')].filter(card => card.querySelector('h1, h2, h3, h4, h5, h6')).map(card => {
     const heading = card.querySelector('h1, h2, h3, h4, h5, h6');
     const link = heading.querySelector('a');
     const seeAll = card.querySelector('a[data-see-all]');
     return { card: card.dataset.widget ?? card.dataset.case, title: heading.textContent.trim(), link: link ? { href: link.getAttribute('href'), name: link.textContent.trim(), title: link.hasAttribute('data-see-all-title') } : null, seeAll: seeAll?.getAttribute('href') ?? null };
 }).filter(card => card.seeAll !== null || card.link !== null));
+async function collectionPage(dark, check, viewport = { width: 1280, height: 900 }) {
+    const context = await browser.newContext({ viewport });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        await tab.goto(`${url}?collection-card${dark}`);
+        await tab.waitForSelector('[data-case="list"] [data-collection-body] li');
+        await check(tab);
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+}
 
 test('a see-all card\'s title links to the same URL as its see-all; with linkTitle false the title is plain text', async () => {
     await seeAllDashboard('', async (tab) => {
@@ -5776,20 +5790,14 @@ test('a see-all card\'s title links to the same URL as its see-all; with linkTit
         assert.equal(await tab.getByRole('heading', { name: 'Open cases' }).getByRole('link', { name: 'Open cases', exact: true }).count(), 1, 'the link sits inside the heading, so the heading keeps its name');
         assert.equal(await tab.locator('[data-widget="kit.people"] h2 a, [data-widget="kit.activity"] h2 a').count(), 0, 'a card with no see-all keeps a plain title');
     });
-    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
-    try {
-        const tab = await context.newPage();
-        await tab.goto(`${url}?see-all`);
-        await tab.waitForSelector('[data-case="section-list"]');
+    await collectionPage('', async (tab) => {
         assert.deepEqual(await titleLinks(tab), [
-            { card: 'section-list', title: 'Open cases', link: { href: '/@acme/cases', name: 'Open cases', title: true }, seeAll: '/@acme/cases' },
-            { card: 'section-stat', title: 'Cases this week', link: { href: '/@acme/cases', name: 'Cases this week', title: true }, seeAll: '/@acme/cases' },
-            { card: 'section-plain', title: 'Case notes', link: null, seeAll: '/@acme/notes?about=cases' },
-            { card: 'summary-list', title: 'Recent cases', link: { href: '/@acme/cases?recent=1', name: 'Recent cases', title: true }, seeAll: '/@acme/cases?recent=1' },
-        ], 'PageSection (footer and header placement) and SummaryCard link their titles; the opted-out section\'s title is plain text');
-    } finally {
-        await context.close();
-    }
+            { card: 'list', title: 'Ongoing cases', link: { href: '/@acme/cases?status=ongoing', name: 'Ongoing cases', title: true }, seeAll: '/@acme/cases?status=ongoing' },
+            { card: 'stat', title: 'Cases this week', link: null, seeAll: '/@acme/cases?week=current' },
+            { card: 'empty', title: 'Overdue cases', link: { href: '/@acme/cases?overdue=1', name: 'Overdue cases', title: true }, seeAll: '/@acme/cases?overdue=1' },
+        ], 'CollectionCard: a list card and an empty card link their titles to the filtered index; the opted-out stat card\'s is plain text');
+        assert.equal(await tab.locator('[data-case="empty-slot"] h2 a').count(), 0, 'a card with no see-all keeps a plain title');
+    });
 });
 
 test('a see-all title link keeps the heading\'s colour, not a body link\'s, is underlined only on hover, and shows an unclipped focus ring, light and dark', async () => {
@@ -5801,10 +5809,11 @@ test('a see-all title link keeps the heading\'s colour, not a body link\'s, is u
         const heading = link.closest('h1, h2, h3, h4, h5, h6');
         const body = document.querySelector('[data-body-link]');
         const [l, h] = [link.getBoundingClientRect(), heading.getBoundingClientRect()];
-        return { inside: l.left >= h.left - 0.5 && l.right <= h.right + 0.5, link: getComputedStyle(link).color, heading: getComputedStyle(heading).color, parent: getComputedStyle(heading.parentElement).color, body: getComputedStyle(body).color, primary: getComputedStyle(document.querySelector('[data-primary-link]')).color, underline: getComputedStyle(link).textDecorationLine, ring: getComputedStyle(link).boxShadow };
+        return { inside: l.left >= h.left - 0.5 && l.right <= h.right + 0.5, link: getComputedStyle(link).color, heading: getComputedStyle(heading).color, body: getComputedStyle(body).color, primary: getComputedStyle(document.querySelector('[data-primary-link]')).color, underline: getComputedStyle(link).textDecorationLine, ring: getComputedStyle(link).boxShadow };
     }, [selector]);
     const check = async (tab, selector, label) => {
-        await tab.addStyleTag({ content: style });
+        // `--primary` set apart from the text colour, so the text-primary reference cannot match the heading by chance.
+        await tab.addStyleTag({ content: `${style} :root { --primary: rgb(147, 51, 234); }` });
         // A plain body link and one in kit's body-link style (`text-primary`), outside any card, as references.
         await tab.evaluate(() => document.body.insertAdjacentHTML('beforeend', '<p><a href="/x" data-body-link>body link</a> <a href="/y" class="text-primary underline" data-primary-link>primary link</a></p>'));
         await tab.mouse.move(0, 0);
@@ -5827,56 +5836,115 @@ test('a see-all title link keeps the heading\'s colour, not a body link\'s, is u
         assert.equal(focused.link, focused.heading, `${label}: still the heading's colour while focused`);
     };
     for (const [mode, dark] of [['light', ''], ['dark', '&dark']]) {
-        // `--primary` set apart from the text colour, so the text-primary reference cannot match the heading by chance.
-        await seeAllDashboard(dark, async (tab) => {
-            await tab.addStyleTag({ content: ':root { --primary: rgb(147, 51, 234); }' });
-            await check(tab, '[data-widget="app.cases"] h2 a[data-see-all-title]', `dashboard ${mode}`);
-        });
-        const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
-        try {
-            const tab = await context.newPage();
-            await tab.goto(`${url}?see-all${dark}`);
-            await tab.waitForSelector('[data-case="section-list"]');
-            await tab.addStyleTag({ content: ':root { --primary: rgb(147, 51, 234); }' });
-            await check(tab, '[data-case="section-list"] [data-section-header] a[data-see-all-title]', `PageSection ${mode}`);
-            await check(tab, '[data-case="summary-list"] [data-card-header] a[data-see-all-title]', `SummaryCard ${mode}`);
-        } finally {
-            await context.close();
-        }
+        await seeAllDashboard(dark, (tab) => check(tab, '[data-widget="app.cases"] h2 a[data-see-all-title]', `dashboard ${mode}`));
+        await collectionPage(dark, (tab) => check(tab, '[data-case="list"] h2 a[data-see-all-title]', `CollectionCard ${mode}`));
     }
 });
 
-// ── The see-all link outside the dashboard (?see-all): PageSection (footer by default, header with `placement: 'header'`), SummaryCard's sticky footer, and
-// SearchBox's "All results →", which stays in view at the bottom of the scrolling results and visits the full results page ─────────────────────────────────
-test('PageSection and SummaryCard draw the see-all as the dashboard does: footer at the bottom right after the list, or header with its count; axe passes, light and dark', async () => {
+// ── CollectionCard's parts (?collection-card, docs/collection-card.md): segment tabs and the Sort by menu, the empty state from the descriptor or a slot,
+// the scrolling body with the footer in view, the see-all in the footer or the header, axe light and dark ──────────────────────────────────────────────────────
+test('CollectionCard: segment tabs are links named by the card, the current one aria-current, with counts; Sort by is keyboard-operable and visits with the order', async () => {
     for (const [mode, dark] of [['light', ''], ['dark', '&dark']]) {
-        const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
-        try {
-            const tab = await context.newPage();
-            await tab.goto(`${url}?see-all${dark}`);
-            await tab.waitForSelector('[data-case="section-list"]');
-            const read = (selector) => tab.evaluate((s) => {
-                const scope = document.querySelector(s);
-                const links = [...scope.querySelectorAll('a[data-see-all]')];
-                const link = links[0];
-                const content = scope.querySelector('ul, p.text-3xl');
-                const r = link.getBoundingClientRect();
-                return { count: links.length, text: link.textContent.trim(), header: Boolean(link.closest('[data-section-header], [data-card-header]')), footer: Boolean(link.closest('[data-see-all-footer], [data-card-footer]')), below: r.top >= content.getBoundingClientRect().bottom - 0.5, right: scope.getBoundingClientRect().right - r.right };
-            }, selector);
-            const list = await read('[data-case="section-list"]');
-            assert.deepEqual([list.count, list.text, list.footer, list.header, list.below], [1, 'All cases', true, false, true], `${mode}: a list section's link is in its footer, after the list`);
-            assert.ok(list.right <= 32, `${mode}: at the right`);
-            const stat = await read('[data-case="section-stat"]');
-            assert.deepEqual([stat.count, stat.text, stat.header, stat.footer], [1, 'All cases (42)', true, false], `${mode}: a stat section's link is in its header, with its count`);
-            const summary = await read('[data-case="summary-list"]');
-            assert.deepEqual([summary.count, summary.text, summary.footer, summary.below], [1, 'All recent cases', true, true], `${mode}: a SummaryCard's link is in its sticky footer`);
-            assert.ok(summary.right <= 32, `${mode}: at the right`);
-            assert.equal(await tab.getByRole('link', { name: 'All cases', exact: true }).getAttribute('href'), '/@acme/cases');
+        await collectionPage(dark, async (tab) => {
+            const card = tab.locator('[data-case="list"]');
+            const nav = card.getByRole('navigation', { name: 'Ongoing cases views' });
+            assert.equal(await nav.count(), 1, `${mode}: the segments are a navigation named by the card`);
+            assert.deepEqual(await nav.getByRole('link').evaluateAll(els => els.map(el => [el.getAttribute('href'), el.getAttribute('aria-current')])), [
+                ['/@acme/cases?status=ongoing', 'page'],
+                ['/@acme/cases?status=ongoing&segment=new', null],
+                ['/@acme/cases?status=ongoing&segment=progress', null],
+            ], `${mode}: one link per segment, to the same index filtered to it, only the current one marked`);
+            for (const name of ['All (30)', 'New (4)', 'In progress (26)']) assert.equal(await nav.getByRole('link', { name, exact: true }).count(), 1, `${mode}: a segment is named with its count, "${name}"`);
+            const tabs = await tab.evaluate(() => {
+                const header = document.querySelector('[data-case="list"] header').getBoundingClientRect();
+                const nav = document.querySelector('[data-case="list"] [data-collection-segments]').getBoundingClientRect();
+                const body = document.querySelector('[data-case="list"] [data-collection-body]').getBoundingClientRect();
+                const [on, off] = ['all', 'new'].map(key => getComputedStyle(document.querySelector(`[data-case="list"] [data-segment="${key}"]`)).backgroundColor);
+                return { below: nav.top >= header.bottom - 0.5 && nav.bottom <= body.top + 0.5, distinct: on !== off };
+            });
+            assert.ok(tabs.below && tabs.distinct, `${mode}: between the header and the items, the current one drawn apart`);
+            assert.equal(await card.getByRole('link', { name: 'New case', exact: true }).count(), 1, `${mode}: the header action`);
+            const control = card.getByRole('combobox', { name: 'Sort by' });
+            assert.equal((await control.inputValue()).trim(), 'Last touched', `${mode}: the current order shows`);
+            assert.equal(await tab.locator('[data-case="stat"] [data-collection-sort], [data-case="stat"] [data-collection-segments]').count(), 0, `${mode}: a card that sends neither has no menu and no tabs`);
             assert.deepEqual(await notesAxe(tab), [], mode);
-            if (seeAllShots) await tab.screenshot({ path: `${seeAllShots}/sections-see-all-${mode}.png`, fullPage: true });
-        } finally {
-            await context.close();
+            if (dark) return;
+            await control.focus();
+            await tab.keyboard.press('ArrowDown');
+            await tab.getByRole('listbox').waitFor();
+            for (let i = 0; i < 4 && (await tab.locator('[role="option"][data-highlighted]').innerText().catch(() => '')).trim() !== 'Due soonest'; i++) await tab.keyboard.press('ArrowDown');
+            await tab.keyboard.press('Enter');
+            await tab.waitForFunction(() => (window.kitVisits ?? []).length > 0);
+            assert.deepEqual(await tab.evaluate(() => window.kitVisits), [{ url: '/@acme', method: 'get', data: { sort: 'due' } }], 'one visit to the sort URL with the chosen order');
+            assert.equal((await control.inputValue()).trim(), 'Due soonest');
+        });
+    }
+});
+
+test('CollectionCard: an empty card shows the descriptor\'s empty state, or its #empty slot, never the items; its see-all stays', async () => {
+    await collectionPage('', async (tab) => {
+        const read = (key) => tab.evaluate((k) => {
+            const card = document.querySelector(`[data-case="${k}"]`);
+            return { state: card.dataset.state, empty: card.querySelector('[data-collection-empty]')?.innerText.replace(/\s+/g, ' ').trim() ?? null, items: card.textContent.includes('never shown'), footer: card.querySelector('[data-collection-footer] a[data-see-all]')?.textContent.trim() ?? null };
+        }, key);
+        assert.deepEqual(await read('empty'), { state: 'empty', empty: 'Nothing overdue Cases past their due date show up here.', items: false, footer: 'All overdue cases' }, 'the descriptor\'s title and description, no items, the see-all still in the footer');
+        assert.deepEqual(await read('empty-slot'), { state: 'empty', empty: 'Flag a case to keep it here.', items: false, footer: null }, 'the #empty slot in its place');
+        assert.equal(await tab.locator('[data-case="list"] [data-collection-empty]').count(), 0, 'a ready card has none');
+    });
+});
+
+test('CollectionCard: with maxHeight the items scroll inside the card, a named, focusable region, and the footer\'s see-all stays in view and in place', async () => {
+    await collectionPage('', async (tab) => {
+        const at = () => tab.evaluate(() => {
+            const card = document.querySelector('[data-case="list"]');
+            const body = card.querySelector('[data-collection-body]');
+            const footer = card.querySelector('[data-collection-footer]');
+            const link = footer.querySelector('a[data-see-all]');
+            const r = link.getBoundingClientRect();
+            const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+            return { top: Math.round(r.top), right: Math.round(card.getBoundingClientRect().right - r.right), hit: Boolean(hit && link.contains(hit)), inView: r.top >= 0 && r.bottom <= window.innerHeight, scrollTop: body.scrollTop, end: body.scrollHeight - body.clientHeight, height: Math.round(body.getBoundingClientRect().height), rem: parseFloat(getComputedStyle(document.documentElement).fontSize), outside: !body.contains(link), last: footer === card.lastElementChild, page: window.scrollY };
+        });
+        const region = tab.getByRole('region', { name: 'Ongoing cases items' });
+        assert.equal(await region.count(), 1, 'the scrolling body is a region named after the card');
+        assert.equal(await region.getAttribute('tabindex'), '0', 'and keyboard-scrollable');
+        const before = await at();
+        assert.ok(before.end > 100 && before.height <= 12 * before.rem + 0.5, `the body stops at 12rem and scrolls (${before.height}px)`);
+        assert.ok(before.outside && before.last && before.right <= 24 && before.hit && before.inView, 'the see-all is in the footer, the card\'s last part, at its right, outside the scroll, on top and in view');
+        const box = await region.boundingBox();
+        await tab.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+        await tab.mouse.wheel(0, 300);
+        await tab.waitForFunction(() => document.querySelector('[data-case="list"] [data-collection-body]').scrollTop > 0);
+        const middle = await at();
+        await region.evaluate(el => { el.scrollTop = el.scrollHeight; });
+        const end = await at();
+        for (const [label, now] of [['part way', middle], ['at the end', end]]) {
+            assert.ok(now.scrollTop > 0, `${label}: the items scrolled`);
+            assert.deepEqual([now.top, now.hit, now.inView, now.page], [before.top, true, true, before.page], `${label}: the see-all has not moved and is on top and in view`);
         }
+        assert.ok(end.scrollTop >= end.end - 1, 'the items reached their end');
+        assert.equal(await tab.locator('[data-case="stat"] [data-collection-body]').getAttribute('role'), null, 'a card without maxHeight does not scroll and is no region');
+    });
+});
+
+test('CollectionCard: the see-all is one link, "All <noun>" with an arrow: in the footer for a list, in the header with its count for a stat card; axe passes, light and dark', async () => {
+    for (const [mode, dark] of [['light', ''], ['dark', '&dark']]) {
+        await collectionPage(dark, async (tab) => {
+            const read = (key) => tab.evaluate((k) => {
+                const card = document.querySelector(`[data-case="${k}"]`);
+                const links = [...card.querySelectorAll('a[data-see-all]')];
+                const link = links[0];
+                const r = link.getBoundingClientRect();
+                return { count: links.length, text: link.textContent.trim(), header: Boolean(link.closest('header')), footer: Boolean(link.closest('[data-collection-footer]')), arrow: link.querySelector('svg')?.getAttribute('aria-hidden'), right: Math.round(card.getBoundingClientRect().right - r.right) };
+            }, key);
+            const list = await read('list');
+            assert.deepEqual([list.count, list.text, list.footer, list.header, list.arrow], [1, 'All ongoing cases', true, false, 'true'], `${mode}: a list card's see-all is in its footer, its arrow hidden`);
+            const stat = await read('stat');
+            assert.deepEqual([stat.count, stat.text, stat.header, stat.footer], [1, 'All cases (42)', true, false], `${mode}: a stat card's is in its header, with its count`);
+            assert.ok(list.right <= 24 && stat.right <= 24, `${mode}: both at the card's right`);
+            assert.equal(await tab.locator('[data-case="stat"] [data-collection-footer]').count(), 0, `${mode}: a header see-all leaves no footer`);
+            assert.deepEqual(await notesAxe(tab), [], mode);
+            if (seeAllShots) await tab.screenshot({ path: `${seeAllShots}/collection-card-${mode}.png`, fullPage: true });
+        });
     }
 });
 
@@ -5885,7 +5953,7 @@ test('SearchBox: the results end with "All results" and an arrow, kept in view w
     try {
         const tab = await context.newPage();
         await tab.route(/\/search\?q=/, route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ partial: false, groups: [{ key: 'cases', label: 'Cases', results: Array.from({ length: 30 }, (_, i) => ({ id: String(i), label: `Case ${101 + i}`, url: `/@acme/cases/${i}`, description: null, meta: null })) }] }) }));
-        await tab.goto(`${url}?see-all`);
+        await tab.goto(`${url}?collection-card`);
         await tab.getByRole('combobox', { name: 'Search' }).fill('case');
         await tab.waitForSelector('[data-search-option]');
         const link = tab.getByRole('link', { name: 'All results', exact: true });
