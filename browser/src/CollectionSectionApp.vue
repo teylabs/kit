@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ref } from 'vue';
 import CollectionCard from '@/components/Kit/Card/CollectionCard.vue';
 import CollectionSection from '@/components/Kit/Layout/CollectionSection.vue';
 import SearchBox from '@/components/Kit/Search/SearchBox.vue';
@@ -10,6 +11,8 @@ import SearchBox from '@/components/Kit/Search/SearchBox.vue';
 // under the grid, and an empty one. And, first so its results open in view, a SearchBox, whose results end with "All results →". With `&twin=section` or
 // `&twin=card` the page holds only one descriptor (`twin`) with the same items, drawn by that component, so a test compares the two loads. With `&edge`: a card whose header actions are a plain link, a confirmed POST, a disabled
 // action with its reason and a new-tab link to the see-all's URL; an empty card whose action is a POST; an error card that has a see-all and fills the `#actions` and `#filters` slots; and an empty card with no empty copy and no `#empty` slot.
+// With `&long`: a card whose `#actions` slot holds a long label that wraps and a long file name that truncates, read at phone width.
+// With `&resize`: a card whose `size` a button switches between `compact` and `section` after it mounts.
 const rows = Array.from({ length: 30 }, (_, i) => 101 + i);
 const cases = {
     title: 'Ongoing cases',
@@ -42,6 +45,10 @@ const twin = {
 };
 const twinOf = new URLSearchParams(window.location.search).get('twin');
 const edge = new URLSearchParams(window.location.search).has('edge');
+const long = new URLSearchParams(window.location.search).has('long');
+const resize = new URLSearchParams(window.location.search).has('resize');
+const size = ref<'compact' | 'section'>('compact');
+const reports = { title: 'Reports', description: 'What this workspace exported.', seeAll: { label: 'All reports', url: '/@acme/reports' } };
 const withActions = {
     title: 'Open cases',
     actions: [
@@ -68,6 +75,24 @@ const slotted = { title: 'Flagged cases', state: 'empty' as const };
         >
         <CollectionCard :section="bareEmpty" :level="2" data-case="bare-empty"><p>never shown</p></CollectionCard>
         <CollectionCard :section="importable" :level="2" data-case="empty-action"><p>never shown</p></CollectionCard>
+    </main>
+    <main v-else-if="long" class="grid min-h-screen content-start gap-6 bg-background p-4 text-foreground sm:p-8">
+        <h1 class="text-lg font-medium">Reports</h1>
+        <CollectionCard :section="reports" :level="2" data-case="long-action">
+            <template #actions
+                ><a href="/@acme/reports/export" class="text-sm font-medium" data-long-action="wrap">Download every report this workspace exported this year as one spreadsheet</a
+                ><a href="/@acme/reports/latest" class="truncate text-sm" data-long-action="truncate">quarterly-security-report-for-the-northwind-farms-workspace-2026.csv</a></template
+            >
+            <p class="text-sm">Report 401</p>
+        </CollectionCard>
+    </main>
+    <main v-else-if="resize" class="grid min-h-screen content-start gap-6 bg-background p-4 text-foreground sm:p-8">
+        <h1 class="text-lg font-medium">Reports</h1>
+        <button type="button" data-resize @click="size = size === 'compact' ? 'section' : 'compact'">Switch size</button>
+        <CollectionCard :section="reports" :level="2" :size="size" data-case="resize">
+            <template #footer>Exported weekly</template>
+            <p class="text-sm">Report 401</p>
+        </CollectionCard>
     </main>
     <main v-else-if="twinOf" class="grid min-h-screen content-start gap-6 bg-background p-4 text-foreground sm:p-8">
         <h1 class="text-lg font-medium">Cases</h1>

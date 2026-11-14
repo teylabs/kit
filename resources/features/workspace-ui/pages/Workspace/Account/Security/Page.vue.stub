@@ -150,7 +150,7 @@ async function addPasskey(): Promise<void> {
                 </template>
             </Section>
 
-            <CollectionCard :section="log" :level="2" data-security-log-card>
+            <CollectionCard :section="log" :level="2" size="section" data-security-log-card>
                 <ul class="grid divide-y divide-border" data-security-log>
                     <li v-for="(event, index) in events" :key="index" class="flex flex-wrap items-center justify-between gap-2 py-3 text-sm" :data-event="event.type">
                         <span class="flex flex-col"><span class="font-medium">{{ event.label }}</span><span class="text-muted-foreground">{{ event.agent }} · {{ event.ip ?? 'Unknown address' }}</span></span>

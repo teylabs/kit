@@ -2,7 +2,8 @@
 
 // Fails a pull request whose CHANGELOG.md breaks the release notes: `## Unreleased` must be the top section and appear at most once, and every released
 // `## vX.Y.Z` section the base branch has must be byte-for-byte the same. A merge that splices lines under a released heading fails here. A release (a new
-// `## vX.Y.Z` above every released section, in place of `## Unreleased`) and a change that leaves CHANGELOG.md alone both pass.
+// `## vX.Y.Z` above every released section, in place of `## Unreleased`) and a change that leaves CHANGELOG.md alone both pass. A deliberate correction of a
+// released section passes only when `## Unreleased` names it on a line `Released notes corrected: v0.20.0` (several separated by commas), so the review sees it.
 //   php bin/changelog-check.php <base CHANGELOG.md> [<head CHANGELOG.md>]
 // CI: git fetch --depth=1 origin "$GITHUB_BASE_REF" && git show FETCH_HEAD:CHANGELOG.md > /tmp/base-changelog.md && php bin/changelog-check.php /tmp/base-changelog.md
 
@@ -29,6 +30,15 @@ function changelogProblems(string $base, string $head): array
     $sections = changelogSections($head);
     $released = fn (array $section): bool => (bool) preg_match('/^## v\d+\.\d+\.\d+\b/', $section['heading']);
     $unreleased = array_values(array_filter($sections, fn (array $section): bool => $section['heading'] === '## Unreleased'));
+    $corrected = [];
+    foreach ($unreleased as $section) {
+        preg_match_all('/^Released notes corrected: (.+)$/m', $section['body'], $lines);
+        foreach ($lines[1] as $line) {
+            foreach (preg_split('/\s*,\s*/', trim($line)) ?: [] as $version) {
+                $corrected['## '.$version] = true;
+            }
+        }
+    }
     if (count($unreleased) > 1) {
         $problems[] = 'CHANGELOG.md has '.count($unreleased).' "## Unreleased" sections; keep one, at the top.';
     }
@@ -46,7 +56,7 @@ function changelogProblems(string $base, string $head): array
         }
         if (isset($baseReleased[$section['heading']])) {
             $seenOld = true;
-            if ($section['body'] !== $baseReleased[$section['heading']]) {
+            if ($section['body'] !== $baseReleased[$section['heading']] && ! isset($corrected[$section['heading']])) {
                 $problems[] = $section['heading'].' differs from the base branch. Released notes stay as released: put new lines under "## Unreleased".';
             }
         } elseif ($seenOld) {

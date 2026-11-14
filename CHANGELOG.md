@@ -1,8 +1,31 @@
 # Changelog
 
-## v0.20.0
+## Unreleased
 
-Features affected: workspace-ui, notes
+Released notes corrected: v0.20.0
+
+Features affected: core, workspace-ui
+
+workspace-ui re-pinned: `sha256:1f468f64…4561` → `sha256:0e0eef83…ea80` (the Security page's log is a `size="section"` CollectionCard). In `history.json` only the `current` block changed.
+
+### Fixed
+
+- **The Security log looks as it did in 0.19 again (#1001).** 0.20 moved it onto a CollectionCard, which drew a dashboard widget's card: a smaller title and description, and 16px of padding where the cards above it have 24px, so its edges no longer lined up with theirs, and on a phone each event's date sat beside it instead of wrapping below it. CollectionCard gains `size`: `compact`, the default and a dashboard widget's card, unchanged, or `section`, the padding (24px, the header 16px by 24px) and title and description sizes of a form `Section` and a `FormCard`. The Security page uses `section`. No other card changes: every dashboard widget keeps `compact`. `contract.ts`'s `CollectionCardProps` gains `size`.
+  Features affected: core, workspace-ui
+  - **Tests.** Browser (`forms.html?form=Security&shell`, the Account page in the app's layouts, with three events, at 1280 and 390px): the log card is as wide as the Signed-in devices Section above it; its header and body padding, title and description are that Section's (and the title the two-factor FormCard's); the title, the description and the first event start on the Section's and the FormCard's left edge; each event row is as wide as the Section's content; at 390px each date sits under its event, at its left edge. It fails without `size="section"`.
+- **A CollectionSection's header actions shrink on a narrow card.** The header's right side (Sort by, the `#actions` slot, the descriptor's actions and a header see-all) no longer refuses to shrink, so a long item in `#actions` wraps, or truncates with its own `truncate`, inside the header instead of overflowing the card on a phone.
+  Features affected: core
+  - **Tests.** Browser (`?collection-section&long`, 390px): a long link label in `#actions` wraps onto more lines and a long file name with `truncate` stays on one line, cut; both end inside the header's padding, the header does not overflow and the page does not scroll sideways. It fails with the old `shrink-0`. Floor 360 → 362.
+- **docs/upgrading-0.5-to-0.7.md names `kit:scaffold --force`, not `kit:update`,** which 0.18 removed: the procedure takes each feature's pages with `kit:scaffold <feature> --diff`, then `--force=<path>` for the files the app never edited, as the 0.20 Upgrading notes do.
+- **The v0.20.0 notes had two "Features affected" lines.** The shorter one is gone; the fuller `core, session-ui, workspace-ui, notes` stays. The changelog guard (`bin/changelog-check.php`) lets a released section change only when `## Unreleased` names it on a `Released notes corrected:` line, as above; any other change to released notes still fails.
+  - **Tests.** `test:changelog-guard`: a released section named on the line may change; one it does not name, the same change without the line, and the line spliced into the released section it names all fail.
+
+### Upgrading
+
+- Since 0.18 an app owns its Security page, so the log's 0.19 look comes back only with the new one: run `php artisan kit:scaffold workspace-ui --diff --only=resources/js/pages/Workspace/Account/Security`, then add `size="section"` to the log's `<CollectionCard>` (or `--force` that file if you never edited it). An app's own CollectionCard keeps the widget look unless it passes `size="section"`.
+- The header actions fix comes with `composer update tey/kit`: the components load from the package.
+
+## v0.20.0
 
 Features affected: core, session-ui, workspace-ui, notes
 

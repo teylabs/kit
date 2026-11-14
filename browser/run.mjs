@@ -6297,6 +6297,70 @@ test('CollectionSection: header actions keep their descriptor: a confirmed POST 
     }
 });
 
+test('CollectionSection at 390px: a long item in the header\'s #actions slot shrinks inside the card, a label wrapping and a file name truncating, with nothing past the card\'s edge', async () => {
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?collection-section&long`);
+        await tab.waitForSelector('[data-case="long-action"] [data-long-action]');
+        const read = await tab.evaluate(() => {
+            const card = document.querySelector('[data-case="long-action"]');
+            const header = card.querySelector('[data-collection-header]');
+            const style = getComputedStyle(header);
+            const inner = header.getBoundingClientRect().right - parseFloat(style.paddingRight);
+            const item = (name) => {
+                const el = card.querySelector(`[data-long-action="${name}"]`);
+                const r = el.getBoundingClientRect();
+                return { right: r.right, lines: Math.round(r.height / parseFloat(getComputedStyle(el).lineHeight)), cut: el.scrollWidth > el.clientWidth };
+            };
+            return {
+                scrolls: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+                headerOverflows: header.scrollWidth > header.clientWidth,
+                inner,
+                wrap: item('wrap'),
+                truncate: item('truncate'),
+            };
+        });
+        assert.equal(read.scrolls, false, 'no sideways scroll');
+        assert.equal(read.headerOverflows, false, 'the header holds its actions');
+        for (const name of ['wrap', 'truncate']) assert.ok(read[name].right <= read.inner + 0.5, `the ${name} item ends inside the header's padding (${JSON.stringify(read)})`);
+        assert.ok(read.wrap.lines > 1, `the long label wraps onto more lines (${JSON.stringify(read.wrap)})`);
+        assert.deepEqual([read.truncate.lines, read.truncate.cut], [1, true], 'the long file name stays on one line, cut with its ellipsis');
+    } finally {
+        await context.close();
+    }
+});
+
+test('CollectionCard: changing `size` after it mounts restyles its section, compact to section and back: the padding of the header, body and footer, and the title\'s and description\'s type', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?collection-section&resize`);
+        await tab.waitForSelector('[data-case="resize"] [data-collection-footer]');
+        const read = () => tab.evaluate(() => {
+            const card = document.querySelector('[data-case="resize"]');
+            const padding = (selector) => ['Top', 'Right', 'Bottom', 'Left'].map((side) => getComputedStyle(card.querySelector(selector))[`padding${side}`]);
+            const type = (selector) => ['fontSize', 'lineHeight'].map((key) => getComputedStyle(card.querySelector(selector))[key]);
+            return {
+                header: padding('[data-collection-header]'),
+                body: padding('[data-collection-body]'),
+                footer: padding('[data-collection-footer]'),
+                title: type('[data-collection-header] h2'),
+                description: type('[data-collection-description]'),
+            };
+        });
+        const compact = { header: ['8px', '16px', '8px', '16px'], body: ['16px', '16px', '16px', '16px'], footer: ['8px', '16px', '8px', '16px'], title: ['14px', '20px'], description: ['12px', '16px'] };
+        const section = { header: ['16px', '24px', '16px', '24px'], body: ['24px', '24px', '24px', '24px'], footer: ['12px', '24px', '12px', '24px'], title: ['16px', '24px'], description: ['14px', '20px'] };
+        assert.deepEqual(await read(), compact, 'mounted compact: 16px of padding, a small title and description');
+        await tab.locator('[data-resize]').click();
+        assert.deepEqual(await read(), section, 'switched to section: 24px of padding, a Section\'s title and description');
+        await tab.locator('[data-resize]').click();
+        assert.deepEqual(await read(), compact, 'and back to compact');
+    } finally {
+        await context.close();
+    }
+});
+
 test('SearchBox: the results end with "All results" and an arrow, kept in view while they scroll, and it visits the full results page', async () => {
     const context = await browser.newContext({ viewport: { width: 1280, height: 700 } });
     try {
@@ -7891,7 +7955,7 @@ test('Account sections in the shell under load: ten rounds of click, Back and Fo
 
 // Account › Security: TwoFactorController, RecoveryCodesController, PasskeysController (and Fortify's passkey registration), SessionsController.
 const TOTP = '492039';
-function securityAccount({ twoFactor = 'off', passkeys = [{ id: 7, name: 'MacBook passkey', created: '2026-10-01T09:00:00+00:00', last_used: null }] } = {}) {
+function securityAccount({ twoFactor = 'off', passkeys = [{ id: 7, name: 'MacBook passkey', created: '2026-10-01T09:00:00+00:00', last_used: null }], events = [] } = {}) {
     const store = { twoFactor, codes: twoFactor === 'on' ? ['aaaa-1111', 'bbbb-2222'] : [], shown: [], passkeys, nextPasskey: 8, sessions: 2, notice: null };
     const make = (n) => Array.from({ length: 8 }, (_, i) => `code${n}-${String(i + 1).padStart(4, '0')}`);
     let generation = 0;
@@ -7909,8 +7973,8 @@ function securityAccount({ twoFactor = 'off', passkeys = [{ id: 7, name: 'MacBoo
                         ...titled('Security'),
                         two_factor: { state: store.twoFactor, qr_svg: store.twoFactor === 'pending' ? '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 4 4"><rect width="2" height="2"/></svg>' : null, secret_key: store.twoFactor === 'pending' ? 'JBSWY3DPEHPK3PXP' : null, codes_left: store.twoFactor === 'on' ? store.codes.length : 0, recovery_codes: shown },
                         sessions: { supported: true, items: [{ agent: 'Chrome on macOS', ip: '203.0.113.5', last_active: '2026-11-09T09:00:00+00:00', current: true }, ...Array.from({ length: store.sessions - 1 }, () => ({ agent: 'Safari on iOS', ip: '198.51.100.7', last_active: '2026-11-08T18:00:00+00:00', current: false }))] },
-                        events: [],
-                        log: { title: 'Security log', description: 'Your recent sign-ins and security changes. Only you can see this.', state: 'empty', empty: { variant: 'first-use', title: 'Nothing yet', description: 'Your sign-ins and security changes show up here.', action: null }, error: null, actions: [], segments: [], sortBy: null, seeAll: null, maxHeight: null },
+                        events,
+                        log: { title: 'Security log', description: 'Your recent sign-ins and security changes. Only you can see this.', state: events.length ? 'ready' : 'empty', empty: { variant: 'first-use', title: 'Nothing yet', description: 'Your sign-ins and security changes show up here.', action: null }, error: null, actions: [], segments: [], sortBy: null, seeAll: null, maxHeight: null },
                         two_factor_url: '/me/security/two-factor',
                         recovery_codes_url: '/me/security/recovery-codes',
                         sessions_url: '/me/security/sessions',
@@ -7979,6 +8043,91 @@ function securityAccount({ twoFactor = 'off', passkeys = [{ id: 7, name: 'MacBoo
     };
 }
 const card = (tab, title) => tab.locator('[data-form-card]', { has: tab.getByText(title, { exact: true }) });
+
+// The Security log keeps the look of the cards above it, as in 0.19 (CollectionCard `size="section"`), on the Account page in the app's layouts.
+const securityEvents = [
+    { type: 'sign_in', label: 'Signed in', ip: '203.0.113.5', agent: 'Chrome on macOS', at: '2026-11-09T09:00:00+00:00' },
+    { type: 'passkey_added', label: 'Passkey added', ip: '203.0.113.5', agent: 'Chrome on macOS', at: '2026-11-08T18:30:00+00:00' },
+    { type: 'sign_in', label: 'Signed in', ip: '198.51.100.7', agent: 'Safari on iOS', at: '2026-11-07T07:15:00+00:00' },
+];
+test('Security log at 1280 and 390px: the title, description and 24px padding of the Section and FormCard above, their left edges on one line; on a phone each date wraps under its event', async () => {
+    const security = securityAccount({ events: securityEvents });
+    // In the Workspace Layout and the Account folder's Layout (its SettingsFrame sidebar), as an app draws it.
+    const page = () => {
+        const shown = security.pages.Security();
+        const navigation = [{ label: null, items: ['Profile', 'Security'].map((label) => ({ label, url: `/forms.html?form=${label}`, current: label === 'Security', icon: null, badge: null })) }];
+        return { ...shown, props: { ...shown.props, layout: { ...shown.props.layout, breadcrumbs: [], navigation, navigationHeader: null } } };
+    };
+    await accountPage({ ...security, query: '&shell', pages: { Security: page } }, async ({ tab }) => {
+        for (const width of [1280, 390]) {
+            await tab.setViewportSize({ width, height: 900 });
+            await tab.locator('[data-security-log] [data-event]').first().waitFor();
+            const read = await tab.evaluate(() => {
+                const box = (el) => el.getBoundingClientRect();
+                const padding = (el) => ['Top', 'Right', 'Bottom', 'Left'].map((side) => getComputedStyle(el)[`padding${side}`]);
+                const type = (el) => ['fontSize', 'lineHeight', 'fontWeight'].map((key) => getComputedStyle(el)[key]);
+                const log = document.querySelector('[data-security-log-card]');
+                // The Section right above it (Signed-in devices) and the FormCard at the top (Two-factor authentication).
+                const section = document.querySelector('[data-sessions]').closest('section');
+                const formCard = document.querySelector('[data-form-card]');
+                const sectionTitle = section.querySelector('[data-section-header] h2');
+                return {
+                    scrolls: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+                    card: [box(log).left, box(log).right],
+                    sectionCard: [box(section).left, box(section).right],
+                    headerPadding: padding(log.querySelector('[data-collection-header]')),
+                    sectionHeaderPadding: padding(section.querySelector('[data-section-header]').parentElement),
+                    bodyPadding: padding(log.querySelector('[data-collection-body]')),
+                    sectionBodyPadding: padding(section.lastElementChild),
+                    title: type(log.querySelector('[data-collection-header] h2')),
+                    sectionTitle: type(sectionTitle),
+                    formCardTitle: type(formCard.querySelector('header h2')),
+                    description: type(log.querySelector('[data-collection-description]')),
+                    sectionDescription: type(section.querySelector('[data-section-description]')),
+                    lefts: {
+                        title: box(log.querySelector('[data-collection-header] h2')).left,
+                        description: box(log.querySelector('[data-collection-description]')).left,
+                        event: box(log.querySelector('[data-event]')).left,
+                        sectionTitle: box(sectionTitle).left,
+                        sectionItem: box(section.querySelector('[data-sessions] li')).left,
+                        formCardTitle: box(formCard.querySelector('header h2')).left,
+                    },
+                    rowWidths: [...log.querySelectorAll('[data-event]')].map((li) => box(li).width),
+                    sectionContentWidth: (() => {
+                        const body = section.lastElementChild;
+                        const style = getComputedStyle(body);
+                        return body.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+                    })(),
+                    events: [...log.querySelectorAll('[data-event]')].map((li) => {
+                        const [event, date] = li.children;
+                        return { eventBottom: box(event).bottom, eventLeft: box(event).left, dateTop: box(date).top, dateLeft: box(date).left };
+                    }),
+                };
+            });
+            assert.equal(read.scrolls, false, `${width}: no sideways scroll`);
+            assert.deepEqual(read.card, read.sectionCard, `${width}: the log card is as wide as the Section above it`);
+            assert.deepEqual(read.headerPadding, ['16px', '24px', '16px', '24px'], `${width}: the header's padding`);
+            assert.deepEqual(read.headerPadding, read.sectionHeaderPadding, `${width}: the header's padding is the Section header's`);
+            assert.deepEqual(read.bodyPadding, ['24px', '24px', '24px', '24px'], `${width}: the body's padding`);
+            assert.deepEqual(read.bodyPadding, read.sectionBodyPadding, `${width}: the body's padding is the Section body's`);
+            assert.deepEqual(read.title, read.sectionTitle, `${width}: the title at the Section title's size, line height and weight`);
+            assert.deepEqual(read.title, read.formCardTitle, `${width}: and the FormCard title's`);
+            assert.deepEqual(read.description, read.sectionDescription, `${width}: the description at the Section description's size and line height`);
+            const { title, description, event, sectionTitle, sectionItem, formCardTitle } = read.lefts;
+            assert.equal(title, sectionTitle, `${width}: the title's left edge is the Section title's`);
+            assert.equal(title, formCardTitle, `${width}: and the FormCard title's`);
+            assert.equal(description, title, `${width}: the description starts under the title`);
+            assert.equal(event, sectionItem, `${width}: the first event's left edge is the Section's first item's`);
+            // The rows keep their 0.19 markup, so as wide as a Section's content they wrap where they did in 0.19.
+            assert.deepEqual(read.rowWidths, Array(3).fill(read.sectionContentWidth), `${width}: each event row is as wide as the Section's content`);
+            if (width === 390) {
+                for (const [index, row] of read.events.entries()) {
+                    assert.ok(row.dateTop >= row.eventBottom && row.dateLeft === row.eventLeft, `390: event ${index}'s date wraps under it (${JSON.stringify(row)})`);
+                }
+            }
+        }
+    });
+});
 
 test('Two-factor: a person types the password and presses Turn on; the QR code and setup key show, waiting for a code, also after a reload', async () => {
     const security = securityAccount();

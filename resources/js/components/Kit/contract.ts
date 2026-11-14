@@ -901,8 +901,13 @@ export interface CollectionSectionProps {
     minHeight?: string | null;
 }
 
-/** The same CollectionSection on a kit Card, with the same props and slots: it adds the card, its padding and rules, and nothing else. */
-export type CollectionCardProps = CollectionSectionProps;
+/**
+ * The same CollectionSection on a kit Card, with the same props and slots: it adds the card, its padding and rules, and nothing else. `size`: `compact` (default,
+ * a dashboard widget's: 16px of padding, a small title) or `section` (a form Section's: 24px of padding, its title and description).
+ */
+export type CollectionCardProps = CollectionSectionProps & {
+    size?: 'compact' | 'section';
+};
 
 /** A list's one "see all" link from the server's `SeeAll` descriptor (docs/see-all.md): "All cases →", or "All cases (42) →" with a count; the arrow is hidden from the accessible name. An Inertia link that places nothing itself. */
 export interface SeeAllLinkProps {
