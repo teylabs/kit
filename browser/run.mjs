@@ -83,6 +83,8 @@ cpSync(path.join(here, '../resources/features/settings/pages'), path.join(kit, '
 cpSync(path.join(here, '../resources/features/workspace-ui/pages/Workspace/Account'), path.join(kit, 'Pages/Workspace/Account'), { recursive: true });
 // People, its modals and Delete workspace (people.html).
 cpSync(path.join(here, '../resources/features/workspace-ui/pages/Workspace/Settings'), path.join(kit, 'Pages/Workspace/Settings'), { recursive: true });
+// workspace-ui's invitation page (auth.html?auth=Auth/Invitation/Show), a compact card like the guest pages.
+cpSync(path.join(here, '../resources/features/workspace-ui/pages/Auth'), path.join(kit, 'Pages/Auth'), { recursive: true });
 // mcp's consent page (auth.html?auth=Mcp/Authorize), a compact card like the guest pages.
 cpSync(path.join(here, '../resources/features/mcp/pages'), path.join(kit, 'Pages'), { recursive: true });
 const unstub = (dir) => readdirSync(dir).forEach((name) => {
@@ -9392,6 +9394,89 @@ const wrapBar = async (theme) => {
 };
 test('ActionBar wrap (light): every action wraps onto rows at phone width; the default More menu keeps Cancel red and its labels aligned', () => wrapBar('light'));
 test('ActionBar wrap (dark): the same under the dark tokens', () => wrapBar('dark'));
+
+// ── ActionGroup (?action-group, docs/action-group.md), at 1280 and 390px: a column stacks its actions in the order written, the primary first, each the group's
+// full width (a link's own `w-auto self-start` included), 12px apart; the default row keeps three short Buttons on one line, each its own width, 12px apart ──
+const actionGroupBoxes = (tab, selector) => tab.$eval(selector, (group) => {
+    const box = (el) => { const r = el.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: r.width }; };
+    const primary = Object.assign(document.createElement('span'), { className: 'bg-primary' });
+    document.body.append(primary);
+    const fill = getComputedStyle(primary).backgroundColor;
+    primary.remove();
+    return { direction: group.dataset.direction, box: box(group), items: [...group.children].map((el) => ({ key: el.dataset.actionKey, label: el.textContent.trim(), primary: getComputedStyle(el).backgroundColor === fill, ...box(el) })) };
+});
+// A column: every action the group's full width from its left edge, each 12px under the one before, only the first filled with the primary.
+const assertColumn = (group, labels, where) => {
+    assert.equal(group.direction, 'column', `${where}: a column`);
+    assert.deepEqual(group.items.map((item) => item.key ?? item.label), labels, `${where}: in the order written, the primary first`);
+    assert.deepEqual(group.items.map((item) => item.primary), labels.map((_, index) => index === 0), `${where}: only the first is the primary`);
+    for (const item of group.items) {
+        assert.equal(Math.round(item.width), Math.round(group.box.width), `${where}, ${item.key ?? item.label}: the group's full width`);
+        assert.equal(Math.round(item.left), Math.round(group.box.left), `${where}, ${item.key ?? item.label}: from the group's left edge`);
+    }
+    group.items.slice(1).forEach((item, index) => assert.equal(Math.round(item.top - group.items[index].bottom), 12, `${where}, ${item.key ?? item.label}: 12px under the one before`));
+};
+const actionGroup = async (width) => {
+    const context = await browser.newContext({ viewport: { width, height: 900 } });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', (error) => errors.push(error.message));
+        await tab.goto(`${url}?action-group`);
+        await tab.waitForSelector('[data-column] [data-slot="action-group"]');
+        const column = await actionGroupBoxes(tab, '[data-column] [data-slot="action-group"]');
+        assertColumn(column, ['primary', 'secondary', 'link'], `${width}px`);
+        assert.equal(Math.round(column.box.width), Math.min(384, width - 32), 'the column spans its card (max-w-sm, or the phone less the page padding)');
+        const row = await actionGroupBoxes(tab, '[data-row] [data-slot="action-group"]');
+        assert.equal(row.direction, 'row', 'row is the default');
+        assert.deepEqual(row.items.map((item) => item.key), ['save', 'preview', 'cancel']);
+        assert.equal(new Set(row.items.map((item) => Math.round(item.top))).size, 1, 'the row keeps its actions on one line');
+        assert.equal(Math.round(row.items[0].left), Math.round(row.box.left), 'the row starts at its left edge');
+        row.items.slice(1).forEach((item, index) => assert.equal(Math.round(item.left - row.items[index].right), 12, `${item.key}: 12px after the one before`));
+        assert.ok(row.items.every((item) => item.width < row.box.width / 3), 'each row action keeps its own width');
+        await tab.screenshot({ path: `${process.env.SCREENSHOT_DIR ?? '/tmp'}/action-group-${width}.png`, fullPage: true });
+        assert.deepEqual(await axeWithContrast(tab), []);
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+};
+test('ActionGroup at 1280px: a column stacks its actions full-width, the primary first, 12px apart; the default row keeps them on one line, 12px apart', () => actionGroup(1280));
+test('ActionGroup at 390px: the same column and row on a phone', () => actionGroup(390));
+
+// ── The kit's auth pages stack their actions in ActionGroup's column (docs/action-group.md), at 1280 and 390px: Login (with a passkey), TwoFactor, VerifyEmail
+// and the invitation page (joining as another account, and the wrong account), each action the card's full width, the primary first, 12px apart ───────────────
+const authActions = async (width) => {
+    const context = await browser.newContext({ viewport: { width, height: 900 } });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', (error) => errors.push(error.message));
+        for (const [name, query, labels] of [
+            ['Login', '&passkey', ['Sign in', 'Sign in with a passkey']],
+            ['TwoFactor', '', ['Verify', 'Use a recovery code']],
+            ['VerifyEmail', '', ['Send the link again', 'Sign out']],
+            ['Auth/Invitation/Show', '&other', ['Join as ada@work.example.com', 'Switch account', 'Cancel']],
+            ['Auth/Invitation/Show', '&state=wrong_account', ['Switch account', 'Cancel']],
+        ]) {
+            const where = `${name}${query} at ${width}px`;
+            await tab.goto(`${authUrl}auth.html?auth=${name}${query}`);
+            await tab.waitForSelector('[data-guest-card] [data-slot="action-group"]');
+            assert.equal(await tab.locator('[data-guest-card] [data-slot="action-group"]').count(), 1, `${where}: one group of actions`);
+            const group = await actionGroupBoxes(tab, '[data-guest-card] [data-slot="action-group"]');
+            assertColumn(group, labels, where);
+            const card = await tab.$eval('h1', (el) => el.parentElement.getBoundingClientRect().width);
+            assert.equal(Math.round(group.box.width), Math.round(card), `${where}: the group spans the card, as the heading does`);
+            if (name !== 'Auth/Invitation/Show' || query === '&other') assert.equal(await tab.$eval('[data-guest-card] [data-slot="action-group"] > :first-child', (el) => el.type), 'submit', `${where}: the first is the form's submit`);
+            await tab.screenshot({ path: `${process.env.SCREENSHOT_DIR ?? '/tmp'}/auth-actions-${name.split('/').pop()}${query.replace(/[&=]/g, '-')}-${width}.png`, fullPage: true });
+        }
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+};
+test('Auth actions at 1280px: Login, TwoFactor, VerifyEmail and the invitation page stack their actions full-width, the primary first, 12px apart', () => authActions(1280));
+test('Auth actions at 390px: the same stack on a phone', () => authActions(390));
 
 // ── The swapped card names (?card-names, `&dark`): ActionCard is the panel. At 1280px the text is on the left with the description capped at max-w-xl and the
 // actions on the right, centred by default and pinned to the top with align="top"; at 390px the actions stack under the text. Slots that render nothing leave

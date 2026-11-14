@@ -1,5 +1,32 @@
 # Changelog
 
+## Unreleased
+
+Features affected: core, session-ui, workspace-ui
+
+A minor release: the kit's own Login (with a passkey), TwoFactor and invitation pages now put 12px between their stacked actions where they had 16px (see Changed and Upgrading).
+
+session-ui re-pinned: `sha256:0a7ba812…9e87` → `sha256:dda4c842…744b` (Login, TwoFactor and VerifyEmail stack their actions in an `ActionGroup` column). workspace-ui re-pinned: `sha256:0e0eef83…ea80` → `sha256:7d96253d…0ca4` (the invitation page's join and wrong-account actions are an `ActionGroup` column). In `history.json` only the `current` block changed.
+
+### Added
+
+- **ActionGroup: a form's own actions in a row, or stacked full-width for an auth-style card (#1005).** `<ActionGroup>` (new in `@kit/ui`, and in the README's list of names a replacement module exports) holds Buttons and links styled as buttons with one gap, 12px. `direction` is `row`, the default (one row that wraps, in the order written), or `column`: stacked, every action the group's full width, in the order written so the primary goes first, and the same at every breakpoint (no `sm:` switch back to a row). It is layout only: no role, no restyling of its children, nothing run. `contract.ts` gains `ActionGroupProps`; the adoption inventory lists it with the layout blocks ([docs/action-group.md](docs/action-group.md)).
+  Features affected: core
+  - **Tests.** `test:js` (`tests/js/action-group.test.mjs`): `direction` is `row` or `column`, `row` by default, in the component and the contract; both directions share `gap-3`, a column stretches each child to its width, and no class changes at a breakpoint; the barrel exports it. Browser (`?action-group`, at 1280 and 390px): a column's three actions (a primary Button, a secondary one and a quiet link with its own `w-auto self-start`) are in the order written, only the first filled with the primary, each the group's full width from its left edge, 12px apart, the group the card's width (384px, or the phone less the page's padding); the default row keeps three short Buttons on one line from its left edge, each its own width, 12px apart; axe with contrast. It fails without the column's `*:w-full` (the link keeps its own width). Floor 363 → 367 (with the pages below).
+  - **Not covered:** a consumer app, and browsers other than Chromium.
+
+### Changed
+
+- **Login, TwoFactor, VerifyEmail and the invitation page stack their actions in `<ActionGroup direction="column">`.** The primary action is first and every action is the card's full width, 12px apart, at every width: Login's Sign in, then Sign in with a passkey (where the browser can; its failure alert now sits under the group); TwoFactor's Verify, then the code toggle; VerifyEmail's Send the link again, then Sign out; the invitation's Accept (or Join as), then Switch account and Cancel, and for the wrong account Switch account, then Cancel. Login with a passkey, TwoFactor and the invitation's join actions were 16px apart (the form's gap) and are 12px now, the gap of the consent page's Approve and Deny; VerifyEmail and the wrong-account actions look as before. The buttons drop their own `w-full`: the group owns the width. The invitation page's single "… →" next-step links are one action each and stay as they were. No field, route or payload changes.
+  Features affected: session-ui, workspace-ui
+  - **Tests.** `test:js`: each of the four pages imports `ActionGroup` from `@kit/ui` and stacks its actions in a column whose first control is the primary (the form's submit, or the wrong account's filled Switch account), with no `w-full` of their own. Browser (`auth.html`, at 1280 and 390px, which now also builds workspace-ui's invitation page as `?auth=Auth/Invitation/Show` with `&other` or `&state=wrong_account`, and gives Login a passkey with `&passkey`): on Login with a passkey, TwoFactor, VerifyEmail, the invitation joined as another account and the wrong account, one group, its actions in order with only the first the primary, each as wide as the card's heading, from its left edge, 12px apart. It fails on the old pages.
+  - **Not covered:** a consumer app, a real passkey (only the button's place is read), and browsers other than Chromium.
+
+### Upgrading
+
+- Since 0.18 an app owns its scaffolded pages, so the stacked actions reach them only with the new pages. Until then nothing changes. Run `php artisan kit:scaffold session-ui --diff --only=resources/js/pages/Auth` and `php artisan kit:scaffold workspace-ui --diff --only=resources/js/pages/Auth/Invitation`, then wrap each page's stacked actions in `<ActionGroup direction="column">`, primary first, and drop their `w-full` (or `--force` the Login, TwoFactor, VerifyEmail and invitation pages if you never edited them).
+- A host that points `@kit/ui` at its own module exports `ActionGroup` (`export * from '@/components/Kit'` does) before it takes the new pages.
+
 ## v0.20.1
 
 Features affected: workspace-ui

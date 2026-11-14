@@ -26,6 +26,7 @@ The guest pages (Login, Register, ForgotPassword, ResetPassword, ConfirmPassword
 
 - a heading and its flashed status (Login, Register): `<Stack>` (`gap-4`);
 - the consent request and its scopes: `<Stack>` (`gap-4`); Approve and Deny, one decision: `<Stack class="gap-3">`.
+- stacked actions, the primary first (Login, TwoFactor, VerifyEmail, the invitation page): `<ActionGroup direction="column">` (`gap-3`, every action full-width, at every breakpoint; [action-group.md](action-group.md)).
 
 This is the one deliberate exception to the page's rhythm in the kit's own pages. A host's own compact card follows the same rule: group with a Stack, never a margin.
 

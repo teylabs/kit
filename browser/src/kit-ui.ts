@@ -1,5 +1,6 @@
 // `@kit/ui` for the session-ui pages under test: only what they import from the kit barrel, so the build needs none of the shadcn pieces the whole
 // barrel would pull in.
+export { default as ActionGroup } from '@/components/Kit/Action/ActionGroup.vue';
 export { default as Alert } from '@/components/Kit/Feedback/Alert.vue';
 export { default as Button } from '@/components/Kit/Form/Button.vue';
 export { default as Field } from '@/components/Kit/Form/Field.vue';
