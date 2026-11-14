@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Form, http, router } from '@inertiajs/vue3';
 import { onMounted, ref } from 'vue';
-import { Alert, Button, CollectionSection, DateTime, Dialog, Field, FormCard, Input, Page, PasswordInput, ScriptForm, Section, confirmPasskeyPassword, passkeyName, passkeysSupported, registerPasskey } from '@kit/ui';
+import { Alert, Button, CollectionCard, DateTime, Dialog, Field, FormCard, Input, Page, PasswordInput, ScriptForm, Section, confirmPasskeyPassword, passkeyName, passkeysSupported, registerPasskey } from '@kit/ui';
 
 // Security: passkeys, two-factor authentication (Fortify's actions; the password is asked for again, and a code from the authenticator app turns it on), the devices
 // you are signed in on, and your own security log. Turning two-factor off, regenerating the recovery codes and signing out other sessions each ask first.
@@ -149,13 +149,13 @@ async function addPasskey(): Promise<void> {
                 </template>
             </Section>
 
-            <CollectionSection :section="log" :level="2" data-security-log-card>
+            <CollectionCard :section="log" :level="2" data-security-log-card>
                 <ul class="grid divide-y divide-border" data-security-log>
                     <li v-for="(event, index) in events" :key="index" class="flex flex-wrap items-center justify-between gap-2 py-3 text-sm" :data-event="event.type">
                         <span class="flex flex-col"><span class="font-medium">{{ event.label }}</span><span class="text-muted-foreground">{{ event.agent }} · {{ event.ip ?? 'Unknown address' }}</span></span>
                         <span class="text-muted-foreground"><DateTime :value="event.at" /></span>
                     </li>
                 </ul>
-            </CollectionSection>
+            </CollectionCard>
     </Page>
 </template>

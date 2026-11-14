@@ -72,7 +72,7 @@ final class SecurityViewModel extends PageViewModel
         return $this->notice;
     }
 
-    /** The security log's section (a CollectionSection over `events`, on a card): its title, what it holds, and what it says before there is anything to show. */
+    /** The security log's section (a CollectionCard over `events`): its title, what it holds, and what it says before there is anything to show. */
     public function log(): CollectionSectionData
     {
         return new CollectionSectionData('Security log', 'Your recent sign-ins and security changes. Only you can see this.', $this->events === [] ? 'empty' : 'ready',

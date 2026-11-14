@@ -890,16 +890,18 @@ export interface SectionHeaderProps {
 /**
  * A section showing a collection (docs/collection-section.md), driven by the server's `CollectionSectionData` (`section`): the title (a link to the see-all's URL
  * unless `linkTitle` is false), description, header actions and Sort by menu, segment tabs, the empty state (or the `#empty` slot) or error, an optional scrolling
- * body (`maxHeight`) and the see-all footer. Slots: default (the items), `actions`, `filters`, `empty`, `footer`. `level` is the title's heading level (3).
- * `surface`: `card` (the default) draws a bordered card around it all, for a list of rows; `none` draws none, for items that are cards themselves.
+ * body (`maxHeight`) and the see-all footer. Slots: default (the items), `actions`, `filters`, `empty`, `footer`. `level` is the title's heading level (3). It
+ * draws no card: for a grid or list whose items carry their own look.
  */
 export interface CollectionSectionProps {
     section: import('./Layout/collectionSection').CollectionSectionData;
-    surface?: 'card' | 'none';
     level?: 2 | 3 | 4 | 5 | 6;
     headless?: boolean;
     minHeight?: string | null;
 }
+
+/** The same CollectionSection on a kit Card, with the same props and slots: it adds the card, its padding and rules, and nothing else. */
+export type CollectionCardProps = CollectionSectionProps;
 
 /** A list's one "see all" link from the server's `SeeAll` descriptor (docs/see-all.md): "All cases →", or "All cases (42) →" with a count; the arrow is hidden from the accessible name. An Inertia link that places nothing itself. */
 export interface SeeAllLinkProps {

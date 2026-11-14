@@ -45,6 +45,7 @@ export { default as EmptyState } from '@/components/Kit/Feedback/EmptyState.vue'
 export { default as PageSection } from '@/components/Kit/Layout/PageSection.vue';
 export { default as SeeAllLink } from '@/components/Kit/Action/SeeAllLink.vue';
 export { default as CollectionSection } from '@/components/Kit/Layout/CollectionSection.vue';
+export { default as CollectionCard } from '@/components/Kit/Card/CollectionCard.vue';
 export type { CollectionSectionData, CollectionSegment } from '@/components/Kit/Layout/collectionSection';
 export { seeAllPlacement, type SeeAll } from '@/components/Kit/Action/seeAll';
 export { default as Surface } from '@/components/Kit/Surface/Surface.vue';

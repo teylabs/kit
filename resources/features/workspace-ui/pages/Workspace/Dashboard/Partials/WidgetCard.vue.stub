@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { CollectionSection, type CollectionSectionData } from '@kit/ui';
+import { CollectionCard, type CollectionSectionData } from '@kit/ui';
 import { computed } from 'vue';
 import type { WidgetFrame } from './types';
 
-// The card every widget renders in: the kit's CollectionSection (docs/collection-section.md), on its card surface, over the widget's frame, which carries the same fields as a
+// The card every widget renders in: the kit's CollectionCard (a CollectionSection on a Card, docs/collection-section.md) over the widget's frame, which carries the same fields as a
 // CollectionSectionData. So a widget gets its title (a link to its see-all's URL unless it opts out), its header actions, its Sort by menu (`sortBy`: a labelled
 // InputSelect, saved for the viewer with a PUT that reloads only the props the widget names), its empty state or its error with Retry, and its see-all
 // ("All cases →") in a footer at the bottom right, outside the body's scroll, or in the header. The body is the default slot. `headless` drops the title bar
@@ -24,7 +24,7 @@ const section = computed<CollectionSectionData>(() => ({
 const loadingHeight = computed(() => props.widget.loadingHeight ?? null);
 </script>
 <template>
-    <CollectionSection :section="section" :level="2" :headless="headless" :min-height="loadingHeight" :data-widget="widget.key">
+    <CollectionCard :section="section" :level="2" :headless="headless" :min-height="loadingHeight" :data-widget="widget.key">
         <slot />
-    </CollectionSection>
+    </CollectionCard>
 </template>

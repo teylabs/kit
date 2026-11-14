@@ -1,25 +1,35 @@
-# CollectionSection
+# CollectionSection and CollectionCard
 
-`<CollectionSection>` is the section a collection of items sits in: a list, a grid, a feed or table rows. The server decides everything around the items in one descriptor, `CollectionSectionData`, and the items are the default slot. Every dashboard widget renders through it (`WidgetCard`), and so does the Security page's log.
+`<CollectionSection>` is the section a collection of items sits in: a list, a grid, a feed or table rows. The server decides everything around the items in one descriptor, `CollectionSectionData`, and the items are the default slot. It draws the linked title, the header actions and filters, the items, the empty state, the "All <noun> →" footer and an optional scroll. It draws no card.
 
-It is the kit's `WidgetCard` made general, not a parallel component: `WidgetCard` is now a thin adapter that builds a `CollectionSectionData` from a widget's frame. It is not a `PageSection` either: a PageSection is any titled region of a page, whose header always sits outside and which draws a card only on a tinted ground; a CollectionSection is driven by its descriptor, and on a card its header is inside the card. For a card that is not a collection (one record, one decision, a summary band), use the card parts in [docs/cards.md](cards.md).
+`<CollectionCard>` is the same section on a kit `Card`. It takes the same descriptor, props and slots, and adds only the card: its surface, its padding, the rules under the header and over the footer, and a body that fills the card so the footer stays at the bottom while the items scroll. Nothing the section shows or does is repeated in it, so switching between the two is only the name.
 
-## Surface
+## Which one
 
-`surface` is what the section sits on, as with PageSection. The parts are the same on both: the linked title, the header actions, the items, the empty state and the "All <noun> →" footer.
-
-- **`card`** (the default): a bordered card holds it all, for a list of rows, such as a list of ongoing items. The header and footer are divided from the items by a rule, and the items scroll inside the card with `maxHeight`.
-- **`none`**: no card, for items that are cards themselves, such as a grid of project cards. The header sits above the grid and the see-all under it, at the bottom right, with no rules. A component inside may draw its own card, since the section draws none.
+- **A collection inside a card → `CollectionCard`.** A list of rows, such as a list of ongoing items, a feed or a short table. Every dashboard widget is one (`WidgetCard`), and so is the Security page's log.
+- **A bare grid or list → `CollectionSection`.** Items that carry their own look, such as a grid of note cards or project cards. The header sits above them and the footer's "All <noun> →" under them, at the bottom right, with no card around them.
 
 ```vue
-<CollectionSection :section="projects" surface="none" :level="2">
+<!-- A list of rows, in a card -->
+<CollectionCard :section="ongoing" :level="2">
+    <ul class="grid divide-y divide-border">
+        <li v-for="item in cases" :key="item.id" class="py-2 text-sm"><Link :href="item.url">{{ item.title }}</Link></li>
+    </ul>
+</CollectionCard>
+
+<!-- A grid of cards, bare -->
+<CollectionSection :section="notes" :level="2">
     <ul class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <li v-for="project in items" :key="project.id"><ProjectCard :project="project" /></li>
+        <li v-for="note in items" :key="note.id"><NoteCard :note="note" /></li>
     </ul>
 </CollectionSection>
 ```
 
-The surface is the page's choice, a prop, not part of the descriptor: the server says what the section shows, and the page decides how its items are laid out.
+## How they fit together
+
+CollectionSection is the real component; CollectionCard is a thin wrapper over it. It is the dashboard's `WidgetCard` made general, not a parallel component: `WidgetCard` is now a thin adapter that builds a `CollectionSectionData` from a widget's frame and renders a CollectionCard. It is not a `PageSection` either: a PageSection is any titled region of a page, whose header always sits outside and which draws a card only on a tinted ground; a CollectionSection is driven by its descriptor. For a card that is not a collection (one record, one decision, a summary band), use the card parts in [docs/cards.md](cards.md).
+
+## Example
 
 ```php
 use Tey\Kit\Features\Core\Data\Action;
@@ -52,20 +62,20 @@ public function ongoing(): CollectionSectionData
 ```vue
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3';
-import { CollectionSection, type CollectionSectionData } from '@kit/ui';
+import { CollectionCard, type CollectionSectionData } from '@kit/ui';
 
 defineProps<{ ongoing: CollectionSectionData; cases: { id: number; title: string; url: string }[] }>();
 </script>
 <template>
-    <CollectionSection :section="ongoing" :level="2">
+    <CollectionCard :section="ongoing" :level="2">
         <ul class="grid divide-y divide-border">
             <li v-for="item in cases" :key="item.id" class="py-2 text-sm"><Link :href="item.url">{{ item.title }}</Link></li>
         </ul>
-    </CollectionSection>
+    </CollectionCard>
 </template>
 ```
 
-On the default card surface, that draws:
+As a CollectionCard, that draws:
 
 ```
 Ongoing cases                               Sort by [Last touched ⌄]  New case
@@ -97,7 +107,7 @@ Case 102                                                  (scrolls past 24rem)
 
 The focus order is the title, the header's controls, the segment tabs, the items, then the see-all.
 
-Props besides `section`: `surface` (`card` or `none`, above), `level`, `headless` (no title bar; the section keeps its title as its accessible name) and `minHeight` (the ready body's least height, while deferred content loads; a widget's `loadingHeight`).
+Props (the same on both) besides `section`: `level`, `headless` (no title bar; the section keeps its title as its accessible name) and `minHeight` (the ready body's least height, while deferred content loads; a widget's `loadingHeight`).
 
 ## The descriptor
 
@@ -122,9 +132,9 @@ A blank title, another state, more than one current segment, or a `maxHeight` th
 
 | Where | How |
 | --- | --- |
-| Dashboard widgets | `Partials/WidgetCard.vue` builds the section from the widget's frame (title, state, empty, error, actions, `sortBy`, `seeAll`) and renders the widget's body as its items, with `loadingHeight` as `minHeight`. Every kit widget draws through it: the notes widget, People, Recent activity, "Set up this workspace", the You card (`headless`), and the error card of a widget that failed. |
-| Security log | `SecurityViewModel::log()` is the log's section, on a card: "Security log", what it holds, and "Nothing yet" as its empty state. The page renders `<CollectionSection :section="log" :level="2">` around the events. |
+| Dashboard widgets | `Partials/WidgetCard.vue` builds the descriptor from the widget's frame and renders a CollectionCard (title, state, empty, error, actions, `sortBy`, `seeAll`) and renders the widget's body as its items, with `loadingHeight` as `minHeight`. Every kit widget draws through it: the notes widget, People, Recent activity, "Set up this workspace", the You card (`headless`), and the error card of a widget that failed. |
+| Security log | `SecurityViewModel::log()` is the log's descriptor: "Security log", what it holds, and "Nothing yet" as its empty state. The page renders `<CollectionCard :section="log" :level="2">` around the events. |
 
 ## Coverage
 
-`composer test:dashboard` covers the descriptor: its serialization with segments (one current, counts kept or null), a sort menu, a see-all and a max height, and its refusals: a blank title, an unknown state, two current segments, and a `calc()` or `%` max height. `composer test:passkeys` covers the Security page's `log`: its title, its state following the events, and its empty state's words. The browser job (`?collection-section`, `&dark`) covers: the title as a link to the see-all's URL, plain with `linkTitle: false`, in the heading's colour; the segment tabs as a navigation named "Ongoing cases views" with one link per segment, only the current one `aria-current`, named with their counts, between the header and the items; Sort by by keyboard, making one visit with the chosen order; the descriptor's empty state and the `#empty` slot in place of the items, with the see-all still in the footer; with `maxHeight`, the items scrolling inside a focusable region named "Ongoing cases items" while the footer's see-all stays in view and in place, with the page not scrolling; and the see-all in the footer for a list and in the header with its count for a stat card, axe in light and dark. With `surface="none"`: no border, fill or shadow around the section (the card surface has them), no rules, six project cards three to a row, the title linked and the header action above them, one link named "All active projects" under the grid, after it, outside every card and flush with its right edge, its arrow hidden, the keyboard order title, header action, each card, then the see-all, and axe in light and dark; and an empty section with its empty state in place of the grid and its see-all still under it. The dashboard's see-all, title-link and keyboard tests run through `WidgetCard`, and so through CollectionSection. Not covered: a consumer app, and browsers other than Chromium.
+`composer test:dashboard` covers the descriptor: its serialization with segments (one current, counts kept or null), a sort menu, a see-all and a max height, and its refusals: a blank title, an unknown state, two current segments, and a `calc()` or `%` max height. `composer test:passkeys` covers the Security page's `log`: its title, its state following the events, and its empty state's words. The browser job (`?collection-section`, `&dark`) covers, on CollectionCards: the title as a link to the see-all's URL, plain with `linkTitle: false`, in the heading's colour; the segment tabs as a navigation named "Ongoing cases views" with one link per segment, only the current one `aria-current`, named with their counts, between the header and the items; Sort by by keyboard, making one visit with the chosen order; the descriptor's empty state and the `#empty` slot in place of the items, with the see-all still in the footer; with `maxHeight`, the items scrolling inside a focusable region named "Ongoing cases items" while the footer's see-all stays in view and in place, with the page not scrolling; and the see-all in the footer for a list and in the header with its count for a stat card, axe in light and dark. A bare CollectionSection: no border, fill or shadow (the CollectionCards have them), no rules, six project cards three to a row, the title linked and the header action above them, one link named "All active projects" under the grid, after it, outside every card and flush with its right edge, its arrow hidden, the keyboard order title, header action, each card, then the see-all, and axe in light and dark; and an empty one with its empty state in place of the grid and its see-all still under it. One descriptor in both (`&twin=section` and `&twin=card`, light and dark): inside the card, the section has the same elements, attributes, roles, names, links and text, and the same accessibility tree, as the bare one; the card holds the section and nothing else, with a border, fill and rounded corners; the bare section has no border, fill, padding or rules, and on the card its header, body and footer take 16px of padding with a rule under the header and over the footer; both link the title and have one see-all, and pass axe. It fails when CollectionCard changes anything the section draws. The dashboard's see-all, title-link and keyboard tests run through `WidgetCard`, and so through CollectionCard. Not covered: a consumer app, and browsers other than Chromium.

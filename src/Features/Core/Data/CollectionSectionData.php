@@ -14,8 +14,8 @@ use Tey\Kit\Features\Core\Lists\ListErrorData;
  * a feed or table rows). Its `title` (a link to `seeAll`'s URL when there is one), an optional `description`, header `actions`, `segments` (tabs such as
  * All / New / In progress) and a `sortBy` menu, the `state` (`ready`, `empty` with `empty`, or `error` with `error`), an optional `maxHeight` past which the items
  * scroll inside the section, and `seeAll`, the "All cases →" link in its footer. The items themselves are the component's default slot.
- * A dashboard widget's frame carries the same fields, so WidgetCard draws a widget through the same component. Whether a card is drawn around it all is the
- * component's `surface` (`card` for a list of rows, `none` for items that are cards themselves): a page's layout, not the server's.
+ * CollectionSection draws it bare (a grid or list of cards) and CollectionCard on a kit Card; both take this one descriptor, so a page swaps one for the other by
+ * name. A dashboard widget's frame carries the same fields, so WidgetCard draws a widget through CollectionCard.
  */
 #[TypeScript]
 final class CollectionSectionData extends Data

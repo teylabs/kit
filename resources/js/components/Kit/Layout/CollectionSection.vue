@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import { Link, router } from '@inertiajs/vue3';
-import { computed, ref, useId, watch } from 'vue';
+import { computed, inject, provide, ref, useId, watch } from 'vue';
 import SeeAllLink from '@/components/Kit/Action/SeeAllLink.vue';
 import { seeAllPlacement } from '@/components/Kit/Action/seeAll';
 import Button from '@/components/Kit/Form/Button.vue';
 import InputSelect from '@/components/Kit/Form/InputSelect.vue';
-import { provideCard } from '@/components/Kit/Surface/surface';
-import type { CollectionSectionData } from './collectionSection';
+import { cn } from '@/components/Kit/utils';
+import {
+    collectionFrameKey,
+    type CollectionSectionData,
+} from './collectionSection';
 
 /*
  * A section that shows a collection (docs/collection-section.md): a list, a grid, a feed or table rows, in the default slot. The server's `section`
@@ -20,9 +23,8 @@ import type { CollectionSectionData } from './collectionSection';
  * - the body: the items, or the empty state (`empty`, or the `#empty` slot), or the error with Retry. With `maxHeight` the body scrolls (a focusable region
  *   named "<title> items"), and the footer stays in view under it;
  * - the footer: the `#footer` slot and, at the bottom right, the see-all ("All cases →"). Never on an error section.
- * `surface` is what it sits on, as PageSection's: `card` (the default) draws a bordered card around all of it, for a list of rows; `none` draws no card, for
- * items that are cards themselves (a grid of cards), so the header sits above the items and the footer's see-all under them at the right. The parts are the
- * same on both.
+ * It draws no card: on its own it is a bare section, for a grid or list whose items carry their own look (a grid of note cards), with the see-all under the
+ * items at the right. CollectionCard puts it in a kit Card, with the same descriptor, by handing it a frame: the classes for its parts' padding and rules.
  * Choosing an order visits `sortBy.url` with `{ sort }` (its method; a partial visit for `sortBy.reload`), puts the old order back when refused, and remounts
  * the items on the new one. `headless` drops the title bar (the section keeps the title as its accessible name). `minHeight` holds the ready body's height
  * while its content loads (a widget's `loadingHeight`).
@@ -30,16 +32,15 @@ import type { CollectionSectionData } from './collectionSection';
 const props = withDefaults(
     defineProps<{
         section: CollectionSectionData;
-        surface?: 'card' | 'none';
         level?: 2 | 3 | 4 | 5 | 6;
         headless?: boolean;
         minHeight?: string | null;
     }>(),
-    { surface: 'card', level: 3, headless: false, minHeight: null },
+    { level: 3, headless: false, minHeight: null },
 );
-// On a card, what is inside draws no card of its own; with no surface, the items are the cards.
-provideCard(() => props.surface === 'card');
-const carded = computed(() => props.surface === 'card');
+// The frame a CollectionCard gives this section's parts; a section among its items starts with none.
+const frame = inject(collectionFrameKey, null);
+provide(collectionFrameKey, null);
 const id = useId();
 const headingId = `${id}-title`;
 const sortId = `${id}-sort`;
@@ -128,22 +129,19 @@ function choose(value: unknown): void {
     <section
         :aria-labelledby="headless ? undefined : headingId"
         :aria-label="headless ? section.title : undefined"
-        :class="[
-            'flex min-w-0 flex-col',
-            carded
-                ? 'bg-card text-card-foreground rounded-xl border shadow-sm'
-                : 'gap-4',
-        ]"
+        :class="cn('flex min-w-0 flex-col gap-4', frame?.root)"
         data-collection-section
-        :data-surface="surface"
         :data-state="state"
     >
         <header
             v-if="!headless"
-            :class="[
-                'flex flex-wrap items-center justify-between gap-x-3 gap-y-2',
-                carded && 'min-h-12 border-b px-4 py-2',
-            ]"
+            :class="
+                cn(
+                    'flex flex-wrap items-center justify-between gap-x-3 gap-y-2',
+                    frame?.header,
+                )
+            "
+            data-collection-header
         >
             <div class="grid min-w-0 gap-0.5">
                 <component
@@ -213,10 +211,12 @@ function choose(value: unknown): void {
         </header>
         <div
             v-if="segments.length || $slots.filters"
-            :class="[
-                'flex flex-wrap items-center justify-between gap-2',
-                carded && 'border-b px-4 py-2',
-            ]"
+            :class="
+                cn(
+                    'flex flex-wrap items-center justify-between gap-2',
+                    frame?.filters,
+                )
+            "
             data-collection-filters
         >
             <nav
@@ -250,12 +250,17 @@ function choose(value: unknown): void {
             <slot name="filters" />
         </div>
         <div
-            :class="[
-                carded ? 'flex-1 p-4' : 'min-w-0',
-                minHeight ? 'min-h-(--kit-collection-min-height)' : 'min-h-0',
-                scrolls &&
-                    'focus-visible:ring-ring max-h-(--kit-collection-max-height) overflow-y-auto overscroll-contain focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset',
-            ]"
+            :class="
+                cn(
+                    'min-w-0',
+                    minHeight
+                        ? 'min-h-(--kit-collection-min-height)'
+                        : 'min-h-0',
+                    scrolls &&
+                        'focus-visible:ring-ring max-h-(--kit-collection-max-height) overflow-y-auto overscroll-contain focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset',
+                    frame?.body,
+                )
+            "
             :style="{
                 '--kit-collection-max-height': scrolls
                     ? (section.maxHeight ?? undefined)
@@ -309,10 +314,12 @@ function choose(value: unknown): void {
         </div>
         <footer
             v-if="(seeAll && placement === 'footer') || $slots.footer"
-            :class="[
-                'flex flex-wrap items-center justify-end gap-3',
-                carded && 'border-t px-4 py-2',
-            ]"
+            :class="
+                cn(
+                    'flex flex-wrap items-center justify-end gap-3',
+                    frame?.footer,
+                )
+            "
             data-collection-footer
         >
             <div

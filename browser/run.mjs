@@ -5490,7 +5490,7 @@ test('the You card at 1280 and 375, light and dark: no "You" title, name, local 
                     const card = tab.locator('[data-widget="kit.you"]');
                     assert.equal(await card.locator('header, h2').count(), 0, 'the You card has no title bar');
                     assert.equal((await card.innerText()).split('\n').some(line => line.trim() === 'You'), false, 'no visible "You" anywhere in the card');
-                    assert.equal(await card.getAttribute('aria-label'), 'You', 'the card is still named "You"');
+                    assert.equal(await card.locator('[data-collection-section]').getAttribute('aria-label'), 'You', 'the card\'s section is still named "You"');
                     assert.equal(await tab.getByRole('region', { name: 'You', exact: true }).count(), 1, 'and is reachable as the "You" region');
                     assert.equal((await card.locator('[data-widget-you-name]').innerText()).trim(), 'Ada Example');
                     // The time is the viewer's own zone (America/New_York, sent by the server), never the browser's (Europe/Amsterdam here).
@@ -5665,7 +5665,7 @@ test('a list widget\'s see-all: one "All cases" link with an arrow, in the card 
                 const list = card.querySelector('[data-scroll-list="cases"]');
                 const r = (el) => el.getBoundingClientRect();
                 return {
-                    last: footer === card.lastElementChild, text: link.textContent.trim(), href: link.getAttribute('href'), arrow: link.querySelector('svg')?.getAttribute('aria-hidden'),
+                    last: footer === card.querySelector('[data-collection-section]').lastElementChild, text: link.textContent.trim(), href: link.getAttribute('href'), arrow: link.querySelector('svg')?.getAttribute('aria-hidden'),
                     cardRight: r(card).right, cardBottom: r(card).bottom, footerTop: r(footer).top, footerBottom: r(footer).bottom, linkRight: r(link).right, linkLeft: r(link).left, footerLeft: r(footer).left, listBottom: r(list).bottom,
                     scrolls: list.scrollHeight > list.clientHeight, inList: list.contains(link),
                 };
@@ -5797,7 +5797,7 @@ test('a see-all card\'s title links to the same URL as its see-all; with linkTit
             { card: 'empty', title: 'Overdue cases', link: { href: '/@acme/cases?overdue=1', name: 'Overdue cases', title: true }, seeAll: '/@acme/cases?overdue=1' },
             { card: 'grid', title: 'Active projects', link: { href: '/@acme/projects?status=active', name: 'Active projects', title: true }, seeAll: '/@acme/projects?status=active' },
             { card: 'grid-empty', title: 'Archived projects', link: { href: '/@acme/projects?status=archived', name: 'Archived projects', title: true }, seeAll: '/@acme/projects?status=archived' },
-        ], 'CollectionSection: a list card, an empty card and both surface="none" sections link their titles to the filtered index; the opted-out stat card\'s is plain text');
+        ], 'CollectionCard and bare CollectionSection: a list card, an empty card and both bare sections link their titles to the filtered index; the opted-out stat card\'s is plain text');
         assert.equal(await tab.locator('[data-case="empty-slot"] h2 a').count(), 0, 'a card with no see-all keeps a plain title');
     });
 });
@@ -5904,7 +5904,7 @@ test('CollectionSection: with maxHeight the items scroll inside the card, a name
             const link = footer.querySelector('a[data-see-all]');
             const r = link.getBoundingClientRect();
             const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
-            return { top: Math.round(r.top), right: Math.round(card.getBoundingClientRect().right - r.right), hit: Boolean(hit && link.contains(hit)), inView: r.top >= 0 && r.bottom <= window.innerHeight, scrollTop: body.scrollTop, end: body.scrollHeight - body.clientHeight, height: Math.round(body.getBoundingClientRect().height), rem: parseFloat(getComputedStyle(document.documentElement).fontSize), outside: !body.contains(link), last: footer === card.lastElementChild, page: window.scrollY };
+            return { top: Math.round(r.top), right: Math.round(card.getBoundingClientRect().right - r.right), hit: Boolean(hit && link.contains(hit)), inView: r.top >= 0 && r.bottom <= window.innerHeight, scrollTop: body.scrollTop, end: body.scrollHeight - body.clientHeight, height: Math.round(body.getBoundingClientRect().height), rem: parseFloat(getComputedStyle(document.documentElement).fontSize), outside: !body.contains(link), last: footer === card.querySelector('[data-collection-section]').lastElementChild, page: window.scrollY };
         });
         const region = tab.getByRole('region', { name: 'Ongoing cases items' });
         assert.equal(await region.count(), 1, 'the scrolling body is a region named after the card');
@@ -5950,7 +5950,7 @@ test('CollectionSection: the see-all is one link, "All <noun>" with an arrow: in
     }
 });
 
-test('CollectionSection with surface="none": no card, a grid of cards as its items, the linked title and header action above, and "All <noun>" under the grid at its right; axe passes, light and dark', async () => {
+test('CollectionSection, bare: no card, a grid of cards as its items, the linked title and header action above, and "All <noun>" under the grid at its right; axe passes, light and dark', async () => {
     for (const [mode, dark] of [['light', ''], ['dark', '&dark']]) {
         await collectionPage(dark, async (tab) => {
             const read = await tab.evaluate(() => {
@@ -5964,7 +5964,7 @@ test('CollectionSection with surface="none": no card, a grid of cards as its ite
                 const link = footer?.querySelector('a[data-see-all]');
                 const r = link.getBoundingClientRect();
                 return {
-                    surfaces: [section.dataset.surface, list.dataset.surface],
+                    kinds: [section.matches('[data-collection-section]') && !section.closest('[data-collection-card]'), list.matches('[data-collection-card]')],
                     noCard: style(section).borderTopWidth === '0px' && style(section).backgroundColor === 'rgba(0, 0, 0, 0)' && style(section).boxShadow === 'none',
                     listCard: style(list).borderTopWidth !== '0px',
                     rules: [style(header).borderBottomWidth, style(footer).borderTopWidth],
@@ -5979,7 +5979,7 @@ test('CollectionSection with surface="none": no card, a grid of cards as its ite
                     title: section.querySelector('h2 a[data-see-all-title]')?.getAttribute('href') ?? null,
                 };
             });
-            assert.deepEqual(read.surfaces, ['none', 'card'], `${mode}: the grid section has no surface, the list one a card`);
+            assert.deepEqual(read.kinds, [true, true], `${mode}: the grid is a bare CollectionSection, the list a CollectionCard`);
             assert.ok(read.noCard && read.listCard, `${mode}: no border, fill or shadow around the grid section; the list section has its card`);
             assert.deepEqual(read.rules, ['0px', '0px'], `${mode}: no rule under the header or over the footer without a card`);
             assert.ok(read.cards === 6 && read.cardsBordered && read.firstRow === 3, `${mode}: the items are a grid of six cards, three to a row at 1280px`);
@@ -6002,14 +6002,68 @@ test('CollectionSection with surface="none": no card, a grid of cards as its ite
     }
 });
 
-test('CollectionSection with surface="none": an empty section shows its empty state in place of the grid, and keeps its see-all under it', async () => {
+test('CollectionSection, bare: an empty section shows its empty state in place of the grid, and keeps its see-all under it', async () => {
     await collectionPage('', async (tab) => {
         const read = await tab.evaluate(() => {
             const section = document.querySelector('[data-case="grid-empty"]');
-            return { surface: section.dataset.surface, border: getComputedStyle(section).borderTopWidth, empty: section.querySelector('[data-collection-empty]')?.innerText.replace(/\s+/g, ' ').trim() ?? null, items: section.textContent.includes('never shown'), footer: section.querySelector('[data-collection-footer] a[data-see-all]')?.textContent.trim() ?? null, last: section.querySelector('[data-collection-footer]') === section.lastElementChild };
+            return { border: getComputedStyle(section).borderTopWidth, empty: section.querySelector('[data-collection-empty]')?.innerText.replace(/\s+/g, ' ').trim() ?? null, items: section.textContent.includes('never shown'), footer: section.querySelector('[data-collection-footer] a[data-see-all]')?.textContent.trim() ?? null, last: section.querySelector('[data-collection-footer]') === section.lastElementChild };
         });
-        assert.deepEqual(read, { surface: 'none', border: '0px', empty: 'Nothing archived Projects you archive show up here.', items: false, footer: 'All archived projects', last: true });
+        assert.deepEqual(read, { border: '0px', empty: 'Nothing archived Projects you archive show up here.', items: false, footer: 'All archived projects', last: true });
     });
+});
+
+test('CollectionSection and CollectionCard draw one descriptor the same way: the card adds its border and padding and nothing else; axe passes, light and dark', async () => {
+    // Each element of the section, with what it says and does: tag, accessible attributes and text, children in order. Classes and styles are left out (they
+    // are where the card's padding and rules differ), and so is `data-case`, the page's own hook.
+    const read = async (twin, dark) => {
+        const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+        try {
+            const tab = await context.newPage();
+            const errors = [];
+            tab.on('pageerror', error => errors.push(error.message));
+            await tab.goto(`${url}?collection-section&twin=${twin}${dark}`);
+            await tab.waitForSelector('[data-case="twin"] [data-collection-section] li, [data-case="twin"][data-collection-section] li');
+            const result = await tab.evaluate(() => {
+                const shape = (el) => [el.tagName, [...el.attributes].filter((a) => !['class', 'style', 'data-case'].includes(a.name)).map((a) => `${a.name}=${a.value}`).sort().join(' '), el.children.length ? [...el.children].map(shape) : el.textContent.trim()];
+                const root = document.querySelector('[data-case="twin"]');
+                const section = root.matches('[data-collection-section]') ? root : root.querySelector('[data-collection-section]');
+                const style = (el) => getComputedStyle(el);
+                const pad = (el) => [style(el).paddingLeft, style(el).paddingRight];
+                return {
+                    shape: JSON.stringify(shape(section)),
+                    wrapper: root === section ? null : { only: root.children.length === 1, border: style(root).borderTopWidth !== '0px', fill: style(root).backgroundColor !== 'rgba(0, 0, 0, 0)', radius: style(root).borderTopLeftRadius !== '0px' },
+                    look: [style(section).borderTopWidth, style(section).backgroundColor],
+                    pad: [...pad(section.querySelector('header')), ...pad(section.querySelector('[data-collection-body]')), ...pad(section.querySelector('[data-collection-footer]'))],
+                    rules: [style(section.querySelector('header')).borderBottomWidth, style(section.querySelector('[data-collection-footer]')).borderTopWidth],
+                };
+            });
+            const part = tab.locator('[data-case="twin"]');
+            result.title = await part.getByRole('heading', { name: 'Due this week' }).getByRole('link', { name: 'Due this week', exact: true }).getAttribute('href');
+            result.seeAll = await part.getByRole('link', { name: 'All cases due this week', exact: true }).count();
+            result.aria = await tab.locator('[data-collection-section]').ariaSnapshot();
+            result.axe = await notesAxe(tab);
+            assert.deepEqual(errors, []);
+            return result;
+        } finally {
+            await context.close();
+        }
+    };
+    for (const [mode, dark] of [['light', ''], ['dark', '&dark']]) {
+        const bare = await read('section', dark);
+        const card = await read('card', dark);
+        assert.equal(card.shape, bare.shape, `${mode}: inside the card, the section has the same elements, attributes, roles, names, links and text as the bare one`);
+        assert.equal(card.aria, bare.aria, `${mode}: the same accessibility tree`);
+        for (const [name, one] of [['bare', bare], ['card', card]]) {
+            assert.deepEqual([one.title, one.seeAll], ['/@acme/cases?due=week', 1], `${mode} ${name}: the title links to the see-all's URL, and there is one see-all`);
+            assert.deepEqual(one.axe, [], `${mode} ${name}: axe`);
+            assert.deepEqual(one.look, ['0px', 'rgba(0, 0, 0, 0)'], `${mode} ${name}: the section itself draws no border or fill`);
+        }
+        assert.equal(bare.wrapper, null, `${mode}: the bare section is the root`);
+        assert.deepEqual(card.wrapper, { only: true, border: true, fill: true, radius: true }, `${mode}: the card holds the section and nothing else, with a border, a fill and rounded corners`);
+        assert.deepEqual(bare.pad, Array(6).fill('0px'), `${mode}: the bare section's header, body and footer have no padding`);
+        assert.deepEqual(card.pad, Array(6).fill('16px'), `${mode}: on the card they take its padding`);
+        assert.deepEqual([bare.rules, card.rules], [['0px', '0px'], ['1px', '1px']], `${mode}: rules under the header and over the footer on the card only`);
+    }
 });
 
 test('SearchBox: the results end with "All results" and an arrow, kept in view while they scroll, and it visits the full results page', async () => {

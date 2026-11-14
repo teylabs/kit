@@ -281,7 +281,7 @@ A hidden member is absent by URL too: their Change role and Transfer ownership p
 
 ## Frontend
 
-`pages/Workspace/Dashboard/Page.vue` renders the greeting as its heading, then `Partials/WidgetGrid.vue`, or the empty state when the viewer has no widgets. The grid is a PageGrid `main-aside` (or `main-aside-wide`, from the `aside` prop) with a Stack of cards in each column (see Layout). `Partials/WidgetCard.vue` is the card shell: a [CollectionSection](collection-section.md) built from the widget's frame, with the title, the header actions, then the body, the empty state or the error with Retry, then the see-all footer. An app's widget body is a component in `resources/js/widgets/` that takes a `widget` prop, typed as `WidgetFrame` from `Partials/types.ts` plus its own props.
+`pages/Workspace/Dashboard/Page.vue` renders the greeting as its heading, then `Partials/WidgetGrid.vue`, or the empty state when the viewer has no widgets. The grid is a PageGrid `main-aside` (or `main-aside-wide`, from the `aside` prop) with a Stack of cards in each column (see Layout). `Partials/WidgetCard.vue` is the card shell: a [CollectionCard](collection-section.md) built from the widget's frame, with the title, the header actions, then the body, the empty state or the error with Retry, then the see-all footer. An app's widget body is a component in `resources/js/widgets/` that takes a `widget` prop, typed as `WidgetFrame` from `Partials/types.ts` plus its own props.
 
 An app that still registers its own dashboard component (`Registry::dashboardComponent()`) gets `widgets` and any list props too, and can render `<WidgetGrid>` itself.
 
