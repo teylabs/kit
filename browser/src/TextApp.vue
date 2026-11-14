@@ -12,12 +12,26 @@ import TextTags from '@/components/Kit/Text/TextTags.vue';
 import TextTruncate from '@/components/Kit/Text/TextTruncate.vue';
 import AddressText from '@/components/Kit/Form/AddressText.vue';
 import CopyButton from '@/components/Kit/Action/CopyButton.vue';
+import { defineComponent, h, ref } from 'vue';
 
 // The Text family for run.mjs (?text, ?text=dark under .dark): each component in a [data-case] the tests read, resize or press. The values are synthetic.
 if (new URLSearchParams(window.location.search).get('text') === 'dark') document.documentElement.classList.add('dark');
 const log = Array.from({ length: 60 }, (_, index) => `${String(index + 1).padStart(3, '0')} worker.info job=export-${index + 1} status=done rows=${(index + 1) * 120} <b>not markup</b> ${'x'.repeat(index % 7 === 0 ? 180 : 10)}`).join('\n');
 const longBody = `First paragraph of a long note about the quarterly figures.\n\nSecond paragraph, which goes on for a while so the cut lands inside it: ${'more words '.repeat(30)}and ends here. 👨‍👩‍👧‍👦`;
 const title = 'Quarterly board report appendix with every table and the minutes of the meeting';
+// Slot text that changes two ways: from this page ([data-slot-swap] re-renders TextCode's slot), and from a child that writes its own DOM outside Vue's
+// render, as a highlighter or a log stream would ([data-slot-tick]), which no update hook of TextCode sees.
+const slotLine = ref('build 1 started');
+const Ticker = defineComponent({
+    setup() {
+        const label = ref<HTMLElement | null>(null);
+        let count = 0;
+        const tick = () => {
+            if (label.value) label.value.textContent = `tick ${++count} `;
+        };
+        return () => h('span', [h('span', { ref: label }, 'tick 0 '), h('button', { type: 'button', 'data-slot-tick': '', onClick: tick }, 'Tick')]);
+    },
+});
 </script>
 <template>
     <main class="bg-background text-foreground min-h-screen p-4 text-sm">
@@ -45,6 +59,8 @@ const title = 'Quarterly board report appendix with every table and the minutes 
             <section data-case="code">
                 <TextCode :content="log" title="Export log" card :level="2" data-code-card />
                 <TextCode content='{"ok":true}' data-code-plain />
+                <TextCode toolbar title="Build log" data-code-slot>{{ slotLine }} <Ticker /></TextCode>
+                <button type="button" data-slot-swap @click="slotLine = 'build 2 started'">Next build</button>
             </section>
             <section data-case="numbers">
                 <ul>

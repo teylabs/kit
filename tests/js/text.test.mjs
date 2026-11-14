@@ -193,6 +193,8 @@ test('TextCode: content kept as written in a pre, a focusable named region with 
     assert.match(vue, /md: 'max-h-80'/);
     assert.match(vue, /:aria-pressed="wrapped"/);
     assert.match(vue, /useCopy\(/);
+    assert.match(vue, /: slotText\.value,\n\s*\);/, 'slot text is copied from reactive state, so a slot change bumps the copy\'s revision');
+    assert.doesNotMatch(vue.slice(vue.indexOf('<script'), vue.indexOf('onMounted(')), /new MutationObserver|document\./, 'nothing observed before mount (server render)');
     assert.match(read('Text/RawOutputCard.vue'), /<TextCode card :title="title" :content="content"><slot \/><\/TextCode>/, 'RawOutputCard is TextCode with card');
 });
 

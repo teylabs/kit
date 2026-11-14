@@ -49,7 +49,7 @@ import { CopyField, TextAddress, TextChips, TextCode, TextCopy, TextLong, TextNu
 - **Kept as written.** Pass `content` (a string or number), or the default slot. It is text: `<b>` in it is shown, never parsed, and whitespace is kept byte for byte.
 - **Bounded and scrolling.** `max-height` is `sm` (12rem), `md` (20rem, the default), `lg` (32rem) or `none`. It scrolls inside, as a region named by `title` (else "Code") that takes focus, so a keyboard scrolls it with the arrow keys, Page Down and End. It never widens the column it sits in.
 - **Wrapping.** Long lines wrap by default; `:wrap="false"` scrolls them sideways.
-- **Card and toolbar.** `card` frames it in a kit `Card` with `title` as its heading (at `level`, 3 by default) and a toolbar: Copy, which copies the whole text, also the part scrolled out of view, and Wrap, a toggle with `aria-pressed`. `toolbar` shows the same toolbar without the card. An email body, a webhook payload and a job's raw output are this, with `card`.
+- **Card and toolbar.** `card` frames it in a kit `Card` with `title` as its heading (at `level`, 3 by default) and a toolbar: Copy, which copies the whole text, also the part scrolled out of view, and Wrap, a toggle with `aria-pressed`. `toolbar` shows the same toolbar without the card. Copy takes slot text from the rendered `<pre>`, kept current on each update and by a `MutationObserver` (a child that writes its own DOM, such as a highlighter, included), so a slot that changes while a copy is in flight makes that copy claim nothing, and the next press copies what is shown. An email body, a webhook payload and a job's raw output are this, with `card`.
 
 ## TextLong
 

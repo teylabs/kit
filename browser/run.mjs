@@ -9082,6 +9082,49 @@ test('TextCode: a bounded block that scrolls inside as a focusable named region,
     });
 });
 
+test('TextCode with slot text: a copy in flight when the slot changes claims nothing, and the next copy is the new text, whether the page or a child changed it', async () => {
+    // A clipboard whose writes wait until the test settles them, so the slot can change while one is in flight.
+    const init = () => {
+        window.writes = [];
+        window.settle = () => window.writes.at(-1).resolve();
+        Object.defineProperty(Navigator.prototype, 'clipboard', { configurable: true, get: () => ({ writeText: (text) => new Promise((resolve) => window.writes.push({ text, resolve })) }) });
+    };
+    await textPage('text', async (tab) => {
+        const block = tab.locator('[data-code-slot]');
+        const copy = block.locator('[data-text-code-copy]');
+        const state = () => copy.getAttribute('data-state');
+        // Every state the button leaves, so a `copied` that is rendered and reset before the next frame is caught too.
+        await copy.evaluate((button) => {
+            window.left = [];
+            new MutationObserver((records) => window.left.push(...records.map((record) => record.oldValue))).observe(button, { attributes: true, attributeFilter: ['data-state'], attributeOldValue: true });
+        });
+        for (const [change, before, after] of [['[data-slot-swap]', 'build 1 started', 'build 2 started'], ['[data-slot-tick]', 'tick 0', 'tick 1']]) {
+            await copy.click();
+            assert.equal(await state(), 'copying');
+            assert.ok((await tab.evaluate(() => window.writes.at(-1).text)).includes(before), 'the write holds the slot text shown when pressed');
+            await tab.click(change);
+            await nextFrames(tab);
+            assert.ok((await block.locator('pre').textContent()).includes(after), `${change} changed the slot`);
+            await tab.evaluate(() => { window.left = []; window.settle(); });
+            await tab.waitForFunction(() => document.querySelector('[data-code-slot] [data-text-code-copy]').dataset.state !== 'copying');
+            await nextFrames(tab);
+            assert.equal(await state(), 'idle', `${change}: the old write settling is not copied, the text it copied is gone`);
+            assert.deepEqual(await tab.evaluate(() => window.left), ['copying'], `${change}: straight from copying to idle, never copied on the way`);
+            assert.equal((await block.getByRole('status').textContent()).trim(), '', 'and nothing is announced');
+            await copy.click();
+            assert.ok((await tab.evaluate(() => window.writes.at(-1).text)).includes(after), `${change}: the next copy is the new text`);
+            await tab.evaluate(() => window.settle());
+            await tab.waitForFunction(() => document.querySelector('[data-code-slot] [data-text-code-copy]').dataset.state === 'copied');
+        }
+        // Changed outside Vue's render with nothing in flight: the press copies the text shown now, not the text from the last render.
+        await tab.click('[data-slot-tick]');
+        await nextFrames(tab);
+        await copy.click();
+        assert.ok((await tab.evaluate(() => window.writes.at(-1).text)).includes('tick 2'), 'a press after a change outside Vue copies the new text');
+        await tab.evaluate(() => window.settle());
+    }, { clipboard: false, init });
+});
+
 test('TextNumeric and TextAddress: the locale\'s grouping, decimal, compact and accounting forms, nothing for what is not a number, and address lines', async () => {
     await textPage('text', async (tab) => {
         // What is seen: the text without the screen-reader-only words.

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Check, Copy, WrapText } from '@lucide/vue';
-import { computed, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, onUpdated, ref } from 'vue';
 import Button from '@/components/Kit/Form/Button.vue';
 import Card from '@/components/Kit/Card/Card.vue';
 import { CARD_GUTTER } from '@/components/Kit/Card/cardTone';
@@ -12,7 +12,8 @@ import { useCopy } from './useCopy';
  * it scrolls inside, as a region that takes focus, named by `title` (else "Code"), so a keyboard can scroll it. Long lines wrap by default; `wrap` false
  * scrolls them sideways. `card` frames it in a kit Card with `title` as its heading (at `level`, 3 by default) and a toolbar: Copy (the whole text, through the kit's clipboard helper,
  * spoken once copied) and a Wrap toggle (aria-pressed). `toolbar` shows the same toolbar without the card. The text is never cut: what scrolls out of view
- * is still selected, copied and read.
+ * is still selected, copied and read. Slot text is read from the rendered <pre> and kept in state, so a slot that changes while a copy is in flight (from
+ * the page, or a child that updates only itself) is a new value: the old write claims nothing.
  */
 const props = withDefaults(
     defineProps<{
@@ -44,10 +45,32 @@ const heights = {
 const pre = ref<HTMLElement | null>(null);
 const wrapped = ref(props.wrap);
 const tools = computed(() => props.card || props.toolbar);
+// The slot's text as rendered, which a DOM read alone would not make reactive: read once mounted, after each update of this component, and on any change
+// under the <pre> (a child in the slot that re-renders only itself). Nothing runs on the server.
+const slotText = ref('');
+const readSlot = () => {
+    slotText.value = pre.value?.textContent ?? '';
+};
+let observer: MutationObserver | null = null;
+onMounted(() => {
+    readSlot();
+    if (typeof MutationObserver === 'undefined' || !pre.value) return;
+    observer = new MutationObserver(readSlot);
+    observer.observe(pre.value, {
+        characterData: true,
+        childList: true,
+        subtree: true,
+    });
+});
+onUpdated(readSlot);
+onBeforeUnmount(() => {
+    observer?.disconnect();
+    observer = null;
+});
 const { state, copy } = useCopy(() =>
     props.content !== null && props.content !== undefined
         ? String(props.content)
-        : (pre.value?.textContent ?? ''),
+        : slotText.value,
 );
 const status = computed(() =>
     state.value === 'copied'
