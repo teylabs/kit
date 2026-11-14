@@ -156,7 +156,7 @@ public function seeAll(): ?SeeAll
 }
 ```
 
-`WidgetCard` draws it as "All cases →" in a footer at the card's bottom right, after the list's end and outside its scroll, so it stays in view while the list scrolls. A stat or chart card puts it in its header with `->inHeader()`. See [docs/see-all.md](see-all.md).
+`WidgetCard` draws it as "All cases →" in a footer at the card's bottom right, after the list's end and outside its scroll, so it stays in view while the list scrolls, and links the card's title to the same place (opt out with `->withoutTitleLink()`). A stat or chart card puts it in its header with `->inHeader()`. Point it at the index filtered to match the card: an "Ongoing cases" card at the cases index filtered to ongoing. See [docs/see-all.md](see-all.md).
 
 ## Sort by
 

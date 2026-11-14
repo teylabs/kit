@@ -14,12 +14,14 @@ import type { WidgetFrame } from './types';
 // A widget's `seeAll` (docs/see-all.md) is its "All cases →" link: in a footer at the card's bottom right, after the list's end and outside its scroll, so it
 // stays in view while the list scrolls (`footer`, the default), or last in the header (`header`, for a summary, stat or chart). Never on an error card. The server
 // also sends it as a header action for a card copied before it (Widgets); this card leaves out the GET action with its URL, so it is drawn once.
+// With a see-all, the card's title links to the same place too (heading-coloured, underlined on hover), unless the descriptor says `linkTitle: false`.
 const props = defineProps<{ widget: WidgetFrame; headless?: boolean }>();
 provideCard();
 const loadingHeight = computed(() => (props.widget.state === 'ready' && props.widget.loadingHeight) || null);
 const retry = () => router.reload();
 const seeAll = computed(() => (props.widget.state === 'error' ? null : (props.widget.seeAll ?? null)));
 const placement = computed(() => seeAllPlacement(seeAll.value));
+const titleSeeAll = computed(() => (seeAll.value && seeAll.value.linkTitle !== false ? seeAll.value : null));
 const actions = computed(() => props.widget.actions.filter((action) => !(props.widget.seeAll && action.method === 'get' && action.url === props.widget.seeAll.url)));
 const sortId = useId();
 const sort = computed(() => props.widget.sortBy ?? null);
@@ -51,7 +53,10 @@ const choose = (value: unknown) => {
 <template>
     <section :aria-labelledby="headless ? undefined : `widget-${props.widget.key}`" :aria-label="headless ? widget.title : undefined" class="flex min-w-0 flex-col rounded-xl border bg-card text-card-foreground shadow-sm" :data-widget="widget.key" :data-state="widget.state">
         <header v-if="!headless" class="flex min-h-12 items-center justify-between gap-3 border-b px-4 py-2">
-            <h2 :id="`widget-${widget.key}`" class="truncate text-sm font-semibold">{{ widget.title }}</h2>
+            <h2 :id="`widget-${widget.key}`" class="truncate text-sm font-semibold">
+                <SeeAllLink v-if="titleSeeAll" :see-all="titleSeeAll" variant="title">{{ widget.title }}</SeeAllLink>
+                <template v-else>{{ widget.title }}</template>
+            </h2>
             <div v-if="(sort && widget.state === 'ready') || (actions.length && widget.state !== 'error') || placement === 'header'" class="flex shrink-0 items-center gap-2">
                 <div v-if="sort && widget.state === 'ready'" class="flex items-center gap-2" data-widget-sort>
                     <label :for="sortId" class="text-xs font-medium whitespace-nowrap text-muted-foreground">{{ sort.label }}</label>

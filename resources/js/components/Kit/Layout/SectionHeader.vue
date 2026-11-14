@@ -10,6 +10,7 @@ import Avatar from '@/components/Kit/Layout/Avatar.vue';
  * The one header for a section, widget, card or pane: an optional avatar, the title as a real heading at `level` (the page decides the hierarchy) with its count and
  * badge, meta (the `meta` prop, or a `#meta` slot for a line with links: a source and a seller) and description under it; the `status` slot and the descriptor actions (ActionBar, the ordinary light style) on the other side. Both sides wrap inside
  * the width. `seeAll` with `placement: 'header'` (docs/see-all.md) is drawn last on that side, after the actions; a footer one is the wrapper's to draw (PageSection).
+ * With any `seeAll`, the title links to its URL too (heading-coloured), unless it says `linkTitle: false`.
  * The emitted action is the original descriptor, matched by key. It saves, polls and announces nothing: a host wanting announcements brings a live
  * region in `status`. Wrappers own their gutters and frame. Attributes go on the header.
  */
@@ -31,7 +32,7 @@ const props = withDefaults(
         avatar?: AvatarDescriptor | null;
         /** `page` sets the title at the page heading's scale (as the shell's Page draws it), for a page that heads itself; it wraps rather than truncates. */
         size?: 'section' | 'page';
-        /** A see-all link: drawn here only with `placement: 'header'`. */
+        /** A see-all link: drawn here only with `placement: 'header'`; the title links to it unless `linkTitle` is false. */
         seeAll?: SeeAll | null;
     }>(),
     {
@@ -52,6 +53,9 @@ const titleClass = {
     section: 'truncate font-semibold',
     page: 'font-display text-3xl font-(weight:--font-display-weight) tracking-tight',
 };
+const titleSeeAll = computed(() =>
+    props.seeAll && props.seeAll.linkTitle !== false ? props.seeAll : null,
+);
 const headerSeeAll = computed(() =>
     props.seeAll?.placement === 'header' ? props.seeAll : null,
 );
@@ -78,7 +82,12 @@ const original = (action: ActionDescriptor) =>
                         :is="heading"
                         :class="titleClass[size]"
                         :data-section-size="size"
-                        >{{ title }}</component
+                        ><SeeAllLink
+                            v-if="titleSeeAll"
+                            :see-all="titleSeeAll"
+                            variant="title"
+                            >{{ title }}</SeeAllLink
+                        ><template v-else>{{ title }}</template></component
                     >
                     <span
                         v-if="count !== null"

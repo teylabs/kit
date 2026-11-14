@@ -887,13 +887,15 @@ export interface SectionHeaderProps {
     } | null;
     /** `page` sets the title at the page heading's scale, for a page that heads itself. Default `section`. */
     size?: 'section' | 'page';
-    /** A see-all link (docs/see-all.md), drawn after the actions only when its `placement` is `header`. */
+    /** A see-all link (docs/see-all.md), drawn after the actions only when its `placement` is `header`; the title links to its URL unless `linkTitle` is false. */
     seeAll?: import('./Action/seeAll').SeeAll | null;
 }
 
 /** A list's one "see all" link from the server's `SeeAll` descriptor (docs/see-all.md): "All cases →", or "All cases (42) →" with a count; the arrow is hidden from the accessible name. An Inertia link that places nothing itself. */
 export interface SeeAllLinkProps {
     seeAll: import('./Action/seeAll').SeeAll;
+    /** `title`: the card's title linking to the same URL (the default slot is the title), heading-coloured with an underline on hover. Default `link`. */
+    variant?: 'link' | 'title';
 }
 
 /**

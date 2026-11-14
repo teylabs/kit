@@ -5656,7 +5656,7 @@ test('a list widget\'s see-all: one "All cases" link with an arrow, in the card 
             const card = tab.locator('[data-widget="app.cases"]');
             const link = card.getByRole('link', { name: 'All cases', exact: true });
             assert.equal(await link.count(), 1, `${mode}: one link named "All cases" in the list card (the header action with its URL is not drawn too)`);
-            assert.equal(await card.locator('header a').count(), 0, `${mode}: nothing in the list card's header`);
+            assert.deepEqual(await card.locator('header a').evaluateAll(els => els.map(el => [el.textContent.trim(), el.hasAttribute('data-see-all-title')])), [['Open cases', true]], `${mode}: the list card's header holds only its title link, no second "All cases"`);
             assert.equal(await tab.getByRole('link', { name: /view all|see all/i }).count(), 0, `${mode}: no "View all" or "See all" anywhere`);
             const box = await tab.evaluate(() => {
                 const card = document.querySelector('[data-widget="app.cases"]');
@@ -5715,7 +5715,7 @@ test('a stat card\'s see-all is in its header, after its title, with its count: 
         await seeAllDashboard(dark, async (tab) => {
             const card = tab.locator('[data-widget="app.case-stats"]');
             assert.equal(await card.getByRole('link', { name: 'All cases (42)', exact: true }).count(), 1, `${mode}: named with its count`);
-            assert.equal(await card.locator('a').count(), 1, `${mode}: one link in the stat card`);
+            assert.equal(await card.locator('a').count(), 1, `${mode}: one link in the stat card: its title opts out (linkTitle false)`);
             const box = await tab.evaluate(() => {
                 const card = document.querySelector('[data-widget="app.case-stats"]');
                 const header = card.querySelector('header');
@@ -5730,10 +5730,10 @@ test('a stat card\'s see-all is in its header, after its title, with its count: 
     }
 });
 
-test('keyboard: Tab reaches a list\'s see-all straight after its list and before the next card; the link shows a focus ring', async () => {
+test('keyboard: a list card\'s focus order is its title link, its list and items, then its see-all, before the next card; each link shows a focus ring', async () => {
     await seeAllDashboard('', async (tab) => {
         const stops = [];
-        for (let i = 0; i < 20; i++) {
+        for (let i = 0; i < 60; i++) {
             await tab.keyboard.press('Tab');
             const stop = await tab.evaluate(() => {
                 const el = document.activeElement;
@@ -5744,18 +5744,106 @@ test('keyboard: Tab reaches a list\'s see-all straight after its list and before
             stops.push(stop);
         }
         const names = stops.map(s => `${s.widget} ${s.what}`);
-        const list = names.indexOf('app.cases list:cases');
-        assert.equal(list, 0, `the list is the first stop: ${names.join(' | ')}`);
-        assert.equal(names[list + 1], 'app.cases a:All cases', 'its see-all is the next stop');
-        assert.notEqual(names[list + 2]?.split(' ')[0], 'app.cases', 'and the last in its card');
+        const rows = Array.from({ length: 30 }, (_, i) => `app.cases a:Case ${101 + i}`);
+        assert.deepEqual(names.slice(0, 33), ['app.cases a:Open cases', 'app.cases list:cases', ...rows, 'app.cases a:All cases'], `title, then the list and its 30 rows, then the see-all: ${names.join(' | ')}`);
+        assert.notEqual(names[33]?.split(' ')[0], 'app.cases', 'the see-all is the last stop in its card');
+        assert.notEqual(stops[0].ring, 'none', 'the focused title link shows a ring');
+        assert.notEqual(stops[32].ring, 'none', 'the focused see-all shows a ring');
         const stat = names.indexOf('app.case-stats a:All cases (42)');
         assert.ok(stat > names.indexOf('kit.people list:people'), 'the stat card\'s header link comes after the cards before it in the aside');
-        assert.equal(names.filter(n => n.startsWith('app.cases a:')).length, 1, 'the list card has one link stop');
-        assert.notEqual(stops[list + 1].ring, 'none', 'the focused link shows a ring');
+        assert.equal(names.filter(n => n.startsWith('app.case-stats')).length, 1, 'the stat card\'s plain title is no stop');
         await tab.getByRole('link', { name: 'All cases', exact: true }).focus();
         await tab.keyboard.press('Shift+Tab');
-        assert.ok(await tab.evaluate(() => document.activeElement?.matches('[data-scroll-list="cases"]')), 'Shift+Tab from the link goes back to its list');
+        assert.equal(await tab.evaluate(() => document.activeElement?.textContent.trim()), 'Case 130', 'Shift+Tab from the see-all goes back to the list\'s last row');
     });
+});
+
+// ── A see-all card's title (docs/see-all.md): a link to the same URL by default, plain text with `linkTitle: false`; in the heading's colour (never a body
+// link's, even where the host colours links), underlined on hover, with a visible focus ring. On the dashboard, PageSection and SummaryCard ───────────────────
+const titleLinks = (tab) => tab.evaluate(() => [...document.querySelectorAll('[data-widget], [data-case]')].filter(card => card.querySelector('h1, h2, h3, h4, h5, h6')).map(card => {
+    const heading = card.querySelector('h1, h2, h3, h4, h5, h6');
+    const link = heading.querySelector('a');
+    const seeAll = card.querySelector('a[data-see-all]');
+    return { card: card.dataset.widget ?? card.dataset.case, title: heading.textContent.trim(), link: link ? { href: link.getAttribute('href'), name: link.textContent.trim(), title: link.hasAttribute('data-see-all-title') } : null, seeAll: seeAll?.getAttribute('href') ?? null };
+}).filter(card => card.seeAll !== null || card.link !== null));
+
+test('a see-all card\'s title links to the same URL as its see-all; with linkTitle false the title is plain text', async () => {
+    await seeAllDashboard('', async (tab) => {
+        assert.deepEqual(await titleLinks(tab), [
+            { card: 'app.cases', title: 'Open cases', link: { href: '/@acme/cases', name: 'Open cases', title: true }, seeAll: '/@acme/cases' },
+            { card: 'app.case-stats', title: 'Cases this week', link: null, seeAll: '/@acme/cases' },
+        ], 'dashboard: the list card\'s title is a link named by the title with the see-all\'s href; the opted-out stat card\'s is plain text');
+        assert.equal(await tab.getByRole('heading', { name: 'Open cases' }).getByRole('link', { name: 'Open cases', exact: true }).count(), 1, 'the link sits inside the heading, so the heading keeps its name');
+        assert.equal(await tab.locator('[data-widget="kit.people"] h2 a, [data-widget="kit.activity"] h2 a').count(), 0, 'a card with no see-all keeps a plain title');
+    });
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?see-all`);
+        await tab.waitForSelector('[data-case="section-list"]');
+        assert.deepEqual(await titleLinks(tab), [
+            { card: 'section-list', title: 'Open cases', link: { href: '/@acme/cases', name: 'Open cases', title: true }, seeAll: '/@acme/cases' },
+            { card: 'section-stat', title: 'Cases this week', link: { href: '/@acme/cases', name: 'Cases this week', title: true }, seeAll: '/@acme/cases' },
+            { card: 'section-plain', title: 'Case notes', link: null, seeAll: '/@acme/notes?about=cases' },
+            { card: 'summary-list', title: 'Recent cases', link: { href: '/@acme/cases?recent=1', name: 'Recent cases', title: true }, seeAll: '/@acme/cases?recent=1' },
+        ], 'PageSection (footer and header placement) and SummaryCard link their titles; the opted-out section\'s title is plain text');
+    } finally {
+        await context.close();
+    }
+});
+
+test('a see-all title link keeps the heading\'s colour, not a body link\'s, is underlined only on hover, and shows an unclipped focus ring, light and dark', async () => {
+    // A host that colours its links (a base `a` rule, as many apps' app.css has): the title must still read as a heading.
+    const hostLink = 'rgb(37, 99, 235)';
+    const style = `@layer base { a { color: ${hostLink}; } }`;
+    const read = (tab, selector) => tab.evaluate(([s]) => {
+        const link = document.querySelector(s);
+        const heading = link.closest('h1, h2, h3, h4, h5, h6');
+        const body = document.querySelector('[data-body-link]');
+        const [l, h] = [link.getBoundingClientRect(), heading.getBoundingClientRect()];
+        return { inside: l.left >= h.left - 0.5 && l.right <= h.right + 0.5, link: getComputedStyle(link).color, heading: getComputedStyle(heading).color, parent: getComputedStyle(heading.parentElement).color, body: getComputedStyle(body).color, primary: getComputedStyle(document.querySelector('[data-primary-link]')).color, underline: getComputedStyle(link).textDecorationLine, ring: getComputedStyle(link).boxShadow };
+    }, [selector]);
+    const check = async (tab, selector, label) => {
+        await tab.addStyleTag({ content: style });
+        // A plain body link and one in kit's body-link style (`text-primary`), outside any card, as references.
+        await tab.evaluate(() => document.body.insertAdjacentHTML('beforeend', '<p><a href="/x" data-body-link>body link</a> <a href="/y" class="text-primary underline" data-primary-link>primary link</a></p>'));
+        await tab.mouse.move(0, 0);
+        const rest = await read(tab, selector);
+        assert.equal(rest.body, hostLink, `${label}: the host's link colour applies to a body link`);
+        assert.equal(rest.link, rest.heading, `${label}: the title link has the heading's colour`);
+        assert.notEqual(rest.link, rest.body, `${label}: not the host's body-link colour`);
+        assert.notEqual(rest.link, rest.primary, `${label}: not kit's text-primary link colour`);
+        assert.equal(rest.underline, 'none', `${label}: no underline at rest`);
+        await tab.hover(selector);
+        assert.equal((await read(tab, selector)).underline, 'underline', `${label}: underlined on hover`);
+        await tab.mouse.move(0, 0);
+        await tab.locator(selector).focus();
+        await tab.keyboard.press('Shift+Tab');
+        await tab.keyboard.press('Tab');
+        const focused = await read(tab, selector);
+        assert.ok(await tab.evaluate((s) => document.activeElement === document.querySelector(s), selector), `${label}: keyboard focus is on the title link`);
+        assert.notEqual(focused.ring, 'none', `${label}: a visible focus ring`);
+        assert.ok(focused.inside, `${label}: the link (and its inset ring) stays inside its heading, which clips what overflows when it truncates`);
+        assert.equal(focused.link, focused.heading, `${label}: still the heading's colour while focused`);
+    };
+    for (const [mode, dark] of [['light', ''], ['dark', '&dark']]) {
+        // `--primary` set apart from the text colour, so the text-primary reference cannot match the heading by chance.
+        await seeAllDashboard(dark, async (tab) => {
+            await tab.addStyleTag({ content: ':root { --primary: rgb(147, 51, 234); }' });
+            await check(tab, '[data-widget="app.cases"] h2 a[data-see-all-title]', `dashboard ${mode}`);
+        });
+        const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+        try {
+            const tab = await context.newPage();
+            await tab.goto(`${url}?see-all${dark}`);
+            await tab.waitForSelector('[data-case="section-list"]');
+            await tab.addStyleTag({ content: ':root { --primary: rgb(147, 51, 234); }' });
+            await check(tab, '[data-case="section-list"] [data-section-header] a[data-see-all-title]', `PageSection ${mode}`);
+            await check(tab, '[data-case="summary-list"] [data-card-header] a[data-see-all-title]', `SummaryCard ${mode}`);
+        } finally {
+            await context.close();
+        }
+    }
 });
 
 // ── The see-all link outside the dashboard (?see-all): PageSection (footer by default, header with `placement: 'header'`), SummaryCard's sticky footer, and

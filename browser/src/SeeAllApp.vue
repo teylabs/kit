@@ -5,7 +5,7 @@ import SearchBox from '@/components/Kit/Search/SearchBox.vue';
 
 // The see-all link outside the dashboard (?see-all, `&dark` for the dark tokens; docs/see-all.md), invented copy: a list PageSection with it in the footer
 // (default placement), a stat PageSection with it in the header and a count, a SummaryCard list with it in the sticky footer, and, first so its results open
-// in view, a SearchBox, whose results end with "All results →".
+// in view, a SearchBox, whose results end with "All results →". Each title links to its see-all's URL, except "Case notes" (`linkTitle: false`).
 const seeAll = { label: 'All cases', url: '/@acme/cases' };
 const rows = Array.from({ length: 12 }, (_, i) => `Case ${101 + i}`);
 </script>
@@ -20,6 +20,9 @@ const rows = Array.from({ length: 12 }, (_, i) => `Case ${101 + i}`);
         </PageSection>
         <PageSection data-case="section-stat" title="Cases this week" :see-all="{ ...seeAll, count: 42, placement: 'header' }">
             <p class="text-3xl font-semibold tabular-nums">42</p>
+        </PageSection>
+        <PageSection data-case="section-plain" title="Case notes" :see-all="{ label: 'All case notes', url: '/@acme/notes?about=cases', linkTitle: false }">
+            <p class="text-sm">Three notes this week.</p>
         </PageSection>
         <SummaryCard data-case="summary-list" title="Recent cases" :see-all="{ label: 'All recent cases', url: '/@acme/cases?recent=1' }">
             <ul class="grid">

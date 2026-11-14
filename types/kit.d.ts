@@ -108,6 +108,7 @@ label: string,
 url: string,
 count: number | null,
 placement: 'footer' | 'header',
+linkTitle: boolean,
 };
 export type TableColumn = {
 key: string,

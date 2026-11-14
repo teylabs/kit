@@ -8,8 +8,9 @@ import WidgetGrid from '@/pages/Workspace/Dashboard/Partials/WidgetGrid.vue';
 // People widget's ScrollList reads its list prop as in an app. `?dark` paints the dark tokens; `?setup` adds the You card's personal steps and the "Set up this
 // workspace" card; `?solo` sends the setup card alone; `?wide` sets the wide aside; `&done` (with `?setup`) marks every personal step done; `?sorted` adds an
 // "Ongoing items" card first in main with a Sort by control ("Last touched" by default), whose rows `window.kitOngoing(order)` builds; `?tall` gives Recent activity a `loadingHeight` of 18rem; `?see-all` adds an
-// "Open cases" list card first in main, 30 rows in a ScrollList with its see-all ("All cases") in the footer (and, as the server sends it, also a header action
-// the card must not draw twice), and a "Cases this week" stat card last in the aside with its see-all in the header and a count of 42. Invented people only.
+// "Open cases" list card first in main, 30 linked rows in a ScrollList with its see-all ("All cases") in the footer and its title linking there too (and, as
+// the server sends it, also a header action the card must not draw twice), and a "Cases this week" stat card last in the aside with its see-all in the header,
+// a count of 42 and `linkTitle: false` (a plain title). Invented people only.
 const query = new URLSearchParams(window.location.search);
 if (query.has('dark')) document.documentElement.classList.add('dark');
 const frame = (key: string, title: string, component: string, region: 'main' | 'aside') => ({ key, title, component, kind: region === 'main' ? 'feed' : 'status', region, span: { md: 6, lg: 6 }, state: 'ready', empty: null, error: null, actions: [] as object[] });
@@ -31,9 +32,9 @@ const ongoing = (order: string) => ({
 (window as unknown as { kitOngoing: unknown }).kitOngoing = ongoing;
 const seeAll = { label: 'All cases', url: '/@acme/cases', count: null, placement: 'footer' };
 const alias = { label: 'All cases', url: '/@acme/cases', method: 'get', key: 'see-all' };
-const cases = { key: 'cases', title: 'Open cases', state: 'ready', data: Array.from({ length: 30 }, (_, i) => person(`c${i + 1}`, `Case ${101 + i}`, i % 2 ? 'Waiting on a reply' : 'Open')), empty: null, error: null };
+const cases = { key: 'cases', title: 'Open cases', state: 'ready', data: Array.from({ length: 30 }, (_, i) => ({ ...person(`c${i + 1}`, `Case ${101 + i}`, i % 2 ? 'Waiting on a reply' : 'Open'), url: `/@acme/cases/${101 + i}` })), empty: null, error: null };
 const casesCard = { ...frame('app.cases', 'Open cases', 'people', 'main'), kind: 'task', list: 'cases', seeAll, actions: [alias] };
-const statCard = { ...frame('app.case-stats', 'Cases this week', 'stat', 'aside'), seeAll: { ...seeAll, count: 42, placement: 'header' }, actions: [alias] };
+const statCard = { ...frame('app.case-stats', 'Cases this week', 'stat', 'aside'), seeAll: { ...seeAll, count: 42, placement: 'header', linkTitle: false }, actions: [alias] };
 const widgets = query.has('solo') ? [setup] : query.has('sorted') ? [ongoing('touched'), ...all] : query.has('see-all') ? [casesCard, ...all, statCard] : all;
 const people = { key: 'people', title: 'People', state: 'ready', data: [person('1', 'Ada Example', 'Owner'), person('2', 'Ben Sample', 'Member')], empty: null, error: null };
 // `?legacy`: the whole dashboard Page with a `welcome` prop, as an app on the pre-0.15.41 WelcomeCardData still sends it; since 0.17 the Page renders no card for it.

@@ -440,7 +440,7 @@ try {
     [, , $dash] = $http('member', 'GET', '/@acme', inertia: true);
     $widget = array_column(json_decode($dash, true)['props']['widgets'], null, 'key')['notes.recent'] ?? null;
     check($widget !== null && $widget['component'] === 'notes' && $widget['composer'] !== null && count($widget['notes']) <= 6 && $widget['notes'][0]['pinned'], 'the dashboard shows the notes widget with the composer and the latest notes, pinned first');
-    check($widget['seeAll'] === ['label' => 'All notes', 'url' => '/notes', 'count' => null, 'placement' => 'footer'] && array_map(fn (array $action) => [$action['label'], $action['url'], $action['key']], $widget['actions']) === [['All notes', '/notes', 'see-all']], 'the notes widget\'s "All notes" is its see-all, in the footer, and still a header action for a WidgetCard copied before it');
+    check($widget['seeAll'] === ['label' => 'All notes', 'url' => '/notes', 'count' => null, 'placement' => 'footer', 'linkTitle' => true] && array_map(fn (array $action) => [$action['label'], $action['url'], $action['key']], $widget['actions']) === [['All notes', '/notes', 'see-all']], 'the notes widget\'s "All notes" is its see-all, in the footer, and still a header action for a WidgetCard copied before it');
     [, , $dash] = $http('viewer', 'GET', '/@acme', inertia: true);
     $widget = array_column(json_decode($dash, true)['props']['widgets'], null, 'key')['notes.recent'] ?? null;
     check($widget !== null && $widget['composer'] === null, 'a viewer sees the notes widget without the composer');
