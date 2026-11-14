@@ -29,6 +29,12 @@ try {
     $splice = array_filter(changelogProblems($releasedBase, "# Changelog\n\n## v0.3.0\n\n### Fixed\n\n- Main's fix.\n- Mine, spliced in.\n\n".$released), fn (string $problem): bool => str_contains($problem, '## v0.3.0'));
     changelogGuardCheck($splice !== [], 'a feature line spliced into the section a release just renamed fails, naming that section');
     changelogGuardCheck(changelogProblems($releasedBase, "# Changelog\n\n## Unreleased\n\n### Fixed\n\n- Mine.\n\n## v0.3.0\n\n### Fixed\n\n- Main's fix.\n\n".$released) === [], 'the same feature under a fresh "## Unreleased" above the new release passes');
+    // A deliberate correction of released notes: only the section ## Unreleased names passes.
+    $corrected = "# Changelog\n\n## Unreleased\n\nReleased notes corrected: v0.2.0\n\n### Fixed\n\n- Main's fix.\n\n## v0.2.0\n\n### Added\n\n- Two, corrected.\n\n## v0.1.0\n\n### Added\n\n- One.\n";
+    changelogGuardCheck(changelogProblems($base, $corrected) === [], 'a released section named on "Released notes corrected:" under "## Unreleased" may change');
+    changelogGuardCheck($fails(str_replace('- One.', '- One, changed too.', $corrected), '## v0.1.0 differs from the base branch'), 'a released section the correction line does not name still fails');
+    changelogGuardCheck($fails(str_replace("## Unreleased\n\nReleased notes corrected: v0.2.0\n\n", "## Unreleased\n\n", $corrected), '## v0.2.0 differs from the base branch'), 'the same change without the correction line fails');
+    changelogGuardCheck($fails("# Changelog\n\n## Unreleased\n\n- Main's fix.\n\n## v0.2.0\n\nReleased notes corrected: v0.2.0\n\n### Added\n\n- Two.\n\n## v0.1.0\n\n### Added\n\n- One.\n", '## v0.2.0 differs from the base branch'), 'the correction line counts only under "## Unreleased", not spliced into the released section it names');
     changelogGuardCheck($fails("# Changelog\n\n## Unreleased\n\n- Mine.\n\n## Unreleased\n\n- Main's fix.\n\n".$released, '2 "## Unreleased" sections'), 'two "## Unreleased" sections fail');
     changelogGuardCheck($fails("# Changelog\n\n## Unreleased\n\n- Mine.\n\n## v0.2.0\n\n### Added\n\n- Two.\n", '## v0.1.0 is on the base branch but missing here'), 'a released section dropped fails');
     changelogGuardCheck($fails("# Changelog\n\n## Unreleased\n\n- Mine.\n\n".$released."\n## v0.1.5\n\n- Odd.\n", 'sits below a released section'), 'a new version below the released notes fails');
