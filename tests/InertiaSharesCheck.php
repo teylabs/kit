@@ -346,6 +346,9 @@ try {
 
     // Core's Clock: for() and current() answer 12h or 24h (auto through the app's locale), and time() and range() format server-built strings on them,
     // in each Carbon's own zone. for() takes a person and a workspace and reads no request; a given workspace is entered through Registry::inWorkspace().
+    // These stand in for a job or a command, outside any request: the last dispatched request ends here, as Octane and the queue worker end one
+    // (forgetScopedInstances), so nothing it remembered is read.
+    $app->forgetScopedInstances();
     $app['config']->set('kit.clock.default', 'auto');
     $workspaceClock = null;
     $app['auth']->forgetGuards();
@@ -414,6 +417,49 @@ try {
     sharesCheck($bodies === ['Tue 2 Jun, 10:00 to 12:00', 'Tue 2 Jun, 10:00 to 12:00', 'Tue 2 Jun, 10:00 AM to 12:00 PM', 'Tue 2 Jun, 10:00 to 12:00'] && ClockMail::$rendered === 4, 'queued mail: Ada\'s on her 24h, workspace 7\'s on its 24h, workspace 8\'s (no choice) on en\'s 12h and on en_GB\'s 24h with that locale, though Grace (12h) sent them all ('.json_encode($bodies).')');
     ClientClock::save((int) $ada->getKey(), null);
     ClientClock::save((int) $grace->getKey(), null);
+
+    // One resolution per request: a page that formats 30 times with Clock::time(), and its kitClock share, read the person's clock from user_state once and
+    // call the workspace getter once. ClientClock::save() and the workspace setter each forget it, so the next read in the same request sees the change.
+    $listClock = '12h';
+    $getterCalls = 0;
+    $registry->workspaceClockUsing(function () use (&$listClock, &$getterCalls): ?string {
+        $getterCalls++;
+
+        return $listClock;
+    }, function (int $actorId, ?string $clock) use (&$listClock): void {
+        $listClock = $clock;
+    });
+    $clockReads = 0;
+    DB::listen(function ($query) use (&$clockReads): void {
+        $clockReads += (int) (str_starts_with(strtolower(ltrim($query->sql)), 'select') && str_contains($query->sql, 'user_state') && in_array('clock', $query->bindings, true));
+    });
+    Route::middleware('web')->get('/clock-list', function () {
+        $at = CarbonImmutable::parse('2026-10-29 18:30:00', 'UTC');
+        $times = array_map(fn (): string => Clock::time($at), range(1, 30));
+        $changed = [];
+        if (request()->boolean('change')) {
+            $id = (int) Auth::guard('web')->id();
+            ClientClock::save($id, '12h');
+            $changed['own'] = Clock::time($at);
+            ClientClock::save($id, null);
+            $changed['workspace before'] = Clock::time($at);
+            (app(Registry::class)->workspaceClock()['set'])($id, '24h');
+            $changed['workspace after'] = Clock::time($at);
+        }
+
+        return Inertia::render('ClockList', ['times' => array_values(array_unique($times)), 'changed' => $changed]);
+    });
+    $app['router']->getRoutes()->refreshNameLookups();
+    ClientClock::save((int) $ada->getKey(), '24h');
+    [$clockReads, $getterCalls] = [0, 0];
+    $list = sharesProps($dispatch(Request::create('https://kit.test/clock-list', 'GET', server: $inertia), $ada));
+    sharesCheck($list['times'] === ['18:30'] && ($list['kitClock'] ?? null) === '24h' && $clockReads === 1 && $getterCalls === 1, 'Clock memo: 30 Clock::time() calls and the kitClock share on one page read Ada\'s clock from user_state once and call the workspace getter once (reads '.$clockReads.', getter calls '.$getterCalls.')');
+    [$clockReads, $getterCalls] = [0, 0];
+    $list = sharesProps($dispatch(Request::create('https://kit.test/clock-list', 'GET', server: $inertia), $ada));
+    sharesCheck($clockReads === 1 && $getterCalls === 1, 'Clock memo: the next request reads afresh, once (reads '.$clockReads.', getter calls '.$getterCalls.')');
+    $list = sharesProps($dispatch(Request::create('https://kit.test/clock-list?change=1', 'GET', server: $inertia), $ada));
+    sharesCheck($list['times'] === ['18:30'] && $list['changed'] === ['own' => '6:30 PM', 'workspace before' => '6:30 PM', 'workspace after' => '18:30'] && ($list['kitClock'] ?? null) === '24h', 'Clock memo: within the request, ClientClock::save() is seen at once (Ada 24h → 12h), and so is the workspace setter (12h → 24h) after Ada goes back to the workspace\'s; the share shows the last ('.json_encode($list['changed']).')');
+    ClientClock::save((int) $ada->getKey(), null);
 
     // Every page the kit shares to has kitClock, not only the signed-in shell: a public page on a host with only core and shell (no session-ui, so no
     // person's clock), after a flush too, and a page whose visitor is signed in on another guard (a portal), which gets the workspace's and the default.
