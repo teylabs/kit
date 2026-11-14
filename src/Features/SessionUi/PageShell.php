@@ -57,6 +57,20 @@ final class PageShell implements ShellSource
         return $last === null || $last['url'] === null ? null : new NavigationHeader('Back to '.$last['name'], $last['url']);
     }
 
+    /**
+     * Reads what the switcher's checks look up in each of the viewer's workspaces (Access::prime) as a page request starts (session-ui's late request hook, before
+     * the page's own checks), so the page and the shell share one batch and a page costs the same queries with one workspace or many. Only for a GET that renders
+     * a page with the switcher: a JSON request, a partial reload, a focus page or a viewer without one reads nothing here.
+     */
+    public static function prime(Request $request): void
+    {
+        $user = $request->user('web');
+        $page = $request->isMethod('GET') && ($request->header('X-Inertia') !== null || ! $request->expectsJson()) && $request->header('X-Inertia-Partial-Component') === null;
+        if ($page && Users::is($user) && ! app(Registry::class)->isFocusRoute($request->route()?->getName()) && self::switches($user)) {
+            app(Access::class)->prime($user, MemberWorkspaces::workspaces($user));
+        }
+    }
+
     public function forRequest(Request $request): ShellData|GuestShellData|FocusShellData
     {
         $user = $request->user('web');
@@ -79,10 +93,14 @@ final class PageShell implements ShellSource
         $settings = [];
         $slots = ['primary' => [], 'user-menu' => []];
         // Without workspaces (session-ui on a core and shell host) there is no workspace to name, switch or navigate: the bar is the product and the account.
-        if (app(Registry::class)->adopts('workspaces') && RequestMemo::account($user)->isActive() && $user->conciergeHasVerifiedEmail()) {
-            // Only the viewer's own active memberships, in one query: never every workspace.
-            foreach (MemberWorkspaces::workspaces($user) as $workspace) {
-                $allowed = Workspaces::run((int) $workspace->id, function () use ($workspace, $user, $request): array {
+        if (self::switches($user)) {
+            // Only the viewer's own active memberships, in one query: never every workspace. What each workspace's checks look up is read for all of them at once
+            // (prime(), as the request began; again here for anything read since), so the shell costs the same queries with one workspace or many. Each link is
+            // still decided inside its own workspace.
+            $workspaces = MemberWorkspaces::workspaces($user);
+            app(Access::class)->prime($user, $workspaces);
+            foreach ($workspaces as $workspace) {
+                $allowed = Workspaces::run($workspace, function () use ($workspace, $user, $request): array {
                     $allowed = ['primary' => [], 'user-menu' => [], 'settings' => null, 'module' => null, 'search' => null];
                     $primary = [];
                     foreach (app(Registry::class)->navigationLinks() as $link) {
@@ -192,7 +210,7 @@ final class PageShell implements ShellSource
                 continue;
             }
 
-            $module = Workspaces::run((int) $workspace->id, function () use ($workspace, $user, $request): ?array {
+            $module = Workspaces::run($workspace, function () use ($workspace, $user, $request): ?array {
                 $primary = [];
                 foreach (app(Registry::class)->navigationLinks() as $link) {
                     if ($link['slot'] === 'primary' && $this->may($user, $link['ability'])) {
@@ -207,6 +225,12 @@ final class PageShell implements ShellSource
         }
 
         return null;
+    }
+
+    /** Whether the bar names, switches and navigates the viewer's workspaces: with workspaces, for an active account with a verified email. */
+    private static function switches(object $user): bool
+    {
+        return app(Registry::class)->adopts('workspaces') && RequestMemo::account($user)->isActive() && $user->conciergeHasVerifiedEmail();
     }
 
     /** Whether the viewer holds the ability here; the refusals a navigation link can meet hide it, anything else is an error. */

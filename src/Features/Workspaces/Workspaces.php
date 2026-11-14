@@ -46,9 +46,9 @@ final class Workspaces
     /**
      * Runs `$fn` with the workspace as the current tenant, through spatie's `execute()`: the switch tasks run (Concierge's context, the
      * permission team, a Pennant flush), and the tenant that was current before, or none, is restored afterwards, also when `$fn` throws.
-     * An id is looked up on the bound model and an unknown one throws `ModelNotFoundException` before anything switches. Pass a block
-     * closure, not an arrow function: an arrow function returns what `dispatch()` returns, and that job is queued only once it is
-     * discarded, after the tenant is restored. It fails closed if `$fn` returns a pending dispatch anyway (a `PendingDispatch` or
+     * A model the caller holds is used as it is, without reading its row again; an id is looked up on the bound model and an unknown
+     * one throws `ModelNotFoundException` before anything switches. Pass a block closure, not an arrow function: an arrow function
+     * returns what `dispatch()` returns, and that job is queued only once it is discarded, after the tenant is restored. It fails closed if `$fn` returns a pending dispatch anyway (a `PendingDispatch` or
      * `PendingClosureDispatch`, a `PendingChain` or a `PendingBatch`), from any closure: the job is dispatched inside the workspace
      * (the reference dropped, or `dispatch()` called for a chain or batch), `run()` returns null, and one warning per call site names
      * the job. It never throws there, as the job would still be queued while the exception unwinds.

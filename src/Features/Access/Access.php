@@ -2,13 +2,17 @@
 
 namespace Tey\Kit\Features\Access;
 
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Tey\Concierge\Concierge;
+use Tey\Concierge\Contracts\Member;
 use Tey\Concierge\Contracts\Workspace;
+use Tey\Concierge\Support\ConciergeModels;
 use Tey\Kit\Features\Core\Kit;
 use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Core\RequestMemo;
+use Tey\Kit\Features\Workspaces\Rls;
 use Tey\Kit\Features\Workspaces\Workspaces;
 
 final class Access
@@ -56,6 +60,33 @@ final class Access
         }
 
         return $workspace;
+    }
+
+    /**
+     * Reads what authorize() looks up in each of several workspaces in one batch: the person's memberships, the capability overrides, the plan rows and the person's
+     * permission sets, a fixed number of queries for any number of workspaces, skipping what the request has already read. For a request that checks abilities in
+     * many workspaces (the shell's switcher). It decides nothing: authorize() still runs inside each workspace and refuses as before, answering from these reads.
+     * Outside a request's memo nothing is read, and a table whose other workspaces' rows RLS hides is left to be read in each workspace.
+     *
+     * @param  list<Workspace>  $workspaces
+     */
+    public function prime(Member&Model $user, array $workspaces): void
+    {
+        if ($workspaces === []) {
+            return;
+        }
+        $memberships = ConciergeModels::membership();
+        if (Rls::shared(app($memberships)->getTable())) {
+            $keys = collect($workspaces)->mapWithKeys(fn (Workspace $workspace): array => ['membership:'.$user->getKey().':'.$workspace->getKey() => (int) $workspace->getKey()]);
+            RequestMemo::instance()->prime($keys->keys()->all(), function (array $missing) use ($memberships, $user, $keys): array {
+                $found = $memberships::query()->where('user_id', $user->getKey())->whereIn('workspace_id', $keys->only($missing)->values()->all())->get()->keyBy('workspace_id');
+
+                return $keys->only($missing)->map(fn (int $id): mixed => $found[$id] ?? null)->all();
+            });
+        }
+        app(Capabilities::class)->prime($workspaces);
+        app(Entitlements::class)->prime($workspaces);
+        app(Permissions::class)->prime($user, $workspaces);
     }
 
     /** Whether an active member's roles allow the ability in the workspace: a permission a feature ties to it decides; any other write stays owner-only. */

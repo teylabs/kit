@@ -17,8 +17,11 @@ use Tey\Kit\Features\Workspaces\Slugs;
  */
 trait IsKitWorkspace
 {
-    /** The cache key of the workspace table columns found; `migrate` forgets it. */
+    /** The cache key of the workspace table columns checked, found or not; `migrate` forgets it. */
     public const string KIT_COLUMNS_KEY = 'kit-workspace-columns';
+
+    /** How long the column checks are cached, in seconds: a day. */
+    public const int KIT_COLUMNS_TTL = 86400;
 
     public static function bootIsKitWorkspace(): void
     {
@@ -74,25 +77,26 @@ trait IsKitWorkspace
     }
 
     /**
-     * Whether a column is there, asked of the database once per deploy rather than once per request (FPM drops statics after each one). A column found is remembered in the
-     * cache (one key for every table) until the next `migrate` forgets it; one not found yet is asked again, so a table migrated later is seen at once.
+     * Whether a column is there, asked of the database once a day rather than once per request (FPM drops statics after each one). The answer, found or not, is
+     * cached for a day (one key for every table; a key with a TTL can be evicted under a volatile-* policy) and kept in memory for the request (Cache::memo()).
+     * A `migrate` forgets it, so a column a migration adds is seen at once; one added any other way is seen within the day. A table that is not there yet
+     * caches nothing: it is asked again, so the table's columns are seen as soon as it is created.
      */
     private static function kitHasColumn(?string $connection, string $table, string $column): bool
     {
-        static $known = null;
         $name = ($connection ?? '').'|'.$table.'|'.$column;
         try {
-            $known ??= (array) Cache::get(self::KIT_COLUMNS_KEY, []);
-            if ($known[$name] ?? false) {
-                return true;
+            $known = (array) Cache::memo()->get(self::KIT_COLUMNS_KEY, []);
+            if (array_key_exists($name, $known)) {
+                return (bool) $known[$name];
             }
-            if (! Schema::connection($connection)->hasColumn($table, $column)) {
-                return false;
+            $schema = Schema::connection($connection);
+            $known[$name] = $schema->hasColumn($table, $column);
+            if ($known[$name] || $schema->hasTable($table)) {
+                Cache::memo()->put(self::KIT_COLUMNS_KEY, $known, self::KIT_COLUMNS_TTL);
             }
-            $known[$name] = true;
-            Cache::forever(self::KIT_COLUMNS_KEY, $known);
 
-            return true;
+            return $known[$name];
         } catch (\Throwable) {
             return false;
         }

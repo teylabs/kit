@@ -1,5 +1,27 @@
 # Changelog
 
+## Unreleased
+
+A patch release: a page costs fewer queries, and the same number with one workspace or many; nothing it shows changes.
+
+### Added
+
+- **`UserState::many($userId, $keys, $workspaceId = 0)` reads several keys in one query (#1009).** It returns key => value for each key the person set in that workspace (a value set to null stays null), in the order asked; a key not set is left out, so `array_key_exists()` answers `has()` and `?? null` answers `get()`. An app no longer reads `user_state` directly to fetch several keys at once.
+  Features affected: session-ui
+  - **Tests.** `test:dashboard`: three keys asked, one of them only another person's, come back as the two set (one null), in the order asked, in one query; another workspace's value is that workspace's alone, and no keys read nothing.
+
+### Fixed
+
+- **The workspace switcher no longer costs queries for each of the viewer's workspaces (#1009).** The shell decides each switcher entry's link by checking every navigation link's ability inside that workspace. Each check read that workspace's row again, the person's membership, the capability overrides, the plan rows and the person's permission set (roles, their permissions and direct grants), about six queries per extra workspace on every page. Those reads are now one batch across the viewer's workspaces (`Access::prime()`), taken as a page request starts (session-ui's late request hook), before the page's own checks, so the page and the shell share it. On a workspace page in the check below, that is 30 queries with one workspace and 57 with five before, and 28 with either now. The decisions do not move: each link is still decided by `Access::authorize()` inside its own workspace, so a role, a direct grant, a plan row or an override in one workspace reaches no other, and a workspace with nothing the viewer may open is still shown as unavailable. Only page GETs prime; a JSON request or a partial reload reads as before. Outside a request nothing is batched, and while RLS is on, a table whose other workspaces' rows the policy hides is still read inside each workspace (the kit's default `except` list leaves memberships and the permission pivots shared, so only the capability overrides and plan rows are). `RequestMemo::prime()` and a `prime()` on `Capabilities`, `Entitlements` and `Permissions` carry the batch; `Rls::shared()` says whether a table's rows of every workspace are readable.
+  Features affected: core, workspaces, access, session-ui
+  - **Tests.** `test:workspace-chooser`: a person with one workspace, then five (a member with a direct members.manage grant, an admin, a member, a member off the plan, and an admin with the workspace's settings capability off and the dashboard off for her alone), opens the same workspace page. Each switcher entry lands on the first page she may open there (People, People, Dashboard, Settings, none: unavailable), the page's navigation is unchanged, and the page costs the same queries both times (28 and 28). On the old code the entries are the same and the count is 30 and 57, so it fails. The list's own role query is now matched by its select, as the shell's batch also joins the role pivot.
+  - **Not covered:** PostgreSQL (the check runs on SQLite) and RLS. With RLS on, each workspace the shell enters still sets its id (`Rls::within`, about three statements each), and the protected overrides and plan rows are read per workspace. A host on Pennant's database store still reads its flags per workspace, as each switch flushes Pennant's memory. No consumer app.
+- **`Workspaces::run()` is passed the workspace a caller already holds.** It takes a model or an id; the shell's switcher and module tabs, the settings sidebar and `ManageCapabilities` passed the id of a model they held, so the row was read again for each call. They pass the model now.
+  Features affected: access, session-ui
+- **The workspace column checks expire after a day, and a missing column is cached too (#1009).** `IsKitWorkspace` cached the columns it found with no TTL (`Cache::forever`), so a cache under a `volatile-*` eviction policy never evicted the key, and it asked the database again on every request (and every model) about a column the table lacks: a schema query on every page of a host whose table predates `admitted` or `deleting_at`. Every answer, found or not, is now cached for a day (`IsKitWorkspace::KIT_COLUMNS_TTL`) and kept in memory for the request (`Cache::memo()`). A `migrate` still forgets it, the request's copy included, so a column a migration adds is seen at once; one added any other way is seen within the day. A table that does not exist yet caches nothing, so its columns are seen as soon as it is created.
+  Features affected: workspaces
+  - **Tests.** `test:workspace-models`: on a stand-in workspace table without `admitted` and `deleting_at`, both are cached as absent; the next request (scoped instances forgotten) asks the database nothing about either; the cached answers are gone a day later; a migration forgets them and the same request asks again. On the old code the absent columns are never cached, so it fails.
+
 ## v0.21.0
 
 Features affected: session-ui, workspace-ui

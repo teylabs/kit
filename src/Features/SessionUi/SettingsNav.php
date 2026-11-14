@@ -37,7 +37,7 @@ final class SettingsNav
                 return [];
             }
             // What may be opened is decided in the workspace's context (restored afterwards), as on the landing page.
-            $sections = Workspaces::run((int) $workspace->getKey(), function () use ($workspace, $principal, $request): array {
+            $sections = Workspaces::run($workspace, function () use ($workspace, $principal, $request): array {
                 return SettingsSections::visible('workspace', $workspace, $principal, $request);
             });
         }

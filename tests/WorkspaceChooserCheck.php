@@ -2,6 +2,7 @@
 
 // The workspace list (/me/workspaces): only the person's own workspaces, each with their role, the member count and a Current marker; New workspace only while
 // provisioning allows it; an empty state with no workspace; open invitations to their verified email; and nothing from a workspace they are not in, in a few queries.
+// The shell's switcher on a workspace page: each entry decided in its own workspace, and the same queries with one workspace or five.
 // SQLite memory, real Concierge, Fortify and Inertia, synthetic users and workspaces (Northwind Farms, Acme Travel, Globex Labs); no network.
 use Carbon\CarbonInterface;
 use Illuminate\Auth\AuthServiceProvider;
@@ -62,7 +63,9 @@ use Tey\Concierge\ConciergeServiceProvider;
 use Tey\Concierge\Contracts\Member;
 use Tey\Concierge\Enums\MembershipStatus;
 use Tey\Concierge\Support\ConciergeModels;
+use Tey\Kit\Features\Access\Capabilities;
 use Tey\Kit\Features\Access\Console\SyncPermissionsCommand;
+use Tey\Kit\Features\Access\Entitlements;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Core\RequestMemo;
 use Tey\Kit\Features\FeaturesServiceProvider;
@@ -307,9 +310,47 @@ try {
     }
     $queries = [];
     [, $page] = $send($ada, '/me/workspaces');
-    $patterns = ['memberships' => '/from "concierge_memberships" where "user_id" = \? and "status" = \? and "workspace_id" in/', 'counts' => '/count\(\*\) as aggregate from "concierge_memberships"/', 'owners' => '/from "concierge_ownerships" where "workspace_id" in/', 'roles' => '/from "model_has_roles" inner join "roles"/'];
+    $patterns = ['memberships' => '/from "concierge_memberships" where "user_id" = \? and "status" = \? and "workspace_id" in/', 'counts' => '/count\(\*\) as aggregate from "concierge_memberships"/', 'owners' => '/from "concierge_ownerships" where "workspace_id" in/', 'roles' => '/"roles"\."name" as "name" from "model_has_roles" inner join "roles"/'];
     $seen = array_map(fn (string $pattern): int => count(preg_grep($pattern, $queries)), $patterns);
     httpCheck(count($page['props']['workspaces']) === 6 && $seen === ['memberships' => 1, 'counts' => 1, 'owners' => 1, 'roles' => 1], 'six workspaces: role, count and ownership are one query each, not one per workspace ('.json_encode($seen).')');
+
+    // The shell's switcher costs the same queries with one workspace or five: what each workspace's checks look up (membership, capability overrides, plan
+    // rows, roles and direct grants) is read for all of them at once, before the page's own checks. Each workspace still decides its own links, fail closed:
+    // a role, a direct grant, a plan row and an override in one workspace reach no other, and a workspace with nothing the viewer may open is unavailable.
+    $registry->navigation('members.manage', 'People', 'people', order: -20);
+    $registry->entitlement('workspace.dashboard');
+    $sam = HttpUser::create(['name' => 'Sam Switcher', 'email' => 'sam@example.test', 'email_verified_at' => now()]);
+    $plan = fn (Workspace $workspace) => app(Entitlements::class)->set('workspace.dashboard', $workspace, true);
+    // Home: a member with a direct members.manage grant there (People), on the plan.
+    $home = $provision('Switch Home', 'switch-home');
+    $join($sam, $home, 'member');
+    app(Concierge::class)->context()->run($home, fn () => $sam->givePermissionTo('workspace.members.manage'), [$sam]);
+    $plan($home);
+    $shellPage = function () use ($send, $sam, &$queries): array {
+        $send($sam, '/@switch-home');
+        $queries = [];
+        [$status, $page] = $send($sam, '/@switch-home');
+
+        return [$status, count($queries), $page['props']['shell'] ?? []];
+    };
+    [$status, $one, $shell] = $shellPage();
+    httpCheck($status === 200 && array_column($shell['navigation'] ?? [], 'label') === ['People', 'Dashboard', 'Settings'], 'one workspace: her direct grant shows People, then Dashboard and Settings ('.json_encode(array_column($shell['navigation'] ?? [], 'label')).')');
+    // An admin, on the plan: People first. A member, on the plan: no People (Home's grant is Home's alone). A member off the plan: no Dashboard, so Settings.
+    // An admin on the plan, with the workspace's settings capability off and the dashboard off for her alone: nothing to open, so unavailable.
+    $join($sam, $admin = $provision('Switch Admin', 'switch-admin'), 'admin');
+    $plan($admin);
+    $join($sam, $member = $provision('Switch Member', 'switch-member'), 'member');
+    $plan($member);
+    $join($sam, $provision('Switch Unplanned', 'switch-unplanned'), 'member');
+    $join($sam, $off = $provision('Switch Off', 'switch-off'), 'admin');
+    $plan($off);
+    app(Capabilities::class)->setForWorkspace('workspace.settings', $off, false);
+    app(Capabilities::class)->setForPerson('workspace.dashboard', $off, (int) $sam->id, false);
+    [$status, $five, $shell] = $shellPage();
+    $choices = collect($shell['switcher']['choices'] ?? [])->pluck('url', 'name')->all();
+    httpCheck($status === 200 && $choices === ['Switch Home' => '/@switch-home/people', 'Switch Admin' => '/@switch-admin/people', 'Switch Member' => '/@switch-member', 'Switch Unplanned' => '/@switch-unplanned/settings', 'Switch Off' => null], 'five workspaces: each choice lands on the first page she may open there, decided by its own role, grant, plan and overrides, and none in Switch Off ('.json_encode($choices).')');
+    httpCheck(array_column($shell['navigation'], 'url') === ['/@switch-home/people', '/@switch-home', '/@switch-home/settings'], 'five workspaces: the page\'s own navigation is unchanged ('.json_encode(array_column($shell['navigation'], 'url')).')');
+    httpCheck($one === $five, 'the shell\'s page costs the same queries with one workspace and with five ('.$one.' and '.$five.')');
     echo "Workspace list checks on SQLite memory with real Concierge, Fortify and Inertia. No browser.\n";
 } catch (Throwable $error) {
     fwrite(STDERR, 'FAIL '.$error->getMessage()."\n".$error->getTraceAsString()."\n");

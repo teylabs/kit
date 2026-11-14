@@ -59,6 +59,16 @@ final class OwnedApp extends Model
     }
 }
 
+/** A stand-in workspace model on a table without the kit's `admitted` and `deleting_at` columns (a host table adopted before them). */
+final class BareWorkspace extends Model
+{
+    use Tey\Kit\Features\Workspaces\Concerns\IsKitWorkspace;
+
+    protected $table = 'bare_workspaces';
+
+    protected $guarded = [];
+}
+
 function check(bool $ok, string $message): void
 {
     if (! $ok) {
@@ -349,8 +359,34 @@ try {
     // The column checks are cached across requests (FPM drops statics), so a request does not query the schema; any migration forgets them.
     $columns = (array) Illuminate\Support\Facades\Cache::get('kit-workspace-columns', []);
     check(in_array(true, $columns, true) && array_filter(array_keys($columns), fn (string $key): bool => str_ends_with($key, '|admitted')) !== [], 'a workspace column found is cached for later requests');
+    // A column the table lacks is cached too, so it is not asked of the database again on the next request; the answers last a day.
+    Schema::create('bare_workspaces', function (Illuminate\Database\Schema\Blueprint $table): void {
+        $table->id();
+        $table->string('name');
+    });
+    $someone = HttpUser::query()->firstOrFail();
+    $ask = function () use ($someone): void {
+        new BareWorkspace;
+        BareWorkspace::query()->memberOf($someone)->toSql();
+    };
+    $ask();
+    $columns = (array) Illuminate\Support\Facades\Cache::get('kit-workspace-columns', []);
+    check(! array_key_exists('admitted', (new BareWorkspace)->getAttributes()) && ($columns['|bare_workspaces|admitted'] ?? null) === false && ($columns['|bare_workspaces|deleting_at'] ?? null) === false, 'a column the table lacks is cached as absent ('.json_encode($columns).')');
+    $asked = 0;
+    DB::listen(function () use (&$asked): void {
+        $asked++;
+    });
+    // The next request: the in-memory copy is gone, the cache is not.
+    $app->forgetScopedInstances();
+    $ask();
+    check($asked === 0, 'the next request asks the database nothing about them, found or not ('.$asked.' queries)');
+    Illuminate\Support\Carbon::setTestNow(now()->addDay()->addSecond());
+    check(Illuminate\Support\Facades\Cache::get('kit-workspace-columns') === null, 'the cached columns expire after a day');
+    Illuminate\Support\Carbon::setTestNow();
     event(new Illuminate\Database\Events\MigrationsEnded('up'));
     check(Illuminate\Support\Facades\Cache::get('kit-workspace-columns') === null, 'a migration forgets the cached columns');
+    $ask();
+    check($asked > 0 && (Illuminate\Support\Facades\Cache::get('kit-workspace-columns')['|bare_workspaces|admitted'] ?? null) === false, 'and the same request asks the database again after it: its in-memory copy is forgotten too ('.$asked.' queries)');
     echo "Workspace model concerns on ".(DB::connection()->getDriverName() === 'pgsql' ? 'PostgreSQL' : 'SQLite memory')." with real Concierge and multitenancy. The database-level foreign key and any check constraints are the app's migration's; this checks the model layer.\n";
 } catch (Throwable $error) {
     fwrite(STDERR, (string) $error."\n");

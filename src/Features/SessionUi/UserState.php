@@ -15,6 +15,29 @@ final class UserState
         return $value === null ? null : (string) $value;
     }
 
+    /**
+     * Several keys in one query: key => value for each key that is set (its value may be null), in the order asked. A key that is not set is left out, so
+     * `array_key_exists()` answers has() and `?? null` answers get() for each.
+     *
+     * @param  list<string>  $keys
+     * @return array<string, ?string>
+     */
+    public static function many(int $userId, array $keys, int $workspaceId = 0): array
+    {
+        if ($keys === []) {
+            return [];
+        }
+        $values = DB::table('user_state')->where(['user_id' => $userId, 'workspace_id' => $workspaceId])->whereIn('key', $keys)->pluck('value', 'key')->all();
+        $found = [];
+        foreach ($keys as $key) {
+            if (array_key_exists($key, $values)) {
+                $found[$key] = $values[$key] === null ? null : (string) $values[$key];
+            }
+        }
+
+        return $found;
+    }
+
     public static function has(int $userId, string $key, int $workspaceId = 0): bool
     {
         return DB::table('user_state')->where(['user_id' => $userId, 'workspace_id' => $workspaceId, 'key' => $key])->exists();
