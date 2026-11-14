@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { router } from '@inertiajs/vue3';
 import { computed, onBeforeUnmount, ref, useId, watch } from 'vue';
+import SeeAllLink from '@/components/Kit/Action/SeeAllLink.vue';
 import { flatten, move, type SearchGroup, type SearchOption } from './search';
 
 /*
  * A search field with a live list of results (an ARIA combobox): typing waits 250ms, then asks `url` for JSON (`{ groups, partial }`, each provider's
  * first few results). Arrow keys move through every result across groups; Enter opens the active one, or with none active goes to the full results
- * page (`url?q=`). Escape clears, then closes. A stale answer (the person typed on, or left) is dropped. It renders the server's results as they are:
+ * page (`url?q=`), as the list's "All results →" link does. Escape clears, then closes. A stale answer (the person typed on, or left) is dropped. It renders the server's results as they are:
  * labels and descriptions are text, never markup. The host focuses it with the exposed `focus()`.
  */
 const props = withDefaults(
@@ -224,14 +225,18 @@ defineExpose({ focus: () => input.value?.focus() });
                     Some sources could not be searched.
                 </p>
             </template>
-            <a
+            <!-- The kit's see-all link (docs/see-all.md), "All results →", kept in view at the bottom while the results scroll. The click is taken on the way down so `go` closes the list and clears the
+                 field before it visits, and the link's own visit never starts. -->
+            <div
                 v-if="term"
-                :href="allResults"
-                class="border-border text-muted-foreground hover:bg-accent mt-1 block rounded-sm border-t px-2 py-1.5"
+                class="border-border bg-popover sticky bottom-0 mt-1 flex justify-end border-t pt-1"
                 data-search-all
-                @click.prevent="go(allResults)"
-                >See all results</a
+                @click.capture.prevent="go(allResults)"
             >
+                <SeeAllLink
+                    :see-all="{ label: 'All results', url: allResults }"
+                />
+            </div>
         </div>
         <span class="sr-only" role="status" aria-live="polite">{{
             status

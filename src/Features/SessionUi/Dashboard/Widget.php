@@ -4,13 +4,14 @@ namespace Tey\Kit\Features\SessionUi\Dashboard;
 
 use Spatie\TypeScriptTransformer\Attributes\TypeScript;
 use Tey\Kit\Features\Core\Data\Action;
+use Tey\Kit\Features\Core\Data\SeeAll;
 use Tey\Kit\Features\Core\Lists\ScrollListViewModel;
 use Tey\Kit\Features\Core\ViewModels\ViewModel;
 use Tey\Kit\Features\SessionUi\UserState;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
 /**
- * One card on the dashboard, registered with `Registry::widget()`. The frame (key, title, component, kind, region, span, state, empty, error, actions) is the
+ * One card on the dashboard, registered with `Registry::widget()`. The frame (key, title, component, kind, region, span, state, empty, error, actions, seeAll) is the
  * same for every widget; a concrete widget adds its own typed props, which its Vue component reads. `component` names that component: the kit's
  * own (`activity`, `you`, `people`) or a file in the host's `resources/js/widgets/` (`queue` renders `widgets/Queue.vue`).
  *
@@ -92,6 +93,15 @@ abstract class Widget extends ViewModel
     public function actions(): array
     {
         return [];
+    }
+
+    /**
+     * The card's one "see all" link (`SeeAll::to('All cases', $url)`), in its footer, or in its header with `->inHeader()` for a card that is not a list. Null:
+     * none. A header action labelled "All …", "View all …" or "See all …" is the deprecated way to offer it: with no `seeAll()`, it maps onto this (Widgets).
+     */
+    public function seeAll(): ?SeeAll
+    {
+        return null;
     }
 
     /**

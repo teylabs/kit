@@ -2,12 +2,15 @@
 import { computed } from 'vue';
 import ActionBar from '@/components/Kit/Action/ActionBar.vue';
 import type { ActionDescriptor } from '@/components/Kit/Action/actionPlacement';
+import SeeAllLink from '@/components/Kit/Action/SeeAllLink.vue';
+import type { SeeAll } from '@/components/Kit/Action/seeAll';
 import Avatar from '@/components/Kit/Layout/Avatar.vue';
 
 /*
  * The one header for a section, widget, card or pane: an optional avatar, the title as a real heading at `level` (the page decides the hierarchy) with its count and
  * badge, meta (the `meta` prop, or a `#meta` slot for a line with links: a source and a seller) and description under it; the `status` slot and the descriptor actions (ActionBar, the ordinary light style) on the other side. Both sides wrap inside
- * the width. The emitted action is the original descriptor, matched by key. It saves, polls and announces nothing: a host wanting announcements brings a live
+ * the width. `seeAll` with `placement: 'header'` (docs/see-all.md) is drawn last on that side, after the actions; a footer one is the wrapper's to draw (PageSection).
+ * The emitted action is the original descriptor, matched by key. It saves, polls and announces nothing: a host wanting announcements brings a live
  * region in `status`. Wrappers own their gutters and frame. Attributes go on the header.
  */
 type Badge = { label: string; variant: string };
@@ -28,6 +31,8 @@ const props = withDefaults(
         avatar?: AvatarDescriptor | null;
         /** `page` sets the title at the page heading's scale (as the shell's Page draws it), for a page that heads itself; it wraps rather than truncates. */
         size?: 'section' | 'page';
+        /** A see-all link: drawn here only with `placement: 'header'`. */
+        seeAll?: SeeAll | null;
     }>(),
     {
         count: null,
@@ -38,6 +43,7 @@ const props = withDefaults(
         description: null,
         avatar: null,
         size: 'section',
+        seeAll: null,
     },
 );
 const emit = defineEmits<{ action: [action: ActionDescriptor] }>();
@@ -46,6 +52,9 @@ const titleClass = {
     section: 'truncate font-semibold',
     page: 'font-display text-3xl font-(weight:--font-display-weight) tracking-tight',
 };
+const headerSeeAll = computed(() =>
+    props.seeAll?.placement === 'header' ? props.seeAll : null,
+);
 const original = (action: ActionDescriptor) =>
     (action.key
         ? props.actions.find((item) => item.key === action.key)
@@ -102,7 +111,7 @@ const original = (action: ActionDescriptor) =>
             </div>
         </div>
         <div
-            v-if="$slots.status || actions.length"
+            v-if="$slots.status || actions.length || headerSeeAll"
             class="flex min-w-0 flex-wrap items-center justify-end gap-3"
         >
             <slot name="status" />
@@ -112,6 +121,7 @@ const original = (action: ActionDescriptor) =>
                 data-section-actions
                 @action="(action) => emit('action', original(action))"
             />
+            <SeeAllLink v-if="headerSeeAll" :see-all="headerSeeAll" />
         </div>
     </header>
 </template>

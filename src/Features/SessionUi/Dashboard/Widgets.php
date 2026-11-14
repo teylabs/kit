@@ -5,6 +5,8 @@ namespace Tey\Kit\Features\SessionUi\Dashboard;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Tey\Kit\Features\Access\Access;
+use Tey\Kit\Features\Core\Data\Action;
+use Tey\Kit\Features\Core\Data\SeeAll;
 use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Core\Savepoint;
@@ -41,6 +43,20 @@ final class Widgets
                     }
                     if (! in_array($frame['kind'] ?? null, ['task', 'feed', 'status', 'setup'], true)) {
                         throw new \RuntimeException('dashboard_widget_kind');
+                    }
+                    // The see-all link and its deprecated alias, a plain "All …", "View all …" or "See all …" header action, each fill in the other. A widget
+                    // with no seeAll() gets its first such action as one; a seeAll() with no such action is also sent as one (key `see-all`). So a
+                    // WidgetCard an app copied before the descriptor still draws the link in its header, and the current one draws it once, from `seeAll`,
+                    // leaving out the action that repeats its URL.
+                    $links = [];
+                    foreach ($frame['actions'] as $action) {
+                        $frame['seeAll'] ??= SeeAll::fromAction($action)?->toArray();
+                        if (strtolower((string) ($action['method'] ?? '')) === 'get') {
+                            $links[] = $action['url'] ?? null;
+                        }
+                    }
+                    if ($frame['seeAll'] !== null && ! in_array($frame['seeAll']['url'], $links, true)) {
+                        $frame['actions'][] = (new Action($frame['seeAll']['label'], $frame['seeAll']['url'], 'get', key: 'see-all'))->toArray();
                     }
                     // Only a widget that opts in (DeclaresLoadingHeight) is asked for its loading height, and only a validated one is sent; every other
                     // widget sends null, even one with a loadingHeight() of its own.

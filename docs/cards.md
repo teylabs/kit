@@ -11,7 +11,7 @@ A card is a `Surface` in parts. Use them instead of a hand-rolled bordered `div`
 | `CardBanner` | A short centred band at the top that draws the eye. Its words carry the meaning, never the colour alone. |
 | `RecordCard` | One record: a header with `#meta` and `#actions`, details in the body, a muted `#footer`. |
 | `ActionCard` | A plain panel with one decision in it, no header band: a `title` and `description` (or `#description`, capped at `max-w-xl`) on the left, `#actions` on the right (centred, or top-right with `align="top"`), `tone="danger"`, more below in the default slot. |
-| `SummaryCard` | A card with a header band: a muted header with an optional `#icon` and `#actions`, the content (or `#body`), a sticky `#footer`. With an empty default slot and no `#body` it has no body. |
+| `SummaryCard` | A card with a header band: a muted header with an optional `#icon` and `#actions`, the content (or `#body`), a sticky `#footer`. With an empty default slot and no `#body` it has no body. `seeAll` draws the server's "All cases →" link at the right of the sticky footer, or after `#actions` with `placement: 'header'` ([docs/see-all.md](see-all.md)). |
 
 > **v0.16 swapped these two names** to match the apps they came from. Before v0.16, `ActionCard` was the header-band card and `SummaryCard` the panel. See [Upgrading to 0.16](#upgrading-to-016).
 

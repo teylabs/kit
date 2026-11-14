@@ -83,7 +83,7 @@ Each person gets `kit.search.per_minute` searches a minute (30 by default). The 
 ## The header and the page
 
 - **Header (shell).** When the server sends `shell.search`, the header shows `GlobalSearch`: a search field from `lg` up, and a button that opens it in a sheet below `lg`. ⌘K or Ctrl+K focuses it from anywhere; `/` does too, when the person is not typing. Neither works while a dialog or menu is open.
-- **Field (`SearchBox`, `@kit/ui`).** Results load 250ms after the person stops typing. Arrow keys move through every result. Enter opens the active result, or the full results page when none is active.
+- **Field (`SearchBox`, `@kit/ui`).** Results load 250ms after the person stops typing. Arrow keys move through every result. Enter opens the active result, or the full results page when none is active. The results end with the kit's see-all link, "All results →" ([docs/see-all.md](see-all.md)), kept in view at the bottom while they scroll; it goes to the same full results page.
 - **Results page (`Workspace/Search/Page`).** Each group with up to 25 results. The palette shows 5 per group.
 
 Responses are `Cache-Control: private, no-store`.

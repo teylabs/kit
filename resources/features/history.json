@@ -78953,10 +78953,10 @@
                 "resources/js/pages/Workspace/Dashboard/Partials/ActivityWidget.vue": "ec4d2490e7a38f86358d47728446e38c236002f870c61c74e7dc4ac1e6dbf7b8",
                 "resources/js/pages/Workspace/Dashboard/Partials/PeopleWidget.vue": "66e8a1e6473e296af8408497af6cb8ab501fe9293902446a4bc102ba1979eee1",
                 "resources/js/pages/Workspace/Dashboard/Partials/SetupWidget.vue": "f333e091db4197508d3d6c49e825394a0496590b43d42c497ef146443ce870ac",
-                "resources/js/pages/Workspace/Dashboard/Partials/WidgetCard.vue": "305f885c904f920a7afc9da25eb438703e7217516079943be4d7e661a4f8e4d3",
+                "resources/js/pages/Workspace/Dashboard/Partials/WidgetCard.vue": "ce9a34693a0ec957b56a4d7bfc7992e68f7edbf986bcfafd977ca194a683e532",
                 "resources/js/pages/Workspace/Dashboard/Partials/WidgetGrid.vue": "d9b0e1f32e903c226c27608ae2a9df62dead7f10f94cc373512fe111bf3199b9",
                 "resources/js/pages/Workspace/Dashboard/Partials/YouWidget.vue": "7863783f3016096742dd1db65b0abd0bb1bab7d0081749a34d63be0fbbb0f886",
-                "resources/js/pages/Workspace/Dashboard/Partials/types.ts": "08f8937b84693d59d2485ae6b18959466ec788d9970e5abe3a8c0d1fb6a4933a",
+                "resources/js/pages/Workspace/Dashboard/Partials/types.ts": "4f9356805a0110332ce600ae6c79e984e95484104fa1f8e2d21306a9ae237518",
                 "resources/js/pages/Workspace/Error/Page.vue": "7cc70dbafdfcaeb0fe79d8b5b757b05e57a5ecbfd23b631c11c2d30acc4f8a7a",
                 "resources/js/pages/Workspace/Index/Page.vue": "7d559b6a1edc5d22378f47686a808ac0742be6868cd0d8fd1753d70c21b39be3",
                 "resources/js/pages/Workspace/Placeholder/Page.vue": "301b835b3194a5aa4ae954060103a9b08bbdf471846bb55e08b1e11f6cf810a7",
@@ -78985,7 +78985,7 @@
                 "resources/js/pages/Workspace/Notes/Index/Partials/NoteCard.vue": "2fdef71889df6398033e5d620cbdda96f2dc23d6f2460461c31924e00f7fe8a2",
                 "resources/js/pages/Workspace/Notes/Index/Partials/NoteComposer.vue": "038341e2a9357121da665fb2d756a8a1951d192e564ff0610a6d5b2493e097bd",
                 "resources/js/pages/Workspace/Notes/Index/Partials/colours.ts": "226224bc3ce9bb40998f088fac4f5352da744d0a3fab55db918b7459f2e49920",
-                "resources/js/widgets/Notes.vue": "f76872cce82fb2743f12235ecc2fc813c42807b0055ac4b72497455585f1d0bc"
+                "resources/js/widgets/Notes.vue": "b770fdba8f24aa19db9d2a8cc7cb0f951216de42133cf9bfaa264bdddf494765"
             },
             "finalize": {
                 "database/migrations/kit/finalize/0001_01_02_000801_create_kit_finalize_tables.php": "a38ec1c02583572fbf0bf5b665926a78aa7af1138190815a3a5fcc845bce4ec5",

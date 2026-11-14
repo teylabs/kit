@@ -5630,6 +5630,201 @@ test('a widget with a loadingHeight holds that minimum height on its ready body;
     }
 });
 
+// ── A list's see-all link (dashboard.html?see-all, docs/see-all.md): "All cases →" in a footer at the card's bottom right, after the list's end and outside its
+// scroll, so it stays in view while the list scrolls; a stat card's in its header with its count; one link per card (the header action the server also sends
+// for an older WidgetCard is not drawn twice); Tab reaches it right after the list; axe passes, light and dark ──────────────────────────────────────────────
+const seeAllShots = process.env.KIT_SEE_ALL_SCREENSHOTS;
+async function seeAllDashboard(dark, check) {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        await tab.goto(`${authUrl}dashboard.html?see-all${dark}`);
+        await tab.waitForSelector('[data-widget="app.cases"] [data-scroll-list="cases"] li');
+        await tab.waitForSelector('[data-widget="kit.people"] [data-scroll-list="people"] li');
+        await check(tab);
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+}
+
+test('a list widget\'s see-all: one "All cases" link with an arrow, in the card footer at the bottom right after the list\'s end, axe passes, light and dark', async () => {
+    for (const [mode, dark] of [['light', ''], ['dark', '&dark']]) {
+        await seeAllDashboard(dark, async (tab) => {
+            const card = tab.locator('[data-widget="app.cases"]');
+            const link = card.getByRole('link', { name: 'All cases', exact: true });
+            assert.equal(await link.count(), 1, `${mode}: one link named "All cases" in the list card (the header action with its URL is not drawn too)`);
+            assert.equal(await card.locator('header a').count(), 0, `${mode}: nothing in the list card's header`);
+            assert.equal(await tab.getByRole('link', { name: /view all|see all/i }).count(), 0, `${mode}: no "View all" or "See all" anywhere`);
+            const box = await tab.evaluate(() => {
+                const card = document.querySelector('[data-widget="app.cases"]');
+                const footer = card.querySelector('[data-widget-footer]');
+                const link = footer.querySelector('a[data-see-all]');
+                const list = card.querySelector('[data-scroll-list="cases"]');
+                const r = (el) => el.getBoundingClientRect();
+                return {
+                    last: footer === card.lastElementChild, text: link.textContent.trim(), href: link.getAttribute('href'), arrow: link.querySelector('svg')?.getAttribute('aria-hidden'),
+                    cardRight: r(card).right, cardBottom: r(card).bottom, footerTop: r(footer).top, footerBottom: r(footer).bottom, linkRight: r(link).right, linkLeft: r(link).left, footerLeft: r(footer).left, listBottom: r(list).bottom,
+                    scrolls: list.scrollHeight > list.clientHeight, inList: list.contains(link),
+                };
+            });
+            assert.ok(box.last && Math.abs(box.footerBottom - box.cardBottom) <= 1.5, `${mode}: the footer is the card's last part, at its bottom`);
+            assert.ok(box.footerTop >= box.listBottom - 0.5 && !box.inList, `${mode}: after the list's end, outside its scroll`);
+            assert.ok(box.cardRight - box.linkRight <= 24 && box.linkLeft - box.footerLeft > 200, `${mode}: at the right of the footer`);
+            assert.ok(box.scrolls, `${mode}: the list scrolls inside the card`);
+            assert.equal(box.text, 'All cases');
+            assert.equal(box.href, '/@acme/cases');
+            assert.equal(box.arrow, 'true', `${mode}: the arrow is an icon hidden from assistive tech`);
+            assert.deepEqual(await notesAxe(tab), [], mode);
+            if (seeAllShots) await tab.screenshot({ path: `${seeAllShots}/dash-see-all-${mode}.png`, fullPage: true });
+        });
+    }
+});
+
+test('a list widget\'s see-all stays in view, in the same place, while the list scrolls inside the card', async () => {
+    await seeAllDashboard('', async (tab) => {
+        const at = () => tab.evaluate(() => {
+            const link = document.querySelector('[data-widget="app.cases"] [data-widget-footer] a[data-see-all]');
+            const list = document.querySelector('[data-scroll-list="cases"]');
+            const r = link.getBoundingClientRect();
+            const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+            return { top: Math.round(r.top), left: Math.round(r.left), hit: Boolean(hit && link.contains(hit)), inView: r.top >= 0 && r.bottom <= window.innerHeight, scrollTop: list.scrollTop, end: list.scrollHeight - list.clientHeight, page: window.scrollY };
+        });
+        const before = await at();
+        assert.ok(before.hit && before.inView && before.scrollTop === 0 && before.end > 100, 'visible and on top before the list scrolls');
+        const list = tab.locator('[data-scroll-list="cases"]');
+        const listBox = await list.boundingBox();
+        await tab.mouse.move(listBox.x + listBox.width / 2, listBox.y + listBox.height / 2);
+        await tab.mouse.wheel(0, 400);
+        await tab.waitForFunction(() => document.querySelector('[data-scroll-list="cases"]').scrollTop > 0);
+        const middle = await at();
+        await list.evaluate(el => { el.scrollTop = el.scrollHeight; });
+        const end = await at();
+        for (const [label, now] of [['part way', middle], ['at the end', end]]) {
+            assert.ok(now.scrollTop > 0, `${label}: the list scrolled`);
+            assert.deepEqual([now.top, now.left, now.hit, now.inView, now.page], [before.top, before.left, true, true, 0], `${label}: the link has not moved, is on top and in view, and the page did not scroll`);
+        }
+        assert.ok(end.scrollTop >= end.end - 1, 'the list reached its end');
+    });
+});
+
+test('a stat card\'s see-all is in its header, after its title, with its count: "All cases (42)"', async () => {
+    for (const [mode, dark] of [['light', ''], ['dark', '&dark']]) {
+        await seeAllDashboard(dark, async (tab) => {
+            const card = tab.locator('[data-widget="app.case-stats"]');
+            assert.equal(await card.getByRole('link', { name: 'All cases (42)', exact: true }).count(), 1, `${mode}: named with its count`);
+            assert.equal(await card.locator('a').count(), 1, `${mode}: one link in the stat card`);
+            const box = await tab.evaluate(() => {
+                const card = document.querySelector('[data-widget="app.case-stats"]');
+                const header = card.querySelector('header');
+                const link = card.querySelector('a[data-see-all]');
+                const title = header.querySelector('h2').getBoundingClientRect();
+                const r = link.getBoundingClientRect();
+                return { inHeader: header.contains(link), placement: link.dataset.placement, footer: card.querySelectorAll('[data-widget-footer]').length, right: card.getBoundingClientRect().right - r.right, afterTitle: r.left >= title.right, sameRow: r.top < title.bottom && r.bottom > title.top };
+            });
+            assert.deepEqual([box.inHeader, box.placement, box.footer], [true, 'header', 0], `${mode}: in the header, no footer`);
+            assert.ok(box.right <= 24 && box.afterTitle && box.sameRow, `${mode}: at the header's right, on the title's row`);
+        });
+    }
+});
+
+test('keyboard: Tab reaches a list\'s see-all straight after its list and before the next card; the link shows a focus ring', async () => {
+    await seeAllDashboard('', async (tab) => {
+        const stops = [];
+        for (let i = 0; i < 20; i++) {
+            await tab.keyboard.press('Tab');
+            const stop = await tab.evaluate(() => {
+                const el = document.activeElement;
+                if (!el || el === document.body) return null;
+                return { widget: el.closest('[data-widget]')?.dataset.widget ?? null, what: el.matches('[data-scroll-list]') ? `list:${el.dataset.scrollList}` : `${el.tagName.toLowerCase()}:${el.textContent.trim()}`, ring: getComputedStyle(el).boxShadow };
+            });
+            if (!stop) break;
+            stops.push(stop);
+        }
+        const names = stops.map(s => `${s.widget} ${s.what}`);
+        const list = names.indexOf('app.cases list:cases');
+        assert.equal(list, 0, `the list is the first stop: ${names.join(' | ')}`);
+        assert.equal(names[list + 1], 'app.cases a:All cases', 'its see-all is the next stop');
+        assert.notEqual(names[list + 2]?.split(' ')[0], 'app.cases', 'and the last in its card');
+        const stat = names.indexOf('app.case-stats a:All cases (42)');
+        assert.ok(stat > names.indexOf('kit.people list:people'), 'the stat card\'s header link comes after the cards before it in the aside');
+        assert.equal(names.filter(n => n.startsWith('app.cases a:')).length, 1, 'the list card has one link stop');
+        assert.notEqual(stops[list + 1].ring, 'none', 'the focused link shows a ring');
+        await tab.getByRole('link', { name: 'All cases', exact: true }).focus();
+        await tab.keyboard.press('Shift+Tab');
+        assert.ok(await tab.evaluate(() => document.activeElement?.matches('[data-scroll-list="cases"]')), 'Shift+Tab from the link goes back to its list');
+    });
+});
+
+// ── The see-all link outside the dashboard (?see-all): PageSection (footer by default, header with `placement: 'header'`), SummaryCard's sticky footer, and
+// SearchBox's "All results →", which stays in view at the bottom of the scrolling results and visits the full results page ─────────────────────────────────
+test('PageSection and SummaryCard draw the see-all as the dashboard does: footer at the bottom right after the list, or header with its count; axe passes, light and dark', async () => {
+    for (const [mode, dark] of [['light', ''], ['dark', '&dark']]) {
+        const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+        try {
+            const tab = await context.newPage();
+            await tab.goto(`${url}?see-all${dark}`);
+            await tab.waitForSelector('[data-case="section-list"]');
+            const read = (selector) => tab.evaluate((s) => {
+                const scope = document.querySelector(s);
+                const links = [...scope.querySelectorAll('a[data-see-all]')];
+                const link = links[0];
+                const content = scope.querySelector('ul, p.text-3xl');
+                const r = link.getBoundingClientRect();
+                return { count: links.length, text: link.textContent.trim(), header: Boolean(link.closest('[data-section-header], [data-card-header]')), footer: Boolean(link.closest('[data-see-all-footer], [data-card-footer]')), below: r.top >= content.getBoundingClientRect().bottom - 0.5, right: scope.getBoundingClientRect().right - r.right };
+            }, selector);
+            const list = await read('[data-case="section-list"]');
+            assert.deepEqual([list.count, list.text, list.footer, list.header, list.below], [1, 'All cases', true, false, true], `${mode}: a list section's link is in its footer, after the list`);
+            assert.ok(list.right <= 32, `${mode}: at the right`);
+            const stat = await read('[data-case="section-stat"]');
+            assert.deepEqual([stat.count, stat.text, stat.header, stat.footer], [1, 'All cases (42)', true, false], `${mode}: a stat section's link is in its header, with its count`);
+            const summary = await read('[data-case="summary-list"]');
+            assert.deepEqual([summary.count, summary.text, summary.footer, summary.below], [1, 'All recent cases', true, true], `${mode}: a SummaryCard's link is in its sticky footer`);
+            assert.ok(summary.right <= 32, `${mode}: at the right`);
+            assert.equal(await tab.getByRole('link', { name: 'All cases', exact: true }).getAttribute('href'), '/@acme/cases');
+            assert.deepEqual(await notesAxe(tab), [], mode);
+            if (seeAllShots) await tab.screenshot({ path: `${seeAllShots}/sections-see-all-${mode}.png`, fullPage: true });
+        } finally {
+            await context.close();
+        }
+    }
+});
+
+test('SearchBox: the results end with "All results" and an arrow, kept in view while they scroll, and it visits the full results page', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 700 } });
+    try {
+        const tab = await context.newPage();
+        await tab.route(/\/search\?q=/, route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ partial: false, groups: [{ key: 'cases', label: 'Cases', results: Array.from({ length: 30 }, (_, i) => ({ id: String(i), label: `Case ${101 + i}`, url: `/@acme/cases/${i}`, description: null, meta: null })) }] }) }));
+        await tab.goto(`${url}?see-all`);
+        await tab.getByRole('combobox', { name: 'Search' }).fill('case');
+        await tab.waitForSelector('[data-search-option]');
+        const link = tab.getByRole('link', { name: 'All results', exact: true });
+        assert.equal(await link.count(), 1);
+        assert.equal(await link.getAttribute('href'), '/search?q=case');
+        assert.equal(await tab.getByText('See all results').count(), 0, 'the old "See all results" label is gone');
+        const pinned = () => tab.evaluate(() => {
+            const box = document.querySelector('[data-search-results]');
+            const link = box.querySelector('[data-search-all] a').getBoundingClientRect();
+            const r = box.getBoundingClientRect();
+            const hit = document.elementFromPoint(link.left + link.width / 2, link.top + link.height / 2);
+            return { scrolls: box.scrollHeight > box.clientHeight, scrollTop: box.scrollTop, inside: link.top >= r.top && link.bottom <= r.bottom + 0.5, hit: Boolean(hit?.closest('[data-search-all]')) };
+        });
+        const top = await pinned();
+        assert.ok(top.scrolls && top.inside && top.hit, 'the results scroll and the link is in view at the top of them');
+        await tab.locator('[data-search-results]').evaluate(el => { el.scrollTop = el.scrollHeight / 2; });
+        const middle = await pinned();
+        assert.ok(middle.scrollTop > 0 && middle.inside && middle.hit, 'and part way down');
+        await link.click();
+        assert.deepEqual(await tab.evaluate(() => (window.kitVisits ?? []).map(v => v.url)), ['/search?q=case'], 'one visit to the full results page');
+        assert.equal(await tab.getByRole('combobox', { name: 'Search' }).inputValue(), '', 'the field is cleared');
+        assert.equal(await tab.locator('[data-search-results]').isVisible(), false, 'and the results close');
+    } finally {
+        await context.close();
+    }
+});
+
 // ── The shell's backdrop blur (shell.html?blur=…&subblur=…): no backdrop-filter, so no compositing layer, unless the token is a non-zero length ──────────
 test('the shell bar and the trail bar have no backdrop-filter when --shell-bar-blur and --shell-subbar-blur are unset or zero, and blur when they are set', async () => {
     const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });

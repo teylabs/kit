@@ -3697,6 +3697,14 @@
       "reason": "SearchBox helper."
     },
     {
+      "ref": "@/components/Kit:SeeAllLink",
+      "reason": "A list's see-all link: drawn by WidgetCard, PageSection, SummaryCard and SearchBox from the server's SeeAll descriptor."
+    },
+    {
+      "ref": "@/components/Kit:seeAllPlacement",
+      "reason": "SeeAllLink helper."
+    },
+    {
       "ref": "@/components/Kit:provideSurface",
       "reason": "Surface context helper."
     },

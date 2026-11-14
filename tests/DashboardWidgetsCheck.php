@@ -207,6 +207,68 @@ final class OwnHeightWidget extends Widget
     }
 }
 
+/** A list widget with its see-all link: in the footer by default. */
+final class CasesWidget extends Widget
+{
+    public function title(): string
+    {
+        return 'Open cases';
+    }
+
+    public function component(): string
+    {
+        return 'cases';
+    }
+
+    public function seeAll(): ?Tey\Kit\Features\Core\Data\SeeAll
+    {
+        return Tey\Kit\Features\Core\Data\SeeAll::to('All cases', '/@acme/cases');
+    }
+}
+
+/** A stat card: its see-all in the header, with a count, beside an action of its own. */
+final class CaseStatsWidget extends Widget
+{
+    public function title(): string
+    {
+        return 'Cases this week';
+    }
+
+    public function component(): string
+    {
+        return 'stat';
+    }
+
+    public function actions(): array
+    {
+        return [new Tey\Kit\Features\Core\Data\Action('Export', '/@acme/cases/export', 'get', key: 'export')];
+    }
+
+    public function seeAll(): ?Tey\Kit\Features\Core\Data\SeeAll
+    {
+        return Tey\Kit\Features\Core\Data\SeeAll::to('All cases', '/@acme/cases')->withCount(42)->inHeader();
+    }
+}
+
+/** A widget written before the descriptor: its see-all is a "View all" header action (the deprecated alias). */
+final class LegacyCasesWidget extends Widget
+{
+    public function title(): string
+    {
+        return 'Recent cases';
+    }
+
+    public function component(): string
+    {
+        return 'cases';
+    }
+
+    public function actions(): array
+    {
+        return [new Tey\Kit\Features\Core\Data\Action('New case', '/@acme/cases/new', 'get', key: 'new'), new Tey\Kit\Features\Core\Data\Action('View all cases', '/@acme/cases', 'get', key: 'cases')];
+    }
+}
+
 final class NotAWidget {}
 
 /** An "Ongoing"-style list that offers three orders, "Last touched" by default; its rows name the order its query was given. */
@@ -348,7 +410,7 @@ try {
     ] as $provider) {
         $app->register($provider);
     }
-    $app->make(Registry::class)->widget('app.queue', QueueWidget::class, -40)->widget('app.broken', BrokenWidget::class, 5)->widget('app.admin', QueueWidget::class, 6, 'members.manage')->widget('app.sideways', SidewaysWidget::class, 7)->widget('app.oddkind', OddKindWidget::class, 8)->widget('app.tall', TallWidget::class, 9)->widget('app.stretchy', StretchyWidget::class, 10)->widget('app.ownheight', OwnHeightWidget::class, 11);
+    $app->make(Registry::class)->widget('app.queue', QueueWidget::class, -40)->widget('app.broken', BrokenWidget::class, 5)->widget('app.admin', QueueWidget::class, 6, 'members.manage')->widget('app.sideways', SidewaysWidget::class, 7)->widget('app.oddkind', OddKindWidget::class, 8)->widget('app.tall', TallWidget::class, 9)->widget('app.stretchy', StretchyWidget::class, 10)->widget('app.ownheight', OwnHeightWidget::class, 11)->widget('app.cases', CasesWidget::class, 12)->widget('app.case-stats', CaseStatsWidget::class, 13)->widget('app.legacy-cases', LegacyCasesWidget::class, 14);
     // The host's `web` group, with an Inertia middleware (the kit's plain one): session-ui's props are shared by its provider, not by a middleware.
     $app->make(Illuminate\Contracts\Http\Kernel::class)->setMiddlewareGroups(['web' => [Illuminate\Session\Middleware\StartSession::class, Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests::class]]);
     $app->boot();
@@ -435,7 +497,7 @@ try {
     check($refused(fn (Registry $r) => $r->widget('a', QueueWidget::class)->widget('a', QueueWidget::class)), 'a widget key registered twice is refused');
     check($refused(fn (Registry $r) => $r->widget('a', NotAWidget::class)), 'a class that is not a Widget is refused');
     check(array_column((new Registry)->widget('c', QueueWidget::class, 1)->widget('a', QueueWidget::class, 0)->widget('b', QueueWidget::class, 1)->widgets(), 'key') === ['a', 'c', 'b'], 'widgets sort by order, then registration');
-    check(array_column($registry->widgets(), 'key') === ['app.queue', 'kit.you', 'kit.activity', 'kit.people', 'app.broken', 'app.admin', 'app.sideways', 'app.oddkind', 'app.tall', 'app.stretchy', 'app.ownheight', 'kit.setup'], 'the kit registers you, activity, people and setup around the app\'s own');
+    check(array_column($registry->widgets(), 'key') === ['app.queue', 'kit.you', 'kit.activity', 'kit.people', 'app.broken', 'app.admin', 'app.sideways', 'app.oddkind', 'app.tall', 'app.stretchy', 'app.ownheight', 'app.cases', 'app.case-stats', 'app.legacy-cases', 'kit.setup'], 'the kit registers you, activity, people and setup around the app\'s own');
     check(array_column($registry->widgets(), 'ability', 'key')['kit.setup'] === 'settings.write', 'the setup card is gated on the workspace settings ability (settings.write)');
     // An app replaces or suppresses a widget by key, whichever registers first.
     $replaced = (new Registry)->replaceWidget('kit.activity', QueueWidget::class)->widget('kit.you', BrokenWidget::class, -30)->widget('kit.activity', BrokenWidget::class, -20, 'members.manage')->widgets();
@@ -502,7 +564,7 @@ try {
     check(RecordingShell::$builtIn === [$workspace->id] && Tey\Kit\Features\Workspaces\Workspaces::current() === null, 'and builds it inside the workspace too, with none current after');
     check(! array_key_exists('welcome', $owner['props']) && $owner['props']['aside'] === 'narrow', 'the dashboard has no welcome prop (removed in 0.17), and the aside is narrow by default');
     $widgets = array_column($owner['props']['widgets'], null, 'key');
-    check(array_keys($widgets) === ['app.queue', 'kit.you', 'kit.activity', 'kit.people', 'app.broken', 'app.admin', 'app.sideways', 'app.oddkind', 'app.tall', 'app.stretchy', 'app.ownheight', 'kit.setup'], 'the owner sees every widget, in order, the setup card last');
+    check(array_keys($widgets) === ['app.queue', 'kit.you', 'kit.activity', 'kit.people', 'app.broken', 'app.admin', 'app.sideways', 'app.oddkind', 'app.tall', 'app.stretchy', 'app.ownheight', 'app.cases', 'app.case-stats', 'app.legacy-cases', 'kit.setup'], 'the owner sees every widget, in order, the setup card last');
     check($widgets['app.queue']['rows'] === ['one', 'two'] && $widgets['app.queue']['region'] === 'main' && $widgets['app.queue']['state'] === 'ready', 'an app widget carries its frame and its own typed props, in main by default');
     check($widgets['app.queue']['span'] === ['md' => 6, 'lg' => 12], 'a widget that still overrides the deprecated span() keeps compiling and sends it');
     check(array_map(fn (string $key) => $widgets[$key]['region'], ['kit.activity', 'kit.you', 'kit.people']) === ['main', 'aside', 'aside'], 'Recent activity is in main; You and People are in aside');
@@ -512,6 +574,28 @@ try {
     check(array_key_exists('loadingHeight', $widgets['app.queue']) && $widgets['app.queue']['loadingHeight'] === null, 'a widget that does not opt in sends a null loading height');
     check($widgets['app.ownheight']['state'] === 'ready' && $widgets['app.ownheight']['loadingHeight'] === null && OwnHeightWidget::$asked === 0, 'a host widget with its own loadingHeight() that does not implement DeclaresLoadingHeight is never asked for it and sends null, not its unvalidated value');
     check(! (new ReflectionClass(Widget::class))->hasMethod('loadingHeight'), 'the Widget base class declares no loadingHeight(), so a host widget\'s own method of that name still loads');
+
+    // The see-all descriptor (docs/see-all.md): what it serializes to, and how a widget's frame carries it.
+    $seeAll = Tey\Kit\Features\Core\Data\SeeAll::to('All cases', '/@acme/cases');
+    check($seeAll->toArray() === ['label' => 'All cases', 'url' => '/@acme/cases', 'count' => null, 'placement' => 'footer'] && json_encode($seeAll) === '{"label":"All cases","url":"\\/@acme\\/cases","count":null,"placement":"footer"}', 'SeeAll::to() serializes to label, url, a null count and the footer placement');
+    check($seeAll->withCount(42)->inHeader()->toArray() === ['label' => 'All cases', 'url' => '/@acme/cases', 'count' => 42, 'placement' => 'header'] && $seeAll->placement === 'footer' && $seeAll->count === null && $seeAll->withCount(0)->count === 0, 'withCount() and inHeader() return a new descriptor (a count of zero is kept) and leave the original as it was');
+    $refused = [];
+    foreach ([fn () => Tey\Kit\Features\Core\Data\SeeAll::to(' ', '/@acme/cases'), fn () => Tey\Kit\Features\Core\Data\SeeAll::to('All cases', ''), fn () => Tey\Kit\Features\Core\Data\SeeAll::to('All cases', '/@acme/cases', -1), fn () => new Tey\Kit\Features\Core\Data\SeeAll('All cases', '/@acme/cases', null, 'aside')] as $make) {
+        try {
+            $make();
+        } catch (InvalidArgumentException $exception) {
+            $refused[] = $exception->getMessage();
+        }
+    }
+    check($refused === array_fill(0, 4, 'see_all_invalid'), 'a blank label, a blank url, a negative count and an unknown placement are refused (fail closed)');
+    $legacy = fn (string $label, string $method = 'get', array $more = []) => Tey\Kit\Features\Core\Data\SeeAll::fromAction(new Tey\Kit\Features\Core\Data\Action($label, '/@acme/cases', $method, ...$more))?->toArray();
+    check(array_map($legacy, ['View all cases', 'See all results', 'show all  open cases', 'All notes']) === [['label' => 'All cases', 'url' => '/@acme/cases', 'count' => null, 'placement' => 'footer'], ['label' => 'All results', 'url' => '/@acme/cases', 'count' => null, 'placement' => 'footer'], ['label' => 'All open cases', 'url' => '/@acme/cases', 'count' => null, 'placement' => 'footer'], ['label' => 'All notes', 'url' => '/@acme/cases', 'count' => null, 'placement' => 'footer']], 'the deprecated alias: a "View all", "See all", "Show all" or "All" header link maps onto the descriptor as "All <noun>" in the footer');
+    check([$legacy('Manage people'), $legacy('Allocate cases'), $legacy('View all'), $legacy('All cases', 'post'), $legacy('All cases', 'get', ['disabled' => true]), $legacy('All cases', 'get', ['confirm' => ['description' => 'Sure?', 'label' => 'Go']]), $legacy('All cases', 'get', ['menu' => true])] === array_fill(0, 7, null), 'anything else stays an action: another label, a bare "View all", a POST, a disabled, confirmed or menu action');
+    check(array_key_exists('seeAll', $widgets['app.queue']) && $widgets['app.queue']['seeAll'] === null && $widgets['app.queue']['actions'] === [], 'a widget with no see-all sends a null seeAll and no extra action');
+    check($widgets['app.cases']['seeAll'] === ['label' => 'All cases', 'url' => '/@acme/cases', 'count' => null, 'placement' => 'footer'], 'a list widget\'s seeAll() is in its frame, in the footer');
+    check(array_map(fn (array $action) => [$action['label'], $action['url'], $action['method'], $action['key']], $widgets['app.cases']['actions']) === [['All cases', '/@acme/cases', 'get', 'see-all']], 'and is also sent as a GET header action (key see-all), so a WidgetCard copied before the descriptor still draws it');
+    check($widgets['app.case-stats']['seeAll'] === ['label' => 'All cases', 'url' => '/@acme/cases', 'count' => 42, 'placement' => 'header'] && array_column($widgets['app.case-stats']['actions'], 'key') === ['export', 'see-all'], 'a stat card\'s see-all is in the header with its count, after its own actions');
+    check($widgets['app.legacy-cases']['seeAll'] === ['label' => 'All cases', 'url' => '/@acme/cases', 'count' => null, 'placement' => 'footer'] && array_column($widgets['app.legacy-cases']['actions'], 'key') === ['new', 'cases'], 'a widget\'s "View all cases" header action maps onto its see-all as "All cases", and stays an action (no second one is added) for an older WidgetCard');
     check($widgets['app.stretchy']['state'] === 'error' && $widgets['app.stretchy']['component'] === 'error', 'a loading height that is not a px, rem or em length becomes an error card (fail closed)');
     check($widgets['app.sideways']['state'] === 'error' && $widgets['app.sideways']['component'] === 'error' && $widgets['app.sideways']['region'] === 'main', 'a widget naming neither main nor aside becomes an error card (fail closed)');
     check($widgets['app.broken']['state'] === 'error' && $widgets['app.broken']['component'] === 'error' && $widgets['app.broken']['error']['message'] === "This couldn't load." && ! array_key_exists('rows', $widgets['app.broken']), 'a widget that throws becomes an error card with none of its props');

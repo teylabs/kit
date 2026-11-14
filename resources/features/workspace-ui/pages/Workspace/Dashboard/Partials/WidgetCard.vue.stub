@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Link, router } from '@inertiajs/vue3';
-import { Button, InputSelect, provideCard } from '@kit/ui';
+import { Button, InputSelect, SeeAllLink, provideCard, seeAllPlacement } from '@kit/ui';
 import { computed, ref, useId, watch } from 'vue';
 import type { WidgetFrame } from './types';
 
@@ -11,10 +11,16 @@ import type { WidgetFrame } from './types';
 // arrows open it, the arrows move, Enter picks, Escape closes). A choice is saved for the viewer (PUT, the server checks it against the widget) and reloads
 // only the props the widget names (its own lists, else `widgets`); the body remounts on the new order, so a list starts again from its top.
 // A widget's `loadingHeight` is the ready body's minimum height, so the card holds the space its deferred content will fill and nothing below shifts.
+// A widget's `seeAll` (docs/see-all.md) is its "All cases →" link: in a footer at the card's bottom right, after the list's end and outside its scroll, so it
+// stays in view while the list scrolls (`footer`, the default), or last in the header (`header`, for a summary, stat or chart). Never on an error card. The server
+// also sends it as a header action for a card copied before it (Widgets); this card leaves out the GET action with its URL, so it is drawn once.
 const props = defineProps<{ widget: WidgetFrame; headless?: boolean }>();
 provideCard();
 const loadingHeight = computed(() => (props.widget.state === 'ready' && props.widget.loadingHeight) || null);
 const retry = () => router.reload();
+const seeAll = computed(() => (props.widget.state === 'error' ? null : (props.widget.seeAll ?? null)));
+const placement = computed(() => seeAllPlacement(seeAll.value));
+const actions = computed(() => props.widget.actions.filter((action) => !(props.widget.seeAll && action.method === 'get' && action.url === props.widget.seeAll.url)));
 const sortId = useId();
 const sort = computed(() => props.widget.sortBy ?? null);
 const sortOptions = computed(() => (sort.value?.options ?? []).map((option) => ({ value: option.key, label: option.label })));
@@ -46,14 +52,15 @@ const choose = (value: unknown) => {
     <section :aria-labelledby="headless ? undefined : `widget-${props.widget.key}`" :aria-label="headless ? widget.title : undefined" class="flex min-w-0 flex-col rounded-xl border bg-card text-card-foreground shadow-sm" :data-widget="widget.key" :data-state="widget.state">
         <header v-if="!headless" class="flex min-h-12 items-center justify-between gap-3 border-b px-4 py-2">
             <h2 :id="`widget-${widget.key}`" class="truncate text-sm font-semibold">{{ widget.title }}</h2>
-            <div v-if="(sort && widget.state === 'ready') || (widget.actions.length && widget.state !== 'error')" class="flex shrink-0 items-center gap-2">
+            <div v-if="(sort && widget.state === 'ready') || (actions.length && widget.state !== 'error') || placement === 'header'" class="flex shrink-0 items-center gap-2">
                 <div v-if="sort && widget.state === 'ready'" class="flex items-center gap-2" data-widget-sort>
                     <label :for="sortId" class="text-xs font-medium whitespace-nowrap text-muted-foreground">{{ sort.label }}</label>
                     <div class="w-40">
                         <InputSelect :id="sortId" :model-value="current" :options="sortOptions" :searchable="false" :clearable="false" :disabled="saving" @update:model-value="choose" />
                     </div>
                 </div>
-                <Link v-for="action in widget.actions" :key="action.key ?? action.url" :href="action.url" :method="action.method as 'get'" class="rounded-md px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">{{ action.label }}</Link>
+                <Link v-for="action in actions" :key="action.key ?? action.url" :href="action.url" :method="action.method as 'get'" class="rounded-md px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">{{ action.label }}</Link>
+                <SeeAllLink v-if="seeAll && placement === 'header'" :see-all="seeAll" />
             </div>
         </header>
         <div :class="['flex-1 p-4', loadingHeight ? 'min-h-(--kit-widget-loading-height)' : 'min-h-0']" :style="loadingHeight ? { '--kit-widget-loading-height': loadingHeight } : undefined" :data-widget-loading-height="loadingHeight || undefined">
@@ -68,5 +75,8 @@ const choose = (value: unknown) => {
             </div>
             <div v-else :key="shown ?? ''" class="contents"><slot /></div>
         </div>
+        <footer v-if="seeAll && placement === 'footer'" class="flex justify-end border-t px-4 py-2" data-widget-footer>
+            <SeeAllLink :see-all="seeAll" />
+        </footer>
     </section>
 </template>

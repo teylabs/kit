@@ -130,6 +130,7 @@ Every widget's props start with the same frame, and the class adds its own:
 | `empty` | `WidgetEmptyData`: a title, a description and an optional action. |
 | `error` | `WidgetErrorData`: a fixed message and a retry. Never exception text. |
 | `actions` | `list<Action>` shown in the card header. |
+| `seeAll` | The card's one `SeeAll` link ("All cases →"), or null: in a footer at the bottom right, after the body and outside its scroll (the default, for a list), or last in the header (`->inHeader()`, for a summary, stat or chart). A plain "All …", "View all …" or "See all …" header action is the deprecated way, mapped onto it. See [docs/see-all.md](see-all.md). |
 | `sortBy` | `WidgetSortData` for the header's Sort by control, or null when the widget declares no orders. See Sort by. |
 
 Props follow the `ViewModel` rules: every public method with no required parameters is a prop, with a declared return type and a docblock shape for arrays.
@@ -141,6 +142,21 @@ A widget that throws, while it is built or while its props are read, becomes an 
 ## Lists
 
 A widget that shows a scrolling list returns `ScrollListViewModel`s from `lists()` and names the list's key in a prop. Each list becomes a deferred page prop under its key, and the card renders `<ScrollList :list-key="…">`. A list key that clashes with another widget's list or a dashboard prop turns the widget into an error card. See the kit's `PeopleWidget` and `PeopleList`.
+
+## See all
+
+A widget that shows the first few of something links to the rest with `seeAll()`, never with a hand-written link or a "View all" action:
+
+```php
+use Tey\Kit\Features\Core\Data\SeeAll;
+
+public function seeAll(): ?SeeAll
+{
+    return SeeAll::to('All cases', WorkspaceUrl::to($this->context->workspace, 'cases', null, $this->context->request));
+}
+```
+
+`WidgetCard` draws it as "All cases →" in a footer at the card's bottom right, after the list's end and outside its scroll, so it stays in view while the list scrolls. A stat or chart card puts it in its header with `->inHeader()`. See [docs/see-all.md](see-all.md).
 
 ## Sort by
 
@@ -229,7 +245,7 @@ Onboarding::step('branding', 'Workspace branding', 30, fn (int $user, ?int $work
 
 A widget may leave itself out for a viewer by returning false from `visible()` (checked after its ability, before its props are read); the setup card does once every step is done. When it is the only widget, it takes the grid's full width.
 
-The notes feature's `notes.recent` (order 0, `notes.read`) is a task in main: its composer and two-up notes need the width, and the one feed is Recent activity.
+The notes feature's `notes.recent` (order 0, `notes.read`) is a task in main: its composer and two-up notes need the width, and the one feed is Recent activity. Its "All notes" is a see-all in the card's footer, after the last note ([docs/see-all.md](see-all.md)).
 
 Each is optional. `kit.dashboard.widgets` in `config/kit.php` lists the ones to keep, and it defaults to all four:
 
@@ -265,7 +281,7 @@ A hidden member is absent by URL too: their Change role and Transfer ownership p
 
 ## Frontend
 
-`pages/Workspace/Dashboard/Page.vue` renders the greeting as its heading, then `Partials/WidgetGrid.vue`, or the empty state when the viewer has no widgets. The grid is a PageGrid `main-aside` (or `main-aside-wide`, from the `aside` prop) with a Stack of cards in each column (see Layout). `Partials/WidgetCard.vue` is the card shell: the title, the header actions, then the body, the empty state or the error with Retry. An app's widget body is a component in `resources/js/widgets/` that takes a `widget` prop, typed as `WidgetFrame` from `Partials/types.ts` plus its own props.
+`pages/Workspace/Dashboard/Page.vue` renders the greeting as its heading, then `Partials/WidgetGrid.vue`, or the empty state when the viewer has no widgets. The grid is a PageGrid `main-aside` (or `main-aside-wide`, from the `aside` prop) with a Stack of cards in each column (see Layout). `Partials/WidgetCard.vue` is the card shell: the title, the header actions, then the body, the empty state or the error with Retry, then the see-all footer. An app's widget body is a component in `resources/js/widgets/` that takes a `widget` prop, typed as `WidgetFrame` from `Partials/types.ts` plus its own props.
 
 An app that still registers its own dashboard component (`Registry::dashboardComponent()`) gets `widgets` and any list props too, and can render `<WidgetGrid>` itself.
 

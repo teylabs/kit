@@ -353,6 +353,9 @@ export {
     type ActionFitMeasure,
 } from './Action/actionFit';
 export { default as SectionHeader } from './Layout/SectionHeader.vue';
+// A list's one "see all" link, from the server's SeeAll descriptor: "All cases →" in a card's footer or header (docs/see-all.md).
+export { default as SeeAllLink } from './Action/SeeAllLink.vue';
+export { seeAllPlacement, type SeeAll } from './Action/seeAll';
 // The menu family (Dropdown.md and its relatives, ButtonDropdown.md), over the shared MenuPanel (internal, not exported). Items must sit inside one of these menus or ButtonGroup's `menu` slot. Menu/DropdownMenu.vue (auto-wrapping items) is not exported: its name is the shadcn primitive's above.
 export { default as Dropdown } from './Menu/Dropdown.vue';
 export { default as DropdownItem } from './Menu/DropdownItem.vue';
