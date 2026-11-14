@@ -49,7 +49,7 @@ class SettingsController
     {
         $principal = $this->principal($request);
         // Only the fields the form sends reach the operation; a stray browser field is dropped, not refused.
-        $input = OperationForm::input($request, ['display_name', 'timezone', 'expected_version', 'intent_key']);
+        $input = OperationForm::input($request, ['display_name', 'timezone', 'clock', 'expected_version', 'intent_key']);
         $settings = OperationForm::run($request, fn () => app(SettingsUi::class)->update($principal, $workspace, $input));
 
         if ($request->expectsJson() && ! $request->header('X-Inertia')) {
