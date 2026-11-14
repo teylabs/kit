@@ -23,7 +23,7 @@ final class SecurityNotice extends Notification
         'recovery_codes_regenerated' => ['New recovery codes for your :product account', 'New two-factor recovery codes were made for your :product account. The old ones no longer work.'],
         'passkey_added' => ['A passkey was added to your :product account', 'A passkey was added to your :product account.'],
         'passkey_removed' => ['A passkey was removed from your :product account', 'A passkey was removed from your :product account.'],
-        // Which device is never named: a device's details are shown on the Security page alone. When and where are the request's that signed it out.
+        // Which device is never named: a device's details are shown on the Security page alone. The when and where are those of the request that signed it out.
         'device_signed_out' => ['A device was signed out of your :product account', 'A device signed in to your :product account was signed out from the account\'s Security page.'],
     ];
 

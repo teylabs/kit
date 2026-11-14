@@ -165,6 +165,18 @@ final class SignedInDevices
      */
     public static function track(Request $request, string $sessionId, int|string $userId, bool $remembered): ?int
     {
+        // After an APP_KEY rotation, a row under a previous key's HMAC (a backfilled session, say) is this session's: adopted with its id and rewritten
+        // with the current key, never a second row. Another person's row is never adopted.
+        $previous = self::previous($sessionId);
+        $held = $previous === [] ? null : DB::table(self::TABLE)->whereIn('session_hash', $previous)->first(['id', 'user_id']);
+        if ($held !== null) {
+            if ((string) $held->user_id !== (string) $userId) {
+                return null;
+            }
+            DB::table(self::TABLE)->where('id', $held->id)->whereIn('session_hash', $previous)->update(['session_hash' => self::hash($sessionId)]);
+
+            return (int) $held->id;
+        }
         DB::table(self::TABLE)->insertOrIgnore(self::row($sessionId, $userId, $request->userAgent(), $request->ip(), self::country($request), $remembered, now()));
         $id = DB::table(self::TABLE)->where('session_hash', self::hash($sessionId))->where('user_id', $userId)->value('id');
 
@@ -177,6 +189,11 @@ final class SignedInDevices
      */
     public static function adopt(string $sessionId, int|string $userId, ?string $agent, ?string $ip, CarbonInterface $lastActive): bool
     {
+        $previous = self::previous($sessionId);
+        if ($previous !== [] && DB::table(self::TABLE)->whereIn('session_hash', $previous)->exists()) {
+            return false;
+        }
+
         return DB::table(self::TABLE)->insertOrIgnore(self::row($sessionId, $userId, $agent, $ip, null, false, $lastActive)) > 0;
     }
 
@@ -228,13 +245,14 @@ final class SignedInDevices
     }
 
     /**
-     * Whether this session id was revoked (its device signed out elsewhere, or the id retired by a regenerate): one read of the cache store. Null when
-     * the store can't answer (reported, scrubbed): the caller checks the row in the database instead, so the request is never let through unchecked.
+     * Whether this session id was revoked (its device signed out elsewhere, or the id retired by a regenerate): one read of the cache store, for the
+     * marker under the current key's HMAC and each previous key's (a device signed out before an APP_KEY rotation stays out). Null when the store
+     * can't answer (reported, scrubbed): the caller checks the row in the database instead, so the request is never let through unchecked.
      */
     public static function revoked(string $sessionId): ?bool
     {
         try {
-            return self::store()->has(self::marker(self::hash($sessionId)));
+            return in_array(true, self::store()->many(array_map(self::marker(...), self::hashes($sessionId))), true);
         } catch (Throwable $e) {
             report(new RuntimeException('Signed-in devices could not read the cache store ('.$e::class.'), so the request was checked against signed_in_devices instead.'));
 
@@ -394,6 +412,16 @@ final class SignedInDevices
         $request = app()->bound('request') ? app('request') : null;
 
         return $request instanceof Request && $request->hasSession() ? $request->session() : null;
+    }
+
+    /**
+     * The session id's HMACs with APP_PREVIOUS_KEYS alone: none until a key rotation.
+     *
+     * @return list<string>
+     */
+    private static function previous(string $sessionId): array
+    {
+        return array_values(array_diff(self::hashes($sessionId), [self::hash($sessionId)]));
     }
 
     private static function marker(string $hash): string

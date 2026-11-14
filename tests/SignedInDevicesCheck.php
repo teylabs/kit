@@ -863,8 +863,26 @@ try {
         $app->forgetInstance('encrypter');
         Facade::clearResolvedInstance('encrypter');
     };
+    // Before the rotation: D signed out, its session written back after the destroy (its marker is under the old key's HMAC), and a session from
+    // before 0.23 backfilled under the old key.
+    $d = new Browser(WINDOWS, '198.51.100.82');
+    $dId = $signIn($d, $rot);
+    $inFlight = (string) file_get_contents($base.'/storage/framework/sessions/'.$dId);
+    $signOut($a, (int) $rowOf($dId)->id);
+    file_put_contents($base.'/storage/framework/sessions/'.$dId, $inFlight);
+    $rotPre = $person('rot-pre');
+    $rotPreId = bin2hex(random_bytes(20));
+    file_put_contents($base.'/storage/framework/sessions/'.$rotPreId, serialize(['_token' => str_repeat('r', 40), $guardKey => $rotPre->id]));
+    SignedInDevices::adopt($rotPreId, $rotPre->id, WINDOWS, '192.0.2.60', Carbon::now());
+    $backfilled = (int) $rowOf($rotPreId)->id;
     $rotate('base64:'.base64_encode(random_bytes(32)));
     check($signedIn($a) && $signedIn($b), 'after an APP_PREVIOUS_KEYS rotation both devices stay signed in (their rows found by the previous key\'s HMAC)');
+    check(! $signedIn($d) && $rowOf($dId) === null, 'a device signed out before the rotation stays out on its next request, before any touch (its marker is read under the previous key\'s HMAC too)');
+    check(! SignedInDevices::adopt($rotPreId, $rotPre->id, WINDOWS, '192.0.2.60', Carbon::now()) && $rows($rotPre)->count() === 1, 'after the rotation the backfill adds no second row for a session backfilled under the previous key');
+    check(SignedInDevices::track(Request::create('/'), $rotPreId, $rot->id, false) === null && $rows($rot)->where('id', $backfilled)->isEmpty(), 'and another person is never given that row');
+    $rotPreBrowser = new Browser(WINDOWS, '192.0.2.60');
+    $rotPreBrowser->cookies = ['s' => $rotPreId];
+    check($signedIn($rotPreBrowser) && $rows($rotPre)->count() === 1 && (int) $rows($rotPre)->sole()->id === $backfilled && $rows($rotPre)->sole()->session_hash === SignedInDevices::hash($rotPreId), 'its first request adopts the backfilled row, same id, rewritten with the current key: one row per session');
     [$status, , $body] = $signOut($a, (int) $rowOf($bId)->id);
     check($status === 200 && $body['at_once'] === true && ! is_file($base.'/storage/framework/sessions/'.$bId) && ! $signedIn($b), 'and A signs B out: its session id, encrypted with the previous key, still decrypts and is destroyed');
     $c = new Browser(WINDOWS, '198.51.100.81');
