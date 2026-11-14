@@ -6932,9 +6932,10 @@ async function formsPage({ form, component, save, page: render, accept, check },
 }
 const saved = (message) => ({ errors: {}, flash: { toast: { id: `t-${Math.random()}`, type: 'success', message, from: 'save', style: 'pulse', duration: 4000 } } });
 
-// General: the display name and the timezone (TimezoneSelect, searchable), as SettingsController renders and saves them.
-function generalForm() {
-    const store = { display_name: 'Acme Workshop', timezone: 'UTC', version: 1 };
+// General: the display name, then Date & time: the timezone (TimezoneSelect, searchable) and, when the app wires Registry::workspaceClockUsing (`clock`
+// given here), the time format, as SettingsController renders and saves them. Without the wiring `settings.clock` is null and no time format is sent.
+function generalForm({ clock = null } = {}) {
+    const store = { display_name: 'Acme Workshop', timezone: 'UTC', version: 1, clock };
     return {
         store,
         form: 'General',
@@ -6944,13 +6945,19 @@ function generalForm() {
         accept: (body) => {
             const name = String(body.display_name ?? '').trim();
             if (name === '' || name.length > 120) return { errors: { display_name: 'The display name field is required.' }, flash: {} };
-            Object.assign(store, { display_name: name, timezone: body.timezone, version: store.version + 1 });
+            if ('clock' in body && (store.clock === null || !['auto', '12h', '24h'].includes(body.clock))) return { errors: { clock: 'Choose a time format.' }, flash: {} };
+            Object.assign(store, { display_name: name, timezone: body.timezone, version: store.version + 1, ...('clock' in body ? { clock: body.clock } : {}) });
             return saved('Workspace settings saved.');
         },
     };
 }
+// The Date & time section: its heading, then the labels of the fields under it, in page order.
+const dateTimeSection = (tab, scope) => tab.$eval(scope, (section) => ({
+    heading: section.querySelector('h2, h3')?.textContent.trim(),
+    fields: [...section.querySelectorAll('[id$="-label"]')].map(el => el.textContent.trim()),
+}));
 async function pickTimezone(tab, zone) {
-    await tab.getByRole('combobox', { name: 'Timezone' }).click();
+    await tab.getByRole('combobox', { name: /^Time ?zone$/ }).click();
     await tab.keyboard.type(zone.split('/').pop());
     await tab.getByRole('option', { name: zone }).first().click();
 }
@@ -6958,6 +6965,9 @@ async function pickTimezone(tab, zone) {
 test('General settings: a person changes the name and timezone and presses Save; the toast shows, and the saved values come back after the redirect and a reload', async () => {
     const general = generalForm();
     await formsPage(general, async ({ tab, posts, toast, reload }) => {
+        assert.deepEqual(await dateTimeSection(tab, '[data-date-time]'), { heading: 'Date & time', fields: ['Time zone'] }, 'Date & time holds Time zone only: the app wires no workspace clock');
+        assert.equal(await tab.locator('input[name=clock]').count(), 0, 'no time format field without workspaceClockUsing');
+        if (accountShots) await accountShot(tab, 'general-date-time-unwired');
         await tab.getByRole('textbox', { name: 'Display name', exact: true }).fill('Northwind Farms');
         await pickTimezone(tab, 'Europe/Amsterdam');
         await tab.getByRole('button', { name: 'Save' }).click();
@@ -6972,6 +6982,27 @@ test('General settings: a person changes the name and timezone and presses Save;
         assert.equal(await tab.inputValue('#display-name'), 'Northwind Farms');
         assert.equal(await tab.locator('input[name=timezone]').inputValue(), 'Europe/Amsterdam', 'the reloaded page keeps the saved timezone');
         assert.equal(await tab.locator('input[name=expected_version]').inputValue(), '2', 'the next save carries the new version');
+    });
+});
+
+test('General settings, Date & time with a workspace clock wired: Time zone then Time format under the heading; a person chooses 24-hour and presses Save, the clock is posted with the rest and comes back after a reload', async () => {
+    const general = generalForm({ clock: 'auto' });
+    await formsPage(general, async ({ tab, posts, toast, reload }) => {
+        assert.deepEqual(await dateTimeSection(tab, '[data-date-time]'), { heading: 'Date & time', fields: ['Time zone', 'Time format'] }, 'the heading, then Time zone, then Time format');
+        const chosen = () => tab.$eval('[data-date-time] input[name=clock]:checked', el => el.value);
+        assert.equal(await chosen(), 'auto', 'a workspace with no clock of its own shows Automatic');
+        assert.deepEqual(await tab.$$eval('[data-date-time] input[name=clock]', els => els.map(el => el.value)), ['12h', '24h', 'auto']);
+        await tab.locator('[data-date-time]').getByText('24-hour', { exact: true }).click();
+        await tab.getByRole('button', { name: 'Save' }).click();
+        assert.equal(await toast('Workspace settings saved.'), 1);
+        assert.equal(posts.length, 1, 'one save');
+        assert.deepEqual({ ...posts[0].body }, { expected_version: '1', intent_key: 'intent-1', display_name: 'Acme Workshop', timezone: 'UTC', clock: '24h' });
+        payloadFixture('general-clock', posts[0].body);
+        assert.equal(general.store.clock, '24h');
+        assert.equal(await chosen(), '24h', 'after the redirect');
+        await reload();
+        assert.equal(await chosen(), '24h', 'after a reload');
+        if (accountShots) await accountShot(tab, 'general-date-time');
     });
 });
 
@@ -7385,7 +7416,7 @@ const passwordError = (body) => (!body.password ? { password: 'Enter your passwo
 
 // Account › Profile: the name and email (Fortify's profile update, UpdateProfile) and the photo (AvatarController: StoreAvatar, RemoveAvatar).
 function profileAccount() {
-    const store = { name: 'Robin Vale', email: 'robin@example.test', verified: true, avatar: null, notice: null, clock: 'workspace' };
+    const store = { name: 'Robin Vale', email: 'robin@example.test', verified: true, avatar: null, notice: null, clock: 'workspace', timezone: 'Europe/London' };
     const initials = () => store.name.split(/\s+/).map(part => part[0]).join('').slice(0, 2).toUpperCase();
     return {
         store,
@@ -7394,7 +7425,7 @@ function profileAccount() {
             Profile: () => {
                 const notice = store.notice;
                 store.notice = null;
-                return { component: 'Workspace/Account/Profile/Page', props: { ...titled('Profile'), name: store.name, initials: initials(), avatar: store.avatar ? { url: `/avatars/${store.avatar.token}`, url_2x: null } : null, store_url: '/me/avatar', max_kb: 2048, email: store.email, email_verified: store.verified, profile_url: '/user/profile-information', notice, verify_url: '/email/verification-notification', clock: store.clock, clock_url: '/me/profile/clock', kitClock: store.clock === 'workspace' ? 'auto' : store.clock } };
+                return { component: 'Workspace/Account/Profile/Page', props: { ...titled('Profile'), name: store.name, initials: initials(), avatar: store.avatar ? { url: `/avatars/${store.avatar.token}`, url_2x: null } : null, store_url: '/me/avatar', max_kb: 2048, email: store.email, email_verified: store.verified, profile_url: '/user/profile-information', notice, verify_url: '/email/verification-notification', clock: store.clock, clock_url: '/me/profile/clock', timezone: store.timezone, kitClock: store.clock === 'workspace' ? 'auto' : store.clock } };
             },
         },
         routes: [
@@ -7415,9 +7446,10 @@ function profileAccount() {
             }],
             ['DELETE', '/me/avatar', () => { store.avatar = null; return {}; }],
             ['PUT', '/me/profile/clock', (body) => {
-                if (!['workspace', '12h', '24h'].includes(body.clock)) return { errors: { clock: 'Choose a clock.' } };
-                store.clock = body.clock;
-                return saved('Clock saved.');
+                if (!['workspace', '12h', '24h'].includes(body.clock)) return { errors: { clock: 'Choose a time format.' } };
+                if ('timezone' in body && !Intl.supportedValuesOf('timeZone').includes(body.timezone)) return { errors: { timezone: 'Choose a time zone from the list.' } };
+                Object.assign(store, { clock: body.clock, timezone: body.timezone ?? store.timezone });
+                return saved('Date & time saved.');
             }],
         ],
     };
@@ -7451,22 +7483,27 @@ test('Profile: a person changes the name and email and presses Save; the posted 
     });
 });
 
-test('Profile: a person chooses 24-hour and presses Save clock; only `clock` is posted, a toast confirms it, and the choice is still chosen after a reload; Use workspace setting is the default', async () => {
+test('Profile, Date & time: Time zone then Time format under one heading; a person picks a zone and 24-hour and presses Save date & time; only those two are posted, a toast confirms it, and both are still chosen after a reload; Use workspace setting is the default', async () => {
     const profile = profileAccount();
     await accountPage(profile, async ({ tab, posts, reload, settle, toast }) => {
+        assert.deepEqual(await dateTimeSection(tab, '[data-clock-form] [data-form-card]'), { heading: 'Date & time', fields: ['Time zone', 'Time format'] }, 'the heading, then Time zone, then Time format');
+        assert.equal(await tab.getByRole('heading', { name: 'Clock', exact: true }).count(), 0, 'no separate Clock card');
         const chosen = () => tab.$eval('[data-clock-form] input[type=radio]:checked', el => el.value);
         assert.equal(await chosen(), 'workspace', 'with no choice of their own, Use workspace setting is chosen');
+        assert.equal(await tab.locator('[data-clock-form] input[name=timezone]').inputValue(), 'Europe/London', 'the saved zone is shown');
         assert.deepEqual(await tab.$$eval('[data-clock-form] [role=radio], [data-clock-form] input[type=radio]', els => [...new Set(els.map(el => el.value ?? el.getAttribute('value')))]), ['workspace', '12h', '24h']);
+        await pickTimezone(tab, 'Europe/Amsterdam');
         await tab.locator('[data-clock-form]').getByText('24-hour', { exact: true }).click();
         assert.equal(await tab.getByRole('radio', { name: /^24-hour/ }).isChecked(), true, 'the card checks its radio');
-        await tab.getByRole('button', { name: 'Save clock', exact: true }).click();
+        await tab.getByRole('button', { name: 'Save date & time', exact: true }).click();
         await settle(1);
         assert.equal(posts.length, 1, 'one save');
-        assert.deepEqual([posts[0].method, posts[0].url, posts[0].inertia, { ...posts[0].body }], ['PUT', '/me/profile/clock', true, { clock: '24h' }], 'the clock form posts only its field, not the name or email');
+        assert.deepEqual([posts[0].method, posts[0].url, posts[0].inertia, { ...posts[0].body }], ['PUT', '/me/profile/clock', true, { timezone: 'Europe/Amsterdam', clock: '24h' }], 'the Date & time form posts only its fields, not the name or email');
         payloadFixture('profile-clock', posts[0].body);
-        assert.equal(await toast('Clock saved.'), 1);
+        assert.equal(await toast('Date & time saved.'), 1);
         for (const when of ['after the redirect', 'after a reload']) {
             assert.equal(await chosen(), '24h', when);
+            assert.equal(await tab.locator('[data-clock-form] input[name=timezone]').inputValue(), 'Europe/Amsterdam', when);
             if (when === 'after the redirect') await reload();
         }
         assert.equal(await tab.inputValue('#profile-name'), 'Robin Vale', 'the profile form is untouched');

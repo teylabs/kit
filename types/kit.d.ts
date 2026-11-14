@@ -863,6 +863,7 @@ readonly notice: string | null,
 readonly verify_url: string,
 readonly clock: 'workspace' | '12h' | '24h',
 readonly clock_url: string,
+readonly timezone: string,
 };
 export type RegisterViewModel = {
 readonly title: string,
@@ -1043,6 +1044,7 @@ label: string,
 href: string,
 }[],
 version: number,
+clock: 'auto' | '12h' | '24h' | null,
 };
 }
 export namespace ViewModels {

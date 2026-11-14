@@ -50,9 +50,11 @@ use Tey\Concierge\Contracts\Member;
 use Tey\Concierge\Enums\MembershipStatus;
 use Tey\Concierge\Support\ConciergeModels;
 use Tey\Kit\Features\Access\Console\SyncPermissionsCommand;
+use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\FeaturesServiceProvider;
 use Tey\Kit\Features\Settings\Mail\SendingDomains;
+use Tey\Kit\Features\Settings\Operations\WorkspaceProfile;
 use Tey\Kit\Features\Settings\WorkspaceSettings;
 use Tey\Kit\Features\Workspaces\Concerns\HasWorkspaces;
 use Tey\Kit\Features\Workspaces\Models\Workspace;
@@ -240,6 +242,34 @@ try {
     $general->refresh();
     $timezone = $general->execute(fn () => app(WorkspaceSettings::class)->timezone);
     httpCheck($general->name === 'Northwind Farms' && $timezone === 'Europe/Amsterdam' && (int) $general->settings_version === 2, 'General: the name and timezone are stored and the version moves on');
+
+    // General settings' Date & time with a time format: refused while the app keeps no workspace clock, then saved through Registry::workspaceClockUsing's
+    // setter (inside the workspace, by the acting person) once it does, and read back through its getter.
+    $clockless = $fresh('clockless');
+    $result = $save($clockless, 'settings/general', $fixture('general-clock'));
+    $clockless->refresh();
+    httpCheck(isset($result[2]['clock']) && $clockless->name === 'Clockless' && (int) $clockless->settings_version === 1, 'General, time format without workspaceClockUsing: refused on the field, and nothing is saved'.$describe($result));
+    $clocks = [];
+    $sets = [];
+    $registry->workspaceClockUsing(function () use (&$clocks): ?string {
+        return $clocks[Workspace::current()?->id] ?? null;
+    }, function (int $actorId, ?string $clock) use (&$clocks, &$sets): void {
+        $sets[] = [$actorId, Workspace::current()?->id, $clock];
+        $clocks[Workspace::current()->id] = $clock;
+    });
+    $read = fn (Workspace $in): ?string => $in->execute(fn () => app(WorkspaceProfile::class)->read(new Principal((int) $people['admin']->id))->clock);
+    $clocked = $fresh('clocked');
+    httpCheck($read($clocked) === 'auto', 'General, time format: a wired workspace with no clock of its own reads as auto (Automatic)');
+    $result = $save($clocked, 'settings/general', $fixture('general-clock'));
+    $clocked->refresh();
+    httpCheck($saved($result, 'https://kit.test/@clocked/settings/general') && $sets === [[(int) $people['admin']->id, $clocked->id, '24h']] && $read($clocked) === '24h' && (int) $clocked->settings_version === 2, 'General, time format: the recorded payload saves 24h through the registry setter, inside the workspace, as the admin; the page reads it back'.$describe($result).json_encode($sets));
+    $result = $save($clocked, 'settings/general', ['expected_version' => '2', 'intent_key' => 'intent-auto', 'display_name' => 'Clocked', 'timezone' => 'UTC', 'clock' => 'auto']);
+    httpCheck($saved($result, 'https://kit.test/@clocked/settings/general') && end($sets) === [(int) $people['admin']->id, $clocked->id, null] && $read($clocked) === 'auto', 'General, time format: Automatic clears the workspace\'s clock (the setter gets null)'.$describe($result));
+    $result = $save($clocked, 'settings/general', ['expected_version' => '3', 'intent_key' => 'intent-bad', 'display_name' => 'Clocked', 'timezone' => 'UTC', 'clock' => '25h']);
+    httpCheck(isset($result[2]['clock']) && count($sets) === 2, 'General, time format: a value other than auto, 12h or 24h is refused on the field and the setter is not called'.$describe($result));
+    $count = count($sets);
+    $result = $save($general, 'settings/general', ['expected_version' => '2', 'intent_key' => 'intent-zone', 'display_name' => 'Northwind Farms', 'timezone' => 'Europe/Paris']);
+    httpCheck($saved($result, 'https://kit.test/@general/settings/general') && count($sets) === $count, 'General, time format: a save without one (an older page) leaves the workspace\'s clock alone'.$describe($result));
 
     // Email sending, own domain with a custom reply-to.
     $email = $fresh('email');

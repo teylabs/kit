@@ -1,0 +1,7 @@
+{
+    "expected_version": "1",
+    "intent_key": "intent-1",
+    "display_name": "Acme Workshop",
+    "timezone": "UTC",
+    "clock": "24h"
+}

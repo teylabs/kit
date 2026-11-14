@@ -14,6 +14,10 @@ use Throwable;
  * through the app's locale. Pages get the preference as the `kitClock` share (the browser resolves `auto` by the page's locale). time() and range()
  * format server-built strings (a mail, a receipt, a digest, a chat message) on the resolved clock, in each Carbon's own zone and the app's locale.
  * Nothing here needs a request: for() takes the person and the workspace, so a queued job passes the ones it was made for.
+ *
+ * Within a web request a preference is resolved once per person and workspace (RequestMemo, scoped, so nothing outlives the request under Octane): a
+ * list that formats 30 times, and the `kitClock` share beside it, read the person's choice and call the workspace getter once. ClientClock::save()
+ * and the workspace setter forget it; an app that changes its own setting another way calls forget().
  */
 final class Clock
 {
@@ -44,8 +48,22 @@ final class Clock
      */
     public static function preference(Authenticatable|int|null $user = null, object|int|null $workspace = null): string
     {
-        $registry = app(Registry::class);
         $id = $user instanceof Authenticatable ? (int) $user->getAuthIdentifier() : $user;
+
+        return RequestMemo::instance()->get('clock:'.($id ?? '-').':'.self::workspaceKey($workspace), fn (): string => self::resolve($id, $workspace));
+    }
+
+    /** Forgets the preferences resolved in this request, so the next read sees a changed choice. */
+    public static function forget(): void
+    {
+        if (app()->resolved(RequestMemo::class)) {
+            RequestMemo::instance()->flush();
+        }
+    }
+
+    private static function resolve(?int $id, object|int|null $workspace): string
+    {
+        $registry = app(Registry::class);
         $own = $setting = null;
         try {
             $own = $id === null || $registry->userClock() === null ? null : ($registry->userClock())($id);
@@ -109,6 +127,20 @@ final class Clock
         $pattern = self::localeClock($locale) === $clock ? 'LT' : ($clock === '12h' ? 'h:mm A' : 'HH:mm');
 
         return $at->copy()->locale($locale)->isoFormat($pattern);
+    }
+
+    /** The workspace a preference is for: the one given, else the current tenant (spatie's container binding), else none. */
+    private static function workspaceKey(object|int|null $workspace): string
+    {
+        if ($workspace === null) {
+            $binding = config('multitenancy.current_tenant_container_key', 'currentTenant');
+            $workspace = is_string($binding) && app()->bound($binding) ? app($binding) : null;
+        }
+        if (is_object($workspace)) {
+            $workspace = method_exists($workspace, 'getKey') ? $workspace->getKey() : ($workspace->id ?? spl_object_id($workspace));
+        }
+
+        return $workspace === null ? '-' : (string) $workspace;
     }
 
     private static function signedIn(): ?int
