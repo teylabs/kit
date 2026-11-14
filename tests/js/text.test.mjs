@@ -82,7 +82,7 @@ test('copyText: without the Clipboard API it copies through a hidden textarea an
 });
 
 const vueDir = new URL('../../typecheck/node_modules/vue/', import.meta.url);
-test('useCopy: copied only once the write resolved, failed on a refusal, one write at a time, and a changed value claims nothing', { skip: !existsSync(vueDir) && 'Vue is installed in typecheck/ by the vue-tsc job' }, async () => {
+test('useCopy: copied only once the write resolved, failed on a refusal, one write at a time (a changed value included), and a changed value claims nothing', { skip: !existsSync(vueDir) && 'Vue is installed in typecheck/ by the vue-tsc job' }, async () => {
     const require = createRequire(new URL('../../typecheck/package.json', import.meta.url));
     const vue = require('vue');
     writeFileSync(join(dir, 'Text/useCopy.ts'), read('Text/useCopy.ts').replace("from 'vue'", `from '${pathToFileURL(require.resolve('vue')).href}'`).replace("from './copy';", "from './copy.ts';"));
@@ -103,10 +103,20 @@ test('useCopy: copied only once the write resolved, failed on a refusal, one wri
         const second = copy();
         value.value = 'second';
         await vue.nextTick();
-        assert.equal(state.value, 'idle', 'a changed value goes back to idle');
+        assert.equal(state.value, 'copying', 'a write in flight keeps copying after the value changed');
+        await copy();
+        assert.deepEqual(writes, ['first', 'first'], 'a press then does not start a second, overlapping write');
         pending.shift().resolve();
         await second;
-        assert.equal(state.value, 'idle', 'the old write resolving claims nothing about the new value');
+        assert.equal(state.value, 'idle', 'the old write settling claims nothing about the new value');
+        const next = copy();
+        assert.deepEqual(writes, ['first', 'first', 'second'], 'once settled, the next press writes the new value');
+        pending.shift().resolve();
+        await next;
+        assert.equal(state.value, 'copied');
+        value.value = 'third';
+        await vue.nextTick();
+        assert.equal(state.value, 'idle', 'with no write in flight, a changed value goes back to idle');
         const third = copy();
         pending.shift().reject(new Error('NotAllowedError'));
         await third;
@@ -131,6 +141,13 @@ test('formatNumeric: the locale\'s grouping and decimal, fixed or up to three pl
     assert.equal(formatNumeric(1234.5, { locale: 'en-CA', decimals: 2, negative: 'parentheses' }), '1,234.50', 'a positive has no parentheses');
     assert.equal(formatNumeric(-0.0004, { locale: 'en-CA', decimals: 0, negative: 'parentheses' }), '0', 'what rounds to zero is not negative: never (0) or -0');
     assert.equal(formatNumeric(-0, { locale: 'en-CA' }), '0');
+    // Digits other than ASCII: Arabic-Indic (with U+061C before the minus), Persian (U+200E and U+2212) and Devanagari.
+    assert.equal(formatNumeric(-1234, { locale: 'ar-EG' }), '\u061C-١٬٢٣٤', 'the sign is kept, its mark before it');
+    assert.equal(formatNumeric(-1234, { locale: 'ar-EG', negative: 'parentheses' }), '(١٬٢٣٤)');
+    assert.equal(formatNumeric(-1234.5, { locale: 'fa-IR', decimals: 1 }), '\u200E\u2212۱٬۲۳۴٫۵');
+    assert.equal(formatNumeric(-12, { locale: 'hi-IN-u-nu-deva', negative: 'parentheses' }), '(१२)');
+    assert.equal(formatNumeric(-0.4, { locale: 'ar-EG', decimals: 0 }), '٠', 'rounding to the locale\'s zero is not negative, and drops the sign\'s mark');
+    assert.equal(formatNumeric(1234, { locale: 'ar-EG' }), '١٬٢٣٤');
     assert.equal(isNumeric(' 42 '), true);
     assert.equal(isNumeric('1e3'), true);
     assert.equal(isNumeric('0x10'), false, 'hex is not a decimal');

@@ -5,8 +5,9 @@ export type CopyState = 'idle' | 'copying' | 'copied' | 'failed';
 
 /*
  * The copy state CopyButton, CopyField and TextCopy share: `copy()` writes the value through copyText and is `copied` only once the write resolved, `failed`
- * when it was refused or there was no clipboard. A press while one is in flight is ignored, and a changed value goes back to `idle`, so a write that resolves
- * after the value changed claims nothing about the new one.
+ * when it was refused or there was no clipboard. One write at a time: a press while one is in flight is ignored, also after the value changed, so writes
+ * never overlap or land out of order. A changed value goes back to `idle`, once no write is in flight, and a write that settles after the value changed
+ * claims nothing about the new one: it ends in `idle`.
  */
 export function useCopy(value: () => string): {
     state: Ref<CopyState>;
@@ -16,7 +17,8 @@ export function useCopy(value: () => string): {
     let revision = 0;
     watch(value, () => {
         revision++;
-        state.value = 'idle';
+        // A write still in flight keeps `copying` (and the guard below) until it settles.
+        if (state.value !== 'copying') state.value = 'idle';
     });
     async function copy(): Promise<void> {
         if (state.value === 'copying') return;
@@ -24,9 +26,9 @@ export function useCopy(value: () => string): {
         state.value = 'copying';
         try {
             await copyText(value());
-            if (attempt === revision) state.value = 'copied';
+            state.value = attempt === revision ? 'copied' : 'idle';
         } catch {
-            if (attempt === revision) state.value = 'failed';
+            state.value = attempt === revision ? 'failed' : 'idle';
         }
     }
 

@@ -71,7 +71,7 @@ import { CopyField, TextAddress, TextChips, TextCode, TextCopy, TextLong, TextNu
 
 ## Copy
 
-One helper writes to the clipboard for every kit copy: `copyText(text)` uses the async Clipboard API, and where the browser has none (a page served over plain http, an older browser) a hidden textarea and `execCommand('copy')`, putting back the focus and selection it moved. A write the browser refuses is not retried another way. `useCopy(() => value)` wraps it with the shared state (`idle`, `copying`, `copied`, `failed`): copied only once the write resolved, one write at a time, and a changed value back to `idle`, so a late write claims nothing about the new one. `TextCopy`, `CopyField`, `CopyButton` and `TextCode`'s Copy all use it.
+One helper writes to the clipboard for every kit copy: `copyText(text)` uses the async Clipboard API, and where the browser has none (a page served over plain http, an older browser) a hidden textarea and `execCommand('copy')`, putting back the focus and selection it moved. A write the browser refuses is not retried another way. `useCopy(() => value)` wraps it with the shared state (`idle`, `copying`, `copied`, `failed`): copied only once the write resolved, and one write at a time: a press while one is in flight is ignored, also after the value changed, so writes never overlap. A changed value goes back to `idle` once no write is in flight, and a write that settles after the change claims nothing about the new value. `TextCopy`, `CopyField`, `CopyButton` and `TextCode`'s Copy all use it.
 
 - **`TextCopy`** inline is a real button styled as text with a dotted underline: Enter and Space copy too. It shows the default slot, else `value`, so its accessible name is what it shows; `tooltip` ("Copy") is its title. Once copied it shows a check and a polite status says "Copied." once.
 - **`TextCopy button`** is a labelled kit `Button` (`label`, `copied-label`, `variant` secondary or ghost); `icon` a small icon button named by `label`. A refused or missing clipboard says so and shows the value in a read-only input, selected on focus, to copy by hand. **`CopyButton`** is this, under its own name and with the same props.
@@ -81,7 +81,7 @@ One helper writes to the clipboard for every kit copy: `copyText(text)` uses the
 
 - The locale's grouping and decimal (`1,234,567`; fr-CA `1 234,50`) from the browser's `Intl`, in tabular figures. The locale is `locale`, else the host's `kitNumber.locale`, else the browser's, else en-CA, as `Amount` resolves it.
 - `decimals` fixes the places (half rounds away from zero); unset keeps up to three, so float noise is not shown. `notation="compact"` writes `1.2K`. A numeric string is formatted as written, so a value past 2^53 keeps every digit.
-- `negative="parentheses"` is the accounting form, `(1,234.50)`: the parentheses are visual and a screen reader hears "negative". What rounds to zero is never negative. A negative carries `data-negative` for the app's own colour.
+- `negative="parentheses"` is the accounting form, `(1,234.50)`: the parentheses are visual and a screen reader hears "negative". What rounds to zero is never negative. A locale's own digits (Arabic-Indic, Persian, Devanagari) and the bidi mark it writes before its minus are kept. A negative carries `data-negative` for the app's own colour.
 - `prefix` and `suffix` (or the `prefix` and `suffix` slots) sit outside the number.
 - A value that is not a number (null, empty, `"n/a"`, `"1,234"` with its grouping) renders nothing, never `NaN`.
 

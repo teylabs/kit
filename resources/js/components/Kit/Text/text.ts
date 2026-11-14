@@ -52,8 +52,10 @@ export type NumericOptions = {
 };
 
 /**
- * A number's display parts: `text` without its sign, and `negative` when what is shown is below zero (a value that rounds to zero is not: -0.001 at no
- * places is "0", never "-0"). Null when the value is not a number. A numeric string is formatted as written, so a value past 2^53 keeps every digit.
+ * A number's display parts: `text` without its sign, `minus` the sign with any bidi mark the locale writes before it (Arabic's U+061C, Persian's U+200E),
+ * and `negative` when what is shown is below zero: a digit other than the locale's own zero is shown, so it holds for Arabic-Indic or Devanagari digits
+ * too, and a value that rounds to zero is not negative (-0.001 at no places is "0", never "-0"). Null when the value is not a number. A numeric string is
+ * formatted as written, so a value past 2^53 keeps every digit.
  */
 export function numericParts(
     value: unknown,
@@ -73,16 +75,32 @@ export function numericParts(
     const input = typeof value === 'string' ? value.trim() : value;
     // Intl takes a decimal string exactly (ES2023); its type still says number.
     const parts = format.formatToParts(input as number);
-    const sign = parts.find((part) => part.type === 'minusSign');
-    const text = parts
-        .filter((part) => part.type !== 'minusSign')
-        .map((part) => part.value)
-        .join('');
+    const join = (list: Intl.NumberFormatPart[]) =>
+        list.map((part) => part.value).join('');
+    const at = parts.findIndex((part) => part.type === 'minusSign');
+    // A sign before the digits takes the marks before it along; one after them (no locale's decimal form does this today) is taken alone.
+    const leading =
+        at >= 0 && parts.slice(0, at).every((part) => part.type === 'literal');
+    const zero =
+        format.formatToParts(0).find((part) => part.type === 'integer')
+            ?.value ?? '0';
+    const shown = parts.some(
+        (part) =>
+            (part.type === 'integer' || part.type === 'fraction') &&
+            [...part.value].some((digit) => digit !== zero),
+    );
 
     return {
-        text,
-        negative: Boolean(sign) && /[1-9]/.test(text),
-        minus: sign?.value ?? '-',
+        text: leading
+            ? join(parts.slice(at + 1))
+            : join(parts.filter((part) => part.type !== 'minusSign')),
+        negative: at >= 0 && shown,
+        minus:
+            at < 0
+                ? '-'
+                : leading
+                  ? join(parts.slice(0, at + 1))
+                  : parts[at].value,
     };
 }
 
