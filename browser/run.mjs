@@ -6114,6 +6114,7 @@ test('CollectionSection: header actions keep their descriptor: a confirmed POST 
         const failed = tab.locator('[data-case="error"]');
         assert.equal(await failed.getByRole('alert').count(), 1, 'the error card shows its error');
         assert.deepEqual([await failed.locator('h2 a').count(), await failed.locator('a[data-see-all]').count(), (await failed.locator('h2').innerText()).trim()], [0, 0, 'Due cases'], 'an error card\'s title is plain text and it has no see-all');
+        assert.deepEqual([await failed.getByRole('button', { name: 'Assign' }).count(), await failed.getByRole('button', { name: 'Only mine' }).count(), await failed.locator('[data-collection-filters]').count()], [0, 0, 0], 'an error card hides what its #actions and #filters slots hold, as it hides its own actions and tabs');
         const empty = await tab.evaluate(() => {
             const card = document.querySelector('[data-case="bare-empty"]');
             return { state: card.querySelector('[data-collection-section]').dataset.state, items: card.textContent.includes('never shown'), body: card.querySelector('[data-collection-empty]') !== null, seeAll: card.querySelector('[data-collection-footer] a[data-see-all]')?.textContent.trim() ?? null };

@@ -9,7 +9,7 @@ import SearchBox from '@/components/Kit/Search/SearchBox.vue';
 // the descriptor's empty state and one with the `#empty` slot. Bare, on a CollectionSection: a grid of six project cards with a header action and its see-all
 // under the grid, and an empty one. And, first so its results open in view, a SearchBox, whose results end with "All results →". With `&twin=section` or
 // `&twin=card` the page holds only one descriptor (`twin`) with the same items, drawn by that component, so a test compares the two loads. With `&edge`: a card whose header actions are a plain link, a confirmed POST, a disabled
-// action with its reason and a new-tab link to the see-all's URL; an empty card whose action is a POST; an error card that has a see-all; and an empty card with no empty copy and no `#empty` slot.
+// action with its reason and a new-tab link to the see-all's URL; an empty card whose action is a POST; an error card that has a see-all and fills the `#actions` and `#filters` slots; and an empty card with no empty copy and no `#empty` slot.
 const rows = Array.from({ length: 30 }, (_, i) => 101 + i);
 const cases = {
     title: 'Ongoing cases',
@@ -61,7 +61,11 @@ const slotted = { title: 'Flagged cases', state: 'empty' as const };
     <main v-if="edge" class="grid min-h-screen content-start gap-6 bg-background p-4 text-foreground sm:p-8">
         <h1 class="text-lg font-medium">Cases</h1>
         <CollectionCard :section="withActions" :level="2" data-case="actions"><p>Case 301</p></CollectionCard>
-        <CollectionCard :section="failed" :level="2" data-case="error"><p>never shown</p></CollectionCard>
+        <CollectionCard :section="failed" :level="2" data-case="error"
+            ><template #actions><button type="button">Assign</button></template
+            ><template #filters><button type="button">Only mine</button></template
+            ><p>never shown</p></CollectionCard
+        >
         <CollectionCard :section="bareEmpty" :level="2" data-case="bare-empty"><p>never shown</p></CollectionCard>
         <CollectionCard :section="importable" :level="2" data-case="empty-action"><p>never shown</p></CollectionCard>
     </main>

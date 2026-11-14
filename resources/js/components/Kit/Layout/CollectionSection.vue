@@ -38,8 +38,8 @@ import {
  * - below the header, the `segments` (tabs such as All / New / In progress: links to the same page, the current one `aria-current`, named "New (4)" with a
  *   count) and the `#filters` slot;
  * - the body: the items, or the empty state (`empty`, or the `#empty` slot; an empty section never shows its items, even with neither), or the error with
- *   Retry. With `maxHeight` the body scrolls (a focusable region
- *   named "<title> items"), and the footer stays in view under it;
+ *   Retry; an error section also hides its `#actions` and `#filters` slots, as it hides its own actions, tabs and sort. With `maxHeight` the body
+ *   scrolls (a focusable region named "<title> items"), and the footer stays in view under it;
  * - the footer: the `#footer` slot and, at the bottom right, the see-all ("All cases →"). An error section has no see-all, and its title is plain text.
  * It draws no card: on its own it is a bare section, for a grid or list whose items carry their own look (a grid of note cards), with the see-all under the
  * items at the right. CollectionCard puts it in a kit Card, with the same descriptor, by handing it a frame: the classes for its parts' padding and rules.
@@ -217,11 +217,12 @@ function choose(value: unknown): void {
             </div>
             <div
                 v-if="
-                    sort ||
-                    $slots.actions ||
-                    links.length ||
-                    operations.length ||
-                    placement === 'header'
+                    state !== 'error' &&
+                    (sort ||
+                        $slots.actions ||
+                        links.length ||
+                        operations.length ||
+                        placement === 'header')
                 "
                 class="flex shrink-0 flex-wrap items-center justify-end gap-2"
             >
@@ -268,7 +269,7 @@ function choose(value: unknown): void {
             </div>
         </header>
         <div
-            v-if="segments.length || $slots.filters"
+            v-if="state !== 'error' && (segments.length || $slots.filters)"
             :class="
                 cn(
                     'flex flex-wrap items-center justify-between gap-2',
