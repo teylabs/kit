@@ -68,12 +68,14 @@ export function fullRecordName(name: string, domain: string): string {
 /**
  * When a domain was last checked, in the viewer's timezone: "Today 3:37 PM", "Yesterday 3:37 PM" or "Nov 3, 3:37 PM". `checkedAt` is the server's value: a
  * database timestamp without an offset (`2026-11-06 20:37:08`) is read as UTC; one with an offset or `Z` keeps it. A value that is not a time is shown as given.
+ * `clock` is the viewer's (`kitClock`, useClock): `12h`, `24h`, or `auto` (the default), the locale's own.
  */
 export function checkedAtLabel(
     checkedAt: string,
     timezone: string,
     now: Date = new Date(),
     locale?: string,
+    clock: '12h' | '24h' | 'auto' = 'auto',
 ): string {
     const value = checkedAt.trim().replace(' ', 'T');
     const date = new Date(
@@ -91,18 +93,21 @@ export function checkedAtLabel(
             month: '2-digit',
             day: '2-digit',
         }).format(at);
-    const clock = new Intl.DateTimeFormat(locale, {
+    const time = new Intl.DateTimeFormat(locale, {
         timeZone: timezone,
         hour: 'numeric',
         minute: '2-digit',
+        ...(clock === 'auto'
+            ? {}
+            : { hourCycle: clock === '12h' ? 'h12' : 'h23' }),
     }).format(date);
     const today = day(now);
-    if (day(date) === today) return `Today ${clock}`;
+    if (day(date) === today) return `Today ${time}`;
     // The calendar day before today, from its date (not 24 hours back, which a 23-hour DST day would skip past).
     const [year, month, dayOfMonth] = today.split('-').map(Number);
     const yesterday = new Date(Date.UTC(year, month - 1, dayOfMonth - 1))
         .toISOString()
         .slice(0, 10);
-    if (day(date) === yesterday) return `Yesterday ${clock}`;
-    return `${new Intl.DateTimeFormat(locale, { timeZone: timezone, month: 'short', day: 'numeric' }).format(date)}, ${clock}`;
+    if (day(date) === yesterday) return `Yesterday ${time}`;
+    return `${new Intl.DateTimeFormat(locale, { timeZone: timezone, month: 'short', day: 'numeric' }).format(date)}, ${time}`;
 }

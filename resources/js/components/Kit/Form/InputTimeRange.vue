@@ -19,7 +19,7 @@ import {
 } from 'reka-ui';
 import { useOptionalFormContext } from '@/components/Kit/Form/formContext';
 import Field from '@/components/Kit/Form/Field.vue';
-import { viewerLocale } from '@/components/Kit/Data/useTimezone';
+import { useClock, viewerLocale } from '@/components/Kit/Data/useTimezone';
 import { isTime, normalizeTime, rangeError, type DateRange } from './dateInput';
 import { rowErrorsKey } from './repeaterState';
 import { useLocked } from './useLocked';
@@ -36,6 +36,7 @@ const props = withDefaults(
         min?: string;
         max?: string;
         step?: number;
+        hourCycle?: 12 | 24;
         description?: string;
         error?: string;
         disabled?: boolean;
@@ -48,6 +49,13 @@ const id = props.id ?? useId();
 const lock = useLocked();
 const locked = computed(() => lock.locked && !props.disabled);
 const locale = viewerLocale();
+// The viewer's clock (`kitClock`): 12- or 24-hour, or the locale's own (auto). A caller's own `hour-cycle` (12 or 24) wins.
+const clock = useClock();
+const hourCycle = computed(
+    () =>
+        props.hourCycle ??
+        (clock.value === '12h' ? 12 : clock.value === '24h' ? 24 : undefined),
+);
 const toTime = (value: string | undefined) =>
     value && isTime(value) ? parseTime(normalizeTime(value)) : undefined;
 const toRange = (range: DateRange) => ({
@@ -132,6 +140,7 @@ const segment =
             <TimeRangeFieldRoot
                 :id="id"
                 v-slot="{ segments }"
+                :hour-cycle="hourCycle"
                 v-bind="$attrs"
                 :model-value="value"
                 :locale="locale"

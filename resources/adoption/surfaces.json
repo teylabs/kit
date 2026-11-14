@@ -3293,7 +3293,9 @@
           "@/components/Kit:formatDateTime",
           "@/components/Kit:fullDateTime",
           "@/components/Kit:isCalendarDate",
-          "@/components/Kit:useTimezone"
+          "@/components/Kit:useTimezone",
+          "@/components/Kit:useClock",
+          "@/components/Kit:hourCycle"
         ]
       },
       "handRolled": [

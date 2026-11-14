@@ -2,13 +2,15 @@
 
 namespace Tey\Kit\Features\SessionUi\Http;
 
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Laravel\Fortify\Fortify;
+use Tey\Kit\Features\Core\Kit;
 use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\SessionUi\Account\OtherSessions;
 use Tey\Kit\Features\SessionUi\Account\SecurityLog;
-use Tey\Kit\Features\SessionUi\Models\SecurityEvent;
+use Tey\Kit\Features\SessionUi\Contracts\SecurityEvent;
 use Tey\Kit\Features\SessionUi\PasskeyOffer;
 use Tey\Kit\Features\SessionUi\ViewModels\SecurityViewModel;
 
@@ -20,8 +22,8 @@ class SecurityController
         $user = $request->user('web');
         abort_unless(Users::is($user), 401);
 
-        $events = SecurityEvent::query()->where('user_id', $user->getKey())->latest('id')->limit(50)->get()
-            ->map(fn (SecurityEvent $event): array => ['type' => $event->type, 'label' => SecurityLog::LABELS[$event->type] ?? $event->type, 'ip' => $event->ip, 'agent' => SecurityLog::describeAgent($event->agent), 'at' => $event->created_at->toIso8601String()])->all();
+        $events = Kit::model('security_event')::query()->where('user_id', $user->getKey())->latest('id')->limit(50)->get()
+            ->map(fn (Model&SecurityEvent $event): array => ['type' => $event->type, 'label' => SecurityLog::LABELS[$event->type] ?? $event->type, 'ip' => $event->ip, 'agent' => SecurityLog::describeAgent($event->agent), 'at' => $event->created_at->toIso8601String()])->all();
         $model = new SecurityViewModel(
             'Security',
             $this->twoFactor($request, $user),

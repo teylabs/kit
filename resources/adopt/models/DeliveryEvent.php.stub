@@ -1,0 +1,15 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Tey\Kit\Features\Deliver\Concerns\IsDeliveryEvent;
+use Tey\Kit\Features\Deliver\Contracts\DeliveryEvent as DeliveryEventContract;
+
+/** One provider event for one address, kept once. The kit's behaviour is IsDeliveryEvent; the table and the model are the app's (kit.models). */
+class DeliveryEvent extends Model implements DeliveryEventContract
+{
+    use IsDeliveryEvent;
+
+    protected $table = 'delivery_events';
+}

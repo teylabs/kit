@@ -2,7 +2,7 @@
 
 // The browser job's recorded account and session payloads (tests/fixtures/form-payloads, written by browser/run.mjs's Save tests) posted to the real routes,
 // as the page sends them (X-Inertia, a JSON body, or multipart with the photo's own bytes), by a signed-in person on SQLite memory: Account › Profile and its
-// photo, Password, Security (two-factor on, confirmed and off, recovery codes, passkeys renamed and removed, other sessions signed out), Delete account, the
+// photo and clock, Password, Security (two-factor on, confirmed and off, recovery codes, passkeys renamed and removed, other sessions signed out), Delete account, the
 // welcome flow's timezone and photo steps, and the notes wall as a member of a synthetic workspace. Each must answer with a redirect, no validation errors,
 // and the values stored. Two values are the server's, not the page's, and are swapped in: the authenticator app's TOTP code (computed from the secret the
 // enable step stored), and nothing else. A passkey's credential needs a real authenticator's attestation, so its fixture is checked for the field names
@@ -80,6 +80,7 @@ use Tey\Concierge\Enums\MembershipStatus;
 use Tey\Concierge\Support\ConciergeModels;
 use Tey\Kit\Features\Access\Console\SyncPermissionsCommand;
 use Tey\Kit\Features\Core\Registry;
+use Tey\Kit\Features\Core\Clock;
 use Tey\Kit\Features\FeaturesServiceProvider;
 use Tey\Kit\Features\SessionUi\Contracts\PurgesAccountData;
 use Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests;
@@ -296,6 +297,18 @@ try {
     $result = $send('robin', 'PUT', '/user/profile-information', $fixture('profile'));
     httpCheck($redirected($result), 'Profile: the recorded payload saves, redirecting back with no errors'.$describe($result));
     httpCheck($fresh('robin')->name === 'Robin Ashby' && $fresh('robin')->email === 'robin.ashby@example.test', 'Profile: the name and email address are stored');
+
+    // Account › Profile's clock: the person's own 12h or 24h in user_state, or `workspace` to follow the workspace's again; the page then shows it.
+    $clockRow = fn (string $who): ?string => DB::table('user_state')->where(['user_id' => $people[$who]->id, 'workspace_id' => 0, 'key' => 'clock'])->value('value');
+    $result = $send('robin', 'PUT', '/me/profile/clock', $fixture('profile-clock'));
+    httpCheck($redirected($result) && $clockRow('robin') === '24h' && $clockRow('sam') === null, 'Profile clock: the recorded payload saves Robin\'s 24h to user_state, redirecting back with no errors, and no one else\'s'.$describe($result));
+    $page = json_decode((string) $send('robin', 'GET', '/me/profile', [])[3]->getContent(), true);
+    httpCheck(($page['props']['clock'] ?? null) === '24h' && ($page['props']['clock_url'] ?? null) === '/me/profile/clock' && Clock::for($people['robin']) === '24h', 'Profile clock: the page shows Robin\'s 24h as the chosen option, and Clock::for(Robin) is 24h'.json_encode($page['props']['clock'] ?? null));
+    $result = $send('robin', 'PUT', '/me/profile/clock', ['clock' => 'auto']);
+    httpCheck(isset($result[2]['clock']) && $clockRow('robin') === '24h', 'Profile clock: a value other than workspace, 12h or 24h (auto) is refused on the field, and the saved clock is kept'.$describe($result));
+    $result = $send('robin', 'PUT', '/me/profile/clock', ['clock' => 'workspace']);
+    $page = json_decode((string) $send('robin', 'GET', '/me/profile', [])[3]->getContent(), true);
+    httpCheck($redirected($result) && $clockRow('robin') === null && ($page['props']['clock'] ?? null) === 'workspace' && Clock::preference($people['robin']) === 'auto', 'Profile clock: `workspace` forgets Robin\'s own clock, so the page shows Use workspace setting and Robin\'s preference is auto again'.$describe($result));
 
     // Account › Profile's photo: the recorded file, multipart, as StoreAvatar takes it.
     $result = $send('robin', 'POST', '/me/avatar', $fixture('avatar'));

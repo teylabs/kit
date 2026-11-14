@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\DB;
 use Lorisleiva\Actions\Concerns\AsAction;
 use Tey\Concierge\Concierge;
 use Tey\Kit\Features\Core\Audit;
+use Tey\Kit\Features\Core\Kit;
 use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\Workspaces\Workspaces;
@@ -25,7 +26,7 @@ class ComplimentaryAccess
 
         return DB::transaction(function () use ($operator, $workspaceId, $reason, $expiry, $intentKey, $fingerprint): int {
             Workspaces::query()->whereKey($workspaceId)->lockForUpdate()->firstOrFail();
-            $previous = DB::table('complimentary_grants')->where('granted_by', $operator->actorId)->where('intent_key', $intentKey)->first();
+            $previous = DB::table(Kit::table('complimentary_grant'))->where('granted_by', $operator->actorId)->where('intent_key', $intentKey)->first();
             if ($previous) {
                 if ($previous->fingerprint !== $fingerprint) {
                     throw new \RuntimeException('intent_conflict');
@@ -39,10 +40,10 @@ class ComplimentaryAccess
             }
             // One active complimentary period per workspace. New intent cannot
             // silently replace or extend it; revoke explicitly before regranting.
-            if (DB::table('complimentary_grants')->where('workspace_id', $workspaceId)->whereNull('revoked_at')->where('expires_at', '>', now())->exists()) {
+            if (DB::table(Kit::table('complimentary_grant'))->where('workspace_id', $workspaceId)->whereNull('revoked_at')->where('expires_at', '>', now())->exists()) {
                 throw new \RuntimeException('active_grant_exists');
             }
-            $id = DB::table('complimentary_grants')->insertGetId(['workspace_id' => $workspaceId, 'granted_by' => $operator->actorId, 'reason' => $reason, 'expires_at' => $expiry, 'revoked_at' => null, 'intent_key' => $intentKey, 'fingerprint' => $fingerprint]);
+            $id = DB::table(Kit::table('complimentary_grant'))->insertGetId(['workspace_id' => $workspaceId, 'granted_by' => $operator->actorId, 'reason' => $reason, 'expires_at' => $expiry, 'revoked_at' => null, 'intent_key' => $intentKey, 'fingerprint' => $fingerprint]);
             app(Audit::class)->write($operator->actorId, $workspaceId, 'complimentary.granted', ['grant_id' => $id, 'reason' => $reason, 'expires_at' => $expiry]);
 
             return $id;
@@ -53,17 +54,17 @@ class ComplimentaryAccess
     {
         $this->operator($operator, $reason);
         DB::transaction(function () use ($operator, $grantId, $reason): void {
-            $grant = DB::table('complimentary_grants')->where('id', $grantId)->first();
+            $grant = DB::table(Kit::table('complimentary_grant'))->where('id', $grantId)->first();
             if (! $grant) {
                 throw new \RuntimeException('grant_not_found');
             }
             // Same lock order as grant: workspace then grant.
             Workspaces::query()->whereKey($grant->workspace_id)->lockForUpdate()->firstOrFail();
-            $grant = DB::table('complimentary_grants')->where('id', $grantId)->lockForUpdate()->first();
+            $grant = DB::table(Kit::table('complimentary_grant'))->where('id', $grantId)->lockForUpdate()->first();
             if ($grant->revoked_at !== null) {
                 return;
             }
-            DB::table('complimentary_grants')->where('id', $grantId)->update(['revoked_at' => now(), 'revoked_by' => $operator->actorId, 'revocation_reason' => $reason]);
+            DB::table(Kit::table('complimentary_grant'))->where('id', $grantId)->update(['revoked_at' => now(), 'revoked_by' => $operator->actorId, 'revocation_reason' => $reason]);
             app(Audit::class)->write($operator->actorId, $grant->workspace_id, 'complimentary.revoked', ['grant_id' => $grantId, 'reason' => $reason]);
         });
     }

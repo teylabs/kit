@@ -34,9 +34,62 @@ Past `relative-until-days` (7 by default), a relative value shows the absolute d
 - **Locale.** It's the page's `<html lang>`, then the browser's.
 - **Overrides.** The `timezone` and `locale` props override both, for example to show a value in a workspace's zone. `now` fixes the clock, for tests.
 
+## The viewer's clock: 12- or 24-hour
+
+A time of day shows on the viewer's clock: `12h` (3:30 PM), `24h` (15:30), or `auto`, the locale's own (en-US 3:30 PM, en-GB 15:30). It's resolved on the server, in this order:
+
+1. **The person's own choice.** Account › Profile › Clock: *Use workspace setting*, *12-hour* or *24-hour*. Kept in `user_state` as `clock` (`12h` or `24h`); *Use workspace setting* deletes the row. Saved with `PUT /me/profile/clock` (`clock`: `workspace`, `12h` or `24h`).
+2. **The workspace's**, when the app registers one with `Registry::workspaceClockUsing()` (below).
+3. **`kit.clock.default`** (env `KIT_CLOCK`): `12h`, `24h` or `auto`.
+4. **`auto`**.
+
+Anything other than `12h` or `24h` at any step counts as no choice, and a workspace getter that throws falls back to the next step. The default is `auto`, so an app that sets nothing renders exactly as before.
+
+Core shares the preference with every Inertia page as `kitClock` (always `12h`, `24h` or `auto`): signed-in, guest, public and portal pages alike, also on a host without session-ui (there it's the workspace's and the default). `useClock()` returns it (`auto` without the share), and the browser resolves `auto` by the page's locale. `DateTime`, `formatDateTime()`, `fullDateTime()`, `InputTime`, `InputTimeRange` and `checkedAtLabel()` pass it to `Intl` as `hourCycle`: `h12` for 12h, `h23` for 24h (so midnight is 12:30 AM or 00:30, never 0:30 or 24:30), and nothing for auto. An explicit option still wins: `<DateTime clock="12h">`, `formatDateTime(value, 'time', { clock: '24h' })`, `<InputTime :hour-cycle="12">`. A time input always submits a 24-hour `HH:MM`, whatever it shows.
+
+### The workspace's clock
+
+The kit has no workspace setting of its own for the clock. An app that wants one stores it where it keeps its other workspace settings and wires it up the same way the settings feature wires up the timezone. The getter runs inside the workspace's tenant context and returns `12h`, `24h` or null (no choice):
+
+```php
+use Tey\Kit\Features\Core\Registry;
+
+// In a service provider's boot(), with the app's own settings class (a `clock` property, null by default).
+app(Registry::class)->workspaceClockUsing(
+    fn (): ?string => AppWorkspaceSettings::current()->clock,
+    function (int $actorId, ?string $clock): void {
+        $settings = AppWorkspaceSettings::current();
+        $settings->clock = in_array($clock, ['12h', '24h'], true) ? $clock : null;
+        $settings->save();
+    },
+);
+```
+
+The kit only calls the getter. The setter is for the app's own field: for example a `<Select>` on its General settings page with *Language default*, *12-hour* and *24-hour*. Register one only: a second call replaces the first.
+
+### Server-built times
+
+`Tey\Kit\Features\Core\Clock` resolves the clock and formats times for mail, receipts, digests and chat messages. It never needs a request, so a queued job passes the person and workspace it was made for:
+
+```php
+use Tey\Kit\Features\Core\Clock;
+
+Clock::current();                       // '12h' or '24h': the signed-in person in the current workspace
+Clock::for($member, $workspace);        // '12h' or '24h' for a user (or id) and a workspace (model or id), either null
+Clock::preference($member, $workspace); // '12h', '24h' or 'auto', before the locale resolves it
+
+Clock::time($booking->starts_at->setTimezone($zone), $member);   // "3:30 PM" or "15:30"
+Clock::range($shift->starts_at, $shift->ends_at, $member, $workspace);
+// "Tue 2 Jun, 10:00 to 12:00" or "Tue 2 Jun, 10:00 AM to 12:00 PM"; across midnight "Tue 2 Jun, 22:00 to Wed 3 Jun, 02:00"
+```
+
+- **`auto` resolves through the app's locale** (`app()->getLocale()`): en, en_CA and ko are 12-hour; en_GB, de and fr are 24-hour (Carbon's own time format for the locale). A mailable's `->locale()`, or a notifiable's `preferredLocale()`, sets the app locale while it renders, so it decides too.
+- **A given workspace** is read inside it, through `Registry::inWorkspace()`: the workspaces feature registers `Workspaces::run()` there, so the app's getter sees that workspace as current (with row-level security as `run()` sets it). A null workspace is the current one, if any. Without the workspaces feature the getter runs as it is.
+- **`time()` and `range()`** with no person and no workspace use `current()`; otherwise `for()` them. Each formats in the Carbon's own zone (a range's end in the start's zone) and the app's locale, keeping the locale's own pattern when its clock is the one asked for (ko on auto: 오후 3:30). A range names the date once, and both days when it crosses midnight.
+
 ## Without a component
 
-`formatDateTime(value, format, { timezone, locale, now, relativeUntilDays })` and `fullDateTime(value, …)` return the same strings, for table cells, toasts and titles. `isCalendarDate(value)` tells the two kinds of value apart.
+`formatDateTime(value, format, { timezone, locale, now, relativeUntilDays, clock })` and `fullDateTime(value, …)` return the same strings, for table cells, toasts and titles. `isCalendarDate(value)` tells the two kinds of value apart. `hourCycle(clock)` returns the `Intl` option for a clock (`{}` for auto), to spread into your own formatter's options.
 
 ## Coverage
 
@@ -48,3 +101,9 @@ Past `relative-until-days` (7 by default), a relative value shows the absolute d
   - ambiguous input shown as given.
 - `browser/run.mjs`: a real render (`<time>`, `datetime`, `title`, the live ticker) and axe.
 - `tests/InertiaSharesCheck.php`: the `kitTimezone` share follows the `tz` cookie and survives a flush.
+- The clock:
+  - `tests/js/date-time.test.mjs` and `tests/js/mail-sending.test.mjs`: 24h in a 12-hour locale, 12h in a 24-hour one, midnight on each, and `auto` byte for byte the same as no clock;
+  - `browser/run.mjs` (`?clock`): DateTime and the time inputs on each clock, an explicit clock winning, `auto` and no share unchanged, and the Profile page's Clock card saved and reloaded;
+  - `tests/InertiaSharesCheck.php`: the resolution order of `kitClock` and its fallbacks; `kitClock` on a public page of a host without session-ui and on a portal page; `Clock::for()`, `current()`, `time()` and `range()`, a given workspace read through the runner, and a queued mail rendered by the queue;
+  - `tests/WorkspaceRunCheck.php`: `Registry::inWorkspace()` is `Workspaces::run()`, and `Clock::for(null, $workspace)` reads that workspace's clock;
+  - `tests/AccountFormPayloadsCheck.php`: the recorded Profile clock payload saved through the real route, a refused value, and *Use workspace setting* deleting the row.

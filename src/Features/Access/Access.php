@@ -5,6 +5,7 @@ namespace Tey\Kit\Features\Access;
 use Illuminate\Support\Facades\DB;
 use Tey\Concierge\Concierge;
 use Tey\Concierge\Contracts\Workspace;
+use Tey\Kit\Features\Core\Kit;
 use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Core\RequestMemo;
@@ -67,7 +68,7 @@ final class Access
 
     public function entitled(Workspace $workspace): bool
     {
-        return DB::table('entitlements')->where('workspace_id', $workspace->id)->where('kind', 'paid')->whereNull('revoked_at')->exists()
-            || DB::table('complimentary_grants')->where('workspace_id', $workspace->id)->whereNull('revoked_at')->where('expires_at', '>', now())->exists();
+        return DB::table(Kit::table('entitlement'))->where('workspace_id', $workspace->id)->where('kind', 'paid')->whereNull('revoked_at')->exists()
+            || DB::table(Kit::table('complimentary_grant'))->where('workspace_id', $workspace->id)->whereNull('revoked_at')->where('expires_at', '>', now())->exists();
     }
 }

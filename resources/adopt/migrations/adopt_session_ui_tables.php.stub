@@ -1,0 +1,216 @@
+<?php
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+
+// The session-ui feature's domain table: each user's security history.
+// Written by `php artisan kit:scaffold session-ui --adopt` (tey/kit 0.19), and the app's own from then on. On a database where the kit created the tables,
+// up() renames them, with their indexes, keys and sequences, and keeps every row; on a fresh one it creates them under the app's names. With both names of
+// a table present it refuses before changing anything: it never merges two tables. up() records in kit_meta what it did to each table: renamed,
+// created or left. down() undoes only that, so a table it left, or has no record of, stays as it is, rows and all.
+return new class extends Migration
+{
+    /** The kit's name => the app's, parents first. */
+    private const TABLES = [
+        'kit_security_events' => 'security_events',
+    ];
+
+    public function up(): void
+    {
+        if (! Schema::hasTable('kit_meta')) {
+            throw new RuntimeException('kit_meta is missing, and this migration records there what it does to each table so that its rollback undoes only that. Run the core migrations of the kit first.');
+        }
+        $this->atomically(function (): void {
+            $renamed = $this->rename(self::TABLES);
+            $created = $this->create();
+            foreach (self::TABLES as $table) {
+                $done = in_array($table, $renamed, true) ? 'renamed' : (in_array($table, $created, true) ? 'created' : 'left');
+                DB::table('kit_meta')->updateOrInsert(['key' => $this->record($table)], ['value' => $done, 'updated_at' => now()]);
+            }
+        });
+    }
+
+    /** Undoes what up() recorded for each table: renamed is renamed back, created is dropped, left (or no record) stays as it is. */
+    public function down(): void
+    {
+        $done = [];
+        if (Schema::hasTable('kit_meta')) {
+            foreach (self::TABLES as $table) {
+                $done[$table] = DB::table('kit_meta')->where('key', $this->record($table))->value('value');
+            }
+        }
+        $this->atomically(function () use ($done): void {
+            // Renamed back first: the rename checks every pair and name before it changes anything.
+            $this->rename(array_flip(array_reverse(array_filter(self::TABLES, fn (string $table): bool => ($done[$table] ?? null) === 'renamed'), true)));
+            foreach (array_reverse(self::TABLES) as $table) {
+                if (($done[$table] ?? null) === 'created') {
+                    Schema::dropIfExists($table);
+                }
+            }
+            if (Schema::hasTable('kit_meta')) {
+                DB::table('kit_meta')->whereIn('key', array_map(fn (string $table): string => $this->record($table), array_values(self::TABLES)))->delete();
+            }
+        });
+    }
+
+    /**
+     * On PostgreSQL, where DDL is transactional, $work runs in one transaction, its kit_meta record included: a failure part way through puts every
+     * table back and records nothing, even when up() runs outside the migrator. Elsewhere the checks before any rename stand in for it.
+     *
+     * @param  Closure(): void  $work
+     */
+    private function atomically(Closure $work): void
+    {
+        $connection = Schema::getConnection();
+        $connection->getDriverName() === 'pgsql' ? $connection->transaction($work) : $work();
+    }
+
+    /** The kit_meta key holding what up() did to $table (renamed, created or left), by this migration's name and the table's. */
+    private function record(string $table): string
+    {
+        return 'adopt:'.basename(__FILE__, '.php').':'.$table;
+    }
+
+    /**
+     * Each table not there under the app's name, as the kit's migrations leave it.
+     *
+     * @return list<string> the tables it created
+     */
+    private function create(): array
+    {
+        $missing = array_values(array_filter(self::TABLES, fn (string $table): bool => ! Schema::hasTable($table)));
+        // A user's own security history (sign-ins, failed sign-ins, password and two-factor changes). It belongs to the user, never to a workspace, and goes with them.
+        if (! Schema::hasTable('security_events')) {
+            /** @var class-string<Model> $class */
+            $class = config('kit.models.user') ?? config('auth.providers.users.model');
+            $user = new $class;
+            Schema::create('security_events', function (Blueprint $t) use ($user): void {
+                $t->id();
+                $t->unsignedBigInteger('user_id')->index();
+                $t->string('type', 40);
+                $t->string('ip', 45)->nullable();
+                $t->string('agent', 255)->nullable();
+                $t->timestamp('created_at')->useCurrent();
+                $t->foreign('user_id')->references($user->getKeyName())->on($user->getTable())->cascadeOnDelete();
+            });
+        }
+
+        return $missing;
+    }
+
+    /**
+     * Renames each table whose old name exists, with its indexes, foreign keys and sequence. It checks every pair and every name it will give first:
+     * when any pair has both names, or an index, key or sequence name it would give is already taken, it refuses before renaming a single table, so
+     * a database without transactional DDL is never left half renamed. A pair whose names are the same is left as it is.
+     *
+     * @param  array<string, string>  $tables  from => to
+     * @return list<string> the new names of the tables it renamed
+     */
+    private function rename(array $tables): array
+    {
+        foreach ($tables as $from => $to) {
+            if ($from !== $to && Schema::hasTable($from) && Schema::hasTable($to)) {
+                throw new RuntimeException('Both '.$from.' and '.$to.' exist, so this migration will not rename '.$from.' to '.$to.': it never merges two tables. Keep the one that holds the data, drop or rename the other, then migrate again.');
+            }
+        }
+        $moves = array_filter($tables, fn (string $to, string $from): bool => $from !== $to && Schema::hasTable($from), ARRAY_FILTER_USE_BOTH);
+        $taken = $this->schemaNames();
+        $keys = [];
+        foreach ($moves as $from => $to) {
+            $keys[$from] = $this->keys($from, $to);
+            $own = $this->tableNames($from);
+            foreach ($keys[$from] as [$kind, $old, $new]) {
+                if (in_array($new, $kind === 'foreign key' ? $own : [...$taken, ...$own], true)) {
+                    throw new RuntimeException('The '.$kind.' '.$old.' of '.$from.' would be renamed '.$new.', but that name is already taken, so this migration renames nothing. Rename or drop what holds '.$new.', then migrate again.');
+                }
+                $taken[] = $new;
+            }
+        }
+        $renamed = [];
+        foreach ($moves as $from => $to) {
+            Schema::rename($from, $to);
+            $this->renameKeys($to, $keys[$from]);
+            $renamed[] = $to;
+        }
+
+        return $renamed;
+    }
+
+    /**
+     * The indexes, and on PostgreSQL the foreign keys and the id sequence, named after $from: each takes $to's name in their place.
+     *
+     * @return list<array{string, string, string}> [kind, its name (the sequence's qualified), the name it takes]
+     */
+    private function keys(string $from, string $to): array
+    {
+        $renamed = fn (?string $name): ?string => $name !== null && str_starts_with($name, $from.'_') ? $to.substr($name, strlen($from)) : null;
+        $keys = [];
+        foreach (Schema::getIndexes($from) as $index) {
+            $name = $renamed($index['name']);
+            if ($name !== null) {
+                $keys[] = ['index', $index['name'], $name];
+            }
+        }
+        $connection = Schema::getConnection();
+        if ($connection->getDriverName() !== 'pgsql') {
+            return $keys;
+        }
+        foreach (Schema::getForeignKeys($from) as $key) {
+            $name = $renamed($key['name']);
+            if ($name !== null) {
+                $keys[] = ['foreign key', $key['name'], $name];
+            }
+        }
+        $sequence = $connection->scalar('select pg_get_serial_sequence(?, ?)', [$connection->getSchemaGrammar()->wrapTable($from), 'id']);
+        $name = is_string($sequence) ? $renamed(trim((string) strrchr('.'.$sequence, '.'), '."')) : null;
+        if ($name !== null) {
+            $keys[] = ['sequence', (string) $sequence, $name];
+        }
+
+        return $keys;
+    }
+
+    /** @param  list<array{string, string, string}>  $keys  from keys() */
+    private function renameKeys(string $table, array $keys): void
+    {
+        $connection = Schema::getConnection();
+        $grammar = $connection->getSchemaGrammar();
+        foreach ($keys as [$kind, $old, $new]) {
+            match ($kind) {
+                'index' => Schema::table($table, fn (Blueprint $t) => $t->renameIndex($old, $new)),
+                'foreign key' => $connection->statement('alter table '.$grammar->wrapTable($table).' rename constraint '.$grammar->wrap($old).' to '.$grammar->wrap($new)),
+                default => $connection->statement('alter sequence '.$old.' rename to '.$grammar->wrap($new)),
+            };
+        }
+    }
+
+    /** @return list<string> the names an index or sequence shares one namespace with: every table, index and sequence of the schema on SQLite and PostgreSQL */
+    private function schemaNames(): array
+    {
+        $connection = Schema::getConnection();
+
+        $rows = match ($connection->getDriverName()) {
+            'sqlite' => $connection->select('select name from sqlite_master'),
+            'pgsql' => $connection->select('select c.relname as name from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = current_schema()'),
+            default => [],
+        };
+
+        return array_map(fn (mixed $name): string => (string) $name, array_column($rows, 'name'));
+    }
+
+    /** @return list<string> the names on $table itself: its indexes, and on PostgreSQL its constraints */
+    private function tableNames(string $table): array
+    {
+        $names = array_column(Schema::getIndexes($table), 'name');
+        $connection = Schema::getConnection();
+        if ($connection->getDriverName() === 'pgsql') {
+            $rows = $connection->select('select conname as name from pg_constraint where conrelid = to_regclass(?)', [$connection->getSchemaGrammar()->wrapTable($table)]);
+            $names = [...$names, ...array_map(fn (mixed $name): string => (string) $name, array_column($rows, 'name'))];
+        }
+
+        return $names;
+    }
+};

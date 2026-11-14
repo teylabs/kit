@@ -3,12 +3,24 @@
 namespace Tey\Kit\Media;
 
 use Illuminate\Database\Schema\Blueprint;
+use Tey\Kit\Features\Core\Kit;
 
 /**
  * The pending-upload ledger's table, which the app creates in its own migration: `Schema::create(MediaUploads::table(), MediaUploads::schema(...))`.
  */
 final class MediaUploads
 {
+    /**
+     * The upload model: `kit.models.media_upload`, else (null) the kit's own; any other value refuses, as in Kit::model() (since 0.19; the table stays
+     * `kit.media.uploads_table`). Read here rather than through Kit::model(), so media works where no service provider registered the default.
+     *
+     * @return class-string<Models\MediaUpload|Contracts\MediaUpload>
+     */
+    public static function model(): string
+    {
+        return Kit::configured('kit.models.media_upload', 'a model class name') ?? Models\MediaUpload::class;
+    }
+
     public static function table(): string
     {
         return (string) config('kit.media.uploads_table', 'kit_media_uploads');

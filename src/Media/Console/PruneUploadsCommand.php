@@ -9,8 +9,8 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
+use Tey\Kit\Media\Contracts\MediaUpload;
 use Tey\Kit\Media\MediaUploads;
-use Tey\Kit\Media\Models\MediaUpload;
 use Tey\Kit\Media\MultipartUploads;
 use Tey\Kit\Media\Operations\AbortMultipartUpload;
 use Throwable;
@@ -73,9 +73,9 @@ class PruneUploadsCommand extends Command
             return self::FAILURE;
         }
         $seen = [];
-        MediaUpload::query()->where('status', 'pending')->where('updated_at', '<', $cutoff)
+        MediaUploads::model()::query()->where('status', 'pending')->where('updated_at', '<', $cutoff)
             ->chunkById(max(1, (int) $this->option('chunk')), function (Collection $chunk) use ($cutoff, $dry, &$counts, &$samples, &$failures, &$seen): void {
-                foreach ($chunk->groupBy(fn (MediaUpload $upload): string => $upload->disk."\0".$upload->key) as $group => $uploads) {
+                foreach ($chunk->groupBy(fn (Model&MediaUpload $upload): string => $upload->disk."\0".$upload->key) as $group => $uploads) {
                     // A key whose rows span chunks is settled the first time it is seen, so a later chunk never re-counts it.
                     if (isset($seen[$group])) {
                         continue;
@@ -147,7 +147,7 @@ class PruneUploadsCommand extends Command
                         throw new \RuntimeException('media.prune.delete_failed');
                     }
                 }
-                MediaUpload::query()->whereKey($stale)->where('status', 'pending')->where('updated_at', '<', $cutoff)->delete();
+                MediaUploads::model()::query()->whereKey($stale)->where('status', 'pending')->where('updated_at', '<', $cutoff)->delete();
             } catch (Throwable $error) {
                 $counts['failed']++;
                 $failures[] = $disk.':'.$key.' ('.$this->reason($error).')';
@@ -168,7 +168,7 @@ class PruneUploadsCommand extends Command
     /** @return list<string> the ids of every stale pending row over the key */
     private function stale(string $disk, string $key, mixed $cutoff): array
     {
-        return MediaUpload::query()->where('disk', $disk)->where('key', $key)->where('status', 'pending')->where('updated_at', '<', $cutoff)
+        return MediaUploads::model()::query()->where('disk', $disk)->where('key', $key)->where('status', 'pending')->where('updated_at', '<', $cutoff)
             ->pluck('id')->all();
     }
 
@@ -176,7 +176,7 @@ class PruneUploadsCommand extends Command
      * The stale rows with an S3 multipart upload still open; none when the table has no multipart column.
      *
      * @param  list<string>  $stale
-     * @return Collection<int, MediaUpload>
+     * @return Collection<int, Model&MediaUpload>
      */
     private function multipart(array $stale): Collection
     {
@@ -184,7 +184,7 @@ class PruneUploadsCommand extends Command
             return new Collection;
         }
 
-        return MediaUpload::query()->whereKey($stale)->whereNotNull('multipart_upload_id')->get();
+        return MediaUploads::model()::query()->whereKey($stale)->whereNotNull('multipart_upload_id')->get();
     }
 
     /**
@@ -199,12 +199,12 @@ class PruneUploadsCommand extends Command
         if (! MultipartUploads::hasColumn()) {
             return;
         }
-        foreach (MediaUpload::query()->where('status', 'ready')->whereNotNull('multipart_upload_id')->where('updated_at', '<', $cutoff)->get() as $upload) {
+        foreach (MediaUploads::model()::query()->where('status', 'ready')->whereNotNull('multipart_upload_id')->where('updated_at', '<', $cutoff)->get() as $upload) {
             try {
                 if (! $dry) {
                     $store = MultipartUploads::store($upload->disk) ?? throw new \RuntimeException('media.upload.multipart_unavailable');
                     $store->abort(MultipartUploads::stagingKey($upload->key, $upload->id), (string) $upload->multipart_upload_id);
-                    MediaUpload::query()->whereKey($upload->id)->where('multipart_upload_id', $upload->multipart_upload_id)->toBase()->update(['multipart_upload_id' => null]);
+                    MediaUploads::model()::query()->whereKey($upload->id)->where('multipart_upload_id', $upload->multipart_upload_id)->toBase()->update(['multipart_upload_id' => null]);
                 }
                 $counts['aborted']++;
             } catch (Throwable $error) {
@@ -237,7 +237,7 @@ class PruneUploadsCommand extends Command
     /** @param  list<string>  $stale */
     private function referenced(string $disk, string $key, array $stale): bool
     {
-        if (MediaUpload::query()->where('disk', $disk)->where('key', $key)->whereKeyNot($stale)->exists()) {
+        if (MediaUploads::model()::query()->where('disk', $disk)->where('key', $key)->whereKeyNot($stale)->exists()) {
             return true;
         }
         $class = config('media-library.media_model', Media::class);
@@ -267,7 +267,7 @@ class PruneUploadsCommand extends Command
     private function ledgerExists(): bool
     {
         try {
-            return Schema::connection((new MediaUpload)->getConnectionName())->hasTable(MediaUploads::table());
+            return Schema::connection((new (MediaUploads::model()))->getConnectionName())->hasTable(MediaUploads::table());
         } catch (Throwable) {
             return false;
         }

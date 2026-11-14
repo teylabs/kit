@@ -2,13 +2,14 @@
 
 namespace Tey\Kit\Media\Models;
 
-use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
-use Tey\Kit\Media\MediaUploads;
+use Tey\Kit\Media\Concerns\IsMediaUpload;
+use Tey\Kit\Media\Contracts\MediaUpload as MediaUploadContract;
 
 /**
- * One declared upload: pending until its object is confirmed, then ready. The record never owns the object's lifetime; a ready object may be shared
- * by several Media items and is only ever removed by the app's own reference-counted pruner.
+ * The kit's upload model: the default for `kit.models.media_upload`. Its table is already the app's (`kit.media.uploads_table`), so an app needs its
+ * own model only to add behaviour. Deprecated since 0.19 for new code: reach it through `Tey\Kit\Media\MediaUploads::model()`. The behaviour is
+ * Concerns\IsMediaUpload.
  *
  * @property string $id
  * @property string $scope
@@ -23,21 +24,7 @@ use Tey\Kit\Media\MediaUploads;
  * @property ?int $height
  * @property ?string $multipart_upload_id
  */
-class MediaUpload extends Model
+class MediaUpload extends Model implements MediaUploadContract
 {
-    use HasUlids;
-
-    protected $guarded = [];
-
-    protected $casts = ['bytes' => 'integer', 'width' => 'integer', 'height' => 'integer'];
-
-    public function getTable(): string
-    {
-        return MediaUploads::table();
-    }
-
-    public function ready(): bool
-    {
-        return $this->status === 'ready';
-    }
+    use IsMediaUpload;
 }

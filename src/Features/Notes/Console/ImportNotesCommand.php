@@ -5,11 +5,12 @@ namespace Tey\Kit\Features\Notes\Console;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Tey\Kit\Features\Core\Kit;
 use Tey\Kit\Features\Notes\Colours;
 use Throwable;
 
 /**
- * Copies notes from a table an earlier release or the app kept them in (`notes`, `app_notes`) into `kit_notes`. The source is only read: never altered,
+ * Copies notes from a table an earlier release or the app kept them in (`notes`, `app_notes`) into the note table (`kit_notes`, or the app's own once it adopted notes: `Kit::table('note')`). The source is only read: never altered,
  * emptied or dropped. Each copied row remembers where it came from (`<table>:<id>`), so a second run copies nothing twice. It needs `id`,
  * `workspace_id` and `body`; `author_id`, `colour`, `pinned`, `created_at`, `updated_at` and `deleted_at` are used when present. It skips (and
  * reports) rows already imported, soft-deleted rows, rows with an empty body and rows whose workspace no longer exists. A colour outside the
@@ -19,17 +20,18 @@ class ImportNotesCommand extends Command
 {
     protected $signature = 'kit:notes:import {--from= : The table to copy from, e.g. notes or app_notes} {--dry-run : Report what would be copied, and copy nothing}';
 
-    protected $description = 'Copy notes from a legacy table into kit_notes (idempotent; the source table is never changed)';
+    protected $description = 'Copy notes from a legacy table into the note table (idempotent; the source table is never changed)';
 
     public function handle(): int
     {
         $from = (string) $this->option('from');
+        $notes = Kit::table('note');
         try {
-            if (! preg_match('/\A[a-z_][a-z0-9_]{0,62}\z/', $from) || in_array($from, ['kit_notes', 'kit_note_intents'], true)) {
-                throw new \RuntimeException('Name the legacy table with --from (e.g. --from=notes).');
+            if (! preg_match('/\A[a-z_][a-z0-9_]{0,62}\z/', $from) || in_array($from, [$notes, Kit::table('note_intent'), 'kit_notes', 'kit_note_intents'], true)) {
+                throw new \RuntimeException('Name the legacy table with --from (e.g. --from=notes). It is never the note table itself ('.$notes.').');
             }
-            if (! Schema::hasTable($from) || ! Schema::hasTable('kit_notes')) {
-                throw new \RuntimeException(Schema::hasTable('kit_notes') ? 'There is no '.$from.' table.' : 'Run php artisan migrate first: kit_notes does not exist.');
+            if (! Schema::hasTable($from) || ! Schema::hasTable($notes)) {
+                throw new \RuntimeException(Schema::hasTable($notes) ? 'There is no '.$from.' table.' : 'Run php artisan migrate first: '.$notes.' does not exist.');
             }
             $columns = Schema::getColumnListing($from);
             foreach (['id', 'workspace_id', 'body'] as $required) {
@@ -47,8 +49,8 @@ class ImportNotesCommand extends Command
         $report = ['copied' => 0, 'already_imported' => 0, 'deleted' => 0, 'empty' => 0, 'no_workspace' => 0, 'colour_defaulted' => 0];
         $dry = (bool) $this->option('dry-run');
 
-        DB::table($from)->orderBy('id')->chunk(500, function ($rows) use ($from, $has, $workspaces, &$report, $dry): void {
-            $imported = DB::table('kit_notes')->whereIn('imported_from', $rows->map(fn ($row): string => $from.':'.$row->id)->all())->pluck('imported_from')->flip();
+        DB::table($from)->orderBy('id')->chunk(500, function ($rows) use ($from, $notes, $has, $workspaces, &$report, $dry): void {
+            $imported = DB::table($notes)->whereIn('imported_from', $rows->map(fn ($row): string => $from.':'.$row->id)->all())->pluck('imported_from')->flip();
             foreach ($rows as $row) {
                 $origin = $from.':'.$row->id;
                 $skip = match (true) {
@@ -74,7 +76,7 @@ class ImportNotesCommand extends Command
                 }
                 $now = now();
                 // A concurrent run that copied the row first wins on the unique (workspace_id, imported_from) index; this one counts it as already imported.
-                $inserted = DB::table('kit_notes')->insertOrIgnore([
+                $inserted = DB::table($notes)->insertOrIgnore([
                     'workspace_id' => (int) $row->workspace_id,
                     'author_id' => $has('author_id') && $row->author_id !== null ? (int) $row->author_id : null,
                     'body' => (string) $row->body,

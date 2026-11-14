@@ -2,6 +2,7 @@
 
 namespace Tey\Kit\Features\Workspaces;
 
+use Closure;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Queue\CallQueuedHandler;
 use Illuminate\Support\Facades\Gate;
@@ -26,7 +27,9 @@ final class WorkspacesProvider extends ServiceProvider implements Contributes
             ->settingsSection('personal', 'workspaces', 'Workspaces', 'The workspaces you belong to.', group: 'Account', icon: 'building-2')
             // Concerns\GuardsStaleWrites refuses a write from an old version: a 409 on the web and the same code over MCP.
             ->errors(['stale_write' => 409], ['stale_write' => 'This record changed since you opened it. Reload to see the latest, then try again.'])
-            ->mcpRefusalCodes(['stale_write']);
+            ->mcpRefusalCodes(['stale_write'])
+            // Core enters a given workspace through this (Clock::for() reading a workspace's clock from a queued job), with the tenant and RLS as run() sets them.
+            ->workspaceRunnerUsing(fn (object|int $workspace, Closure $fn): mixed => Workspaces::run($workspace, $fn));
     }
 
     public function register(): void

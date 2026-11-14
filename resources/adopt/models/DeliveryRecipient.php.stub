@@ -1,0 +1,15 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Tey\Kit\Features\Deliver\Concerns\IsDeliveryRecipient;
+use Tey\Kit\Features\Deliver\Contracts\DeliveryRecipient as DeliveryRecipientContract;
+
+/** One address on a delivery and what the provider last said about it. The kit's behaviour is IsDeliveryRecipient; the table and the model are the app's (kit.models). */
+class DeliveryRecipient extends Model implements DeliveryRecipientContract
+{
+    use IsDeliveryRecipient;
+
+    protected $table = 'delivery_recipients';
+}

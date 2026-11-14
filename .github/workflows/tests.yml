@@ -40,7 +40,7 @@ jobs:
       - run: php bin/form-payload-check.php "$(git merge-base "origin/$GITHUB_BASE_REF" HEAD)"
 
   postgres:
-    name: Workspace and table adopt-in-place, audit workspace key, workspace deletion and row-level security (PostgreSQL)
+    name: Workspace and table adopt-in-place, domain table adoption, audit workspace key, workspace deletion and row-level security (PostgreSQL)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     services:
@@ -99,6 +99,15 @@ jobs:
           DB_PASSWORD: kit
       # Package migrations and the 0.18 renames: its own kit_migrations_* schemas.
       - run: composer test:migrations
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_DATABASE: kit_adopt_check
+          DB_USERNAME: kit
+          DB_PASSWORD: kit
+      # Domain table adoption (kit:scaffold --adopt): its own kit_domain_* schemas.
+      - run: composer test:domain-adopt
         env:
           DB_CONNECTION: pgsql
           DB_HOST: 127.0.0.1
@@ -384,6 +393,9 @@ jobs:
       - name: Package migrations, app copies and the 0.18 renames
         timeout-minutes: 4
         run: composer test:migrations
+      - name: Domain tables adopted by the app (kit:scaffold --adopt and --check, the boot check)
+        timeout-minutes: 4
+        run: composer test:domain-adopt
       - name: session-ui route groups and kit.home_name
         timeout-minutes: 4
         run: composer test:route-groups

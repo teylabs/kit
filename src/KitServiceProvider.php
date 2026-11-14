@@ -6,11 +6,19 @@ use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Image\ImageManager;
 use Illuminate\Support\ServiceProvider;
 use Inertia\Inertia;
+use Tey\Kit\Features\Core\Clock;
+use Tey\Kit\Features\Core\Kit;
 use Tey\Kit\Features\Core\KitShares;
 use Tey\Kit\Features\Core\Toast;
 
 final class KitServiceProvider extends ServiceProvider
 {
+    public function register(): void
+    {
+        // Media is the kit's own, not a feature, so no feature provider registers its upload model: Kit::model('media_upload') resolves through here.
+        Kit::defaults(['media_upload' => Media\Models\MediaUpload::class], []);
+    }
+
     public function boot(): void
     {
         // The kit never depends on the host's tey/mod layout: the features boot the same under any layout, and nothing is scaffolded on boot.
@@ -24,6 +32,8 @@ final class KitServiceProvider extends ServiceProvider
                 'kitToasts' => fn (): array => Toast::shared(),
                 // Money and percent defaults for InputNumber and Amount: the configured currency (`kit.currency`, null when unset) and the app locale as a BCP 47 tag.
                 'kitNumber' => fn (): array => ['currency' => config('kit.currency') ?: null, 'locale' => str_replace('_', '-', (string) app()->getLocale())],
+                // The viewer's clock for times of day (DateTime, the time inputs): `12h`, `24h`, or `auto`, the locale's own. On every page, guest and public too.
+                'kitClock' => fn (): string => Clock::shared(),
             ]);
         }
         $this->registerImageDriver();

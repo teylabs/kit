@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Notifications\Notification;
 use Symfony\Component\HttpFoundation\Response;
 use Tey\Kit\Features\Core\Principal;
-use Tey\Kit\Features\Deliver\Models\DeliveryRecord;
+use Tey\Kit\Features\Deliver\Contracts\Delivery as DeliveryContract;
 use Tey\Kit\Features\Finalize\Operations\FinalizeGate;
 
 /**
@@ -28,9 +28,9 @@ use Tey\Kit\Features\Finalize\Operations\FinalizeGate;
  *   `finalization_ref`, and the history compares it with the current one instead of reading `kit_finalizations`.
  * - `version(fn (Model): ?string)`: what the current document is; a scheduled send whose version changed before it runs is cancelled.
  * - `can(fn (Principal, Model, string $ability): bool)`, `url(fn (Model): string)`: as finalize's.
- * - `linkDays(30)`: how long a customer link lasts. `customerPage(fn (Model, DeliveryRecord): Response)`: what the link shows; the default downloads
+ * - `linkDays(30)`: how long a customer link lasts. `customerPage(fn (Model, Contracts\Delivery): Response)`: what the link shows; the default downloads
  *   the attachment as it is now.
- * - `expiredPage(fn (Model, DeliveryRecord, string $why): Response)`: what a correctly signed link with the right token shows once it has expired or
+ * - `expiredPage(fn (Model, Contracts\Delivery, string $why): Response)`: what a correctly signed link with the right token shows once it has expired or
  *   been revoked (`$why` is 'expired' or 'revoked'). The default is a plain 410 that names neither the subject nor the recipient.
  * - `previewAttachment(fn (Model): ?DeliveryAttachment)`: the document the panel's Preview shows instead of `attachment()` (a draft rendering, say).
  *   Called only for a preview, never on page load and never for a send.
@@ -401,7 +401,7 @@ final class Delivery
         return $this->linkDays;
     }
 
-    public function customerResponse(Model $subject, DeliveryRecord $delivery): Response
+    public function customerResponse(Model $subject, Model&DeliveryContract $delivery): Response
     {
         if ($this->customerPage !== null) {
             return ($this->customerPage)($subject, $delivery);
@@ -412,7 +412,7 @@ final class Delivery
     }
 
     /** @param 'expired'|'revoked' $why */
-    public function expiredResponse(Model $subject, DeliveryRecord $delivery, string $why): Response
+    public function expiredResponse(Model $subject, Model&DeliveryContract $delivery, string $why): Response
     {
         if ($this->expiredPage !== null) {
             $response = ($this->expiredPage)($subject, $delivery, $why);
