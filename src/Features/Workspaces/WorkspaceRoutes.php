@@ -37,6 +37,10 @@ final class WorkspaceRoutes
     public static function page(Route $route, bool $full, string $feature, string $name, string|Closure $title, ?array $parent = null): Route
     {
         $route->name($full ? $name : 'short.'.$name);
+        // The full form is the page `kit:query-report` requests; the short form is the same page under the session's workspace.
+        if ($full) {
+            $route->action['kit_page'] = 'workspace';
+        }
         $route->breadcrumb($title, $parent === null ? null : self::name(...$parent));
         $fullName = self::name($feature, $name);
         $names = $full ? $route->parameterNames() : ['workspace', ...$route->parameterNames()];

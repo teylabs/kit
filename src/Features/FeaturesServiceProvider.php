@@ -27,6 +27,7 @@ use Tey\Kit\Features\Core\CoreProvider;
 use Tey\Kit\Features\Core\Deploy\CatalogSync;
 use Tey\Kit\Features\Core\Deploy\HealthChecks;
 use Tey\Kit\Features\Core\Deploy\PreflightCommand;
+use Tey\Kit\Features\Core\QueryReportCommand;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Core\RequestMemo;
 use Tey\Kit\Features\Core\ViewModels\PageLayouts;
@@ -281,7 +282,7 @@ final class FeaturesServiceProvider extends ServiceProvider
         if ($features !== []) {
             Event::listen(DiagnosingHealth::class, fn (DiagnosingHealth $event) => (new HealthChecks($placeholderCheck ? Brand::placeholders(...) : static fn (): array => [], $features))->handle($event));
         }
-        $this->commands([PreflightCommand::class, FirstRunDemoCommand::class, CacheCommand::class, ClearCommand::class]);
+        $this->commands([PreflightCommand::class, QueryReportCommand::class, FirstRunDemoCommand::class, CacheCommand::class, ClearCommand::class]);
         $this->optimizes('structure-scouts:cache', 'structure-scouts:clear', 'kit-structure-scouts');
         // Nothing to cache since 0.18 (the features are config); kept so a deploy's `optimize` and `optimize:clear` still find them.
         $this->optimizes('kit:cache', 'kit:clear', 'kit');
