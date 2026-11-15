@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## v0.25.6
+
+Features affected: none.
 
 Features affected: core.
 
