@@ -90,12 +90,22 @@ function collapse() {
 function blurred(event: FocusEvent) {
     if (!root.value?.contains(event.relatedTarget as Node | null)) collapse();
 }
+// Empties BulkDrop's native file input. BulkDrop ignores removals while it is disabled, as it is during a save, so a save's reset runs this again once the
+// visit has finished and BulkDrop has re-rendered enabled; otherwise the next pick would join the files already sent.
+function clearDrop() {
+    const input = root.value?.querySelector<HTMLInputElement>(
+        '[data-dropzone-input]',
+    );
+    for (let left = input?.files?.length ?? 0; left > 0; left--)
+        drop.value?.remove(0);
+}
+let dropPending = false;
 // Back to where it started: an editor to its comment's body and colour, a new comment empty. Cancel and a save do this; the exposed clear() empties it.
 function reset(
     body = props.comment?.body ?? '',
     colourKey = props.comment?.colour?.key ?? defaultColour(),
 ) {
-    for (let left = files.value.length; left > 0; left--) drop.value?.remove(0);
+    clearDrop();
     chosen([]);
     text.value = body;
     colour.value = colourKey;
@@ -139,12 +149,18 @@ function keydown(event: KeyboardEvent) {
 }
 function saved() {
     refocus = !editing.value;
+    dropPending = true;
     reset();
     emit('success');
 }
 async function finished() {
     busy.value = false;
     emit('finish');
+    if (dropPending) {
+        dropPending = false;
+        await nextTick();
+        clearDrop();
+    }
     if (refocus) {
         refocus = false;
         await focus();
@@ -255,7 +271,7 @@ defineExpose({
                             :aria-label="
                                 composer.label
                                     ? undefined
-                                    : composer.placeholder
+                                    : (placeholder ?? composer.placeholder)
                             "
                             :aria-describedby="
                                 errors.body ? `${id}-body-error` : undefined

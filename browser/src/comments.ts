@@ -67,7 +67,7 @@ const Page = {
             h(CommentThread, { title: 'Discussion', comments: this.comments, composer: this.composer }),
             // Groups replace comments even when none has a comment: this one shows its empty line, not the comments it was also given.
             // An editor the host keeps mounted after a save (CommentItem closes its own).
-            h('section', { 'aria-label': 'Kept editor', 'data-kept-editor': '' }, [h(CommentForm, { composer: editable.editor, comment: editable })]),
+            h('section', { 'aria-label': 'Kept editor', 'data-kept-editor': '' }, [h(CommentForm, { composer: editable.editor, comment: editable, placeholder: 'Edit the comment…' })]),
             h(CommentThread, { title: 'No discussions', comments: this.comments, groups: [{ id: 'none', comments: [] }], level: 3, 'data-empty-groups': '' }),
             h('section', { 'aria-label': 'Looks', class: 'grid gap-3', 'data-looks': '' }, [
                 h(NoteCard, { accent: { tone: 'unknown', label: 'Other' }, density: 'compact', authorStyle: 'none', 'data-look': 'fallback' }, () => 'A compact row with an unknown tone.'),

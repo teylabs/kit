@@ -5390,6 +5390,8 @@ test('CommentForm: rests on one line, opens on focus, closes empty on Escape, sa
         await waitFor(async () => (await box.inputValue()) === '');
         assert.equal(await box.inputValue(), '', 'cleared after the save');
         assert.equal(await form.locator('[aria-label="Files to attach"] li').count(), 0, 'files cleared');
+        await waitFor(() => form.locator('[data-dropzone-input]').evaluate(el => el.files.length === 0));
+        assert.equal(await form.locator('[data-dropzone-input]').evaluate(el => el.files.length), 0, 'the native file input is emptied too');
         await waitFor(() => tab.evaluate(() => document.activeElement?.name === 'body'));
         assert.equal(await tab.evaluate(() => document.activeElement?.closest('[data-comment-thread] [data-comment-form]') !== null && document.activeElement.name === 'body'), true, 'focus stays in the box');
         assert.equal(await form.locator('input[type=hidden][name=colour]').inputValue(), 'yellow', 'the colour is back to the default');
@@ -5397,6 +5399,7 @@ test('CommentForm: rests on one line, opens on focus, closes empty on Escape, sa
         await tab.keyboard.press('Control+Enter');
         await waitFor(() => writes.length > 1);
         assert.notEqual(part(writes[1].body, 'intent_key'), part(post.body, 'intent_key'), 'each save has its own intent key');
+        assert.doesNotMatch(writes[1].body, /filename="sketch\.png"/, 'the next save resends no file');
     });
 });
 
@@ -5438,6 +5441,7 @@ test('CommentItem: Edit opens the editor in place with the body, sends PUT as _m
 test('CommentForm: an editor kept mounted after a save goes back to its comment, its Remove boxes unticked, so the next save resends no removal', async () => {
     await commentsPage('', async ({ tab, writes }) => {
         const editor = tab.locator('[data-kept-editor] [data-comment-form]');
+        assert.equal(await editor.locator('textarea').getAttribute('aria-label'), 'Edit the comment…', 'an overriding placeholder names the box too');
         await editor.locator('textarea').fill('Edited once.');
         await editor.getByLabel('Remove floor-plan.pdf').check();
         await editor.getByRole('button', { name: 'Save' }).click();
