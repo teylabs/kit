@@ -1,14 +1,27 @@
 // The kit's named tones (one fixed set, chosen by name): the five status tones and five more for categories. Each has a pale background, a strong
 // foreground (at least 4.5:1 on it, light and dark), a border and a dot, all `--kit-tone-*` tokens in kit.css that a host theme may override.
 // Whole class strings, never built from a name (Tailwind finds classes by scanning the source).
-export const TONES = ['neutral', 'info', 'success', 'warning', 'danger', 'purple', 'teal', 'pink', 'orange', 'slate'] as const;
+export const TONES = [
+    'neutral',
+    'info',
+    'success',
+    'warning',
+    'danger',
+    'purple',
+    'teal',
+    'pink',
+    'orange',
+    'slate',
+] as const;
 export type Tone = (typeof TONES)[number];
 
 export const TONE_BADGE: Record<Tone, string> = {
     neutral: 'border-border bg-muted text-muted-foreground',
     info: 'border-(--kit-tone-info-border) bg-(--kit-tone-info-bg) text-(--kit-tone-info-fg)',
-    success: 'border-(--kit-tone-success-border) bg-(--kit-tone-success-bg) text-(--kit-tone-success-fg)',
-    warning: 'border-(--kit-tone-warning-border) bg-(--kit-tone-warning-bg) text-(--kit-tone-warning-fg)',
+    success:
+        'border-(--kit-tone-success-border) bg-(--kit-tone-success-bg) text-(--kit-tone-success-fg)',
+    warning:
+        'border-(--kit-tone-warning-border) bg-(--kit-tone-warning-bg) text-(--kit-tone-warning-fg)',
     danger: 'border-(--kit-tone-error-border) bg-(--kit-tone-error-bg) text-(--kit-tone-error-fg)',
     purple: 'border-(--kit-tone-purple-border) bg-(--kit-tone-purple-bg) text-(--kit-tone-purple-fg)',
     teal: 'border-(--kit-tone-teal-border) bg-(--kit-tone-teal-bg) text-(--kit-tone-teal-fg)',
@@ -31,4 +44,7 @@ export const TONE_DOT: Record<Tone, string> = {
 };
 
 /** An unknown name (from the server, say) falls back to neutral rather than rendering nothing. */
-export const toneOf = (name: string | null | undefined): Tone => ((TONES as readonly string[]).includes(name ?? '') ? (name as Tone) : 'neutral');
+export const toneOf = (name: string | null | undefined): Tone =>
+    (TONES as readonly string[]).includes(name ?? '')
+        ? (name as Tone)
+        : 'neutral';
