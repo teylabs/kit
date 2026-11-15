@@ -307,6 +307,9 @@ jobs:
       - name: The kit's request start is core's, on a host without session-ui
         timeout-minutes: 4
         run: composer test:core-request-start
+      - name: A missing file under the Vite build directory is a plain 404 before the web group (no session, no XSRF cookie)
+        timeout-minutes: 4
+        run: composer test:build-miss
       - name: Font sets
         timeout-minutes: 4
         run: composer test:fonts

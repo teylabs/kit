@@ -101,9 +101,21 @@ Bars pinned to the viewport's foot register their height with `useStickyBars()`,
 - **History is the app's.** The Toaster dispatches a `kit:toast` window event with the flashed toast as `detail` each time it shows one. An app that keeps a history (a notification bell, say) listens for it; the kit keeps none.
 - **Kit components without a page visit** (the Workbench's refused reorder) send a toast with a `kit:toast:show` window event, whose `detail` is a toast payload. The Toaster renders it like a flash, deduplicated by its `id`. Pages never send it: a page's toast comes from its controller.
 
+## After a deploy: a new version
+
+The Toaster also installs, once, a small client setup for a page that outlived a deploy (Kit/Feedback/newVersion.ts). It listens to two documented hooks and to nothing else:
+
+- **`vite:preloadError`**: a lazy chunk the deploy removed failed to load. The error is handled (`event.preventDefault()`), then the page reloads (`window.location.reload()`), unless a form on it holds unsaved changes. Then the notice shows instead. Unsaved is the leave guard's own state (formFrame.ts's `pageUnsaved()`): a mounted `FormActions` or Workbench `:form` with warn-on-leave on whose form is dirty, or with pending work such as an upload. A form with `warn-on-leave` false, or one without a form frame, doesn't count.
+- **Inertia's `location` event with `versionChange`**: a request found the server on a new asset version. The notice shows; Inertia's own handling is unchanged. On a background (async) request, such as `router.reload()` or a poll, Inertia keeps the page. This event needs `@inertiajs/vue3` 3.6 or later. The kit's floor is `^3.0`, and below 3.6 Inertia has no `location` event and reloads the page itself.
+
+The notice is one quiet toast, "A new version is available.", with a Reload action that reloads the page. It stays until dismissed and shows once per page load, whichever hook fires first. With a form still dirty, Reload asks first through the leave guard (the browser's own prompt).
+
+The failed chunk's own request is cheap: a missing file under the build directory is a plain 404 before the session starts ([deploy.md](deploy.md#a-missing-build-file)).
+
 ## Coverage
 
 - `tests/ToastCheck.php` covers the PHP helper: the payload, the refusals, `from` and `style`, and the shared position.
 - `tests/js/toast.test.mjs` covers each `auto` branch, trigger resolution, the fallbacks, reduced motion and the shell's single mount.
+- `tests/js/new-version.test.mjs` covers the new-version decision (each hook, clean and unsaved), the handled error, the one persistent notice and its Reload. The browser job (`leave.html`, on the real `@inertiajs/vue3`) dispatches `vite:preloadError` with a clean form (the page reloads) and a dirty one (the notice shows, and the edit is kept), and answers a background reload with a version change (the page is kept, and the notice shows).
 - The kit has no browser harness, so the FLIP animation, the bubble's position and vue-sonner's rendering are not checked in a browser.
 - The kit's FocusShell (`@kit/shell`, which the Workspace Layout renders for a focus shell) mounts the Toaster, with `:toaster="false"` to leave it to the host's own root shell. A host that renders its own focus shell mounts `<Toaster />` there.
