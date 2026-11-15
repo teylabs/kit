@@ -26,6 +26,18 @@ A patch: comment and note components join `@kit/ui`, Avatar and FormActions take
 - **A menu item's `@chosen` fires, after the menu has closed and returned focus.** `DropdownItem` emitted `chosen` once the menu had closed, by which time the closed menu had unmounted the item, and Vue drops an unmounted component's emits, so the handler never ran. It is now a prop (`onChosen`), which `@chosen` still sets. The queued work also waited one timer too few: Reka returned focus to the trigger after it ran, so work that moved focus (into a form it opened) lost it. Nothing in the kit used `@chosen` before CommentItem's Edit and Reply, which cover both.
   Features affected: core
 
+## v0.25.2
+
+Features affected: none.
+
+Features affected: none.
+
+Allows tey/mod 0.14, and adds two changes an app's own tests need when it comes from below 0.24, found by an adopting app (see Upgrading).
+
+### Changed
+
+- **tey/mod 0.14 is allowed.** The constraint is now `^0.11.6 || ^0.12 || ^0.13 || ^0.14`, so an app can take mod 0.14's automatic dev discovery cache. No kit code changed.
+
 ### Upgrading
 
 - **From below 0.24: call `withCredentials()` in your base TestCase.** Laravel's test client sends no cookies on a JSON request (`postJson`, `putJson`, `getJson` and so on) unless the test calls `withCredentials()`. From 0.24, each such request after a sign-in therefore runs under a fresh session id. `TrackSignedInDevice` treats that as a regenerate and moves the device row to the new id, so the test's next cookie request, still on the old id, is signed out (a 302 to the login page, or Unauthenticated). The fix is one line in the app's base `TestCase::setUp()`:
