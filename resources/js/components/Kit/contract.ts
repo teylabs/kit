@@ -1,7 +1,7 @@
 // The contract of the UI set behind `@kit/ui`: the props each component takes. An app's own module exports components of these
 // names that accept these props (and the v-model and slots noted here), and kit pages render them unchanged.
 
-/** A labelled field: `name` reads its error from Inertia's <Form> context (`error` passes one), `span` (1 to 6 of the card's columns, from `sm` up) sets its width. */
+/** A labelled field: `name` reads its error from Inertia's <Form> context (`error` passes one), as a bracket path (`items[0][name]`, `items[0].name`) or a dot path (`items.0.name`); inside a Repeater row a name under that row reads the row's errors, which follow the row when the rows move. `span` (1 to 6 of the card's columns, from `sm` up) sets its width. */
 export interface FieldProps {
     id: string;
     label: string;
@@ -347,7 +347,7 @@ export interface FileInputProps {
 
 /**
  * The bar at the foot of a form (status, Cancel, submit; right-aligned; sticky). It reads Inertia's <Form> context, or `form` (a useForm() or useSubmitForm() result). `submit` is the server's action descriptor (its label, and `disabled` with a `reason` shown in the status slot); `submitLabel` is the verb
- * for the action, never "Submit"; `busyLabel` follows it. `dirtyLabel`, `errorsLabel`, `upToDateLabel` and `savedLabel` replace the status lines. `warnOnLeave` false registers no leave guard at all. Slots: `status` (slot props `{ state }`), `actions` (before Cancel), `submit`. Delete never goes here.
+ * for the action, never "Submit"; `busyLabel` follows it. `dirtyLabel`, `errorsLabel`, `upToDateLabel` and `savedLabel` replace the status lines. `warnOnLeave` false registers no leave guard at all. `density` compact drops the bar's top border and padding and tightens its gap, for a bar inside something small with its own edge (a comment composer). Slots: `status` (slot props `{ state }`), `actions` (before Cancel), `submit`. Delete never goes here.
  */
 export interface FormActionsProps {
     form?: object;
@@ -362,10 +362,11 @@ export interface FormActionsProps {
     cancel?: boolean;
     sticky?: boolean;
     warnOnLeave?: boolean;
+    density?: 'default' | 'compact';
 }
 
-/** A card for a form: a title, a six-column field grid, fieldsets, and the FormActions bar in its footer (same props). Given a useSubmitForm() as `form`, it is the <form> itself. */
-export interface FormCardProps extends FormActionsProps {
+/** A card for a form: a title, a six-column field grid, fieldsets, and the FormActions bar in its footer (same props, but its own density). Given a useSubmitForm() as `form`, it is the <form> itself. */
+export interface FormCardProps extends Omit<FormActionsProps, 'density'> {
     title?: string;
     description?: string;
 }
@@ -583,6 +584,27 @@ export interface InputDateProps {
     defaultValue?: string;
     min?: string;
     max?: string;
+}
+/**
+ * InputDate with an empty state and Clear: `emptyLabel` ("Not set") under the field while it has no date, and a Clear button (`clearLabel`) while it has one
+ * and is not required, disabled or locked; Clear submits '' and focuses the field. `v-model` (the date or '') or `defaultValue`; `name` defaults to `id`;
+ * `span` as on Field. Emits `canonical` too.
+ */
+export interface InputCalendarDateProps {
+    id: string;
+    label: string;
+    name?: string;
+    modelValue?: string | null;
+    defaultValue?: string | null;
+    min?: string;
+    max?: string;
+    description?: string;
+    error?: string;
+    disabled?: boolean;
+    required?: boolean;
+    span?: 1 | 2 | 3 | 4 | 5 | 6;
+    emptyLabel?: string;
+    clearLabel?: string;
 }
 export interface InputDateRangeProps {
     name: string;

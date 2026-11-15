@@ -255,6 +255,8 @@ export {
     SheetTrigger,
 } from '@/components/ui/sheet';
 export { default as InputDate } from './Form/InputDate.vue';
+// InputDate with an empty state ("Not set") and Clear, v-model and a FormCard span (docs/date-pickers.md).
+export { default as InputCalendarDate } from './Form/InputCalendarDate.vue';
 export { default as InputDateRange } from './Form/InputDateRange.vue';
 export { default as InputMonth } from './Form/InputMonth.vue';
 export { default as InputYear } from './Form/InputYear.vue';
