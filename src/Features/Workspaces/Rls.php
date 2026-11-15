@@ -61,6 +61,11 @@ final class Rls
             });
         }
         $previous = self::read($db);
+        // Already this workspace's (a page's nested runs for the workspace it is in): nothing to set and nothing to put back. Decided from the
+        // transaction's own value, never a copy kept here, so a change made any other way is still seen.
+        if ($previous === (string) $workspaceId) {
+            return $fn();
+        }
         self::set($db, (string) $workspaceId);
         try {
             return $fn();

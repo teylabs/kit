@@ -378,6 +378,24 @@ try {
         return [$inner, Rls::current()];
     });
     rlsCheck($nested === [[$b, 2], $a], 'a nested within() switches the id for its closure and restores the outer one, also when it throws');
+    // A nested within() for the workspace the transaction already carries (a page's runs inside its own workspace) sets nothing and puts nothing back:
+    // one read of the setting, no set_config. One for another workspace inside it still switches and restores, also when it throws.
+    $sets = [];
+    DB::listen(function ($query) use (&$sets): void {
+        if (str_contains($query->sql, 'set_config')) {
+            $sets[] = $query->bindings[1];
+        }
+    });
+    $same = Rls::within($a, function () use ($a, $b, &$sets): array {
+        $sets = [];
+        $inner = Rls::within($a, fn () => Rls::within($a, fn () => [Rls::current(), DB::table('rls_notes')->count()]));
+        $skipped = $sets;
+        $other = Rls::within($a, fn () => Rls::within($b, fn () => Rls::current()));
+        rlsRefusal(fn () => Rls::within($a, fn () => Rls::within($b, fn () => throw new RuntimeException('inner'))));
+
+        return [$inner, $skipped, $other, Rls::current(), $sets];
+    });
+    rlsCheck($same === [[$a, 2], [], $b, $a, [(string) $b, (string) $a, (string) $b, (string) $a]], 'a nested within() for the workspace already set issues no set_config and leaves it set; one for another workspace inside it switches and restores, also when it throws ('.json_encode($same).')');
 
     // Workspaces::run, which ResolveWorkspace uses for the whole request, carries the id.
     rlsCheck(Workspaces::run($b, fn () => [Rls::current(), DB::table('rls_notes')->count()]) === [$b, 2] && Rls::current() === null, 'Workspaces::run() runs its closure in the workspace\'s RLS transaction');
