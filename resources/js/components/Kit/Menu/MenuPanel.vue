@@ -113,11 +113,13 @@ watch(open, async (now) => {
         );
 });
 
-// Runs the queued after-close work on the next tick, once Reka has unmounted the panel and returned focus.
+// Runs the queued after-close work once Reka has unmounted the panel and returned focus, so work that moves focus (into a form it opens) keeps it. Reka
+// returns focus from a timer it starts as the panel unmounts, after this watcher has run, so the work waits one timer more.
 function flush() {
     const run = queued;
     queued = [];
-    if (run.length) setTimeout(() => run.forEach((fn) => fn()), 0);
+    if (run.length)
+        setTimeout(() => setTimeout(() => run.forEach((fn) => fn()), 0), 0);
 }
 
 function keep(event: Event) {

@@ -324,12 +324,13 @@ export interface SectionIconProps {
 /** The frame of a settings section's page: the sidebar of the sections the user may open (the page's `layout.navigation`, `aria-current` on the shown one), and the content in the default slot. */
 export type SettingsFrameProps = Record<string, never>;
 
-/** A person's photo (`src`, `src2x`) or their initials when there is none; `large` is the profile size. */
+/** A person's photo (`src`, `src2x`) or their initials when there is none; `large` is the profile size. `size`: xs (20px), sm (28px), md (32px, the default), lg (40px) or xl (80px, as `large`). */
 export interface AvatarProps {
     initials: string;
     src?: string | null;
     src2x?: string | null;
     large?: boolean;
+    size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 }
 
 /** A file chooser (`v-model`: File or null); `accept` filters the picker. `current` is the record's file (name, size, link), shown in place of the picker inside a locked LockedForm. */
@@ -362,6 +363,8 @@ export interface FormActionsProps {
     cancel?: boolean;
     sticky?: boolean;
     warnOnLeave?: boolean;
+    /** compact: no top rule or padding, a tighter gap (a toolbar row). */
+    density?: 'default' | 'compact';
 }
 
 /** A card for a form: a title, a six-column field grid, fieldsets, and the FormActions bar in its footer (same props). Given a useSubmitForm() as `form`, it is the <form> itself. */
@@ -953,6 +956,8 @@ export interface DropdownItemProps {
     as?: string | object | null;
     inertia?: boolean;
     active?: boolean;
+    /** `@chosen`: called once the menu has closed (a prop, so it runs though the closed menu unmounted the item). */
+    onChosen?: () => void;
 }
 export interface DropdownLinkProps {
     href?: string;
@@ -1163,4 +1168,55 @@ export interface TextTagsProps {
     label?: string;
     tone?: 'neutral' | 'info' | 'success' | 'warning' | 'danger';
     size?: 'sm' | 'md';
+}
+
+/** The card a comment or note sits on: an optional colour `accent` on its `accentEdge` (left or top, `accentWidth` thin, medium or wide), a header with the author (`authorStyle` avatar-name, name or none), the `timestamp` and `actions` slots, the body (default slot) and `footer`. `variant` compact is one line; `density` default, compact or flush. */
+export interface NoteCardProps {
+    accent?: { tone: string; label: string; meaning?: string | null } | null;
+    author?: {
+        name: string;
+        initials: string;
+        avatar_url?: string | null;
+        avatar_url_2x?: string | null;
+    } | null;
+    variant?: 'full' | 'compact';
+    density?: 'default' | 'compact' | 'flush';
+    accentEdge?: 'left' | 'top';
+    accentWidth?: 'thin' | 'medium' | 'wide';
+    authorStyle?: 'avatar-name' | 'name' | 'none';
+    as?: 'article' | 'div' | 'li';
+}
+
+/** One comment (a CommentData) on a NoteCard with its files, subject, replies and the menu the server's `editor`, `reply` and `delete` allow (slots: `quick`, `footer`). `interactive` false shows no actions; `collapsible` cuts a long body; `only` limits each visit's props. */
+export interface CommentItemProps {
+    comment: object;
+    variant?: 'full' | 'compact';
+    density?: 'default' | 'compact' | 'flush';
+    accentEdge?: 'left' | 'top';
+    accentWidth?: 'thin' | 'medium' | 'wide';
+    interactive?: boolean;
+    collapsible?: boolean;
+    only?: string[];
+}
+
+/** The composer for a comment, reply or edit: an Inertia <Form> to `composer.submit` (a CommentComposerData); `comment` makes it that comment's editor. `enterSaves` saves on Enter; `only` limits the visit's props. Events: start, finish, success, cancel, typing. Exposes focus, text, colour, clear and submit. */
+export interface CommentFormProps {
+    composer: object;
+    comment?: object | null;
+    placeholder?: string;
+    enterSaves?: boolean;
+    only?: string[];
+    avatarSize?: 'xs' | 'sm' | 'md' | 'lg';
+}
+
+/** A titled discussion in a PageSection: the `composer`, then `comments` (or `groups` of them), or `empty`. */
+export interface CommentThreadProps {
+    title: string;
+    comments?: object[];
+    groups?: { id: number | string; comments: object[] }[] | null;
+    composer?: object | null;
+    empty?: string;
+    level?: 2 | 3 | 4 | 5 | 6;
+    interactive?: boolean;
+    only?: string[];
 }
