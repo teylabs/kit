@@ -120,7 +120,7 @@ final class Onboarding
     /** Whether any owner has confirmed this workspace's timezone: it is the workspace's, so once is enough. */
     private static function workspaceTimezoneConfirmed(?int $workspace): bool
     {
-        return $workspace !== null && DB::table('user_state')->where('workspace_id', $workspace)->where('key', 'workspace.timezone.confirmed')->exists();
+        return $workspace !== null && RequestMemo::instance()->get('user_state:confirmed:'.$workspace, fn (): bool => DB::table('user_state')->where('workspace_id', $workspace)->where('key', 'workspace.timezone.confirmed')->exists());
     }
 
     private static function ownsWorkspace(int $user, ?int $workspace): bool
@@ -132,7 +132,7 @@ final class Onboarding
         $space = MemberWorkspaces::workspace($workspace, $person);
         $membership = $person === null || $space === null ? null : RequestMemo::membership($person, $space);
 
-        return $membership !== null && app(Concierge::class)->isOwner($membership);
+        return $membership !== null && RequestMemo::owns($membership);
     }
 
     /** @return list<array{id: string, label: string, order: int, optional: bool}> every step that applies to the person here, in order */

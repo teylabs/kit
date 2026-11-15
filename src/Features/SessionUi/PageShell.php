@@ -7,7 +7,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use RuntimeException;
-use Tey\Concierge\Concierge;
 use Tey\Concierge\Contracts\Workspace;
 use Tey\Kit\Features\Access\Access;
 use Tey\Kit\Features\Core\Data\Action;
@@ -315,7 +314,7 @@ final class PageShell implements ShellSource
     {
         $workspace = MemberWorkspaces::workspace($workspaceId, $user);
         $membership = $workspace === null ? null : RequestMemo::membership($user, $workspace);
-        if ($membership === null || app(Concierge::class)->isOwner($membership)) {
+        if ($membership === null || RequestMemo::owns($membership)) {
             return null;
         }
 

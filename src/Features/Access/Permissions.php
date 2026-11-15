@@ -28,6 +28,9 @@ final class Permissions
     public function forget(): void
     {
         $this->memo = $this->memo === null ? null : [];
+        if (app()->resolved(RequestMemo::class)) {
+            RequestMemo::instance()->flush();
+        }
     }
 
     /**
@@ -76,13 +79,11 @@ final class Permissions
                 }
             }, [$user]);
         }
-        // In a request, the member's whole permission set in the workspace is read once (roles and direct grants), then each check is a lookup.
-        $key = 'set:'.$user->getKey().':'.$workspace->getKey();
-        if (! isset($this->memo[$key])) {
-            $this->memo[$key] = app(Concierge::class)->context()->run($workspace, fn (): array => $user->getAllPermissions()->where('guard_name', Roles::guard())->pluck('name')->flip()->map(fn (): bool => true)->all(), [$user]);
-        }
+        // In a request, the member's whole permission set in the workspace is read once (roles and direct grants; RequestMemo, on once()), then each check is a
+        // lookup. A role or grant written since empties it: RequestMemo on the write statement, the answers here through forget().
+        $set = RequestMemo::instance()->get('permissions:'.$user->getKey().':'.$workspace->getKey(), fn (): array => app(Concierge::class)->context()->run($workspace, fn (): array => $user->getAllPermissions()->where('guard_name', Roles::guard())->pluck('name')->flip()->map(fn (): bool => true)->all(), [$user]));
 
-        return isset($this->memo[$key][$permission]);
+        return isset($set[$permission]);
     }
 
     /** Active member, role grant, and the permission's capability active in the workspace: all three. */

@@ -5,8 +5,14 @@ namespace Tey\Kit\Features;
 use Glhd\Gretel\Support\GretelServiceProvider;
 use Illuminate\Database\Events\MigrationsEnded;
 use Illuminate\Database\Events\NoPendingMigrations;
+use Illuminate\Database\Events\QueryExecuted;
+use Illuminate\Database\Events\TransactionBeginning;
+use Illuminate\Database\Events\TransactionRolledBack;
 use Illuminate\Foundation\Events\DiagnosingHealth;
 use Illuminate\Mail\Events\MessageSending;
+use Illuminate\Queue\Events\JobExceptionOccurred;
+use Illuminate\Queue\Events\JobProcessed;
+use Illuminate\Queue\Events\JobProcessing;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\View\Compilers\BladeCompiler;
@@ -211,12 +217,26 @@ final class FeaturesServiceProvider extends ServiceProvider
             }
             app(RequestMemo::class)->remember();
         }));
-        // One per request: what the shell, the layout and the page all look up is read once, and any Eloquent write empties it.
+        // One per request: what the shell, the layout and the page all look up is read once (once(), on the scoped instance), and any write empties it.
         $this->app->scoped(RequestMemo::class);
         // One per request too: the workspace column answers it has read (the shared cache holds each column's for a day).
         $this->app->scoped(WorkspaceColumns::class);
-        Event::listen(['eloquent.saved: *', 'eloquent.deleted: *'], static function (): void {
+        // A job run in the request (the sync queue) reads afresh, and the request after it does not see what the job read.
+        Event::listen(['eloquent.saved: *', 'eloquent.deleted: *', JobProcessing::class, JobProcessed::class, JobExceptionOccurred::class], static function (): void {
             if (app()->resolved(RequestMemo::class)) {
+                app(RequestMemo::class)->flush();
+            }
+        });
+        // Any write or locking read on any connection, by any path (the query builder, a raw query, a package's pivot), and any rollback: a read after a
+        // write or a lock is never answered from one before it, nor from rows a rollback undid. SQLite compiles no lock, so there the outermost
+        // transaction beginning stands in for it (a savepoint inside one, a dashboard widget's, keeps the memo). It errs toward emptying, which costs a read.
+        Event::listen(QueryExecuted::class, static function (QueryExecuted $query): void {
+            if (app()->resolved(RequestMemo::class) && RequestMemo::writesOrLocks($query->sql)) {
+                app(RequestMemo::class)->flush();
+            }
+        });
+        Event::listen([TransactionBeginning::class, TransactionRolledBack::class], static function (TransactionBeginning|TransactionRolledBack $event): void {
+            if (app()->resolved(RequestMemo::class) && ($event instanceof TransactionRolledBack || ($event->connection->getDriverName() === 'sqlite' && $event->connection->transactionLevel() === 1))) {
                 app(RequestMemo::class)->flush();
             }
         });

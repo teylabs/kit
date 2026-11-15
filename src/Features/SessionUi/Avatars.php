@@ -4,6 +4,7 @@ namespace Tey\Kit\Features\SessionUi;
 
 use Illuminate\Support\Str;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
+use Tey\Kit\Features\Core\RequestMemo;
 use Tey\Kit\Features\SessionUi\Models\UserAvatar;
 
 /**
@@ -37,12 +38,14 @@ final class Avatars
         return $found;
     }
 
-    /** @return array{url: string, url_2x: string}|null */
+    /** @return array{url: string, url_2x: string}|null read once per request (RequestMemo); a new or removed avatar is a write, which empties it */
     public static function urls(int $userId): ?array
     {
-        $media = Media::query()->where('model_type', (new UserAvatar)->getMorphClass())->where('model_id', (string) $userId)->where('collection_name', 'avatar')->latest('id')->first();
+        return RequestMemo::instance()->get('avatar:'.$userId, function () use ($userId): ?array {
+            $media = Media::query()->where('model_type', (new UserAvatar)->getMorphClass())->where('model_id', (string) $userId)->where('collection_name', 'avatar')->latest('id')->first();
 
-        return $media === null ? null : self::forMedia($media);
+            return $media === null ? null : self::forMedia($media);
+        });
     }
 
     /** @return array{url: string, url_2x: string} */

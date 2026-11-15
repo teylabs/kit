@@ -121,7 +121,7 @@ class ResolveWorkspace
     {
         $user = $request->user('web');
         $remembered = $request->session()->get('kit.workspace');
-        if ($remembered !== null && ($workspace = Workspaces::query()->find($remembered)) !== null && ! $workspace->isDeleting() && RequestMemo::membership($user, $workspace)?->isActive()) {
+        if ($remembered !== null && ($workspace = Workspaces::find($remembered)) !== null && ! $workspace->isDeleting() && RequestMemo::membership($user, $workspace)?->isActive()) {
             return $workspace;
         }
         $memberships = WorkspaceUrl::memberships($user);

@@ -6,6 +6,7 @@ use Closure;
 use Illuminate\Bus\PendingBatch;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Bus\PendingChain;
 use Illuminate\Foundation\Bus\PendingDispatch;
 use Illuminate\Support\Facades\Log;
@@ -13,6 +14,7 @@ use RuntimeException;
 use Spatie\Multitenancy\Contracts\IsTenant;
 use Tey\Concierge\Contracts\Workspace;
 use Tey\Concierge\Support\ConciergeModels;
+use Tey\Kit\Features\Core\RequestMemo;
 use Tey\Kit\Features\Workspaces\Concerns\IsKitWorkspace;
 
 /**
@@ -33,6 +35,12 @@ final class Workspaces
         return self::model()::query();
     }
 
+    /** The bound workspace by id, or null when there is none. Read once per request (RequestMemo); an id that is not one of the person's is not refused here. */
+    public static function find(int|string $id): (Model&IsTenant&Workspace)|null
+    {
+        return RequestMemo::instance()->get('workspace:'.$id, fn (): ?Model => self::query()->find($id));
+    }
+
     public static function current(): (Model&IsTenant&Workspace)|null
     {
         return self::model()::current();
@@ -46,8 +54,8 @@ final class Workspaces
     /**
      * Runs `$fn` with the workspace as the current tenant, through spatie's `execute()`: the switch tasks run (Concierge's context, the
      * permission team, a Pennant flush), and the tenant that was current before, or none, is restored afterwards, also when `$fn` throws.
-     * A model the caller holds is used as it is, without reading its row again; an id is looked up on the bound model and an unknown
-     * one throws `ModelNotFoundException` before anything switches. Pass a block closure, not an arrow function: an arrow function
+     * A model the caller holds is used as it is, without reading its row again; an id is looked up on the bound model (once per request) and an
+     * unknown one throws `ModelNotFoundException` before anything switches. Pass a block closure, not an arrow function: an arrow function
      * returns what `dispatch()` returns, and that job is queued only once it is discarded, after the tenant is restored. It fails closed if `$fn` returns a pending dispatch anyway (a `PendingDispatch` or
      * `PendingClosureDispatch`, a `PendingChain` or a `PendingBatch`), from any closure: the job is dispatched inside the workspace
      * (the reference dropped, or `dispatch()` called for a chain or batch), `run()` returns null, and one warning per call site names
@@ -60,7 +68,7 @@ final class Workspaces
      */
     public static function run(Workspace|int $workspace, Closure $fn): mixed
     {
-        $tenant = is_int($workspace) ? self::query()->findOrFail($workspace) : $workspace;
+        $tenant = is_int($workspace) ? (self::find($workspace) ?? throw (new ModelNotFoundException)->setModel(self::model(), [$workspace])) : $workspace;
         if (! $tenant instanceof IsTenant) {
             throw new RuntimeException('workspace_not_tenant');
         }

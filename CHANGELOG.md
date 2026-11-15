@@ -34,6 +34,24 @@ Notes only: two changes an app's own tests need when it comes from below 0.24, f
 
   `adopt()` returns false, and adds nothing, when the session already has a row, the person is gone, or every other session of theirs was ended since the upgrade. The `array` driver (Laravel's default in `phpunit.xml`) lists no devices at all, adopted or not: run such a test on the `database` driver (`config(['session.driver' => 'database'])`, with a `sessions` table).
 
+## v0.25.1
+
+Features affected: none.
+
+Features affected: core, workspaces, settings, session-ui
+
+A patch release: the lookups a page's shell, layout and widgets each repeat run once per request. No API is removed and no default changes.
+
+### Changed
+
+- **Request memos for shared lookups, on Laravel's `once()` (#978).** `RequestMemo`, the request's memo, now keeps each answer with `once()`, keyed on a scope object the request-scoped instance owns, and covers more of the lookups a page repeats. Each runs once per request: the current workspace by id (`Workspaces::find()`, which `Workspaces::run()` with an id, the deprecated `TenantBoundary`, `ResolveWorkspace`'s remembered workspace, `WorkspaceUrl` outside a session and the settings navigation use), every `user_state` key a person has in one workspace or their own (one query, which `UserState::get()`, `has()` and `many()` answer from), the workspace's settings (`WorkspaceSettings::current()`: each caller gets its own copy, so an unsaved change reaches no other), the avatar (`Avatars::urls()`), ownership (`RequestMemo::owns()`, for the onboarding step and the shell's Leave action), the workspace's confirmed timezone, and the membership and account it already covered.
+  Features affected: core, workspaces, settings, session-ui
+  - **Never stale, never carried over.** The memo empties on any write statement or locking read (`for update`, `for share`, `lock in share mode`) on any connection, by any path, including a raw query or a package's pivot; on an Eloquent write, as before; on a rollback; on SQLite, which compiles no lock, when the outermost transaction begins; and when a queued job starts or ends, so a job run in the request (the sync queue) reads afresh and the request after it does not keep the job's answers. `UserState::set()`, `forget()` and `forgetAll()` and `WorkspaceSettings::save()` empty it too. It answers only for the request object that began it (held weakly, so a later request PHP gives the same object id is not taken for it), and the instance is scoped, so Octane's flushes after each request (`Once::flush()`, forgetting scoped instances) and the queue worker's reset each empty it on their own.
+  - **RLS.** A nested `Rls::within()` (and so `Workspaces::run()`) for the workspace the transaction already carries reads the setting and changes nothing: no `set_config` going in or coming out. Decided from the transaction's own value each time, never a copy kept in PHP. One for another workspace still switches and restores, also when it throws.
+  - **Measured** on the check's pages (the kit's widgets, an owner of two workspaces with a photo and a saved timezone): on SQLite the dashboard went from 30 queries (12 of them exact duplicates) to 18 (2), its deferred people list from 27 to 19, and General settings from 17 (3) to 15 (1). On PostgreSQL with RLS on (a scratch run of the same pages, not a check), the dashboard went from 37 queries and 5 `set_config` to 21 and 1, and General settings from 27 and 7 to 19 and 1. The duplicates left: Concierge reads the account itself before the kit's memo does (concierge#164), the roles pivot is read again inside each Concierge context run (the You card's role and the permission set), and each nested run reads the RLS setting once.
+  - **Tests.** `composer test:request-memos` (new): query budgets for the dashboard, its deferred people list and General settings, where with `once()` off every covered lookup repeats and on each runs once and the only exact duplicates are the documented ones; a write and then a read in one request for user_state, settings, avatar, workspace, ownership and membership, by the kit's writers and by raw queries, plus a rollback and a read after a transaction begins; two requests in turn as different people and workspaces with nothing shared, also with no write seen in between; Octane's `Once::flush()` and `forgetScopedInstances()` each emptying a live memo on its own; and a job, run in the request (sync) and after it by the worker's `runNextJob` (which resets nothing), reading afresh. `composer test:rls` covers the `set_config` skip. `composer test:inertia-shares`' clock probe now counts every `user_state` read (the clock is one key of that one read), still once per page.
+  - **Not covered:** a connection pooler, a real Octane worker, and consumer apps' own pages.
+
 ## v0.25.0
 
 Features affected: none.
