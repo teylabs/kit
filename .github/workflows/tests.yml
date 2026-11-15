@@ -298,6 +298,9 @@ jobs:
       - name: The kit's request start runs first in `web`, before the host's middleware
         timeout-minutes: 4
         run: composer test:request-order
+      - name: Request memos (once() per request; writes, requests, Octane's flushes and queued jobs never see a stale one)
+        timeout-minutes: 4
+        run: composer test:request-memos
       - name: The kit's request start is core's, on a host without session-ui
         timeout-minutes: 4
         run: composer test:core-request-start

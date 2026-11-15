@@ -431,7 +431,8 @@ try {
     });
     $clockReads = 0;
     DB::listen(function ($query) use (&$clockReads): void {
-        $clockReads += (int) (str_starts_with(strtolower(ltrim($query->sql)), 'select') && str_contains($query->sql, 'user_state') && in_array('clock', $query->bindings, true));
+        // Every user_state read: the clock is one key of the person's own state, which is read in one query per request.
+        $clockReads += (int) (str_starts_with(strtolower(ltrim($query->sql)), 'select') && str_contains($query->sql, 'user_state'));
     });
     Route::middleware('web')->get('/clock-list', function () {
         $at = CarbonImmutable::parse('2026-10-29 18:30:00', 'UTC');
