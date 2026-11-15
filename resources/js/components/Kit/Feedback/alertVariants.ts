@@ -113,11 +113,11 @@ export const alertIconClass = (
 
 /*
  * An Alert's actions take its tone (AlertActions provides it as the surface; Button reads it): never the host's grey secondary. `style` is the alert's
- * `actionsStyle`: `soft` (the default) is a compact button tinted with the tone, `bg-current/8` and 12% on hover (at 20%, light success text falls to
- * 4.1:1); `link` is tone text, medium weight, underlined on hover. A quiet Button (secondary, ghost, link) is a normal-weight tone link in either style, for a
- * second action such as Dismiss. Focus is a 2px outline in the tone, 2px out. The tone is the pale tier's semantic text token (the icon's; foreground for muted, whose
- * muted-foreground is too faint for a link) and the solid tier's own text. Each pairing keeps 4.5:1 in light and dark, at rest and on hover (browser/run.mjs,
- * ?alert-actions).
+ * `actionsStyle`: `soft` (the default) makes every action a compact button tinted with the tone, `bg-current/8` and 12% on hover (at 20%, light success text
+ * falls to 4.1:1), whatever its variant; `link` makes every action tone text, underlined on hover. A Button with the `link` variant asks for a link itself, so
+ * it is one in either style. A link is medium weight for a primary, success or destructive Button and normal weight for the rest (Dismiss, Learn more). Focus
+ * is a 2px outline in the tone, 2px out. The tone is the pale tier's semantic text token (the icon's; foreground for muted, whose muted-foreground is too faint
+ * for a link) and the solid tier's own text. Each pairing keeps 4.5:1 in light and dark, at rest and on hover (browser/run.mjs, ?alert-actions).
  */
 export type AlertActionsStyle = 'soft' | 'link';
 export type AlertActions = {
@@ -150,17 +150,23 @@ const actionLink =
 const actionSoft =
     'font-medium shadow-none bg-current/8 hover:bg-current/12 dark:bg-current/8 dark:hover:bg-current/12';
 
-/** A kit Button's classes in an Alert's actions: `quiet` for a secondary, ghost or link Button. On the host's link (a link) or ghost (soft) button, size sm. */
+/** Whether a kit Button in an Alert's actions is a link: the alert's `actionsStyle` is `link`, or the Button's variant is. Otherwise it is soft. */
+export const alertActionIsLink = (
+    actions: AlertActions,
+    variant: string,
+): boolean => actions.style === 'link' || variant === 'link';
+
+/** A kit Button's classes in an Alert's actions, by its variant. On the host's link (a link) or ghost (soft) button, size sm. */
 export const alertActionClass = (
     actions: AlertActions,
-    quiet: boolean,
+    variant: string,
 ): string =>
     [
         alertActionsText(actions.variant, actions.tier),
         actionFocus,
-        actions.style === 'soft' && !quiet
-            ? actionSoft
-            : `${actionLink} ${quiet ? 'font-normal' : 'font-medium'}`,
+        alertActionIsLink(actions, variant)
+            ? `${actionLink} ${['primary', 'success', 'destructive'].includes(variant) ? 'font-medium' : 'font-normal'}`
+            : actionSoft,
     ].join(' ');
 
 export type AlertVariant = NonNullable<

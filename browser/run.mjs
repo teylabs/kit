@@ -9594,9 +9594,10 @@ test('a locked FormCard and a lone FormFieldset show their notice by default and
 });
 
 // ── An Alert's actions in its tone (?alert-actions, `=dark`): soft (the default) and link, every tone and tier, at rest, on hover and focused; axe with contrast ─
-// Each alert holds a primary Button and a secondary one in #actions (AlertActionsApp.vue). Colours are read as the browser paints them: the backgrounds from the
-// action up to the page are composited on a canvas, so a translucent tint (bg-current/10, bg-sky-950/60) counts as drawn. KIT_ALERT_ACTIONS_SCREENSHOTS=<dir>
-// saves each pale info, success, warning, danger and muted alert, per style, scheme and width; KIT_ALERT_ACTIONS_CONTRAST=<file> writes the ratios as JSON.
+// Each alert holds a primary Button, a secondary one and a `variant="link"` one in #actions (AlertActionsApp.vue). Colours are read as the browser paints them:
+// the backgrounds from the action up to the page are composited on a canvas, so a translucent tint (bg-current/10, bg-sky-950/60) counts as drawn.
+// KIT_ALERT_ACTIONS_SCREENSHOTS=<dir> saves each pale info, success, warning, danger and muted alert, per style, scheme and width; KIT_ALERT_ACTIONS_CONTRAST=<file>
+// writes the ratios as JSON.
 const ALERT_TONES = ['info', 'success', 'warning', 'danger', 'muted', 'primary', 'brand'];
 const ALERT_SHOT_TONES = ['info', 'success', 'warning', 'danger', 'muted'];
 const alertActionsPage = async (scheme, width) => {
@@ -9656,7 +9657,7 @@ const alertAction = (tab, alert, which) => tab.evaluate(async ([alert, which]) =
     };
 }, [alert, which]);
 
-test('an Alert\'s actions take its tone, never the host\'s grey: link and soft, every tone and tier, 4.5:1 at rest and on hover, light and dark', async () => {
+test('an Alert\'s actions take its tone, never the host\'s grey: every action soft by default, a link only when asked, every tone and tier, 4.5:1 at rest and on hover, light and dark', async () => {
     const ratios = {};
     for (const scheme of ['light', 'dark']) {
         const { context, tab } = await alertActionsPage(scheme, 1280);
@@ -9664,36 +9665,38 @@ test('an Alert\'s actions take its tone, never the host\'s grey: link and soft, 
             const alerts = [...ALERT_TONES.flatMap((tone) => ['link', 'soft'].map((style) => [tone, 'pale', style, `${tone}-${style}`])), ...ALERT_TONES.flatMap((tone) => ['link', 'soft'].map((style) => [tone, 'solid', style, `${tone}-solid-${style}`]))];
             for (const [tone, tier, style, alert] of alerts) {
                 await tab.mouse.move(0, 0);
-                const primary = await alertAction(tab, alert, 'primary');
-                const quiet = await alertAction(tab, alert, 'quiet');
                 const label = `${scheme} ${tier} ${tone} ${style}`;
+                const read = {};
+                for (const which of ['primary', 'secondary', 'link']) read[which] = await alertAction(tab, alert, which);
                 // The tone: the icon's colour for the semantic tones and primary, the alert's own text for muted (its icon is muted-foreground), brand and solid.
-                const tone_ = tier === 'pale' && !['muted', 'brand'].includes(tone) ? primary.icon : primary.alertInk;
-                assert.equal(primary.ink, tone_, `${label}: the primary action is the alert's tone`);
-                assert.equal(quiet.ink, tone_, `${label}: the quiet action is the alert's tone`);
-                assert.equal(quiet.behind, quiet.alertBehind, `${label}: the quiet action is a link, on the alert's own background`);
-                assert.equal(quiet.weight, 400, `${label}: the quiet action is normal weight`);
-                assert.equal(primary.weight, 500, `${label}: the primary action is medium weight`);
-                if (style === 'link') {
-                    assert.equal(primary.behind, primary.alertBehind, `${label}: a link has no background of its own`);
-                    assert.equal(primary.underline, false, `${label}: a link is not underlined at rest`);
-                    assert.ok(primary.height >= 24, `${label}: a link is a 24px target (${primary.height})`);
-                } else {
-                    assert.notEqual(primary.behind, primary.alertBehind, `${label}: a soft action is tinted`);
-                    assert.equal(primary.height, 32, `${label}: a soft action is compact (h-8)`);
+                const tone_ = tier === 'pale' && !['muted', 'brand'].includes(tone) ? read.primary.icon : read.primary.alertInk;
+                // In a soft alert the primary and the secondary action are both soft buttons; only the Button that asks (variant="link") is a link. In a link
+                // alert every action is a link: the primary medium weight, the others normal.
+                const links = style === 'link' ? ['primary', 'secondary', 'link'] : ['link'];
+                const ratio = {};
+                for (const which of ['primary', 'secondary', 'link']) {
+                    const action = read[which];
+                    assert.equal(action.ink, tone_, `${label}: the ${which} action is the alert's tone`);
+                    if (links.includes(which)) {
+                        assert.equal(action.behind, action.alertBehind, `${label}: the ${which} action is a link, with no background of its own`);
+                        assert.equal(action.underline, false, `${label}: the ${which} link is not underlined at rest`);
+                        assert.ok(action.height >= 24, `${label}: the ${which} link is a 24px target (${action.height})`);
+                        assert.equal(action.weight, which === 'primary' ? 500 : 400, `${label}: the ${which} link's weight`);
+                    } else {
+                        assert.notEqual(action.behind, action.alertBehind, `${label}: the ${which} action is a soft button, tinted with the tone`);
+                        assert.equal(action.height, 32, `${label}: the ${which} soft action is compact (h-8)`);
+                        assert.equal(action.weight, 500, `${label}: the ${which} soft action is medium weight`);
+                    }
+                    await tab.hover(`[data-test-alert="${alert}"] [data-test-${which}]`);
+                    const hover = await alertAction(tab, alert, which);
+                    assert.equal(hover.ink, tone_, `${label}: the ${which} action keeps the tone on hover`);
+                    if (links.includes(which)) assert.equal(hover.underline, true, `${label}: the ${which} link underlines on hover`);
+                    else assert.notEqual(hover.behind, action.behind, `${label}: the ${which} soft action deepens its tint on hover`);
+                    for (const [state, value] of [[which, action.ratio], [`${which} hover`, hover.ratio]]) assert.ok(value >= 4.5, `${label} ${state}: ${value}:1`);
+                    ratio[which] = action.ratio;
+                    ratio[`${which}Hover`] = hover.ratio;
                 }
-                await tab.hover(`[data-test-alert="${alert}"] [data-test-primary]`);
-                const primaryHover = await alertAction(tab, alert, 'primary');
-                assert.equal(primaryHover.ink, tone_, `${label}: the primary action keeps the tone on hover`);
-                if (style === 'link') assert.equal(primaryHover.underline, true, `${label}: a link underlines on hover`);
-                else assert.notEqual(primaryHover.behind, primary.behind, `${label}: a soft action deepens its tint on hover`);
-                await tab.hover(`[data-test-alert="${alert}"] [data-test-quiet]`);
-                const quietHover = await alertAction(tab, alert, 'quiet');
-                assert.equal(quietHover.underline, true, `${label}: the quiet link underlines on hover`);
-                for (const [state, ratio] of [['primary', primary.ratio], ['primary hover', primaryHover.ratio], ['quiet', quiet.ratio], ['quiet hover', quietHover.ratio]]) {
-                    assert.ok(ratio >= 4.5, `${label} ${state}: ${ratio}:1`);
-                }
-                ratios[`${scheme} ${tier} ${tone} ${style}`] = { primary: primary.ratio, primaryHover: primaryHover.ratio, quiet: quiet.ratio, quietHover: quietHover.ratio };
+                ratios[`${scheme} ${tier} ${tone} ${style}`] = ratio;
             }
         } finally {
             await context.close();
@@ -9708,23 +9711,25 @@ test('an Alert\'s action shows a 2px focus ring in its tone, 2px out, in both st
         try {
             for (const tone of ALERT_TONES) {
                 for (const style of ['link', 'soft']) {
-                    const alert = `${tone}-${style}`;
-                    await tab.keyboard.press('Escape');
-                    await tab.focus(`[data-test-alert="${alert}"] [data-test-primary]`);
-                    const ring = await tab.evaluate(async (alert) => {
-                        const el = document.querySelector(`[data-test-alert="${alert}"] [data-test-primary]`);
-                        await Promise.all(el.getAnimations().map((animation) => animation.finished));
-                        const style = getComputedStyle(el);
-                        return { visible: el.matches(':focus-visible'), outline: style.outlineStyle, width: style.outlineWidth, offset: style.outlineOffset, colour: style.outlineColor, ink: style.color, shadow: style.boxShadow };
-                    }, alert);
-                    const label = `${scheme} ${alert}`;
-                    assert.ok(ring.visible, `${label}: focused by keyboard`);
-                    assert.equal(ring.outline, 'solid', `${label}: an outline`);
-                    assert.equal(ring.width, '2px', `${label}: 2px wide`);
-                    assert.equal(ring.offset, '2px', `${label}: 2px out`);
-                    assert.equal(ring.colour, ring.ink, `${label}: in the action's tone`);
-                    const shadows = [...ring.shadow.matchAll(/(-?[\d.]+)px (-?[\d.]+)px (-?[\d.]+)px (-?[\d.]+)px/g)];
-                    assert.ok(shadows.every((m) => m.slice(1).every((n) => Number(n) === 0)), `${label}: no host grey ring beside it (${ring.shadow})`);
+                    for (const which of ['primary', 'secondary', 'link']) {
+                        const alert = `${tone}-${style}`;
+                        await tab.keyboard.press('Escape');
+                        await tab.focus(`[data-test-alert="${alert}"] [data-test-${which}]`);
+                        const ring = await tab.evaluate(async ([alert, which]) => {
+                            const el = document.querySelector(`[data-test-alert="${alert}"] [data-test-${which}]`);
+                            await Promise.all(el.getAnimations().map((animation) => animation.finished));
+                            const style = getComputedStyle(el);
+                            return { visible: el.matches(':focus-visible'), outline: style.outlineStyle, width: style.outlineWidth, offset: style.outlineOffset, colour: style.outlineColor, ink: style.color, shadow: style.boxShadow };
+                        }, [alert, which]);
+                        const label = `${scheme} ${alert} ${which}`;
+                        assert.ok(ring.visible, `${label}: focused by keyboard`);
+                        assert.equal(ring.outline, 'solid', `${label}: an outline`);
+                        assert.equal(ring.width, '2px', `${label}: 2px wide`);
+                        assert.equal(ring.offset, '2px', `${label}: 2px out`);
+                        assert.equal(ring.colour, ring.ink, `${label}: in the action's tone`);
+                        const shadows = [...ring.shadow.matchAll(/(-?[\d.]+)px (-?[\d.]+)px (-?[\d.]+)px (-?[\d.]+)px/g)];
+                        assert.ok(shadows.every((m) => m.slice(1).every((n) => Number(n) === 0)), `${label}: no host grey ring beside it (${ring.shadow})`);
+                    }
                 }
             }
         } finally {
@@ -9733,16 +9738,21 @@ test('an Alert\'s action shows a 2px focus ring in its tone, 2px out, in both st
     }
 });
 
-test('a plain link and a Button with href in an Alert\'s #actions take its tone, the Button soft by default; a Button in its body keeps the host\'s look', async () => {
+test('a plain link, a Button with href and a ghost Button in an Alert\'s #actions take its tone, both Buttons soft by default; a Button in its body keeps the host\'s look', async () => {
     const { context, tab } = await alertActionsPage('light', 1280);
     try {
         const plain = await alertAction(tab, 'href', 'plain');
         const href = await alertAction(tab, 'href', 'primary');
+        const ghost = await alertAction(tab, 'href', 'ghost');
         assert.equal(plain.ink, plain.icon, 'the plain link is the warning tone');
         assert.equal(href.ink, href.icon, 'the Button with href is the warning tone');
         assert.equal(await tab.getAttribute('[data-test-alert="href"] [data-slot="alert-actions"]', 'data-actions-style'), 'soft', 'with no actionsStyle the actions are soft (the default)');
         assert.notEqual(href.behind, href.alertBehind, 'so the Button with href is tinted with the tone');
         assert.equal(href.height, 32, 'and compact (h-8)');
+        assert.equal(ghost.ink, ghost.icon, 'the ghost Button is the warning tone');
+        assert.notEqual(ghost.behind, ghost.alertBehind, 'and a soft button too, tinted with the tone, not a link');
+        assert.equal(ghost.height, 32, 'compact (h-8)');
+        assert.equal(ghost.weight, 500, 'and medium weight, as the main action');
         assert.equal(plain.behind, plain.alertBehind, 'the plain link stays a link, on the alert\'s own background');
         assert.equal(await tab.evaluate(() => document.querySelector('[data-test-alert="href"] [data-test-primary]').tagName), 'A', 'still a link');
         const body = await tab.evaluate(() => {
@@ -9756,7 +9766,7 @@ test('a plain link and a Button with href in an Alert\'s #actions take its tone,
     }
 });
 
-test('an Alert\'s link and soft actions stay inside it at 390 and 1280px, and pass axe with contrast, light and dark', async () => {
+test('an Alert\'s soft and link actions stay inside it at 390 and 1280px, and pass axe with contrast, light and dark', async () => {
     const shots = process.env.KIT_ALERT_ACTIONS_SCREENSHOTS;
     for (const scheme of ['light', 'dark']) {
         for (const width of [1280, 390]) {
@@ -9780,7 +9790,7 @@ test('an Alert\'s link and soft actions stay inside it at 390 and 1280px, and pa
                     });
                     if (result.violations.length) console.log(scheme, JSON.stringify(result.violations, null, 1));
                     assert.deepEqual(result.violations, []);
-                    assert.ok(result.actions >= ALERT_TONES.length * 8, `${scheme}: axe checked the actions' contrast (${result.actions} nodes)`);
+                    assert.ok(result.actions >= ALERT_TONES.length * 12, `${scheme}: axe checked the actions' contrast (${result.actions} nodes)`);
                 }
                 if (shots) {
                     for (const tone of ALERT_SHOT_TONES) {

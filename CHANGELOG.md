@@ -1,5 +1,31 @@
 # Changelog
 
+## Unreleased
+
+Features affected: core
+
+A minor release: every action in an Alert is now a soft button tinted with the alert's tone, including the secondary ones that were tone links, so alerts with a second action change look (see Changed and Upgrading).
+
+### Changed
+
+- **Every action in an Alert is a soft button by default.** In 0.22 to 0.24 only an Alert's main action (a `primary`, `success` or `destructive` Button, or one with no variant) was a soft button; a `secondary`, `ghost` or `link` Button beside it (Review, Retry, Dismiss) was a normal-weight tone link. Now every kit Button in `#actions` is the same compact 32px button tinted with the tone (`bg-current/8`, 12% on hover), medium weight, whatever its variant: `secondary` and `ghost` included ([docs/alert-actions.md](docs/alert-actions.md)). An action is a link only when the caller asks: `variant="link"` on that Button keeps it a tone link in either style, and the alert's other actions stay soft. `actions-style="link"` on the alert still makes every action in it a link, as before (#1011): there a `primary`, `success` or `destructive` Button is medium weight and the rest normal weight. A plain `<a>` or `<button>` in `#actions` and a Button in the alert's body are unchanged. Colour, focus ring and every contrast ratio are unchanged: a secondary soft action paints exactly as the main one.
+  Features affected: core
+  - **Tests.** Browser (`?alert-actions`, light and dark): each alert now holds a primary, a `secondary` and a `variant="link"` Button. Every tone in both tiers: in a soft alert the primary and the secondary are both soft (tinted, 32px, medium weight, deeper on hover) and the `variant="link"` one is a normal-weight link with no background that underlines on hover; in a link alert all three are links. All three are the alert's tone and keep 4.5:1 at rest and on hover, and each shows the 2px focus outline in the tone. A `ghost` Button beside a Button with `href` is soft. The secondary and ghost checks fail on main (a link there). Screenshots in `docs/shots/alert-actions` regenerated. Floor unchanged at 376.
+  - **Not covered:** a consumer app, a host theme with its own semantic tokens, and browsers other than Chromium.
+
+### Upgrading
+
+- Comes with `composer update tey/kit`: every Alert with a `secondary` or `ghost` Button in `#actions` changes look at once (a `variant="link"` Button stays a link). That action becomes a soft button like the alert's main one, where it was a tone link. To keep one action a link, mark that action as a link explicitly with `variant="link"`:
+
+  ```vue
+  <template #actions>
+      <Button @click="retry">Retry sync</Button>
+      <Button variant="link" href="/sync/errors">View errors</Button>
+  </template>
+  ```
+
+  To make every action in an alert a link, keep or add `actions-style="link"` on the Alert.
+
 ## v0.24.0
 
 Features affected: workspace-ui
