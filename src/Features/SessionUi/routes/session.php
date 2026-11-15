@@ -17,6 +17,7 @@ use Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests;
 use Tey\Kit\Features\SessionUi\Http\Middleware\PrepareKitRequest;
 use Tey\Kit\Features\SessionUi\Http\PasskeyOfferController;
 use Tey\Kit\Features\SessionUi\Http\SwitchAccountController;
+use Tey\Kit\Features\SessionUi\Http\SwitcherController;
 use Tey\Kit\Features\SessionUi\Http\WelcomeController;
 use Tey\Kit\Features\SessionUi\Http\WelcomeSkipController;
 use Tey\Kit\Features\SessionUi\Http\WorkbenchPreferenceController;
@@ -32,6 +33,10 @@ Route::middleware(app(Registry::class)->adopts('workspaces') ? ['auth:web', 'con
     Route::controller(WorkbenchPreferenceController::class)->prefix('me/workbenches')->middleware('throttle:120,1')->group(function (): void {
         Route::put('{key}', 'update')->where('key', WorkbenchKey::PATTERN)->name('me.workbenches.update');
     });
+    // The page each of your workspaces opens on, loaded when the shell's switcher opens (the shell itself sends only the list): JSON.
+    if (app(Registry::class)->adopts('workspaces')) {
+        Route::get('me/switcher', SwitcherController::class)->middleware('throttle:120,1')->name('me.switcher');
+    }
     // Your own avatar: no id in the URL, it is always the signed-in user's.
     Route::controller(AvatarController::class)->prefix('me/avatar')->group(function (): void {
         Route::post('', 'store')->name('me.avatar.store');

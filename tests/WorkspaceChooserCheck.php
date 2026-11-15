@@ -2,6 +2,7 @@
 
 // The workspace list (/me/workspaces): only the person's own workspaces, each with their role, the member count and a Current marker; New workspace only while
 // provisioning allows it; an empty state with no workspace; open invitations to their verified email; and nothing from a workspace they are not in, in a few queries.
+// The shell's switcher on a workspace page: each entry decided in its own workspace, and the same queries with one workspace or five.
 // SQLite memory, real Concierge, Fortify and Inertia, synthetic users and workspaces (Northwind Farms, Acme Travel, Globex Labs); no network.
 use Carbon\CarbonInterface;
 use Illuminate\Auth\AuthServiceProvider;
@@ -53,6 +54,7 @@ use Monolog\Handler\NullHandler;
 use Spatie\LaravelData\LaravelDataServiceProvider;
 use Spatie\LaravelSettings\LaravelSettingsServiceProvider;
 use Spatie\Multitenancy\MultitenancyServiceProvider;
+use Spatie\Permission\PermissionRegistrar;
 use Spatie\Permission\PermissionServiceProvider;
 use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Output\NullOutput;
@@ -62,11 +64,14 @@ use Tey\Concierge\ConciergeServiceProvider;
 use Tey\Concierge\Contracts\Member;
 use Tey\Concierge\Enums\MembershipStatus;
 use Tey\Concierge\Support\ConciergeModels;
+use Tey\Kit\Features\Access\Capabilities;
 use Tey\Kit\Features\Access\Console\SyncPermissionsCommand;
+use Tey\Kit\Features\Access\Entitlements;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Core\RequestMemo;
 use Tey\Kit\Features\FeaturesServiceProvider;
 use Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests;
+use Tey\Kit\Features\SessionUi\PageShell;
 use Tey\Kit\Features\Workspaces\Concerns\HasWorkspaces;
 use Tey\Kit\Features\Workspaces\Models\Workspace;
 use Tey\Mod\ModServiceProvider;
@@ -217,9 +222,9 @@ try {
     $invite($globex, 'nell@example.test', $cy);
     $invite($globex, 'una@example.test', $cy);
 
-    // One Inertia GET through the router, with a session the array handler keeps (cookie `s`): [status, the decoded page].
+    // One Inertia GET through the router (or, `$json`, a plain JSON one), with a session the array handler keeps (cookie `s`): [status, the decoded page or body].
     $handler = $app['session']->driver()->getHandler();
-    $send = function (?object $user, string $path, array $session = []) use ($app, $handler): array {
+    $send = function (?object $user, string $path, array $session = [], bool $json = false) use ($app, $handler): array {
         Auth::guard('web')->logout();
         if ($user !== null) {
             Auth::guard('web')->setUser($user);
@@ -227,7 +232,7 @@ try {
         $app['session']->driver()->flush();
         $id = bin2hex(random_bytes(20));
         $handler->write($id, serialize(['_token' => 'token', ...$session]));
-        $request = Request::create('https://kit.test'.$path, 'GET', [], ['s' => $id], server: ['HTTP_X_INERTIA' => 'true', 'HTTP_ACCEPT' => 'text/html, application/xhtml+xml', 'HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest']);
+        $request = Request::create('https://kit.test'.$path, 'GET', [], ['s' => $id], server: $json ? ['HTTP_ACCEPT' => 'application/json', 'HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest'] : ['HTTP_X_INERTIA' => 'true', 'HTTP_ACCEPT' => 'text/html, application/xhtml+xml', 'HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest']);
         $request->setUserResolver(fn () => Auth::guard('web')->user());
         $app->instance('request', $request);
         RequestMemo::instance()->flush();
@@ -241,6 +246,13 @@ try {
         return [$response->getStatusCode(), json_decode((string) $response->getContent(), true) ?? []];
     };
     $row = fn (array $page, string $name): ?array => collect($page['props']['workspaces'] ?? [])->firstWhere('name', $name);
+    // What the switcher loads when it opens (GET /me/switcher): [status, the page each workspace opens on, by name (null: unavailable)].
+    $landings = function (object $user) use ($send): array {
+        [$status, $body] = $send($user, '/me/switcher', [], true);
+        $names = Workspace::query()->whereIn('id', array_column($body['workspaces'] ?? [], 'id'))->pluck('name', 'id');
+
+        return [$status, collect($body['workspaces'] ?? [])->mapWithKeys(fn (array $landing): array => [$names[$landing['id']] => $landing['url']])->all()];
+    };
 
     // Ada: her two workspaces, never Globex; her role in each, the active member count (Dee, suspended, is not counted), and Leave only where she is not the owner.
     [$status, $page] = $send($ada, '/me/workspaces');
@@ -251,8 +263,9 @@ try {
     httpCheck($nw['role'] === 'Owner' && $nw['members'] === 2 && $nw['leave'] === null, 'Northwind: Owner, 2 active members (the suspended one not counted), no Leave ('.json_encode([$nw['role'], $nw['members']]).')');
     httpCheck($ac['role'] === 'Admin' && $ac['members'] === 2 && ($ac['leave']['url'] ?? null) === '/me/workspaces/acme/membership', 'Acme: Admin (her role there, not Northwind\'s), 2 members, Leave ('.json_encode([$ac['role'], $ac['members']]).')');
     httpCheck($nw['initials'] === 'NF', 'each workspace carries its initials mark');
-    $links = collect($page['props']['shell']['switcher']['choices'] ?? [])->pluck('url', 'name')->all();
-    httpCheck(collect(array_keys($links))->sort()->values()->all() === ['Acme Travel', 'Northwind Farms'], 'the shell\'s switcher, which the page links from, offers only her two workspaces ('.json_encode(array_keys($links)).')');
+    $listed = collect($page['props']['shell']['switcher']['choices'] ?? [])->pluck('slug', 'name')->all();
+    [$status, $links] = $landings($ada);
+    httpCheck(collect(array_keys($listed))->sort()->values()->all() === ['Acme Travel', 'Northwind Farms'] && $status === 200 && collect(array_keys($links))->sort()->values()->all() === ['Acme Travel', 'Northwind Farms'], 'the shell\'s switcher, and the links the page loads as the switcher does, offer only her two workspaces ('.json_encode([array_keys($listed), $status, array_keys($links)]).')');
     httpCheck(str_contains((string) $links['Northwind Farms'], 'northwind'), 'and the link into each');
     httpCheck(! str_contains(json_encode($page['props']['workspaces']), 'Globex') && ! str_contains(json_encode($page['props']['workspaces']), 'Cy Outsider'), 'no other workspace\'s data in the list');
     httpCheck($nw['current'] === false && $ac['current'] === false, 'no workspace in use: none is Current');
@@ -310,6 +323,188 @@ try {
     $patterns = ['memberships' => '/from "concierge_memberships" where "user_id" = \? and "status" = \? and "workspace_id" in/', 'counts' => '/count\(\*\) as aggregate from "concierge_memberships"/', 'owners' => '/from "concierge_ownerships" where "workspace_id" in/', 'roles' => '/from "model_has_roles" inner join "roles"/'];
     $seen = array_map(fn (string $pattern): int => count(preg_grep($pattern, $queries)), $patterns);
     httpCheck(count($page['props']['workspaces']) === 6 && $seen === ['memberships' => 1, 'counts' => 1, 'owners' => 1, 'roles' => 1], 'six workspaces: role, count and ownership are one query each, not one per workspace ('.json_encode($seen).')');
+
+    // The shell's switcher costs the same queries with one workspace or five: it sends only the list (id, name and slug), and decides the pages of the
+    // workspace in the bar alone. The page each workspace opens on is loaded when the switcher opens (GET /me/switcher), decided inside that workspace,
+    // link by link, fail closed: a role, a direct grant, a plan row and an override in one workspace reach no other, and a workspace with nothing the
+    // viewer may open is unavailable.
+    $registry->navigation('members.manage', 'People', 'people', order: -20);
+    $registry->entitlement('workspace.dashboard');
+    $sam = HttpUser::create(['name' => 'Sam Switcher', 'email' => 'sam@example.test', 'email_verified_at' => now()]);
+    $plan = fn (Workspace $workspace) => app(Entitlements::class)->set('workspace.dashboard', $workspace, true);
+    // Home: a member with a direct members.manage grant there (People), on the plan.
+    $home = $provision('Switch Home', 'switch-home');
+    $join($sam, $home, 'member');
+    app(Concierge::class)->context()->run($home, fn () => $sam->givePermissionTo('workspace.members.manage'), [$sam]);
+    $plan($home);
+    $shellPage = function () use ($send, $sam, &$queries): array {
+        $send($sam, '/@switch-home');
+        $queries = [];
+        [$status, $page] = $send($sam, '/@switch-home');
+
+        return [$status, count($queries), $page['props']['shell'] ?? []];
+    };
+    [$status, $one, $shell] = $shellPage();
+    httpCheck($status === 200 && array_column($shell['navigation'] ?? [], 'label') === ['People', 'Dashboard', 'Settings'], 'one workspace: her direct grant shows People, then Dashboard and Settings ('.json_encode(array_column($shell['navigation'] ?? [], 'label')).')');
+    httpCheck(($shell['switcher']['choices'] ?? null) === [['id' => (int) $home->id, 'name' => 'Switch Home', 'slug' => 'switch-home', 'current' => true]] && ($shell['switcher']['landings'] ?? null) === '/me/switcher' && ($shell['workspace']['url'] ?? null) === '/people', 'one workspace: the switcher lists it by id, name and slug, with no link; the bar names it with its first page ('.json_encode([$shell['switcher'] ?? null, $shell['workspace']['url'] ?? null]).')');
+    // An admin, on the plan: People first. A member, on the plan: no People (Home's grant is Home's alone). A member off the plan: no Dashboard, so Settings.
+    // An admin on the plan, with the workspace's settings capability off and the dashboard off for her alone: nothing to open, so unavailable.
+    $join($sam, $admin = $provision('Switch Admin', 'switch-admin'), 'admin');
+    $plan($admin);
+    $join($sam, $member = $provision('Switch Member', 'switch-member'), 'member');
+    $plan($member);
+    $join($sam, $provision('Switch Unplanned', 'switch-unplanned'), 'member');
+    $join($sam, $off = $provision('Switch Off', 'switch-off'), 'admin');
+    $plan($off);
+    app(Capabilities::class)->setForWorkspace('workspace.settings', $off, false);
+    app(Capabilities::class)->setForPerson('workspace.dashboard', $off, (int) $sam->id, false);
+    [$status, $five, $shell] = $shellPage();
+    $listed = $shell['switcher']['choices'] ?? [];
+    httpCheck($status === 200 && array_column($listed, 'slug', 'name') === ['Switch Home' => 'switch-home', 'Switch Admin' => 'switch-admin', 'Switch Member' => 'switch-member', 'Switch Unplanned' => 'switch-unplanned', 'Switch Off' => 'switch-off'] && collect($listed)->every(fn (array $choice): bool => array_keys($choice) === ['id', 'name', 'slug', 'current']), 'five workspaces: the shell lists each by id, name and slug only, and no workspace\'s link ('.json_encode($listed).')');
+    httpCheck(array_column($shell['navigation'], 'url') === ['/@switch-home/people', '/@switch-home', '/@switch-home/settings'] && ($shell['workspace']['url'] ?? null) === '/@switch-home/people', 'five workspaces: the page\'s own navigation is unchanged ('.json_encode(array_column($shell['navigation'], 'url')).')');
+    httpCheck($one === $five, 'the shell\'s page costs the same queries with one workspace and with five ('.$one.' and '.$five.')');
+    [$status, $opened] = $landings($sam);
+    httpCheck($status === 200 && $opened === ['Switch Home' => '/@switch-home/people', 'Switch Admin' => '/@switch-admin/people', 'Switch Member' => '/@switch-member', 'Switch Unplanned' => '/@switch-unplanned/settings', 'Switch Off' => null], 'the switcher, opened: each workspace lands on the first page she may open there, decided by its own role, grant, plan and overrides, and none in Switch Off ('.json_encode($opened).')');
+    [$status] = $send(null, '/me/switcher', [], true);
+    httpCheck($status === 401, 'a guest loads no switcher links ('.$status.')');
+
+    // The switcher's links read every kind of permission: (a) a global role (a role row with no workspace, held in one), (b) a direct permission, (c) a role
+    // of one workspace's own, and (d) a permission granted to a role (the kit's sync grants a default to member). Each kind leads its own link, ahead of
+    // People, so a kind missed moves that workspace's entry. A pivot row naming another workspace's role grants nothing. The links must equal the shell
+    // built with no request memo, where every check is spatie's own, read in its workspace.
+    foreach (['audit' => -60, 'billing' => -50, 'reports' => -40, 'files' => -30] as $name => $order) {
+        $registry->abilities(['switch.'.$name => 'workspace.search'])->permission('workspace.switch.'.$name, $name === 'files' ? ['member'] : [], 'workspace.search', ['switch.'.$name]);
+        $registry->navigation('switch.'.$name, ucfirst($name), $name, order: $order);
+    }
+    $sync->run(new ArrayInput([]), new NullOutput);
+    $roleClass = app(PermissionRegistrar::class)->getRoleClass();
+    $auditor = $roleClass::create(['name' => 'auditor', 'guard_name' => 'web'])->givePermissionTo('workspace.switch.audit');
+    $gil = HttpUser::create(['name' => 'Gil Granted', 'email' => 'gil@example.test', 'email_verified_at' => now()]);
+    $in = fn (Workspace $workspace, Closure $do) => app(Concierge::class)->context()->run($workspace, $do, [$gil]);
+    $reviewer = fn (Workspace $workspace) => $in($workspace, fn () => $roleClass::create(['name' => 'reviewer', 'guard_name' => 'web'])->givePermissionTo('workspace.switch.reports'));
+    // Mixed, on the plan: a member (Files) with the global auditor role, a direct Billing grant and Mixed's own reviewer role: every kind at once.
+    $join($gil, $mixed = $provision('Grant Mixed', 'grant-mixed'), 'member');
+    $plan($mixed);
+    $mixedReviewer = $reviewer($mixed);
+    $in($mixed, fn () => $gil->assignRole($auditor, $mixedReviewer)->givePermissionTo('workspace.switch.billing'));
+    // One kind each, on an admin (People) or a member (Files) below it.
+    $join($gil, $global = $provision('Grant Global', 'grant-global'), 'admin');
+    $in($global, fn () => $gil->assignRole($auditor));
+    $join($gil, $direct = $provision('Grant Direct', 'grant-direct'), 'admin');
+    $in($direct, fn () => $gil->givePermissionTo('workspace.switch.billing'));
+    $join($gil, $scoped = $provision('Grant Scoped', 'grant-scoped'), 'admin');
+    $in($scoped, fn () => $gil->assignRole($reviewer($scoped)));
+    $join($gil, $granted = $provision('Grant Role', 'grant-role'), 'member');
+    DB::table('model_has_roles')->insert(['role_id' => $mixedReviewer->id, 'model_type' => $gil->getMorphClass(), 'model_id' => $gil->id, 'workspace_id' => $granted->id]);
+    [$status, $page] = $send($gil, '/@grant-mixed');
+    [$loaded, $opened] = $landings($gil);
+    $app->forgetScopedInstances();
+    $request = Request::create('https://kit.test/me/switcher');
+    $request->setUserResolver(fn () => $gil);
+    $request->setLaravelSession($app['session']->driver());
+    $app->instance('request', $request);
+    $names = Workspace::query()->pluck('name', 'id');
+    $unmemoized = collect(app(PageShell::class)->landings($request))->mapWithKeys(fn (?string $url, int $id): array => [$names[$id] => $url])->all();
+    httpCheck($status === 200 && $loaded === 200 && $opened === ['Grant Mixed' => '/@grant-mixed/audit', 'Grant Global' => '/@grant-global/audit', 'Grant Direct' => '/@grant-direct/billing', 'Grant Scoped' => '/@grant-scoped/reports', 'Grant Role' => '/@grant-role/files'], 'a global role, a direct permission, a workspace\'s own role and a role grant each open their workspace\'s first page; another workspace\'s role does not ('.json_encode($opened).')');
+    httpCheck($opened === $unmemoized, 'the switcher\'s links match the shell read without the request memo, workspace by workspace ('.json_encode($unmemoized).')');
+    httpCheck(array_column($page['props']['shell']['navigation'], 'label') === ['Audit', 'Billing', 'Reports', 'Files', 'Dashboard', 'Settings'] && ($page['props']['shell']['workspace']['url'] ?? null) === '/@grant-mixed/audit', 'Grant Mixed\'s own navigation holds every kind at once ('.json_encode(array_column($page['props']['shell']['navigation'], 'label')).')');
+
+    // A role or grant written mid-request empties the request's permission sets, under whatever names the tables carry: spatie's configured names (also
+    // schema-qualified), with the connection's table prefix, as each grammar writes them. (a) Every write form each grammar compiles for each of spatie's
+    // tables, as the listener receives it (the statement and its connection's prefix), is a write; a read of them, or a write of a table that only shares a
+    // part of the name, is not.
+    $tables = (array) $config->get('permission.table_names');
+    $statements = function (string $driver, string $prefix, Closure $run) use ($config): ?array {
+        $config->set('database.connections.grammar', ['driver' => $driver, 'database' => $driver === 'sqlite' ? ':memory:' : 'kit', 'prefix' => $prefix]);
+        DB::purge('grammar');
+        $seen = [];
+        $db = DB::connection('grammar');
+        $db->listen(function ($query) use (&$seen): void {
+            $seen[] = [$query->sql, $query->connection->getTablePrefix()];
+        });
+        try {
+            $db->pretend(fn () => $run($db));
+        } catch (RuntimeException $unsupported) {
+            // A form the grammar does not compile (SQL Server's insert or ignore) is never sent.
+            return str_contains($unsupported->getMessage(), 'does not support') ? null : throw $unsupported;
+        }
+
+        return $seen;
+    };
+    // No bindings (raw values, raw wheres): pretending substitutes them into its log through the driver's PDO, which only SQLite has here.
+    $writes = [
+        'insert' => fn ($db, string $table) => $db->table($table)->insert(['name' => $db->raw("'x'")]),
+        'insert or ignore' => fn ($db, string $table) => $db->table($table)->insertOrIgnore(['name' => $db->raw("'x'")]),
+        'upsert' => fn ($db, string $table) => $db->table($table)->upsert(['name' => $db->raw("'x'")], ['name']),
+        'update' => fn ($db, string $table) => $db->table($table)->whereRaw('1 = 1')->update(['name' => $db->raw("'y'")]),
+        'update with a join' => fn ($db, string $table) => $db->table($table)->join('users', 'users.id', '=', $table.'.id')->whereRaw('1 = 1')->update(['name' => $db->raw("'y'")]),
+        'delete' => fn ($db, string $table) => $db->table($table)->whereRaw('1 = 1')->delete(),
+        'delete with a join and an alias' => fn ($db, string $table) => $db->table($table.' as t')->join('users', 'users.id', '=', 't.id')->whereRaw('1 = 1')->delete(),
+        'truncate' => fn ($db, string $table) => $db->table($table)->truncate(),
+    ];
+    $reads = [
+        'select' => fn ($db, string $table) => $db->table($table)->whereRaw('1 = 1')->get(),
+        'select for update' => fn ($db, string $table) => $db->table($table)->whereRaw('1 = 1')->lockForUpdate()->get(),
+        'insert into a table named like one' => fn ($db, string $table) => $db->table(str_replace('roles', 'roles_archive', str_replace('permissions', 'permissions_log', $table)))->insert(['name' => $db->raw("'x'")]),
+        'update of another table' => fn ($db, string $table) => $db->table('users')->whereRaw('1 = 1')->update(['name' => $db->raw("'y'")]),
+    ];
+    $missed = [];
+    $wrong = [];
+    $forms = 0;
+    foreach (['sqlite', 'mysql', 'pgsql', 'sqlsrv'] as $driver) {
+        foreach (['', 'kit_'] as $prefix) {
+            foreach (['unqualified' => '', 'schema-qualified' => 'auth.'] as $qualified => $schema) {
+                $config->set('permission.table_names', array_map(fn (string $table): string => $schema.$table, $tables));
+                foreach ($tables as $table) {
+                    foreach ($writes as $form => $write) {
+                        $seen = $statements($driver, $prefix, fn ($db) => $write($db, $schema.$table));
+                        $forms += $seen === null ? 0 : 1;
+                        if ($seen === [] || $seen !== null && ! collect($seen)->contains(fn (array $statement): bool => Tey\Kit\Features\Access\Permissions::writes(...$statement))) {
+                            $missed[] = "{$driver} '{$prefix}' {$qualified} {$table} {$form}: ".json_encode(array_column($seen, 0));
+                        }
+                    }
+                    foreach ($reads as $form => $read) {
+                        foreach ($statements($driver, $prefix, fn ($db) => $read($db, $schema.$table)) ?? [] as $statement) {
+                            if (Tey\Kit\Features\Access\Permissions::writes(...$statement)) {
+                                $wrong[] = "{$driver} '{$prefix}' {$qualified} {$table} {$form}: {$statement[0]}";
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    $config->set('permission.table_names', $tables);
+    httpCheck($missed === [], $forms.' writes of spatie\'s five tables (insert, insert or ignore, upsert, update, update with a join, delete, delete with a join and an alias, truncate) on SQLite, MySQL, PostgreSQL and SQL Server grammars, with and without a connection prefix, unqualified and schema-qualified, each empty the permission sets ('.json_encode($missed).')');
+    httpCheck($wrong === [], 'a read of them (also for update), and a write of another table or one that only shares part of a name (roles_archive, permissions_log), empties nothing ('.json_encode($wrong).')');
+
+    // (b) Through the listener, on a real connection with a table prefix: a write to kit_model_has_roles there empties the request's sets, so the next
+    // check reads its workspace's set again; a read of it does not.
+    $permissions = app(Tey\Kit\Features\Access\Permissions::class);
+    $config->set('database.connections.prefixed', ['driver' => 'sqlite', 'database' => ':memory:', 'prefix' => 'kit_', 'foreign_key_constraints' => false]);
+    Schema::connection('prefixed')->create($tables['model_has_roles'], function (Blueprint $table): void {
+        $table->unsignedBigInteger('role_id');
+        $table->string('model_type');
+        $table->unsignedBigInteger('model_id');
+        $table->unsignedBigInteger('workspace_id');
+    });
+    $reads = 0;
+    DB::listen(function ($query) use (&$reads): void {
+        $reads += $query->connectionName === 'testing' ? 1 : 0;
+    });
+    $permissions->remember();
+    $check = function () use ($permissions, $gil, $global, &$reads): array {
+        $reads = 0;
+
+        return [$permissions->granted($gil, 'workspace.switch.audit', $global), $reads];
+    };
+    $first = $check();
+    $memoized = $check();
+    DB::connection('prefixed')->table($tables['model_has_roles'])->get();
+    $afterRead = $check();
+    DB::connection('prefixed')->table($tables['model_has_roles'])->insert(['role_id' => $auditor->id, 'model_type' => $gil->getMorphClass(), 'model_id' => $gil->id, 'workspace_id' => $global->id]);
+    $afterWrite = $check();
+    httpCheck($first[0] && $first[1] > 0 && $memoized === [true, 0] && $afterRead === [true, 0] && $afterWrite[0] && $afterWrite[1] > 0, 'a write to kit_model_has_roles on a connection prefixed kit_ empties the sets: the next check reads afresh; a read of it keeps them ('.json_encode([$first, $memoized, $afterRead, $afterWrite]).')');
     echo "Workspace list checks on SQLite memory with real Concierge, Fortify and Inertia. No browser.\n";
 } catch (Throwable $error) {
     fwrite(STDERR, 'FAIL '.$error->getMessage()."\n".$error->getTraceAsString()."\n");

@@ -24,6 +24,8 @@ if (query.has('subblur')) document.documentElement.style.setProperty('--shell-su
 const ten = ['Overview', 'Projects', 'Schedules', 'Contacts', 'Invoices', 'Documents', 'Inventory', 'Reports', 'Automations', 'Integrations'];
 const labels = query.get('pages') === 'four' ? ['Dashboard', 'Assignments', 'Notes', 'Settings'] : ten;
 const module = query.get('module');
+// `?switch`: two more workspaces in the switcher, whose pages it loads from `landings` (the test answers /me/switcher) when it opens, or on hover or focus.
+const switching = query.has('switch');
 const current = module !== null ? 1 : Number(query.get('current') ?? 0);
 const navigation = labels.map((label, index) => ({ label, url: `/@acme/${label.toLowerCase()}`, current: index === current, group: 'main' }));
 // `&billing`: the module's seven pages are billing ones instead, the row that showed a vertical scrollbar on a wide window.
@@ -41,7 +43,7 @@ const shell = {
     account: { label: 'Account', url: '/account', current: false },
     product: { name: 'Example Product', url: '/', logomark: null, logomark_dark: null, wordmark: null, wordmark_dark: null, lockup: false },
     workspace: { id: 1, name: 'Acme Workshop', url: '/@acme', settings: null, all: null, leave: null },
-    switcher: { current: { id: 1, name: 'Acme Workshop' }, choices: [{ id: 1, name: 'Acme Workshop', url: '/@acme', current: true }] },
+    switcher: { current: { id: 1, name: 'Acme Workshop' }, choices: [{ id: 1, name: 'Acme Workshop', slug: 'acme', current: true }, ...(switching ? [{ id: 2, name: 'Northwind Farms', slug: 'northwind', current: false }, { id: 3, name: 'Globex Labs', slug: 'globex', current: false }] : [])], landings: '/me/switcher' },
     navigation,
     user: { name: 'Ada Example', email: 'ada@example.test', initials: 'AE', avatar_url: null, avatar_url_2x: null, items: [] },
     links: { home: '/', switcher: '/workspaces', sign_in: '/login', sign_out: '/logout' },

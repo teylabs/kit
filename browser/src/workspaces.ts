@@ -14,7 +14,8 @@ const workspaces = query.has('empty') ? [] : [
     { id: 3, name: 'Globex Labs', initials: 'GL', role: 'Member', members: 4, current: false, leave: leave('globex', 'Globex Labs') },
 ];
 const invitations = [{ workspace: 'Initech Research', inviter: 'Ben Sample', message: 'Join us for the spring planning.', expires: '2026-11-15T10:00:00Z' }];
-const shell = { switcher: { current: null, choices: [{ id: 1, name: 'Acme Travel', url: '/@acme', current: false }, { id: 2, name: 'Northwind Farms and Orchards Cooperative of the Lower Valley', url: '/@northwind', current: false }, { id: 3, name: 'Globex Labs', url: null, current: false }] } };
+// The shell lists the workspaces; the page loads each one's link from `landings` (the test answers /me/switcher: Globex has no page she may open).
+const shell = { switcher: { current: null, choices: [{ id: 1, name: 'Acme Travel', slug: 'acme', current: false }, { id: 2, name: 'Northwind Farms and Orchards Cooperative of the Lower Valley', slug: 'northwind', current: false }, { id: 3, name: 'Globex Labs', slug: 'globex', current: false }], landings: '/me/switcher' } };
 const create = query.has('create') ? { label: 'New workspace', url: '/me/workspaces/create', method: 'get' } : null;
 (window as unknown as { kitInitialPage: unknown }).kitInitialPage = { component: 'Workspace/Index/Page', props: { errors: {}, shell, title: 'Your workspaces', layout: { title: 'Your workspaces' }, workspaces, invitations, create }, url: '/me/workspaces', version: null, flash: {}, clearHistory: false, encryptHistory: false };
 createInertiaApp({

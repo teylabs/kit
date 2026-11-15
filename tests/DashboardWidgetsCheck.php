@@ -948,6 +948,19 @@ try {
     [$status] = $put('member', '/@northwind/widgets/app.sorted/sort', ['sort' => 'due']);
     check($status !== 303 && $stored('member', $other->id) === null, 'a member of one workspace cannot save an order in a workspace they do not belong to');
     check(Widget::sortStateKey(str_repeat('a', 80)) !== Widget::sortStateKey(str_repeat('a', 81)) && strlen(Widget::sortStateKey(str_repeat('a.b', 40))) <= 60, 'a long widget key still fits the state column, and stays distinct');
+    // Several keys in one query: each one the person set in that workspace (a null value kept), in the order asked; one they did not set is left out.
+    $state = Tey\Kit\Features\SessionUi\UserState::class;
+    $state::set((int) $people['owner']->id, 'many.a', 'one');
+    $state::set((int) $people['owner']->id, 'many.b', null);
+    $state::set((int) $people['owner']->id, 'many.a', 'elsewhere', (int) $other->id);
+    $state::set((int) $people['member']->id, 'many.c', 'theirs');
+    $reads = 0;
+    DB::listen(function () use (&$reads): void {
+        $reads++;
+    });
+    $many = $state::many((int) $people['owner']->id, ['many.c', 'many.b', 'many.a']);
+    check($many === ['many.b' => null, 'many.a' => 'one'] && $reads === 1, 'UserState::many() reads several keys in one query: the ones set, in the order asked, a null value kept, another person\'s left out ('.json_encode($many).', '.$reads.' queries)');
+    check($state::many((int) $people['owner']->id, ['many.a', 'many.b'], (int) $other->id) === ['many.a' => 'elsewhere'] && $state::many((int) $people['owner']->id, []) === [], 'only the workspace asked (the person\'s own by default), and no keys reads nothing');
     Tey\Kit\Features\SessionUi\UserState::forgetAll((int) $people['owner']->id);
     check(DB::table('user_state')->where('user_id', $people['owner']->id)->doesntExist(), 'a person\'s saved orders go with their account');
 

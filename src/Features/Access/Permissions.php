@@ -3,6 +3,7 @@
 namespace Tey\Kit\Features\Access;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 use Spatie\Permission\Exceptions\PermissionDoesNotExist;
 use Tey\Concierge\Concierge;
 use Tey\Concierge\Contracts\Member;
@@ -21,6 +22,33 @@ final class Permissions
     public function remember(): void
     {
         $this->memo = [];
+    }
+
+    /** Empties the request's answers and permission sets when a role or grant changes (AccessProvider): the next check reads afresh. */
+    public function forget(): void
+    {
+        $this->memo = $this->memo === null ? null : [];
+    }
+
+    /**
+     * Whether a statement, run on a connection with this table prefix, writes a role, a permission or one of their pivots, by any path (spatie, Concierge, the kit,
+     * a raw query). A write is any insert (also `insert or ignore`, `insert ignore`, an upsert), replace, update, delete (also with joins or an alias), truncate or
+     * merge, on every grammar, also behind a CTE. It writes one of the tables when it names it anywhere, as the grammar wrote it: the configured name's table part
+     * with the connection's prefix (`kit_model_has_roles`), quoted or not, schema-qualified or not (`"auth"."kit_roles"`, `main.roles`). It errs toward a match:
+     * a write that only names one elsewhere (a subquery, a column of that name) empties the sets too, which costs a read; a write missed would answer from a stale set.
+     */
+    public static function writes(string $sql, string $prefix = ''): bool
+    {
+        if (preg_match('/^\s*(?:insert|replace|update|delete|truncate|merge)\b/i', $sql) !== 1 && preg_match('/^\s*with\b.*\b(?:insert|update|delete|merge)\b/is', $sql) !== 1) {
+            return false;
+        }
+        $names = [];
+        foreach ((array) config('permission.table_names') as $table) {
+            $table = Str::afterLast((string) $table, '.');
+            array_push($names, preg_quote($prefix.$table, '/'), preg_quote($table, '/'));
+        }
+
+        return $names !== [] && preg_match('/(?<![\w$])(?:'.implode('|', array_unique($names)).')(?![\w$])/i', $sql) === 1;
     }
 
     /** Whether the member's roles in the workspace grant the permission. A permission no feature declares is never granted. */

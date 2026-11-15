@@ -32,7 +32,7 @@ class WorkspaceController
         if (($open = app(Registry::class)->opensWorkspace($request)) !== null) {
             return redirect($open);
         }
-        // The link into each workspace is the shell's (its switcher choices, shared on every page): the page reads it there, so it is decided once.
+        // The link into each workspace is the switcher's: the page loads it as the switcher does (the shell's `switcher.landings`), each decided in its own workspace.
         $current = WorkspaceUrl::currentMemberId($request);
         $workspaces = $found->map(fn (Workspace $workspace): array => [
             'id' => (int) $workspace->id,

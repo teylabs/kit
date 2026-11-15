@@ -1101,9 +1101,10 @@ name: string,
 choices: {
 id: number,
 name: string,
-url: string | null,
+slug: string,
 current: boolean,
 }[],
+landings: string,
 } | null,
 navigation: {
 label: string,

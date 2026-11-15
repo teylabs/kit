@@ -103,4 +103,6 @@ Laravel Cloud's Serverless Postgres is Neon. From the documentation (not verifie
 - the guard and `kit:preflight`'s RLS problems (superuser, `BYPASSRLS`, owner, unprotected table, admin as runtime);
 - the no-op on SQLite.
 
-**Not covered:** a real pooler (PgBouncer), Octane, Horizon or a long-running worker process, Laravel Cloud or Neon, Inertia pages under RLS, MySQL, and the kit's own feature tables protected under RLS.
+`composer test:switcher-rls` (PostgreSQL only, also in the PostgreSQL job) covers the shell's switcher on Inertia pages and its links (`GET /me/switcher`): the page reads only the workspace it shows, at the same queries with one workspace or five; the links read protected tables only inside their own workspace, also with one listed in `except` or a protected permission pivot; the tenant, permission team and RLS setting restored after each workspace, also when a check throws; and roles changed mid-request answered afresh.
+
+**Not covered:** a real pooler (PgBouncer), Octane, Horizon or a long-running worker process, Laravel Cloud or Neon, Inertia pages under RLS other than the shell's switcher, MySQL, and the kit's own feature tables protected under RLS.
