@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+Features affected: none.
+
+A patch: `kit:query-report`, a new on-demand command that shows what each page costs in queries (see Added), and two changes an app's own tests need when it comes from below 0.24, found by an adopting app (see Upgrading). No default changes.
+
+### Added
+
+- **`kit:query-report`: an on-demand per-page query report.** `php artisan kit:query-report` requests every page the app declares (`WorkspaceRoutes::page`'s full form and `PersonalPages::page`), plus any GET route `--route=<name|pattern>` matches, in-process through the HTTP kernel. It signs in as `--user=<id|email>` in `--workspace=<id|slug>`, by default the first active member and their workspace. For each page it prints the status, the total queries, the exact duplicates (the same SQL with the same bindings), the most repeated statements with their counts, and the time. A summary line ends the report: the number of pages, the median and worst query counts over the pages that answered 200, the per-page duplicate floor and the worst page. `--json` prints it as JSON, `--only-duplicates` lists only the pages with duplicates, and `--repeat=N` reports the median of N runs, after one warm-up request that is not counted. A page whose route parameters it can't fill is listed as skipped, with the reason; a non-200 page is reported, not fatal. Information, not a gate: run it locally to see what a page costs ([docs/query-report.md](docs/query-report.md)).
+  Features affected: core, workspaces
+  - **It writes nothing.** It seeds nothing and runs against the configured database. Each request runs in a transaction on each connection it writes to, opened just before the page's first statement that is not a plain read (so reads run as they do in production) and rolled back after the request, terminating callbacks included. The session and every cache store are array stores, and mail, notifications and the queue are faked. It refuses to run in production without `--force`. If a page commits its transaction, it rolls back every other connection, then stops with a non-zero exit. It is not a sandbox: a page that writes a file or calls an external API directly still does so.
+  - **Page declarations.** `WorkspaceRoutes::page` (the full form) and `PersonalPages::page` now mark the route as a page (`kit_page` in its action). That is how the command finds pages, cached routes included.
+  - **Tests.** `composer test:query-report` (new) tests the command, not any app's counts. It finds the kit's declared pages and fixture pages, in the full form only, and adds an undeclared route only when `--route` matches it. On a fixture page it reports 6 queries more than an empty page and 2 exact duplicates (one row read three times, three rows read once each), with each repeated statement and its count. `--repeat=3` gives the median, not the mean, after a warm-up. Writes roll back: inserts, an update in the page's own transaction, a delete on a second connection and a terminating callback's insert, with no cache entry (database or file store), job or session file written. The dashboard counts the same in the report as in a request outside it (an open transaction alone would add 12 duplicates through the widgets' savepoints). A page that commits the report's transaction on one connection stops the run, with the other connection it wrote to still rolled back. It refuses production without `--force` and requests nothing; it skips a page with an unfilled parameter, with the reason, and reports a page that fails, or whose terminating callback throws, as a 500 while the run carries on. `--route` matches by name and by URI pattern. The summary is checked against the pages it reports. It also covers `--only-duplicates`, `--user`, `--workspace` and the refusals, and the text output.
+  - **Not covered:** PostgreSQL (with or without RLS), MySQL, a real artisan process, and consumer apps' own pages.
+
 ## v0.25.2
 
 Features affected: none.
