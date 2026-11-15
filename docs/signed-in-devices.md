@@ -81,6 +81,36 @@ Schedule::command('model:prune', ['--model' => [SignedInDevice::class]])->daily(
 - A session from before the upgrade gets its row on its next request, until every other session of the person is ended ("Sign out other sessions", a password change or an account deletion). Those can't reach a session that has no row yet, so from then on such a session keeps only a row that still holds it (a backfilled one) and is otherwise signed out on its next request. The mark is kept in `user_state`, not the cache store.
 - Take the new Security page for the per-device Sign out: `php artisan kit:scaffold workspace-ui --diff --only=resources/js/pages/Workspace/Account/Security`. Until then the old page lists every device on every driver, and its "Sign out other sessions" works everywhere.
 
+### The app's own tests
+
+Two changes an app's tests need when it comes from below 0.24:
+
+- **Call `withCredentials()` in your base TestCase.** Laravel's test client sends no cookies on a JSON request (`postJson`, `putJson`, `getJson` and so on) unless the test calls `withCredentials()`. From 0.24, each such request after a sign-in therefore runs under a fresh session id. `TrackSignedInDevice` treats that as a regenerate and moves the device row to the new id, so the test's next cookie request, still on the old id, is signed out (a 302 to the login page, or Unauthenticated). The fix is one line in the app's base `TestCase::setUp()`:
+
+  ```php
+  protected function setUp(): void
+  {
+      parent::setUp();
+
+      $this->withCredentials();
+  }
+  ```
+
+- **Adopt a `sessions` row before expecting it listed.** The list (`OtherSessions::list`, the Security page's `sessions`) now comes from `signed_in_devices` on every driver but `array`, not from the rows in `sessions`. A test that inserts a `sessions` row and expects that device listed must give it a row first with `SignedInDevices::adopt($sessionId, $userId, $agent, $ip, $lastActive)`, as `kit:devices:backfill` does. The item then shows the parsed browser and platform ("Firefox on Windows") and the network's prefix (`198.51.100.0/24`), not the raw user agent and IP:
+
+  ```php
+  use Illuminate\Support\Facades\DB;
+  use Illuminate\Support\Str;
+  use Tey\Kit\Features\SessionUi\Account\SignedInDevices;
+
+  $id = Str::random(40);
+  $agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:128.0) Gecko/20100101 Firefox/128.0';
+  DB::table('sessions')->insert(['id' => $id, 'user_id' => $user->id, 'ip_address' => '198.51.100.7', 'user_agent' => $agent, 'payload' => '', 'last_activity' => now()->timestamp]);
+  SignedInDevices::adopt($id, $user->id, $agent, '198.51.100.7', now());
+  ```
+
+  `adopt()` returns false, and adds nothing, when the session already has a row, the person is gone, or every other session of theirs was ended since the upgrade. The `array` driver (Laravel's default in `phpunit.xml`) lists no devices at all, adopted or not: run such a test on the `database` driver (`config(['session.driver' => 'database'])`, with a `sessions` table).
+
 ## Checks
 
 `composer test:signed-in-devices` runs a synthetic app (SQLite files, and PostgreSQL 17 in CI) through the router with real Fortify and Concierge. It covers sign-in, zero queries, regenerate, per-driver sign-out, already-gone sessions, ownership, the resurrection race, concurrency, ending everywhere, remember-me, adoption and backfill, retention, key rotation and Octane. `test:migrations`, `test:lifecycle-pages`, `test:security-mail`, `test:account-form-payloads` and the browser job cover the rest.

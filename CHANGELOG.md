@@ -1,5 +1,39 @@
 # Changelog
 
+## Unreleased
+
+Features affected: none.
+
+Notes only: two changes an app's own tests need when it comes from below 0.24, found by an adopting app (see Upgrading). No code changed.
+
+### Upgrading
+
+- **From below 0.24: call `withCredentials()` in your base TestCase.** Laravel's test client sends no cookies on a JSON request (`postJson`, `putJson`, `getJson` and so on) unless the test calls `withCredentials()`. From 0.24, each such request after a sign-in therefore runs under a fresh session id. `TrackSignedInDevice` treats that as a regenerate and moves the device row to the new id, so the test's next cookie request, still on the old id, is signed out (a 302 to the login page, or Unauthenticated). The fix is one line in the app's base `TestCase::setUp()`:
+
+  ```php
+  protected function setUp(): void
+  {
+      parent::setUp();
+
+      $this->withCredentials();
+  }
+  ```
+
+- **From below 0.24: adopt a `sessions` row before expecting it listed.** The signed-in devices list (`OtherSessions::list`, the Security page's `sessions`) now comes from the `signed_in_devices` table on every driver but `array`, not from the rows in `sessions`. A test that inserts a `sessions` row and expects that device listed must give it a row first with `SignedInDevices::adopt($sessionId, $userId, $agent, $ip, $lastActive)`, as `kit:devices:backfill` does. The item then shows the parsed browser and platform ("Firefox on Windows") and the network's prefix (`198.51.100.0/24`), not the raw user agent and IP:
+
+  ```php
+  use Illuminate\Support\Facades\DB;
+  use Illuminate\Support\Str;
+  use Tey\Kit\Features\SessionUi\Account\SignedInDevices;
+
+  $id = Str::random(40);
+  $agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:128.0) Gecko/20100101 Firefox/128.0';
+  DB::table('sessions')->insert(['id' => $id, 'user_id' => $user->id, 'ip_address' => '198.51.100.7', 'user_agent' => $agent, 'payload' => '', 'last_activity' => now()->timestamp]);
+  SignedInDevices::adopt($id, $user->id, $agent, '198.51.100.7', now());
+  ```
+
+  `adopt()` returns false, and adds nothing, when the session already has a row, the person is gone, or every other session of theirs was ended since the upgrade. The `array` driver (Laravel's default in `phpunit.xml`) lists no devices at all, adopted or not: run such a test on the `database` driver (`config(['session.driver' => 'database'])`, with a `sessions` table).
+
 ## v0.25.1
 
 Features affected: none.
