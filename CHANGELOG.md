@@ -17,6 +17,18 @@ A patch: a Field reads errors by bracket or dot path and in a Repeater row, `Inp
   - **Tests.** `test:js` (`tests/js/number.test.mjs`): `fieldError` with bracket, mixed and dot names against dot-keyed and bracket-keyed errors, another field of the row, `2` against `20`, and an exact key first. The browser job (`?field-paths`, three tests; the floor is 379): Fields named `title`, `contacts[0][email]`, `contacts[0].email` and `contacts.1.name` show Laravel's errors and are `aria-invalid` and described by them, a clean Field is described by its description only, and the default Field's classes are unchanged; a Repeater row's error shows on its Field and follows the row when it moves up (on main the row's Field shows nothing); InputCalendarDate's "Not set", Clear (absent when required, disabled or locked), the empty submitted value, `v-model`, the form's input event and focus after Clear, a date chosen from the calendar and a form reset (a cleared `v-model` date comes back through the model); the default and compact FormActions measured for border, padding and gap; axe with contrast, light and dark. `bin/typecheck-components.sh`: InputCalendarDate's props (`id` required, `span` 1 to 6) and FormActions' `density`.
   - **Not covered:** a host's real Inertia `<Form>` (the fixture provides the context Inertia does), a consumer app, and a screen-reader run.
 
+## v0.25.2
+
+Features affected: none.
+
+Features affected: none.
+
+Allows tey/mod 0.14, and adds two changes an app's own tests need when it comes from below 0.24, found by an adopting app (see Upgrading).
+
+### Changed
+
+- **tey/mod 0.14 is allowed.** The constraint is now `^0.11.6 || ^0.12 || ^0.13 || ^0.14`, so an app can take mod 0.14's automatic dev discovery cache. No kit code changed.
+
 ### Upgrading
 
 - **From below 0.24: call `withCredentials()` in your base TestCase.** Laravel's test client sends no cookies on a JSON request (`postJson`, `putJson`, `getJson` and so on) unless the test calls `withCredentials()`. From 0.24, each such request after a sign-in therefore runs under a fresh session id. `TrackSignedInDevice` treats that as a regenerate and moves the device row to the new id, so the test's next cookie request, still on the old id, is signed out (a 302 to the login page, or Unauthenticated). The fix is one line in the app's base `TestCase::setUp()`:
