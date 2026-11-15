@@ -2105,6 +2105,7 @@
       "uses": {
         "imports": [
           "@/components/Kit:InputDate",
+          "@/components/Kit:InputCalendarDate",
           "@/components/Kit:InputDateRange",
           "@/components/Kit:InputMonth",
           "@/components/Kit:InputYear",

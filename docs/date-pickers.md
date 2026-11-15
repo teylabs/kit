@@ -1,10 +1,11 @@
 # Date and time pickers
 
-Six form controls (from `@kit/ui`) ask for dates and times. Each one submits plain ISO strings through hidden inputs, so a form posts them like any other field. All six are built on reka-ui (`@internationalized/date` is a declared npm requirement of `core`).
+Seven form controls (from `@kit/ui`) ask for dates and times. Each one submits plain ISO strings through hidden inputs, so a form posts them like any other field. All seven are built on reka-ui (`@internationalized/date` is a declared npm requirement of `core`).
 
 | Control | Submits | Picks with |
 | --- | --- | --- |
 | `InputDate` | `name` = `2026-11-01` | Segments you can type, plus a calendar |
+| `InputCalendarDate` | `name` (default `id`) = `2026-11-01`, or `''` once cleared | InputDate's segments and calendar, with "Not set" while empty and Clear ([below](#a-date-that-may-be-empty-inputcalendardate)) |
 | `InputDateRange` | `name[start]`, `name[end]` = dates | Segments, plus one calendar (two clicks) |
 | `InputMonth` | `name` = `2026-11` | A 3×4 grid of the year's months |
 | `InputYear` | `name` = `2026` | A 3×4 grid of twelve years |
@@ -17,7 +18,21 @@ Six form controls (from `@kit/ui`) ask for dates and times. Each one submits pla
 <InputTime name="opens_at" label="Opens at" default-value="09:00" :step="15" />
 ```
 
-Every control takes `name`, `label`, `id`, `defaultValue`, `min`, `max`, `description`, `error`, `disabled` and `required`, and emits `canonical` with its value. Inside Inertia's `<Form>`, the error is `errors[name]`; for a range it is also `errors[name.start]` or `errors[name.end]`. Inside a locked `LockedForm` the control is read-only and its calendar or grid doesn't open, but the hidden value is still submitted.
+Every control takes `name`, `label`, `id`, `defaultValue`, `min`, `max`, `description`, `error`, `disabled` and `required`, and emits `canonical` with its value (InputCalendarDate requires `id` and defaults `name` to it). Inside Inertia's `<Form>`, the error is `errors[name]`; for a range it is also `errors[name.start]` or `errors[name.end]`. Inside a locked `LockedForm` the control is read-only and its calendar or grid doesn't open, but the hidden value is still submitted.
+
+## A date that may be empty: InputCalendarDate
+
+`InputCalendarDate` is `InputDate` for a date that may be left blank. While it has no date it says so under the field (`emptyLabel`, "Not set"): an empty segment group reads as a value to some people, and Safari's native date input even shows today. While it has a date it offers a Clear button (`clearLabel`, "Clear", named "Clear <label>" for a screen reader), unless it is `required`, `disabled` or in a locked `LockedForm`, where emptying it is not allowed.
+
+```vue
+<InputCalendarDate id="listed-on" name="listed_on" label="Listed on" :default-value="listing.listed_on" :span="3" />
+<InputCalendarDate id="due" v-model="form.due_on" label="Due" empty-label="No due date" />
+```
+
+- **Clear** submits an empty string (the hidden input's value is `''`), emits `update:modelValue` and `canonical` with `''`, fires an `input` event on the form so it turns dirty, and moves focus to the field's first segment.
+- **Props.** `id` and `label` are required; `name` defaults to `id`. `modelValue` (`v-model`, the date or `''`) or `defaultValue` (a `YYYY-MM-DD`, `''` or null) starts it; a longer ISO value is cut to its date. `span` is a FormCard's columns, as on `Field`. `min`, `max`, `description`, `error`, `disabled` and `required` are InputDate's.
+- **A form reset** puts the starting value back: `defaultValue`, or with `v-model` the value it mounted with, emitted through `update:modelValue`.
+- Other attributes land on the field's segment group, as on `InputDate`.
 
 ## Dates never shift
 
@@ -68,5 +83,6 @@ The bounds are inclusive and written in the same form as the value. A wall value
 
 - **Node:** `tests/js/date-input.test.mjs` covers the values, the zone and DST rules, the range checks and the grid keys.
 - **Browser:** `browser/run.mjs` drives the keys, a date in two far-apart zones, the phone sheet, the locked state and axe in Chromium.
+- **InputCalendarDate (browser, `?field-paths`):** "Not set" while empty; Clear while filled, absent when required, disabled or locked; Clear's empty submitted value, `v-model`, the form's input event and the focus; a date chosen from the calendar; a form reset; axe with contrast, light and dark.
 - **Server:** `tests/IsoDateCheck.php` runs the rules through Laravel's validator.
 - **Not covered:** no test drives these controls inside a host's Inertia `<Form>`, and there is no screen-reader run.

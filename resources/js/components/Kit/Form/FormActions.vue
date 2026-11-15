@@ -30,8 +30,8 @@ import {
  * overridable: `dirtyLabel`, `errorsLabel`, `upToDateLabel` (empty by default) and `savedLabel`.
  * Save is disabled, and Enter does not submit, while it cannot succeed (formFrame.ts's useSubmitGate): pending work in flight (an upload), an open stale-write
  * conflict (a useSubmitForm's `conflict`), or `canSubmit` false (this prop, a boolean, Ref or getter, or a useSubmitForm's option). The button is described by the reason.
- * It is the form's last child; delete never goes here (a separate danger zone).
- * `density` compact drops the bar's top rule and padding and tightens its gap, for a form's toolbar row (CommentForm's) rather than a form's foot.
+ * It is the form's last child; delete never goes here (a separate danger zone). `density` compact is the bar inside something small that has its own edge and
+ * padding (a comment composer, a card's footer row): no top border or padding of its own and an 8px gap; the default bar is unchanged.
  */
 // The submit may be the server's action descriptor (`:submit="save"`): its label is the button's, and `disabled` with a `reason` shows the reason in the status
 // slot and disables the button; a form the viewer cannot use is never a form with nothing to press.
@@ -59,8 +59,8 @@ const props = withDefaults(
         density?: 'default' | 'compact';
     }>(),
     {
-        density: 'default',
         canSubmit: true,
+        density: 'default',
         dirtyLabel: 'Unsaved changes',
         errorsLabel: 'There are errors in your submission.',
         upToDateLabel: '',
@@ -195,6 +195,7 @@ onBeforeUnmount(() => {
     <div
         ref="bar"
         data-form-actions
+        :data-density="density === 'compact' ? density : undefined"
         :data-state="state"
         :data-pinned="sticky && pinned"
         :class="[

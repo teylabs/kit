@@ -4,7 +4,7 @@
 
 Features affected: core.
 
-A patch: comment and note components join `@kit/ui`, Avatar and FormActions take one new prop each, and a menu item's `@chosen` now fires. No existing default look changes.
+A patch: comment and note components join `@kit/ui`, Avatar takes a new prop, and a menu item's `@chosen` now fires. No existing default look changes.
 
 ### Added
 
@@ -18,13 +18,30 @@ A patch: comment and note components join `@kit/ui`, Avatar and FormActions take
   - **Not covered:** a consumer app's own server, real file uploads to a disk, and browsers other than Chromium. The notes feature's page partials don't use these components yet.
 - **`Avatar`'s `size`**: `xs` (20px), `sm` (28px), `md` (32px, the default), `lg` (40px) or `xl` (80px, as `large`). Without it, an avatar draws as before.
   Features affected: core
-- **`FormActions`' `density`**: `compact` drops the bar's top rule and padding and tightens its gap, for a form's toolbar row (CommentForm's). The default is unchanged.
-  Features affected: core
 
 ### Fixed
 
 - **A menu item's `@chosen` fires, after the menu has closed and returned focus.** `DropdownItem` emitted `chosen` once the menu had closed, by which time the closed menu had unmounted the item, and Vue drops an unmounted component's emits, so the handler never ran. It is now a prop (`onChosen`), which `@chosen` still sets. The queued work also waited one timer too few: Reka returned focus to the trigger after it ran, so work that moved focus (into a form it opened) lost it. Nothing in the kit used `@chosen` before CommentItem's Edit and Reply, which cover both.
   Features affected: core
+
+## v0.25.4
+
+Features affected: none.
+
+Features affected: none.
+
+A patch: a Field reads errors by bracket or dot path and in a Repeater row, `InputCalendarDate` is new, and FormActions gains a compact density. Each is an addition; no default look changes.
+
+### Added
+
+- **A Field finds its error by bracket or dot path, and in a Repeater row** ([docs/form-fields.md](docs/form-fields.md), #1039). `<Field name>` read only `errors[name]`, so a Field named with a native bracket path (`items[0][name]`, or `items[0].name`) never showed Laravel's dot-keyed error (`items.0.name`). It now finds it whichever way either is written; an exact key still wins. Inside a Repeater row, a Field named under that row (the row slot's `name('amount')`) reads the row's errors, re-keyed from where the row was when the server answered, so an error follows its row when the rows move; a host no longer passes `errors[name('amount')]` itself. A Field's markup, look and aria are unchanged. `fieldError(errors, name)` (`Form/repeaterState.ts`) is the lookup.
+  Features affected: core
+- **`InputCalendarDate`: a date that may be empty says "Not set" and can be cleared** ([docs/date-pickers.md](docs/date-pickers.md#a-date-that-may-be-empty-inputcalendardate), #1039). InputDate with `emptyLabel` ("Not set") under the field while it has no date, and a Clear button (`clearLabel`, named "Clear <label>") while it has one, except when `required`, `disabled` or locked. Clear submits `''`, emits it through `v-model` and `canonical`, fires the form's `input` event and focuses the field; a form reset restores the starting value (with `v-model`, the value it mounted with, through the model). `name` defaults to `id`; `span` is a FormCard's columns, as on Field. Exported from `@kit/ui`, in the contract (`InputCalendarDateProps`) and the date pickers' adoption row. InputDate is unchanged.
+  Features affected: core
+- **FormActions `density="compact"`** ([docs/form-fields.md](docs/form-fields.md#formactions-density), #1039). For a bar inside something small with its own edge (a comment composer): no top border or padding of its own and an 8px gap, with `data-density="compact"`. The default bar keeps its border, 24px by 12px padding and 12px gap. `FormCardProps` leaves `density` out: a FormCard's footer is the default bar.
+  Features affected: core
+  - **Tests.** `test:js` (`tests/js/number.test.mjs`): `fieldError` with bracket, mixed and dot names against dot-keyed and bracket-keyed errors, another field of the row, `2` against `20`, and an exact key first. The browser job (`?field-paths`, three tests; the floor is 379): Fields named `title`, `contacts[0][email]`, `contacts[0].email` and `contacts.1.name` show Laravel's errors and are `aria-invalid` and described by them, a clean Field is described by its description only, and the default Field's classes are unchanged; a Repeater row's error shows on its Field and follows the row when it moves up (on main the row's Field shows nothing); InputCalendarDate's "Not set", Clear (absent when required, disabled or locked), the empty submitted value, `v-model`, the form's input event and focus after Clear, a date chosen from the calendar and a form reset (a cleared `v-model` date comes back through the model); the default and compact FormActions measured for border, padding and gap; axe with contrast, light and dark. `bin/typecheck-components.sh`: InputCalendarDate's props (`id` required, `span` 1 to 6) and FormActions' `density`.
+  - **Not covered:** a host's real Inertia `<Form>` (the fixture provides the context Inertia does), a consumer app, and a screen-reader run.
 
 ## v0.25.3
 
