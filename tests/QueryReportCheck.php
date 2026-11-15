@@ -225,6 +225,14 @@ try {
             WorkspaceRoutes::page(Route::get('fixture/things/{thing}', fn (string $workspace, string $thing) => ['thing' => $thing]), $full, 'session-ui', 'fixture.things.show', 'Thing');
         });
         Route::get('fixture/plain', fn () => 'plain')->name('fixture.plain');
+        // Commits the report's transaction on the default connection after writing to both: requested last, on its own.
+        Route::get('committing', function (): string {
+            DB::table('fixture_rows')->insert(['name' => 'committed']);
+            DB::connection('other')->table('fixture_rows')->insert(['name' => 'not committed']);
+            DB::commit();
+
+            return 'committed';
+        })->name('committing');
     });
     $app['router']->getRoutes()->refreshNameLookups();
     $app->bootstrapWith([]);
@@ -387,6 +395,16 @@ try {
     [$textExit, $text] = $report();
     reportCheck($textExit === 0 && str_contains($text, 'GET /@acme/fixture/duplicates  fixture.duplicates') && str_contains($text, '3×   select * from "fixture_rows" where "id" = ? limit 1  (2 exact)')
         && str_contains($text, "Skipped\n") && str_contains($text, 'GET /@{workspace}/fixture/things/{thing}  fixture.things.show: no value for {thing}') && preg_match('/\n\d+ pages \(\d+ answered 200\), \d+ skipped\. Over the 200s: median [\d.]+ queries, worst \d+ \(.+\), duplicate floor \d+ per page\.\n$/', $text) === 1, 'the text report lists each page, its repeated statements, the skipped pages and the summary line');
+
+    // Last, as it keeps a write: a page that commits the report's transaction on one connection stops the run, after every other connection is rolled back.
+    try {
+        $report(['--route' => ['committing']]);
+        $stopped = null;
+    } catch (RuntimeException $stop) {
+        $stopped = $stop->getMessage();
+    }
+    reportCheck($stopped !== null && str_contains($stopped, 'committed the transaction kit:query-report opened on the testing connection') && DB::connection('other')->transactionLevel() === 0
+        && $rows('other') === ['a', 'b', 'c'] && in_array('committed', $rows('testing'), true), 'a page that commits the report\'s transaction stops the run, naming the connection, and the other connection it wrote to is still rolled back ('.json_encode($stopped).')');
 } catch (Throwable $error) {
     echo 'FAIL '.$error->getMessage()."\n".$error->getTraceAsString()."\n";
     exit(1);

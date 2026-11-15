@@ -328,12 +328,18 @@ final class QueryReportCommand extends Command
             $this->log = null;
             $this->opened = null;
             $callbacks?->setValue($app, $before);
+            // Every connection is rolled back first. A page that committed the transaction the report opened (an unbalanced commit) kept what it
+            // wrote there: stop rather than report on, once nothing else is left open.
+            $committed = [];
             foreach ($opened as $name => $connection) {
-                // A page that committed the transaction the report opened (an unbalanced commit) kept what it wrote: stop rather than report on.
                 if ($connection->transactionLevel() === 0) {
-                    throw new RuntimeException('A page committed the transaction kit:query-report opened on the '.$name.' connection, so what it wrote was kept. Stopped.');
+                    $committed[] = $name;
+                } else {
+                    $connection->rollBack(0);
                 }
-                $connection->rollBack(0);
+            }
+            if ($committed !== []) {
+                throw new RuntimeException('A page committed the transaction kit:query-report opened on the '.implode(', ', $committed).' '.Str::plural('connection', count($committed)).', so what it wrote there was kept. Stopped.');
             }
         }
         $this->version = $response->headers->get('X-Inertia-Version') ?? $this->version;
