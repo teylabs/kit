@@ -3,6 +3,8 @@
 namespace Tey\Kit;
 
 use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Contracts\Http\Kernel as KernelContract;
+use Illuminate\Foundation\Http\Kernel as HttpKernel;
 use Illuminate\Image\ImageManager;
 use Illuminate\Support\ServiceProvider;
 use Inertia\Inertia;
@@ -36,6 +38,12 @@ final class KitServiceProvider extends ServiceProvider
                 'kitClock' => fn (): string => Clock::shared(),
             ]);
         }
+        // A missing file under the Vite build directory is a plain 404 before routing, so the `web` group (session, XSRF cookie) never runs for it.
+        $this->callAfterResolving(KernelContract::class, function (mixed $kernel): void {
+            if ($kernel instanceof HttpKernel) {
+                $kernel->prependMiddleware(Http\MissingBuildAsset::class);
+            }
+        });
         $this->registerImageDriver();
         $this->commands([Console\BrandCommand::class, Console\BrandMigrateCommand::class, Console\ScaffoldCommand::class, Media\Console\PruneUploadsCommand::class]);
         // Off by default: a host opts in with `kit.media.prune_schedule` (true for daily at 03:00, or a cron expression).

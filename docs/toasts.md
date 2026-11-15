@@ -110,6 +110,8 @@ The Toaster also installs, once, a small client setup for a page that outlived a
 
 The notice is one quiet toast, "A new version is available.", with a Reload action that reloads the page. It stays until dismissed and shows once per page load, whichever hook fires first. With a form still dirty, Reload asks first through the leave guard (the browser's own prompt).
 
+The failed chunk's own request is cheap: a missing file under the build directory is a plain 404 before the session starts ([deploy.md](deploy.md#a-missing-build-file)).
+
 ## Coverage
 
 - `tests/ToastCheck.php` covers the PHP helper: the payload, the refusals, `from` and `style`, and the shared position.
