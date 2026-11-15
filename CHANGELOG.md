@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased
+
+Features affected: core.
+
+A patch: three InputSelect fixes. In a modal, Escape on a closed select now closes the modal; the trigger takes Input's background; and the chevron sits at the field's 12px end inset.
+
+### Fixed
+
+- **Escape on a closed InputSelect closes the modal around it** (#1060). Escape on an open list closed only the list (correct), but the field then kept every later Escape to itself, so the modal stayed open until focus left the field. The field now keeps Escape only when it has something to close, drop or clear: an open list, typed text, or a value in a clearable field. Otherwise the key goes on, and a ModalPanel closes as it does from any other field. A read-only select, which opens nothing, passes Escape on too.
+  Features affected: core
+- **InputSelect's trigger has Input's background** (#1060). It was `bg-background`, so on a white card over a grey page it showed the page's grey where an Input beside it showed the card. It is now Input's `bg-transparent` with `dark:bg-input/30`. The read-only fill (`bg-muted`) and the invalid border and ring are unchanged.
+  Features affected: core
+- **InputSelect's chevron ends 12px in from the field's end border, the field's start padding mirrored** (#1060). It sat 10px in at sm and up and 18px in below sm, where its 32px hit area centred it. The chevron's button now runs to the border and ends its icon at 12px, at every width; below sm it keeps its 32px by 44px hit area. A field showing Clear reserves 68px of end padding below sm (it was 56px), so text no longer runs under Clear there. The trigger stays 36px tall.
+  Features affected: core
+  - **Tests.** The browser job (`select-modal.html`, 3 new tests; the floor is 392). In a ModalLink modal, with the native `<dialog>` and with the role=dialog panel: the list opens, Escape closes only the list with focus kept in the field, and a second Escape closes the modal; Escape on a read-only select closes it too. On a white card over a grey ground, the trigger's computed background equals the Input's beside it, in light and dark. At 390 and 1280px, the chevron's inset is measured at 12px on a one-value, a clearable and a one-chip select, each 36px tall, with Clear clear of the chevron and the text. On main, all three fail: the second Escape leaves the modal open, the trigger is `rgb(245, 245, 245)` against the Input's transparent, and the chevron is 18px in at 390px.
+  - **Not covered:** a consumer app's own modals and forms, and browsers other than Chromium.
+
 ## v0.25.6
 
 Features affected: none.

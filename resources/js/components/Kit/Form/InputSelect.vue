@@ -419,6 +419,7 @@ function onKeydown(event: KeyboardEvent) {
         if (
             ![
                 'Tab',
+                'Escape',
                 'ArrowLeft',
                 'ArrowRight',
                 'Home',
@@ -455,10 +456,12 @@ function onKeydown(event: KeyboardEvent) {
             if (!open.value) event.stopPropagation(); // A closed field submits its form, as a text input does.
             return;
         case 'Escape':
-            own();
+            // With nothing of its own to close, drop or clear, the key goes on, so a surrounding modal closes as from any other field.
             if (open.value) setOpen(false);
             else if (typed.value) resetText();
             else if (canClear.value) clear();
+            else return;
+            own();
             return;
         case 'Tab':
             event.stopPropagation();
@@ -623,13 +626,19 @@ const inputAttrs = computed(() => {
     return rest;
 });
 const autocomplete = computed(() => (searchOn.value ? 'list' : 'none'));
+// The fill is Input's (transparent on light, `input/30` on dark), so the field shows the card it sits on; read-only keeps the muted one. Below sm, Clear and the
+// chevron keep their 32px-wide hit areas, so a field with Clear reserves more end padding there.
 const fieldClass = computed(() => [
-    'relative flex w-full min-h-9 flex-wrap items-center gap-1 rounded-md border bg-background py-0.5 ps-3 pe-14 text-base shadow-xs transition-[color,box-shadow] sm:text-sm',
+    'relative flex w-full min-h-9 flex-wrap items-center gap-1 rounded-md border py-0.5 ps-3 pe-14 text-base shadow-xs transition-[color,box-shadow] sm:text-sm',
+    canClear.value && 'max-sm:pe-[4.25rem]',
     readOnly.value
         ? 'border-border bg-muted shadow-none focus-within:ring-2 focus-within:ring-ring'
-        : aria.value['aria-invalid']
-          ? 'border-destructive focus-within:ring-2 focus-within:ring-destructive'
-          : 'border-input hover:border-ring/60 focus-within:ring-2 focus-within:ring-ring',
+        : [
+              'bg-transparent dark:bg-input/30',
+              aria.value['aria-invalid']
+                  ? 'border-destructive focus-within:ring-2 focus-within:ring-destructive'
+                  : 'border-input hover:border-ring/60 focus-within:ring-2 focus-within:ring-ring',
+          ],
     props.disabled && 'cursor-not-allowed opacity-60',
     attrs.class as string | undefined,
 ]);
@@ -748,7 +757,7 @@ const layerTarget = useLayerTarget();
                 />
                 <div
                     v-if="interactive"
-                    class="absolute inset-y-0 end-0 flex items-center gap-0.5 pe-2.5"
+                    class="absolute inset-y-0 end-0 flex items-center gap-0.5"
                 >
                     <button
                         v-if="canClear"
@@ -761,9 +770,10 @@ const layerTarget = useLayerTarget();
                     >
                         <X class="size-4" aria-hidden="true" />
                     </button>
+                    <!-- The chevron ends at the field's 12px start padding, mirrored; the trigger runs to the border, so its hit area does too. -->
                     <ComboboxTrigger
                         tabindex="-1"
-                        class="text-muted-foreground -my-2 inline-flex min-h-11 min-w-8 items-center justify-center sm:my-0 sm:min-h-0 sm:min-w-0"
+                        class="text-muted-foreground -my-2 inline-flex min-h-11 min-w-8 items-center justify-end pe-3 sm:my-0 sm:min-h-0 sm:min-w-0"
                         @pointerdown.prevent
                     >
                         <ChevronDown class="size-4" aria-hidden="true" />

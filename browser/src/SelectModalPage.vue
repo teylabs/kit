@@ -5,8 +5,8 @@ import InputSelect from '@/components/Kit/Form/InputSelect.vue';
 import Modal from '@/components/Kit/Overlay/Modal.vue';
 import type { InputSelectOption } from '@/components/Kit/Form/inputSelect';
 
-// A server-driven modal (select-modal.html) with a `filter="remote"` InputSelect, whose results a host fetches on `search`, and a local one beside it.
-// The models show in [data-test-model]; Save posts both.
+// A server-driven modal (select-modal.html) with a `filter="remote"` InputSelect, whose results a host fetches on `search`, a local one beside it and an
+// unnamed read-only one. The models show in [data-test-model]; Save posts the first two.
 defineProps<{ title: string; submit: { label: string; url: string; method: string } }>();
 const rooms = ['North', 'South', 'East', 'West'].map((label) => ({ value: label.toLowerCase(), label }));
 const contact = ref<string | null>(null);
@@ -28,6 +28,9 @@ async function search(query: string) {
         </Field>
         <Field id="booking-room" label="Room">
             <InputSelect id="booking-room" v-model="room" name="room" :options="rooms" />
+        </Field>
+        <Field id="booking-desk" label="Desk">
+            <InputSelect id="booking-desk" model-value="north" :options="rooms" readonly />
         </Field>
         <output data-test-model>{{ JSON.stringify({ contact, room }) }}</output>
     </Modal>
