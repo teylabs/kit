@@ -75,6 +75,7 @@ Suggestions, AI or any domain search stay in the app behind this hook. A hook th
   - Saving flashes a toast (`->toast('Note added')->from('save')`).
   - The composer (`Partials/NoteComposer.vue`) saves with its Save button and keeps focus in the box. It has no keyboard shortcut of its own, because key handling belongs inside kit components.
 - The dashboard widget `notes.recent` (behind `notes.read`, `resources/js/widgets/Notes.vue`) shows the composer for someone who may write, then the latest six notes.
+- To draw notes or comments in an app's own pages, `@kit/ui` has `NoteCard`, `CommentItem`, `CommentForm` and `CommentThread` ([comments.md](comments.md)). The page partials above don't use them yet.
 
 ## Attachments
 

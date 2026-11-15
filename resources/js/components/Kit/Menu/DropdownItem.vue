@@ -9,16 +9,17 @@ import { useMenuItem, useMenuPanel } from '@/components/Kit/Menu/useMenuPanel';
 // One entry in a kit menu (DropdownItem.md): a button, a plain link or an Inertia link, with an optional icon and caption, or the caller's own control in the `wrapper` slot. Must sit inside a kit menu. Caller attributes land on the inner control.
 // `active` is declared and does nothing (an owner question in the spec); a link left at the `#` placeholder is not followed.
 defineOptions({ inheritAttrs: false });
-// `@chosen` fires after the menu has closed: use it, not `@click`, for work that moves or re-renders the item's own row.
-const emit = defineEmits<{ chosen: [] }>();
-withDefaults(
+// `@chosen` fires after the menu has closed: use it, not `@click`, for work that moves or re-renders the item's own row. It is a prop (`onChosen`), not an emit:
+// the closed menu has unmounted the item by then, and Vue drops an unmounted component's emits, so the handler is called from the props it was given.
+const props = withDefaults(
     defineProps<{
         href?: string;
         as?: string | Component | null;
         inertia?: boolean;
         active?: boolean;
+        onChosen?: () => void;
     }>(),
-    { href: '#', as: null },
+    { href: '#', as: null, onChosen: undefined },
 );
 
 const menu = useMenuPanel();
@@ -29,7 +30,7 @@ const contentClass = 'flex items-start gap-2';
 const captionClass = 'block text-xs text-pretty text-muted-foreground';
 const close = () => menu?.close();
 const chosen = () =>
-    menu ? menu.afterClose(() => emit('chosen')) : emit('chosen');
+    menu ? menu.afterClose(() => props.onChosen?.()) : props.onChosen?.();
 // A ButtonGroup's `itemClass`, merged last onto the inner control (so its padding replaces the control's own, not adds to it); with the `wrapper` slot there is
 // no inner control, so it goes on the row.
 const itemClass = useMenuItemClass();

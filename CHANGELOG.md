@@ -1,5 +1,29 @@
 # Changelog
 
+## Unreleased
+
+Features affected: core.
+
+A patch: comment and note components join `@kit/ui`, Avatar takes a new prop, and a menu item's `@chosen` now fires. No existing default look changes.
+
+### Added
+
+- **Comments and notes: `NoteCard`, `CommentItem`, `CommentForm` and `CommentThread`** ([docs/comments.md](docs/comments.md)), with their data types (`CommentData`, `CommentComposerData`, `CommentAuthor`, `CommentColour`, `CommentAttachment`, `CommentGroup`, `CommentTone`) and `COMMENT_TONES`. They are presentational: the server sends each comment, composer and action, a save is the Inertia `<Form>` its composer names, a delete is an Inertia visit, and nothing is fetched as JSON.
+  Features affected: core
+  - `NoteCard` is the card a comment or note sits on: a colour accent on its left or top edge (thin, medium or wide; the status tones on the kit's text tokens, the four note colours, anything else muted), a header with the avatar, author, time slot and the colour's meaning, an `actions` slot, and `compact` (one line) and `flush` (a tile) forms. The colour's label is read with the author, so a colour never carries meaning alone.
+  - `CommentItem` is one comment with its relative time, body (Show more with `collapsible`), files (FileList; a pending thumbnail shows its type, never the original), subject link and replies. Its menu offers the server's Edit (the editor in place), Reply (a composer below) and Delete (confirmed with the action's `confirm`, then a DELETE with `expected_version` and an `intent_key`; a refusal shows inline; one that needs a typed confirmation, which a menu can't ask, shows disabled with that reason, as `DropdownAction` does). Slots: `quick` (the host's buttons before the menu) and `footer`.
+  - `CommentForm` is the composer for a new comment, a reply or an edit. A new one rests as one line beside the writer's avatar and opens on focus into the box with Attach a file, the colours, Cancel and the submit. It saves on Cmd/Ctrl+Enter (Enter with `enter-saves`) and posts `body`, `colour`, a fresh `intent_key`, the composer's `fields` and the chosen `files`; an edit adds `expected_version` and `remove_attachments`, and a PUT or PATCH is posted with `_method`, so its files arrive as multipart. Files come by drop, paste or the Attach button (BulkDrop). After a save it clears and keeps focus in the box.
+  - `CommentThread` is a titled PageSection with the composer, then the comments or `groups` of them, or `empty`.
+  - **Tests.** The browser job (`comments.html`, on the real `@inertiajs/vue3`, 9 new test runs): axe in light and dark at rest and with the composer open; each accent width on each edge, the tones on their tokens, an unknown tone muted and the flush tile; the article's accessible name; compact as one line; no request for a pending thumbnail; the composer resting, opening, closing on Escape and saving on Ctrl+Enter (not Enter) with its colour, fields, file and intent key, then cleared (its native file input too) with focus kept and a new key on the next save; an edit's `_method`, `expected_version` and removed file, with focus back on the menu; an editor kept mounted after a save goes back to its comment with its Remove boxes unticked, so the next save resends no removal; a delete's confirmation, its DELETE and a refusal shown inline; a delete that needs typing shown disabled, asking and sending nothing; a reply posting its own fields. `typecheck/fixtures/Comments.vue` compiles the props, types and exposed methods.
+  - **Not covered:** a consumer app's own server, real file uploads to a disk, and browsers other than Chromium. The notes feature's page partials don't use these components yet.
+- **`Avatar`'s `size`**: `xs` (20px), `sm` (28px), `md` (32px, the default), `lg` (40px) or `xl` (80px, as `large`). Without it, an avatar draws as before.
+  Features affected: core
+
+### Fixed
+
+- **A menu item's `@chosen` fires, after the menu has closed and returned focus.** `DropdownItem` emitted `chosen` once the menu had closed, by which time the closed menu had unmounted the item, and Vue drops an unmounted component's emits, so the handler never ran. It is now a prop (`onChosen`), which `@chosen` still sets. The queued work also waited one timer too few: Reka returned focus to the trigger after it ran, so work that moved focus (into a form it opened) lost it. Nothing in the kit used `@chosen` before CommentItem's Edit and Reply, which cover both.
+  Features affected: core
+
 ## v0.25.4
 
 Features affected: none.

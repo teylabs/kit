@@ -5249,6 +5249,267 @@ test('the notes composer by keyboard: the colour select and the dropzone are lab
     });
 });
 
+// ── The comment and note components (comments.html, on the real Inertia): CommentThread, CommentItem, CommentForm and NoteCard posting through <Form> and visits ──
+// The test is the server: each write under /@acme/comments is recorded (method, path, multipart or JSON body) and answered with the page, or with `errors` when
+// the test's `refuse` returns them (a stale version arrives as errors, as the kit's conflicts do on a visit).
+async function commentsPage(query, run, { width = 1280 } = {}) {
+    const context = await browser.newContext({ viewport: { width, height: 900 } });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        const writes = [];
+        const fetched = [];
+        let refuse = () => null;
+        await tab.route(/\/@acme\/files\//, (route) => {
+            fetched.push(new URL(route.request().url()).pathname);
+            return route.fulfill({ status: 404, body: '' });
+        });
+        await tab.route(/\/@acme\/comments(\/\d+)?(\?.*)?$/, async (route) => {
+            const request = route.request();
+            if (request.method() === 'GET') return route.continue();
+            const write = { method: request.method(), path: new URL(request.url()).pathname, body: request.postDataBuffer()?.toString('latin1') ?? '' };
+            writes.push(write);
+            const page = await tab.evaluate(() => window.kitInitialPage);
+            const refused = refuse(write);
+            const body = refused ? { ...page, props: { ...page.props, errors: refused } } : page;
+            await route.fulfill({ status: 200, headers: { 'Content-Type': 'application/json', 'X-Inertia': 'true', Vary: 'X-Inertia' }, body: JSON.stringify(body) });
+        });
+        await tab.goto(`${authUrl}comments.html${query}`);
+        await tab.waitForSelector('[data-comment-thread] [data-comment-form]');
+        await run({ tab, writes, fetched, refuseWith: (fn) => { refuse = fn; } });
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+}
+// A multipart part's value, or a JSON body's field.
+const part = (body, name) => {
+    const multipart = body.match(new RegExp(`name="${name.replace(/[[\]]/g, '\\$&')}"\\r\\n\\r\\n([^\\r]*)`));
+    if (multipart) return multipart[1];
+    try { const value = JSON.parse(body)[name.replace('[]', '')]; return value === undefined ? undefined : String(value); } catch { return undefined; }
+};
+const waitFor = async (check) => { for (let i = 0; i < 150 && !(await check()); i++) await new Promise(resolve => setTimeout(resolve, 20)); };
+const commentMenu = (tab, id) => tab.locator(`[data-comment="${id}"] > [data-note-card] [data-comment-menu]`).first();
+
+for (const [mode, query] of [['light', ''], ['dark', '?dark']]) {
+    test(`comments (${mode}): a thread, its open composer and the NoteCard gallery pass axe (WCAG 2.2 AA, color-contrast included), and the accents are drawn on the kit's tokens`, async () => {
+        await commentsPage(query, async ({ tab }) => {
+            assert.deepEqual(await notesAxe(tab), [], 'at rest');
+            await tab.locator('[data-comment-thread] [data-comment-form] textarea').first().focus();
+            await tab.waitForSelector('[data-comment-thread] [data-comment-toolbar]');
+            assert.deepEqual(await notesAxe(tab), [], 'with the composer open');
+            const look = await tab.evaluate(() => {
+                const style = (selector) => getComputedStyle(document.querySelector(selector));
+                const probe = (cls) => { const el = document.createElement('span'); el.className = cls; document.body.append(el); const colour = getComputedStyle(el).color; el.remove(); return colour; };
+                const card = (key) => style(`[data-look="${key}"]`);
+                return {
+                    widths: ['thin', 'medium', 'wide'].map((w) => [card(`yellow-left-${w}`).borderLeftWidth, card(`yellow-top-${w}`).borderTopWidth]),
+                    edges: [card('blue-left-medium').borderTopWidth, card('blue-top-medium').borderLeftWidth],
+                    danger: [card('danger-left-medium').borderLeftColor, probe('text-destructive-text')],
+                    info: [card('info-top-wide').borderTopColor, probe('text-info-text')],
+                    muted: [card('muted-left-thin').borderLeftColor, style('[data-look="fallback"]').borderLeftColor, probe('text-muted-foreground')],
+                    distinct: new Set(['yellow', 'pink', 'blue', 'green'].map((tone) => card(`${tone}-left-medium`).borderLeftColor)).size,
+                    flush: [style('[data-look="flush"]').borderTopLeftRadius, style('[data-look="flush"]').borderTopWidth],
+                };
+            });
+            assert.deepEqual(look.widths, [['2px', '2px'], ['4px', '4px'], ['8px', '8px']], 'thin, medium and wide on each edge');
+            assert.deepEqual(look.edges, ['1px', '1px'], 'the other edges keep the card\'s 1px border');
+            assert.equal(look.danger[0], look.danger[1], 'danger is the destructive text token');
+            assert.equal(look.info[0], look.info[1], 'info is the info text token');
+            assert.equal(look.muted[0], look.muted[2], 'muted is the muted foreground');
+            assert.equal(look.muted[1], look.muted[2], 'an unknown tone falls back to muted');
+            assert.equal(look.distinct, 4, 'each note colour has its own accent');
+            assert.deepEqual(look.flush, ['0px', '0px'], 'flush is a borderless, square tile');
+            if (process.env.KIT_COMMENTS_SCREENSHOT) await tab.screenshot({ path: `${process.env.KIT_COMMENTS_SCREENSHOT}-${mode}.png`, fullPage: true });
+        });
+    });
+}
+
+test('NoteCard and CommentItem: the colour label is read with the author and time, compact is one line without actions or files, and a pending thumbnail is never fetched', async () => {
+    await commentsPage('', async ({ tab, fetched }) => {
+        const first = tab.locator('[data-comment-thread] [data-comment="1"] > [data-note-card]');
+        assert.equal(await first.evaluate(el => el.tagName), 'ARTICLE');
+        // The accessible name as the browser computes it (the aria snapshot's first line): the avatar's initials are hidden, and the parts are spaced.
+        const name = (await first.ariaSnapshot()).split('\n')[0];
+        assert.match(name, /^- article "Sam Reed \S.* Urgent Needs an answer today"/, `the article is named by its author, time and colour: ${name}`);
+        assert.equal(await first.locator('time[datetime="2026-11-13T15:00:00Z"]').count(), 1, 'the time is a <time> with its instant');
+        assert.equal(await first.locator('[data-file-list] a[href="/@acme/files/f-plan"]').count(), 1, 'a file is a link to its url');
+        assert.equal(await first.locator('[data-file-list] img').count(), 0, 'the pending thumbnail shows no image');
+        assert.equal(await first.locator('[data-comment-subject][href="/@acme/projects/7"]').textContent(), 'Project 7');
+        assert.deepEqual(await tab.locator('[data-comment-thread] [data-comment="3"] [data-comment-subject]').first().evaluate(el => [el.tagName, el.textContent]), ['SPAN', 'Project 8'], 'a subject without a url is text, not a link');
+        assert.deepEqual(await tab.locator('[data-empty-groups]').evaluate(el => [el.querySelectorAll('[data-comment], ol').length, el.querySelector('[data-comment-empty]')?.textContent.trim()]), [0, 'No comments yet.'], 'groups with no comments show the empty line, not the comments or an empty list');
+        assert.equal(await tab.locator('[data-comment-thread] [data-comment="1"] > ol[aria-label="Replies to Sam Reed"] [data-comment="2"]').count(), 1, 'the reply is nested in a labelled list');
+        assert.equal(await tab.locator('[data-comment="3"] [data-comment-menu]').count(), 0, 'no menu without editor, reply or delete');
+        const compact = tab.locator('[data-look="compact-item"] > [data-note-card]');
+        assert.equal(await compact.getAttribute('data-note-variant'), 'compact');
+        assert.equal(await compact.locator('[data-note-header], [data-comment-menu], [data-file-list]').count(), 0, 'compact: no header, menu or files');
+        assert.equal(await tab.locator('[data-look="compact-item"] ol').count(), 0, 'compact: no replies');
+        const box = await compact.evaluate(el => ({ height: el.getBoundingClientRect().height, line: el.querySelector('.truncate').scrollHeight }));
+        assert.ok(box.height < 60, `compact is one line (${box.height}px)`);
+        await tab.waitForTimeout(200);
+        assert.deepEqual(fetched, [], 'no attachment request at all (thumbnails pending, files only linked)');
+    });
+});
+
+test('CommentForm: rests on one line, opens on focus, closes empty on Escape, saves on Ctrl+Enter (not Enter) with the colour, fields, files and a fresh intent key, then clears and keeps focus', async () => {
+    await commentsPage('', async ({ tab, writes }) => {
+        const form = tab.locator('[data-comment-thread] [data-comment-form]').first();
+        const box = form.locator('textarea[name=body]');
+        assert.equal(await form.locator('[data-comment-toolbar]').count(), 0, 'at rest: no toolbar');
+        assert.equal(await form.locator('[data-comment-form-avatar]').count(), 1, 'at rest: the writer\'s avatar');
+        assert.equal(await box.getAttribute('aria-label'), 'Write a comment…', 'the box is named');
+        await box.focus();
+        await form.locator('[data-comment-toolbar]').waitFor();
+        await tab.keyboard.press('Escape');
+        await waitFor(async () => (await form.locator('[data-comment-toolbar]').count()) === 0);
+        assert.equal(await form.locator('[data-comment-toolbar]').count(), 0, 'Escape closes an empty composer');
+        await box.focus();
+        await tab.keyboard.type('First line');
+        await tab.keyboard.press('Enter');
+        await tab.keyboard.type('second line');
+        assert.equal(await box.inputValue(), 'First line\nsecond line', 'Enter is a new line');
+        assert.equal(writes.length, 0);
+        // The colour by keyboard: Tab to the checked swatch, then an arrow moves the choice.
+        await form.locator('[data-colour-choice="yellow"] input').focus();
+        await tab.keyboard.press('ArrowRight');
+        assert.equal(await form.locator('input[type=hidden][name=colour]').inputValue(), 'blue', 'ArrowRight picked Blue');
+        await tab.setInputFiles('[data-comment-thread] [data-comment-form] [data-dropzone-input]', [{ name: 'sketch.png', mimeType: 'image/png', buffer: Buffer.from('png') }]);
+        await form.locator('[aria-label="Files to attach"] li').waitFor();
+        await box.focus();
+        await tab.keyboard.press('Control+Enter');
+        await waitFor(() => writes.length > 0);
+        assert.equal(writes.length, 1, 'one save');
+        const [post] = writes;
+        assert.deepEqual([post.method, post.path], ['POST', '/@acme/comments']);
+        assert.deepEqual(['colour', 'subject_type', 'subject_id'].map(name => part(post.body, name)), ['blue', 'project', '7'], 'the colour and the composer\'s fields');
+        assert.match(post.body, /First line\r?\nsecond line/);
+        assert.match(part(post.body, 'intent_key') ?? '', /^[0-9a-f-]{36}$/);
+        assert.equal((post.body.match(/filename="sketch\.png"/g) ?? []).length, 1, 'the file is sent once');
+        assert.equal(part(post.body, '_method'), undefined, 'a POST is not spoofed');
+        await waitFor(async () => (await box.inputValue()) === '');
+        assert.equal(await box.inputValue(), '', 'cleared after the save');
+        assert.equal(await form.locator('[aria-label="Files to attach"] li').count(), 0, 'files cleared');
+        await waitFor(() => form.locator('[data-dropzone-input]').evaluate(el => el.files.length === 0));
+        assert.equal(await form.locator('[data-dropzone-input]').evaluate(el => el.files.length), 0, 'the native file input is emptied too');
+        await waitFor(() => tab.evaluate(() => document.activeElement?.name === 'body'));
+        assert.equal(await tab.evaluate(() => document.activeElement?.closest('[data-comment-thread] [data-comment-form]') !== null && document.activeElement.name === 'body'), true, 'focus stays in the box');
+        assert.equal(await form.locator('input[type=hidden][name=colour]').inputValue(), 'yellow', 'the colour is back to the default');
+        await tab.keyboard.type('Another');
+        await tab.keyboard.press('Control+Enter');
+        await waitFor(() => writes.length > 1);
+        assert.notEqual(part(writes[1].body, 'intent_key'), part(post.body, 'intent_key'), 'each save has its own intent key');
+        assert.doesNotMatch(writes[1].body, /filename="sketch\.png"/, 'the next save resends no file');
+    });
+});
+
+test('CommentItem: Edit opens the editor in place with the body, sends PUT as _method with expected_version and the removed files, then closes and returns focus to the menu', async () => {
+    await commentsPage('', async ({ tab, writes }) => {
+        await commentMenu(tab, 1).click();
+        await tab.getByRole('menuitem', { name: 'Edit' }).click();
+        const editor = tab.locator('[data-comment-thread] [data-comment="1"] > [data-comment-form][data-editing]');
+        await editor.waitFor();
+        await waitFor(() => tab.evaluate(() => document.activeElement?.closest('[data-comment="1"] > [data-comment-form]') !== null));
+        assert.equal(await editor.locator('textarea').inputValue(), 'Please check the measurements on the second floor before Friday.');
+        assert.equal(await editor.locator('input[type=hidden][name=colour]').inputValue(), 'urgent', 'the comment\'s own colour');
+        assert.equal(await editor.locator('[data-comment-toolbar]').count(), 1, 'an editor is open from the start');
+        await editor.locator('textarea').fill('Measurements checked.');
+        await editor.getByLabel('Remove floor-plan.pdf').check();
+        await editor.getByRole('button', { name: 'Save' }).click();
+        await waitFor(() => writes.length > 0);
+        const [put] = writes;
+        assert.deepEqual([put.method, put.path], ['POST', '/@acme/comments/1']);
+        assert.equal(part(put.body, '_method'), 'put');
+        assert.equal(part(put.body, 'expected_version'), '3');
+        assert.equal(part(put.body, 'body'), 'Measurements checked.');
+        assert.match(put.body, /remove_attachments[^]*f-plan/, 'the removed file is listed');
+        assert.doesNotMatch(put.body, /f-photo/, 'the kept file is not');
+        await editor.waitFor({ state: 'detached' });
+        await waitFor(() => tab.evaluate(() => document.activeElement?.matches('[data-comment="1"] [data-comment-menu]')));
+        assert.equal(await tab.evaluate(() => document.activeElement?.matches('[data-comment="1"] [data-comment-menu]')), true, 'focus returns to the menu');
+        // Escape in an editor cancels it, unsaved.
+        await commentMenu(tab, 1).click();
+        await tab.getByRole('menuitem', { name: 'Edit' }).click();
+        await editor.waitFor();
+        await editor.locator('textarea').focus();
+        await tab.keyboard.press('Escape');
+        await editor.waitFor({ state: 'detached' });
+        assert.equal(writes.length, 1, 'Escape saved nothing');
+    });
+});
+
+test('CommentForm: an editor kept mounted after a save goes back to its comment, its Remove boxes unticked, so the next save resends no removal', async () => {
+    await commentsPage('', async ({ tab, writes }) => {
+        const editor = tab.locator('[data-kept-editor] [data-comment-form]');
+        assert.equal(await editor.locator('textarea').getAttribute('aria-label'), 'Edit the comment…', 'an overriding placeholder names the box too');
+        await editor.locator('textarea').fill('Edited once.');
+        await editor.getByLabel('Remove floor-plan.pdf').check();
+        await editor.getByRole('button', { name: 'Save' }).click();
+        await waitFor(() => writes.length > 0);
+        assert.match(writes[0].body, /remove_attachments[^]*f-plan/, 'the first save removes the file');
+        await waitFor(async () => (await editor.locator('textarea').inputValue()) !== 'Edited once.');
+        assert.equal(await editor.locator('textarea').inputValue(), 'Please check the measurements on the second floor before Friday.', 'back to the comment');
+        assert.equal(await editor.getByLabel('Remove floor-plan.pdf').isChecked(), false, 'the Remove box is unticked');
+        await editor.locator('textarea').fill('Edited twice.');
+        await editor.getByRole('button', { name: 'Save' }).click();
+        await waitFor(() => writes.length > 1);
+        assert.doesNotMatch(writes[1].body, /f-plan/, 'the second save resends no removal');
+    });
+});
+
+test('CommentItem: Delete asks with the action\'s confirmation, then sends one DELETE with expected_version and an intent key; a refusal shows inline', async () => {
+    await commentsPage('', async ({ tab, writes, refuseWith }) => {
+        refuseWith(() => ({ stale_comment: 'This comment changed since you opened it.' }));
+        await commentMenu(tab, 1).click();
+        await tab.getByRole('menuitem', { name: 'Delete' }).click();
+        const dialog = tab.getByRole('alertdialog');
+        await dialog.waitFor();
+        assert.equal((await dialog.getByRole('heading').textContent()).trim(), 'Delete this comment?');
+        assert.match(await dialog.textContent(), /removed for everyone/);
+        assert.equal(writes.length, 0, 'nothing before the confirmation');
+        await dialog.getByRole('button', { name: 'Delete comment' }).click();
+        await waitFor(() => writes.length > 0);
+        assert.equal(writes.length, 1);
+        assert.deepEqual([writes[0].method, writes[0].path], ['DELETE', '/@acme/comments/1']);
+        assert.equal(part(writes[0].body, 'expected_version'), '3');
+        assert.match(part(writes[0].body, 'intent_key') ?? '', /^[0-9a-f-]{36}$/);
+        const alert = tab.locator('[data-comment="1"] > [role=alert]');
+        await alert.waitFor();
+        assert.equal((await alert.textContent()).trim(), 'This comment changed since you opened it.');
+    });
+});
+
+test('CommentItem: a delete that needs typing shows disabled in the menu with its reason, and choosing it asks nothing and sends nothing', async () => {
+    await commentsPage('', async ({ tab, writes }) => {
+        await tab.locator('[data-comment-thread] [data-comment="2"] > [data-note-card] [data-comment-menu]').click();
+        const item = tab.getByRole('menuitem', { name: /Delete/ });
+        await item.waitFor();
+        assert.equal(await item.locator('button').getAttribute('aria-disabled'), 'true');
+        assert.match(await item.textContent(), /Needs a typed confirmation/);
+        await item.click({ force: true });
+        await tab.waitForTimeout(200);
+        assert.equal(await tab.getByRole('alertdialog').count(), 0, 'no confirmation opens');
+        assert.equal(writes.length, 0, 'nothing is sent');
+    });
+});
+
+test('CommentItem: Reply opens a composer below the comment, focused, that posts the reply\'s own fields', async () => {
+    await commentsPage('', async ({ tab, writes }) => {
+        await commentMenu(tab, 1).click();
+        await tab.getByRole('menuitem', { name: 'Reply' }).click();
+        const form = tab.locator('[data-comment-thread] [data-comment="1"] > [data-comment-form]');
+        await form.waitFor();
+        await waitFor(() => tab.evaluate(() => document.activeElement?.closest('[data-comment="1"] > [data-comment-form]') !== null));
+        assert.equal(await form.locator('textarea').getAttribute('placeholder'), 'Write a reply…');
+        await tab.keyboard.type('On it.');
+        await form.getByRole('button', { name: 'Reply' }).click();
+        await waitFor(() => writes.length > 0);
+        assert.equal(part(writes[0].body, 'parent_id'), '1');
+        assert.equal(part(writes[0].body, 'body'), 'On it.');
+        await form.waitFor({ state: 'detached' });
+    });
+});
+
 // ── The dashboard grid with every kit widget on (dashboard.html): axe-clean (WCAG 2.2 AA, color-contrast, landmark-unique), light and dark ────────────────
 for (const [mode, query] of [['light', ''], ['dark', '?dark']]) {
     test(`the dashboard with every kit widget (${mode}): no axe violations, and no two landmarks share a name`, async () => {

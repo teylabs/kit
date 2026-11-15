@@ -3559,6 +3559,26 @@
       "reason": "Helper behind MiddleTruncate."
     },
     {
+      "ref": "@/components/Kit:NoteCard",
+      "reason": "Display primitive: the card a comment or note sits on, with its colour accent, author and time, rendered inside a host page or a kit component."
+    },
+    {
+      "ref": "@/components/Kit:CommentItem",
+      "reason": "Display primitive: one comment or note with its replies and the actions the server sent, rendered inside a host page."
+    },
+    {
+      "ref": "@/components/Kit:CommentForm",
+      "reason": "Form primitive: the composer for a comment, reply or edit, an Inertia <Form> rendered inside a host page or CommentItem."
+    },
+    {
+      "ref": "@/components/Kit:CommentThread",
+      "reason": "Display primitive: a titled discussion (composer and comments) in a PageSection, rendered inside a host page."
+    },
+    {
+      "ref": "@/components/Kit:COMMENT_TONES",
+      "reason": "Constant behind NoteCard: the accent tones it draws."
+    },
+    {
       "ref": "@/components/Kit:TextProse",
       "reason": "Text family display primitive: running text, rendered inside a host page."
     },

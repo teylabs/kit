@@ -67,3 +67,10 @@ export { passkeyName, passkeysSupported, registerPasskey } from '@/components/Ki
 export { confirmPasskeyPassword } from '@/components/Kit/Feedback/passkeyOffer';
 // The Account folder's persistent layout (forms.html?shell).
 export { default as SettingsFrame } from '@/components/Kit/Layout/SettingsFrame.vue';
+// The comment and note components' (comments.html).
+export { default as CommentThread } from '@/components/Kit/Comment/CommentThread.vue';
+export { default as CommentItem } from '@/components/Kit/Comment/CommentItem.vue';
+export { default as CommentForm } from '@/components/Kit/Comment/CommentForm.vue';
+export { default as NoteCard } from '@/components/Kit/Comment/NoteCard.vue';
+export { COMMENT_TONES } from '@/components/Kit/Comment/comments';
+export type { CommentComposerData, CommentData } from '@/components/Kit/Comment/comments';
