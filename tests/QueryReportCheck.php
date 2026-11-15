@@ -218,7 +218,12 @@ try {
             }), $full, 'session-ui', 'fixture.growing', 'Growing');
             WorkspaceRoutes::page(Route::get('fixture/broken', fn () => throw new RuntimeException('fixture_broken')), $full, 'session-ui', 'fixture.broken', 'Broken');
             WorkspaceRoutes::page(Route::get('fixture/late', function (): array {
-                app()->terminating(fn () => throw new RuntimeException('fixture_late'));
+                // It writes before it throws: the write still rolls back.
+                app()->terminating(function (): void {
+                    DB::table('fixture_rows')->insert(['name' => 'before the throw']);
+
+                    throw new RuntimeException('fixture_late');
+                });
 
                 return ['ok' => true];
             }), $full, 'session-ui', 'fixture.late', 'Late');
@@ -329,7 +334,7 @@ try {
 
     // Writes: the page saw its own writes, and none is left on either connection, in the cache, the queue or the session files.
     reportCheck($seen !== [] && $seen[0] === [4, 0], 'the write page saw its writes inside its request ('.json_encode($seen[0] ?? null).')');
-    reportCheck($writes() === $before && $before['rows'] === ['a', 'b', 'c'] && $before['other'] === ['a', 'b', 'c'], 'every write is rolled back: the inserted, updated and deleted rows on both connections, the terminating callback\'s insert, and no cache entry (database or file store), job or session written ('.json_encode($writes()).')');
+    reportCheck($writes() === $before && $before['rows'] === ['a', 'b', 'c'] && $before['other'] === ['a', 'b', 'c'], 'every write is rolled back: the inserted, updated and deleted rows on both connections, the terminating callback\'s insert, the insert of a terminating callback that then throws, and no cache entry (database or file store), job or session written ('.json_encode($writes()).')');
     reportCheck(DB::connection()->transactionLevel() === 0 && DB::connection('other')->transactionLevel() === 0, 'and no transaction is left open');
 
     // The report measures what a page costs without it: reads run outside any transaction until the page writes. Inside one, the kit runs each dashboard
