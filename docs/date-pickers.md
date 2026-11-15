@@ -30,7 +30,7 @@ Every control takes `name`, `label`, `id`, `defaultValue`, `min`, `max`, `descri
 
 - **Clear** submits an empty string (the hidden input's value is `''`), emits `update:modelValue` and `canonical` with `''`, fires an `input` event on the form so it turns dirty, and moves focus to the field's first segment.
 - **Props.** `id` and `label` are required; `name` defaults to `id`. `modelValue` (`v-model`, the date or `''`) or `defaultValue` (a `YYYY-MM-DD`, `''` or null) starts it; a longer ISO value is cut to its date. `span` is a FormCard's columns, as on `Field`. `min`, `max`, `description`, `error`, `disabled` and `required` are InputDate's.
-- **A form reset** puts the starting value back.
+- **A form reset** puts the starting value back: `defaultValue`, or with `v-model` the value it mounted with, emitted through `update:modelValue`.
 - Other attributes land on the field's segment group, as on `InputDate`.
 
 ## Dates never shift

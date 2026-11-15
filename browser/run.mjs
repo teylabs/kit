@@ -10686,7 +10686,7 @@ test('Field reads a Laravel dot-path error for a bracket, mixed or dot name, and
     });
 });
 
-test('InputCalendarDate: "Not set" while empty, Clear while it may be emptied (not required, disabled or locked), Clear submits an empty date and focuses the field, a reset restores it', async () => {
+test('InputCalendarDate: "Not set" while empty, Clear while it may be emptied (not required, disabled or locked), Clear submits an empty date and focuses the field, a reset restores it (with v-model, through the model)', async () => {
     await onPage('field-paths', async (tab) => {
         const errors = [];
         tab.on('pageerror', (error) => errors.push(error.message));
@@ -10728,6 +10728,8 @@ test('InputCalendarDate: "Not set" while empty, Clear while it may be emptied (n
         await tab.waitForFunction(() => document.querySelector('form#dates input[name="ends_on"]').value === '2026-11-01');
         assert.deepEqual(await state('filled'), { value: '2026-11-01', empty: null, clear: 'Clear Ends' }, 'a reset puts the starting value back');
         assert.deepEqual(await state('empty'), { value: '', empty: 'Not set', clear: null });
+        assert.deepEqual(await state('model'), { value: '2026-12-24', empty: null, clear: 'Remove Due' }, 'with v-model, the date it mounted with');
+        assert.equal(await tab.textContent('[data-due]'), '2026-12-24', 'the reset reaches the model');
         assert.deepEqual(errors, []);
     });
 });

@@ -15,7 +15,7 @@ import { useLocked } from './useLocked';
 // under the field while it has no date, and a Clear button (`clearLabel`, named "Clear <label>") while it has one that may be emptied, so not while it is
 // required, disabled or in a locked LockedForm. Clear submits an empty string and moves focus to the field. `v-model` is the date or ''; without it,
 // `defaultValue` is the starting value, as on InputDate. `name` defaults to `id`; `span` is a FormCard's columns, as on Field. A form reset puts the starting
-// value back. Other attributes land on the field's segment group, as on InputDate.
+// value back (with v-model, the value it mounted with, through the model). Other attributes land on the field's segment group, as on InputDate.
 defineOptions({ inheritAttrs: false });
 const props = withDefaults(
     defineProps<{
@@ -81,8 +81,15 @@ async function clear() {
         ?.dispatchEvent(new Event('input', { bubbles: true }));
     root.value?.querySelector<HTMLElement>('[role="spinbutton"]')?.focus();
 }
+// The value a form reset puts back. With v-model the model itself changes on every edit, so it is the value the field mounted with, and the reset goes
+// through the model; otherwise it is `defaultValue`, which follows the server.
+const mounted = initial.value;
 const reset = () => {
-    current.value = initial.value;
+    if (props.modelValue === undefined) {
+        current.value = initial.value;
+        return;
+    }
+    if (current.value !== mounted) changed(mounted);
 };
 onMounted(() => root.value?.closest('form')?.addEventListener('reset', reset));
 onBeforeUnmount(() =>
