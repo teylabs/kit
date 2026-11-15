@@ -23,6 +23,7 @@ use Symfony\Component\Console\Formatter\OutputFormatter;
 use Symfony\Component\Console\Output\OutputInterface;
 use Tey\Concierge\Enums\MembershipStatus;
 use Tey\Concierge\Support\ConciergeModels;
+use Throwable;
 use WeakMap;
 
 /**
@@ -312,7 +313,14 @@ final class QueryReportCommand extends Command
             $app['auth']->guard('web')->onceUsingId($user->getAuthIdentifier());
             $kernel = $app->make(Kernel::class);
             $response = $kernel->handle($request);
-            $kernel->terminate($request, $response);
+            $status = $response->getStatusCode();
+            try {
+                $kernel->terminate($request, $response);
+            } catch (Throwable $error) {
+                // A terminating callback that throws fails its page, reported as the kernel reports a request's failure; the run carries on.
+                report($error);
+                $status = 500;
+            }
         } finally {
             $time = (hrtime(true) - $start) / 1e6;
             $log = $this->log;
@@ -330,7 +338,7 @@ final class QueryReportCommand extends Command
         }
         $this->version = $response->headers->get('X-Inertia-Version') ?? $this->version;
 
-        return ['status' => $response->getStatusCode(), 'queries' => $log, 'time' => $time];
+        return ['status' => $status, 'queries' => $log, 'time' => $time];
     }
 
     /**

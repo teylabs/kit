@@ -51,6 +51,6 @@ Skipped
 - **The time** is the request's wall time through the kernel, with the part spent in queries in brackets. It is local and noisy: use `--repeat` before you compare two times.
 - **The summary** covers the pages that answered 200. It gives their median and worst query counts, the worst page, and the duplicate floor. The floor is the fewest exact duplicates any page runs: what the shell and the middleware cost every page.
 - **Not counted:** the session's and the cache's own reads (both are array stores here, where a database driver would cost a query or two per request), the root view, and deferred or lazy props, which come in a request of their own.
-- **A failing page is reported, not fatal.** A non-200 status shows in yellow, and the run carries on. The exit code is 0 whenever the report ran, and 1 for a refusal: production without `--force`, an unknown user or workspace, or a bad `--repeat`.
+- **A failing page is reported, not fatal.** A non-200 status shows in yellow, and the run carries on. A page whose terminating callback throws counts as a 500. The exit code is 0 whenever the report ran, and 1 for a refusal: production without `--force`, an unknown user or workspace, or a bad `--repeat`.
 
 `--only-duplicates` lists only the pages that run an exact duplicate, and the summary still covers every page. `--json` prints the same report as JSON: `pages` (each with `route`, `path`, `status`, `queries`, `duplicates`, `time_ms`, `query_ms` and every repeated statement), `skipped` (each with its `reason`) and `summary`.

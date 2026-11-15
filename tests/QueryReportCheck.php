@@ -217,6 +217,11 @@ try {
                 return ['ok' => true];
             }), $full, 'session-ui', 'fixture.growing', 'Growing');
             WorkspaceRoutes::page(Route::get('fixture/broken', fn () => throw new RuntimeException('fixture_broken')), $full, 'session-ui', 'fixture.broken', 'Broken');
+            WorkspaceRoutes::page(Route::get('fixture/late', function (): array {
+                app()->terminating(fn () => throw new RuntimeException('fixture_late'));
+
+                return ['ok' => true];
+            }), $full, 'session-ui', 'fixture.late', 'Late');
             WorkspaceRoutes::page(Route::get('fixture/things/{thing}', fn (string $workspace, string $thing) => ['thing' => $thing]), $full, 'session-ui', 'fixture.things.show', 'Thing');
         });
         Route::get('fixture/plain', fn () => 'plain')->name('fixture.plain');
@@ -292,6 +297,8 @@ try {
     reportCheck(array_filter(array_keys($pages + $skipped), fn (?string $route): bool => str_starts_with((string) $route, 'short.')) === [], 'it requests no short form: that is the same page under the session\'s workspace');
     [, $undeclared] = $json();
     reportCheck(isset($pages['fixture.plain']) && ! isset($byRoute($undeclared['pages'])['fixture.plain']), 'an undeclared GET route is requested only when --route matches it');
+    [, $byUri] = $json(['--route' => ['fixture/*']]);
+    reportCheck(($byRoute($byUri['pages'])['fixture.plain']['path'] ?? null) === '/fixture/plain', '--route matches a URI pattern too (fixture/*)');
     reportCheck(($pages['fixture.plain']['status'] ?? null) === 200 && $pages['fixture.plain']['duplicates'] === 0, 'the matched route is reported like a page');
 
     // Counts and duplicates, against the empty fixture page (the same shell and middleware, no queries of its own).
@@ -354,6 +361,7 @@ try {
     // Skipped and failing pages.
     reportCheck(($skipped['fixture.things.show']['reason'] ?? null) === 'no value for {thing}' && $skipped['fixture.things.show']['path'] === '/@{workspace}/fixture/things/{thing}' && ! isset($pages['fixture.things.show']), 'a page whose parameter it can\'t fill is listed as skipped, with the reason');
     reportCheck(($pages['fixture.broken']['status'] ?? null) === 500 && isset($pages['workspaces.dashboard.index']), 'a page that fails is reported with its status (500), and the run carries on');
+    reportCheck(($pages['fixture.late']['status'] ?? null) === 500 && isset($pages['me.profile']), 'a page whose terminating callback throws is reported as a 500, and the pages after it are still measured');
 
     // The summary, recomputed from the pages it reports.
     $ok = array_values(array_filter($all['pages'], fn (array $page): bool => $page['status'] === 200));
