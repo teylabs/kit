@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import PageSection from '@/components/Kit/Layout/PageSection.vue';
 import CommentForm from './CommentForm.vue';
 import CommentItem from './CommentItem.vue';
@@ -14,7 +15,7 @@ import type {
  * empty; with nothing to show, `empty` shows.
  * `level` is the heading's, `only` limits each visit's props, and `interactive` false shows no actions. Other attributes land on the section.
  */
-withDefaults(
+const props = withDefaults(
     defineProps<{
         title: string;
         comments?: CommentData[];
@@ -35,13 +36,17 @@ withDefaults(
         only: undefined,
     },
 );
+// Only groups with comments are drawn: a list of empty groups shows the empty line, not a blank region.
+const shown = computed(() =>
+    (props.groups ?? []).filter((group) => group.comments.length),
+);
 </script>
 <template>
     <PageSection :title="title" :level="level" data-comment-thread>
         <CommentForm v-if="composer" :composer="composer" :only="only" />
-        <ol v-if="groups && groups.length" class="grid gap-6">
+        <ol v-if="shown.length" class="grid gap-6">
             <li
-                v-for="group in groups"
+                v-for="group in shown"
                 :key="group.id"
                 :data-comment-group="group.id"
             >

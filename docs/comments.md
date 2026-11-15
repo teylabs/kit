@@ -68,7 +68,7 @@ A colour's `tone` picks its accent: `muted`, `info`, `success`, `warning` and `d
 
 A `put`, `patch` or `delete` submit is posted with `_method`, as Laravel reads it, so its files arrive as multipart. Errors show inline: `body`'s under the box (and linked to it), any other under the form.
 
-`CommentItem`'s Delete asks first, with the action's `confirm` (title, description and the confirming button's label), then sends an Inertia DELETE with `expected_version` and an `intent_key`. A refused delete (a stale version arrives as an error) shows its message under the card.
+`CommentItem`'s Delete asks first, with the action's `confirm` (title, description and the confirming button's label), then sends an Inertia DELETE with `expected_version` and an `intent_key`. A refused delete (a stale version arrives as an error) shows its message under the card. A delete whose `confirm` needs typing (`typed`) can't be asked from a menu, so, as with `DropdownAction`, it shows disabled with that reason and never runs; so does one the server sent `disabled`, with its `reason`.
 
 ## Behaviour
 
@@ -100,7 +100,7 @@ A `put`, `patch` or `delete` submit is posted with `_method`, as Laravel reads i
 
 **CommentThread:**
 
-- Props: `title`, `comments`, `groups` (runs of comments shown together, `{ id, comments }[]`, in place of `comments`, even when empty), `composer`, `empty` (default "No comments yet."), `level` (the heading's), `interactive` and `only`.
+- Props: `title`, `comments`, `groups` (runs of comments shown together, `{ id, comments }[]`, in place of `comments`, even when it is empty or none of its groups has a comment), `composer`, `empty` (default "No comments yet."), `level` (the heading's), `interactive` and `only`.
 
 ## Hooks for tests
 

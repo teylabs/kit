@@ -15,7 +15,7 @@ import { intentKey, type CommentData } from './comments';
  * One comment or note with its replies (docs/comments.md), on a NoteCard: the author, the time (a relative DateTime, its full date on hover), the colour, the body
  * (TextLong; `collapsible` cuts a long one with Show more), its files (FileList) and the record it is about (`subject`, in the footer, a link when it has a `url`; the `footer` slot,
  * scoped by `comment`, replaces it). Its menu offers what the server sent: Edit (`editor`, opening CommentForm in place), Reply (`reply`, a CommentForm below it)
- * and Delete (`delete`, confirmed with the action's `confirm`, then an Inertia DELETE with `expected_version` and an `intent_key`). A refused delete (a conflict
+ * and Delete (`delete`, confirmed with the action's `confirm` (one that needs typing, or a disabled one, shows disabled with its reason), then an Inertia DELETE with `expected_version` and an `intent_key`). A refused delete (a conflict
  * arrives as an error) shows inline. The `quick` slot puts the host's own buttons before the menu. `interactive` false shows no actions (a read-only feed).
  * `variant` compact is one line: no actions, files or replies. `density`, `accentEdge` and `accentWidth` are NoteCard's; `only` limits each visit's props.
  */
@@ -56,6 +56,14 @@ const menu = computed(
         Boolean(
             props.comment.editor || props.comment.reply || props.comment.delete,
         ),
+);
+// A typed confirmation can't be asked from a menu (as DropdownAction): such a delete, or a disabled one, shows disabled with its reason and never runs.
+const deleteBlocked = computed(() =>
+    props.comment.delete?.confirm?.typed
+        ? 'Needs a typed confirmation, which this menu cannot ask for.'
+        : props.comment.delete?.disabled
+          ? (props.comment.delete.reason ?? 'Not available.')
+          : null,
 );
 const files = computed(() =>
     (props.comment.attachments ?? []).map((file) => ({
@@ -157,8 +165,20 @@ const remove = () =>
                             @chosen="startReply"
                             >Reply</DropdownItem
                         >
+                        <DropdownItem
+                            v-if="comment.delete && deleteBlocked"
+                            as="button"
+                            disabled
+                            aria-disabled="true"
+                            :title="deleteBlocked"
+                            data-comment-delete
+                            >{{ comment.delete.label
+                            }}<template #caption>{{
+                                deleteBlocked
+                            }}</template></DropdownItem
+                        >
                         <DropdownConfirm
-                            v-if="comment.delete"
+                            v-else-if="comment.delete"
                             :on-confirmed="remove"
                             variant="danger"
                             :confirm-label="

@@ -5338,9 +5338,9 @@ test('NoteCard and CommentItem: the colour label is read with the author and tim
         assert.equal(await first.locator('[data-file-list] img').count(), 0, 'the pending thumbnail shows no image');
         assert.equal(await first.locator('[data-comment-subject][href="/@acme/projects/7"]').textContent(), 'Project 7');
         assert.deepEqual(await tab.locator('[data-comment-thread] [data-comment="3"] [data-comment-subject]').first().evaluate(el => [el.tagName, el.textContent]), ['SPAN', 'Project 8'], 'a subject without a url is text, not a link');
-        assert.deepEqual(await tab.locator('[data-empty-groups]').evaluate(el => [el.querySelectorAll('[data-comment]').length, el.querySelector('[data-comment-empty]')?.textContent.trim()]), [0, 'No comments yet.'], 'an empty groups list shows the empty line, not the comments');
+        assert.deepEqual(await tab.locator('[data-empty-groups]').evaluate(el => [el.querySelectorAll('[data-comment], ol').length, el.querySelector('[data-comment-empty]')?.textContent.trim()]), [0, 'No comments yet.'], 'groups with no comments show the empty line, not the comments or an empty list');
         assert.equal(await tab.locator('[data-comment-thread] [data-comment="1"] > ol[aria-label="Replies to Sam Reed"] [data-comment="2"]').count(), 1, 'the reply is nested in a labelled list');
-        assert.equal(await tab.locator('[data-comment="2"] [data-comment-menu], [data-comment="3"] [data-comment-menu]').count(), 0, 'no menu without editor, reply or delete');
+        assert.equal(await tab.locator('[data-comment="3"] [data-comment-menu]').count(), 0, 'no menu without editor, reply or delete');
         const compact = tab.locator('[data-look="compact-item"] > [data-note-card]');
         assert.equal(await compact.getAttribute('data-note-variant'), 'compact');
         assert.equal(await compact.locator('[data-note-header], [data-comment-menu], [data-file-list]').count(), 0, 'compact: no header, menu or files');
@@ -5472,6 +5472,20 @@ test('CommentItem: Delete asks with the action\'s confirmation, then sends one D
         const alert = tab.locator('[data-comment="1"] > [role=alert]');
         await alert.waitFor();
         assert.equal((await alert.textContent()).trim(), 'This comment changed since you opened it.');
+    });
+});
+
+test('CommentItem: a delete that needs typing shows disabled in the menu with its reason, and choosing it asks nothing and sends nothing', async () => {
+    await commentsPage('', async ({ tab, writes }) => {
+        await tab.locator('[data-comment-thread] [data-comment="2"] > [data-note-card] [data-comment-menu]').click();
+        const item = tab.getByRole('menuitem', { name: /Delete/ });
+        await item.waitFor();
+        assert.equal(await item.locator('button').getAttribute('aria-disabled'), 'true');
+        assert.match(await item.textContent(), /Needs a typed confirmation/);
+        await item.click({ force: true });
+        await tab.waitForTimeout(200);
+        assert.equal(await tab.getByRole('alertdialog').count(), 0, 'no confirmation opens');
+        assert.equal(writes.length, 0, 'nothing is sent');
     });
 });
 

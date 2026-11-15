@@ -30,6 +30,8 @@ const reply: CommentData = {
     created_at: '2026-11-14T09:30:00Z',
     version: 1,
     colour: colours[1],
+    // A delete that needs typing: a menu can't ask for it, so it shows disabled.
+    delete: { label: 'Delete', url: '/@acme/comments/2', method: 'delete', confirm: { description: 'Type DELETE to confirm.', label: 'Delete', typed: 'DELETE' } },
 };
 const editable: CommentData = {
     id: 1,
@@ -63,10 +65,10 @@ const Page = {
         );
         return [
             h(CommentThread, { title: 'Discussion', comments: this.comments, composer: this.composer }),
-            // Groups replace comments even when there are none: this one shows its empty line, not the comments it was also given.
+            // Groups replace comments even when none has a comment: this one shows its empty line, not the comments it was also given.
             // An editor the host keeps mounted after a save (CommentItem closes its own).
             h('section', { 'aria-label': 'Kept editor', 'data-kept-editor': '' }, [h(CommentForm, { composer: editable.editor, comment: editable })]),
-            h(CommentThread, { title: 'No discussions', comments: this.comments, groups: [], level: 3, 'data-empty-groups': '' }),
+            h(CommentThread, { title: 'No discussions', comments: this.comments, groups: [{ id: 'none', comments: [] }], level: 3, 'data-empty-groups': '' }),
             h('section', { 'aria-label': 'Looks', class: 'grid gap-3', 'data-looks': '' }, [
                 h(NoteCard, { accent: { tone: 'unknown', label: 'Other' }, density: 'compact', authorStyle: 'none', 'data-look': 'fallback' }, () => 'A compact row with an unknown tone.'),
                 h(NoteCard, { accent: { tone: 'green', label: 'Green' }, density: 'flush', author, 'data-look': 'flush' }, () => 'A flush tile.'),
