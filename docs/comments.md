@@ -89,18 +89,18 @@ A `put`, `patch` or `delete` submit is posted with `_method`, as Laravel reads i
 **CommentItem:**
 
 - Props: `comment`, plus `variant`, `density`, `accentEdge` and `accentWidth` (NoteCard's). A compact item shows no actions, files or replies. `interactive` false shows no actions at all (a read-only feed). `collapsible` cuts a long body with Show more (TextLong). `only` limits each visit's props.
-- Slots: `quick` (scoped by `comment`): the host's own buttons before the menu. `footer` (scoped by `comment`): replaces the subject link.
+- Slots: `quick` (scoped by `comment`): the host's own buttons before the menu. `footer` (scoped by `comment`): replaces the subject (a link when it has a `url`, text otherwise).
 - Event: `deleted`.
 
 **CommentForm:**
 
 - Props: `composer`, `comment` (makes it that comment's editor), `placeholder` (overrides the composer's), `enter-saves`, `only` and `avatar-size` (the resting avatar: `xs`, `sm`, `md` (the default) or `lg`).
 - Events: `start`, `finish`, `success`, `cancel` and `typing(text)`.
-- Exposed: `focus()`, `text()`, `colour()`, `clear()` (empties it without saving) and `submit()`.
+- Exposed: `focus()`, `text()`, `colour()`, `clear()` (empties the body, files and colour without saving, an editor's too; Cancel puts an editor back to its comment) and `submit()`.
 
 **CommentThread:**
 
-- Props: `title`, `comments`, `groups` (runs of comments shown together, `{ id, comments }[]`, in place of `comments`), `composer`, `empty` (default "No comments yet."), `level` (the heading's), `interactive` and `only`.
+- Props: `title`, `comments`, `groups` (runs of comments shown together, `{ id, comments }[]`, in place of `comments`, even when empty), `composer`, `empty` (default "No comments yet."), `level` (the heading's), `interactive` and `only`.
 
 ## Hooks for tests
 

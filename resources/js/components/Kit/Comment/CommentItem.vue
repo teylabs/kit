@@ -13,7 +13,7 @@ import { intentKey, type CommentData } from './comments';
 
 /*
  * One comment or note with its replies (docs/comments.md), on a NoteCard: the author, the time (a relative DateTime, its full date on hover), the colour, the body
- * (TextLong; `collapsible` cuts a long one with Show more), its files (FileList) and the record it is about (`subject`, a link in the footer; the `footer` slot,
+ * (TextLong; `collapsible` cuts a long one with Show more), its files (FileList) and the record it is about (`subject`, in the footer, a link when it has a `url`; the `footer` slot,
  * scoped by `comment`, replaces it). Its menu offers what the server sent: Edit (`editor`, opening CommentForm in place), Reply (`reply`, a CommentForm below it)
  * and Delete (`delete`, confirmed with the action's `confirm`, then an Inertia DELETE with `expected_version` and an `intent_key`). A refused delete (a conflict
  * arrives as an error) shows inline. The `quick` slot puts the host's own buttons before the menu. `interactive` false shows no actions (a read-only feed).
@@ -204,11 +204,17 @@ const remove = () =>
             <template v-if="full && ($slots.footer || comment.subject)" #footer>
                 <slot name="footer" :comment="comment">
                     <a
-                        v-if="comment.subject"
-                        :href="comment.subject.url ?? undefined"
+                        v-if="comment.subject?.url"
+                        :href="comment.subject.url"
                         class="text-muted-foreground focus-visible:outline-ring w-fit rounded-sm text-sm hover:underline focus-visible:outline-2"
                         data-comment-subject
                         >{{ comment.subject.label }}</a
+                    >
+                    <span
+                        v-else-if="comment.subject"
+                        class="text-muted-foreground w-fit text-sm"
+                        data-comment-subject
+                        >{{ comment.subject.label }}</span
                     >
                 </slot>
             </template>

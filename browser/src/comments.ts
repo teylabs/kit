@@ -48,7 +48,7 @@ const editable: CommentData = {
     delete: { label: 'Delete', url: '/@acme/comments/1', method: 'delete', confirm: { title: 'Delete this comment?', description: 'The comment and its files are removed for everyone.', label: 'Delete comment' } },
     replies: [reply],
 };
-const readOnly: CommentData = { id: 3, body: 'A comment the viewer may only read.', author: { name: 'Ada Lane', initials: 'AL' }, created_at: '2026-11-12T08:00:00Z', version: 1, colour: null };
+const readOnly: CommentData = { id: 3, body: 'A comment the viewer may only read.', author: { name: 'Ada Lane', initials: 'AL' }, created_at: '2026-11-12T08:00:00Z', version: 1, colour: null, subject: { label: 'Project 8' } };
 const props = { errors: {}, comments: [editable, readOnly], composer };
 
 const Page = {
@@ -63,6 +63,8 @@ const Page = {
         );
         return [
             h(CommentThread, { title: 'Discussion', comments: this.comments, composer: this.composer }),
+            // Groups replace comments even when there are none: this one shows its empty line, not the comments it was also given.
+            h(CommentThread, { title: 'No discussions', comments: this.comments, groups: [], level: 3, 'data-empty-groups': '' }),
             h('section', { 'aria-label': 'Looks', class: 'grid gap-3', 'data-looks': '' }, [
                 h(NoteCard, { accent: { tone: 'unknown', label: 'Other' }, density: 'compact', authorStyle: 'none', 'data-look': 'fallback' }, () => 'A compact row with an unknown tone.'),
                 h(NoteCard, { accent: { tone: 'green', label: 'Green' }, density: 'flush', author, 'data-look': 'flush' }, () => 'A flush tile.'),

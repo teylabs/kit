@@ -10,7 +10,8 @@ import type {
 
 /*
  * A titled discussion (docs/comments.md): a PageSection with the composer on top (`composer`, for someone who may write), then the comments, each a CommentItem
- * with its replies. `groups` shows runs of comments together (one list per group, keyed by its id) in place of `comments`; with neither, `empty` shows.
+ * with its replies. `groups` shows runs of comments together (one list per group, keyed by its id) in place of `comments`, even when it is
+ * empty; with nothing to show, `empty` shows.
  * `level` is the heading's, `only` limits each visit's props, and `interactive` false shows no actions. Other attributes land on the section.
  */
 withDefaults(
@@ -38,7 +39,7 @@ withDefaults(
 <template>
     <PageSection :title="title" :level="level" data-comment-thread>
         <CommentForm v-if="composer" :composer="composer" :only="only" />
-        <ol v-if="groups?.length" class="grid gap-6">
+        <ol v-if="groups && groups.length" class="grid gap-6">
             <li
                 v-for="group in groups"
                 :key="group.id"
@@ -55,7 +56,7 @@ withDefaults(
                 </ol>
             </li>
         </ol>
-        <ol v-else-if="comments.length" class="grid gap-4">
+        <ol v-else-if="!groups && comments.length" class="grid gap-4">
             <li v-for="comment in comments" :key="comment.id">
                 <CommentItem
                     :comment="comment"

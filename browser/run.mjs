@@ -5337,6 +5337,8 @@ test('NoteCard and CommentItem: the colour label is read with the author and tim
         assert.equal(await first.locator('[data-file-list] a[href="/@acme/files/f-plan"]').count(), 1, 'a file is a link to its url');
         assert.equal(await first.locator('[data-file-list] img').count(), 0, 'the pending thumbnail shows no image');
         assert.equal(await first.locator('[data-comment-subject][href="/@acme/projects/7"]').textContent(), 'Project 7');
+        assert.deepEqual(await tab.locator('[data-comment-thread] [data-comment="3"] [data-comment-subject]').first().evaluate(el => [el.tagName, el.textContent]), ['SPAN', 'Project 8'], 'a subject without a url is text, not a link');
+        assert.deepEqual(await tab.locator('[data-empty-groups]').evaluate(el => [el.querySelectorAll('[data-comment]').length, el.querySelector('[data-comment-empty]')?.textContent.trim()]), [0, 'No comments yet.'], 'an empty groups list shows the empty line, not the comments');
         assert.equal(await tab.locator('[data-comment-thread] [data-comment="1"] > ol[aria-label="Replies to Sam Reed"] [data-comment="2"]').count(), 1, 'the reply is nested in a labelled list');
         assert.equal(await tab.locator('[data-comment="2"] [data-comment-menu], [data-comment="3"] [data-comment-menu]').count(), 0, 'no menu without editor, reply or delete');
         const compact = tab.locator('[data-look="compact-item"] > [data-note-card]');

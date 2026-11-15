@@ -21,7 +21,8 @@ import {
  * `expected_version` sent, so a comment changed meanwhile is refused, never overwritten. Every save carries a fresh `intent_key` and the composer's `fields`.
  * Files come by drop, paste or the Attach button into the kit's BulkDrop and are sent as `files`; `remove_attachments` lists an edit's removed ones.
  * Enter saves with `enterSaves` (Shift+Enter for a new line), otherwise Cmd/Ctrl+Enter; Escape closes an empty composer or cancels an edit. `only` limits the
- * visit's props. After a save it clears and keeps focus in the box for the next one. Exposed: focus(), text(), colour(), clear() and submit().
+ * visit's props. After a save it clears and keeps focus in the box for the next one. Exposed: focus(), text(), colour(), clear() (empties the body, files and
+ * colour, an editor's too) and submit().
  */
 const props = withDefaults(
     defineProps<{
@@ -89,15 +90,20 @@ function collapse() {
 function blurred(event: FocusEvent) {
     if (!root.value?.contains(event.relatedTarget as Node | null)) collapse();
 }
-function clear() {
+// Back to where it started: an editor to its comment's body and colour, a new comment empty. Cancel and a save do this; the exposed clear() empties it.
+function reset(
+    body = props.comment?.body ?? '',
+    colourKey = props.comment?.colour?.key ?? defaultColour(),
+) {
     for (let left = files.value.length; left > 0; left--) drop.value?.remove(0);
     chosen([]);
-    text.value = props.comment?.body ?? '';
-    colour.value = props.comment?.colour?.key ?? defaultColour();
+    text.value = body;
+    colour.value = colourKey;
     key.value = intentKey();
 }
+const clear = () => reset('', defaultColour());
 function cancel() {
-    clear();
+    reset();
     if (!editing.value) {
         open.value = false;
         (document.activeElement as HTMLElement | null)?.blur();
@@ -127,7 +133,7 @@ function keydown(event: KeyboardEvent) {
 }
 function saved() {
     refocus = !editing.value;
-    clear();
+    reset();
     emit('success');
 }
 async function finished() {
