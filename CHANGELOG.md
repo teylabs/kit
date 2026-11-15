@@ -4,7 +4,11 @@
 
 Features affected: none.
 
-Notes only: two changes an app's own tests need when it comes from below 0.24, found by an adopting app (see Upgrading). No code changed.
+Allows tey/mod 0.14, and adds two changes an app's own tests need when it comes from below 0.24, found by an adopting app (see Upgrading).
+
+### Changed
+
+- **tey/mod 0.14 is allowed.** The constraint is now `^0.11.6 || ^0.12 || ^0.13 || ^0.14`, so an app can take mod 0.14's automatic dev discovery cache. No kit code changed.
 
 ### Upgrading
 
