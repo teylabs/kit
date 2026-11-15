@@ -183,10 +183,16 @@ let stop: (() => void) | undefined;
 // A kit component that acts without a page visit (the Workbench's refused reorder) asks through `kit:toast:show`; it renders like a flash. Pages never send it.
 const onClientToast = (event: Event) =>
     show((event as CustomEvent<unknown>).detail);
+type UntypedOn = (
+    type: string,
+    callback: (event: { detail: { versionChange?: boolean } }) => void,
+) => () => void;
 onMounted(() => {
     installNewVersion({
         target: window,
-        onLocation: (listener) => router.on('location', listener),
+        // `location` is Inertia 3.6's event: an older router's types don't name it, and its listener simply never fires there, so the call is untyped.
+        onLocation: (listener) =>
+            (router.on as unknown as UntypedOn)('location', listener),
         unsaved: pageUnsaved,
         reload: () => window.location.reload(),
         toast,
