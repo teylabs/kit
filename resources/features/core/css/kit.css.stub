@@ -240,6 +240,10 @@
 }
 
 :where(:root) {
+    /* Neutral follows the theme's muted surface, so it matches the theme in light and dark. */
+    --kit-tone-neutral-bg: var(--muted);
+    --kit-tone-neutral-border: var(--border);
+    --kit-tone-neutral-fg: var(--muted-foreground);
     --kit-tone-success-bg: #f0fdf4;
     --kit-tone-success-border: #bbf7d0;
     --kit-tone-success-fg: #166534;

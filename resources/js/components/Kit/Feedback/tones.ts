@@ -16,7 +16,8 @@ export const TONES = [
 export type Tone = (typeof TONES)[number];
 
 export const TONE_BADGE: Record<Tone, string> = {
-    neutral: 'border-border bg-muted text-muted-foreground',
+    neutral:
+        'border-(--kit-tone-neutral-border) bg-(--kit-tone-neutral-bg) text-(--kit-tone-neutral-fg)',
     info: 'border-(--kit-tone-info-border) bg-(--kit-tone-info-bg) text-(--kit-tone-info-fg)',
     success:
         'border-(--kit-tone-success-border) bg-(--kit-tone-success-bg) text-(--kit-tone-success-fg)',
