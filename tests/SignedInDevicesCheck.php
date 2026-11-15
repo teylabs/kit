@@ -22,8 +22,10 @@ use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Database\Console\PruneCommand;
 use Illuminate\Database\DatabaseServiceProvider;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Events\TransactionCommitted;
 use Illuminate\Database\QueryException;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Encryption\Encrypter;
 use Illuminate\Encryption\EncryptionServiceProvider;
 use Illuminate\Events\EventServiceProvider;
 use Illuminate\Filesystem\FilesystemServiceProvider;
@@ -301,8 +303,15 @@ try {
     foreach (['auth' => Authenticate::class, 'guest' => RedirectIfAuthenticated::class, 'throttle' => ThrottleRequests::class, 'password.confirm' => RequirePassword::class] as $alias => $class) {
         $app['router']->aliasMiddleware($alias, $class);
     }
-    // Probes: a public page, and one that regenerates the session id (as an invitation or the demo sign-in does).
+    // Probes: a public page, one that regenerates the session id, and one that signs a person in over the session there is (as an invitation or the
+    // demo sign-in does: login, then regenerate).
     Route::middleware('web')->get('kit-probe', fn () => response()->json(['user' => auth('web')->id()]));
+    Route::middleware('web')->post('kit-probe/sign-in', function (Request $request) {
+        auth('web')->login(DeviceUser::query()->findOrFail($request->integer('id')));
+        $request->session()->regenerate();
+
+        return response()->json(['user' => auth('web')->id()]);
+    });
     Route::middleware(['web', 'auth:web'])->post('kit-probe/regenerate', function (Request $request) {
         $request->session()->regenerate();
 
@@ -790,6 +799,67 @@ try {
     unset($legacyPayload['kit']);
     $writeBack(serialize($legacyPayload));
     check(! isset(unserialize((string) file_get_contents($dFile))['kit']) && ! $signedIn($d) && $rowOf($dId) === null && DB::table('signed_in_devices')->whereNotNull('user_id')->count() === $count, 'and written back with no kit.device and no marker, it is signed out on its next request: the retired HMAC refuses it a new row');
+    // A sign-in over a tracked session (an invitation, the demo sign-in): the row the session had is retired, never deleted, in the transaction that
+    // writes the new id's row, and the old id is marked revoked once it commits. A request in flight that writes the old id back can't go on as the
+    // previous account, nor be given a row again with its kit.device and its marker lost.
+    $prior = $person('prior');
+    $e = new Browser(WINDOWS, '198.51.100.53');
+    $eId = $signIn($e, $race);
+    $eRow = (int) $rowOf($eId)->id;
+    $eAt = Carbon::now();
+    $eFile = $base.'/storage/framework/sessions/'.$eId;
+    $inFlight = (string) file_get_contents($eFile);
+    $txLog = [];
+    $recordTx = true;
+    $app['events']->listen(TransactionCommitted::class, function (TransactionCommitted $event) use (&$txLog, &$recordTx): void {
+        if ($recordTx && $event->connection->transactionLevel() === 0) {
+            $txLog[] = ['commit'];
+        }
+    });
+    DB::listen(function ($query) use (&$txLog, &$recordTx): void {
+        if ($recordTx && str_contains($query->sql, 'signed_in_devices')) {
+            $txLog[] = [strtok(strtolower(ltrim($query->sql)), ' '), $query->sql, $query->connection->transactionLevel()];
+        }
+    });
+    [$status] = $send($e, 'POST', '/kit-probe/sign-in', ['id' => $prior->id]);
+    $recordTx = false;
+    $replacedId = (string) $e->session();
+    $replaced = DB::table('signed_in_devices')->where('id', $eRow)->first();
+    check($status === 200 && $replacedId !== $eId && $rowOf($replacedId)?->user_id == $prior->id && $rowOf($eId) === null && $replaced !== null && $replaced->user_id === null && $replaced->session_id === null && $replaced->session_hash === SignedInDevices::hash($eId) && $app['cache']->store('array')->get('kit.devices.revoked.'.SignedInDevices::hash($eId)) === true, 'a sign-in over a tracked session retires its old row to the old id\'s HMAC (not deleted), gives the new id its own row, and marks the old id revoked');
+    $retireAt = array_key_first(array_filter($txLog, fn (array $entry): bool => $entry[0] === 'update'));
+    $insertAt = array_key_first(array_filter($txLog, fn (array $entry): bool => $entry[0] === 'insert'));
+    $between = $retireAt === null || $insertAt === null ? [] : array_slice($txLog, min($retireAt, $insertAt), abs($insertAt - $retireAt) + 1);
+    check($retireAt !== null && $insertAt !== null && $txLog[$retireAt][2] >= 1 && $txLog[$insertAt][2] >= 1 && ! in_array(['commit'], $between, true), 'the old row is retired in the same transaction that inserts the new one'.json_encode(array_map(fn (array $entry): string => $entry[0].(isset($entry[2]) ? '@'.$entry[2] : ''), $txLog)));
+    $writeBack = function (string $payload) use ($e, $eId, $eFile): void {
+        file_put_contents($eFile, $payload);
+        $e->cookies = ['s' => $eId];
+    };
+    $count = DB::table('signed_in_devices')->whereNotNull('user_id')->count();
+    $writeBack($inFlight);
+    check(! $signedIn($e) && $rowOf($eId) === null && DB::table('signed_in_devices')->whereNotNull('user_id')->count() === $count, 'the replaced id, written back by a request in flight, is signed out on its next request instead of going on as the previous account, and given no row');
+    $app['cache']->store('array')->forget('kit.devices.revoked.'.SignedInDevices::hash($eId));
+    $writeBack($inFlight);
+    Carbon::setTestNow($eAt->copy()->addSeconds(5 * 60));
+    check(! $signedIn($e) && $rowOf($eId) === null, 'with its marker gone, it is signed out at its touch');
+    $legacyPayload = unserialize($inFlight);
+    unset($legacyPayload['kit']);
+    $writeBack(serialize($legacyPayload));
+    check(! $signedIn($e) && $rowOf($eId) === null && DB::table('signed_in_devices')->whereNotNull('user_id')->count() === $count, 'and with no kit.device and no marker either, it is signed out at once: the retired HMAC refuses it a new row');
+    // The same for a regenerate mid-session (a privilege change): the old id keeps a retired row of its own, written with the move.
+    $f = new Browser(WINDOWS, '198.51.100.54');
+    $fId = $signIn($f, $race);
+    $fFile = $base.'/storage/framework/sessions/'.$fId;
+    $fPayload = unserialize((string) file_get_contents($fFile));
+    $send($f, 'POST', '/kit-probe/regenerate');
+    $moved = DB::table('signed_in_devices')->where('session_hash', SignedInDevices::hash($fId))->first();
+    check($rowOf((string) $f->session()) !== null && $moved !== null && $moved->user_id === null && $moved->session_id === null, 'a regenerate leaves the old id a retired row, its HMAC alone');
+    $app['cache']->store('array')->forget('kit.devices.revoked.'.SignedInDevices::hash($fId));
+    unset($fPayload['kit']);
+    file_put_contents($fFile, serialize($fPayload));
+    $stale = new Browser(WINDOWS, '198.51.100.54');
+    $stale->cookies = ['s' => $fId];
+    $count = DB::table('signed_in_devices')->whereNotNull('user_id')->count();
+    check(! $signedIn($stale) && $rowOf($fId) === null && DB::table('signed_in_devices')->whereNotNull('user_id')->count() === $count && $signedIn($f), 'the old id written back with no kit.device and no marker is signed out and given no row; the regenerated session stays signed in');
     unset($bAt);
 
     // ── 8. Concurrency ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -1129,9 +1199,19 @@ try {
     check(SignedInDevices::track(Request::create('/'), $rotPreId, $rot->id, false) === null && $rows($rot)->where('id', $backfilled)->isEmpty(), 'and another person is never given that row');
     $rotPreBrowser = new Browser(WINDOWS, '192.0.2.60');
     $rotPreBrowser->cookies = ['s' => $rotPreId];
-    check($signedIn($rotPreBrowser) && $rows($rotPre)->count() === 1 && (int) $rows($rotPre)->sole()->id === $backfilled && $rows($rotPre)->sole()->session_hash === SignedInDevices::hash($rotPreId), 'its first request adopts the backfilled row, same id, rewritten with the current key: one row per session');
+    // Whether a stored session id decrypts with the current key alone, as it must once the previous key is retired.
+    $current = fn (?string $value, string $id): bool => rescue(fn (): bool => (new Encrypter(base64_decode(substr((string) $config->get('app.key'), 7)), 'AES-256-CBC'))->decryptString((string) $value) === $id, false, false);
+    check($signedIn($rotPreBrowser) && $rows($rotPre)->count() === 1 && (int) $rows($rotPre)->sole()->id === $backfilled && $rows($rotPre)->sole()->session_hash === SignedInDevices::hash($rotPreId) && $current($rows($rotPre)->sole()->session_id, $rotPreId), 'its first request adopts the backfilled row, same id, rewritten with the current key (its HMAC and its encrypted session id): one row per session');
+    check(! $current($rowOf($bId)->session_id, $bId), 'before its touch, B\'s row still holds its session id encrypted with the previous key');
+    $travel(5 * 60);
+    check($signedIn($a) && $signedIn($b) && $current($rowOf($bId)->session_id, $bId) && $rowOf($bId)->session_hash === SignedInDevices::hash($bId), 'B\'s touch after the rotation rewrites its row with the current key: its HMAC and its encrypted session id');
+    // The previous key retired: B's session id, re-encrypted at its touch, still decrypts, so signing it out destroys it.
+    $config->set('app.previous_keys', []);
+    $app->forgetInstance('encrypter');
+    Facade::clearResolvedInstance('encrypter');
+    $reported();
     [$status, , $body] = $signOut($a, (int) $rowOf($bId)->id);
-    check($status === 200 && $body['at_once'] === true && ! is_file($base.'/storage/framework/sessions/'.$bId) && ! $signedIn($b), 'and A signs B out: its session id, encrypted with the previous key, still decrypts and is destroyed');
+    check($status === 200 && $body['at_once'] === true && ! is_file($base.'/storage/framework/sessions/'.$bId) && ! $signedIn($b) && $reported() === [], 'with the previous key retired, A signs B out: its session id decrypts and is destroyed, with nothing reported');
     $c = new Browser(WINDOWS, '198.51.100.81');
     $cId = $signIn($c, $rot);
     DB::table('signed_in_devices')->where('id', $rowOf($cId)->id)->update(['session_id' => 'not-a-ciphertext']);

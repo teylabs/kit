@@ -22,8 +22,9 @@ The table has no workspace column. Nobody but the person sees their devices, and
 `TrackSignedInDevice` joins the `web` group after the session starts. The row is written once, at the end of the sign-in request, keyed by the session's final id (Fortify regenerates it after `Login`). After that:
 
 - **Every signed-in request** reads one key from the cache store, to see whether the session was revoked. It never queries the database on an ordinary page, and never loads the user.
-- **Every `touch_minutes`** (5 by default) one request updates `last_seen_at`. It checks that the row still holds this session for this person. If the row is gone, the session is signed out.
-- **A regenerate** (an invitation, the demo sign-in) moves the row to the new id by compare-and-swap. A request still carrying the old id is signed out.
+- **Every `touch_minutes`** (5 by default) one request updates `last_seen_at`. It checks that the row still holds this session for this person. If the row is gone, the session is signed out. The touch also rewrites the session id's HMAC and its encryption with the current `APP_KEY`, so after a rotation every live device is on the new key within `touch_minutes` of its next request, and the previous key can then be retired.
+- **A regenerate** (a privilege change) moves the row to the new id by compare-and-swap. In the same transaction the old id keeps a retired row, its HMAC alone, and it is marked revoked. A request still carrying the old id is signed out, and is never given a row again.
+- **A sign-in over a signed-in session** (an invitation, the demo sign-in) retires the session's old row, in the transaction that writes the new id's row, and marks the old id revoked. A request still in flight that writes the old id back is signed out, never carried on as the previous account.
 - **Sign out** retires the row and marks the session revoked. A request still in flight that writes the session back afterwards is signed out on its next request. If the mark is lost, the next touch signs it out. It is never given a new row.
 - **A session with no row yet** (a sign-in, or a session from before 0.23) gets one only while its person's user row exists. A session left over from a deleted account is signed out on its next request.
 

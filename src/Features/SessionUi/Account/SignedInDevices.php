@@ -47,7 +47,7 @@ final class SignedInDevices
 {
     public const string TABLE = 'signed_in_devices';
 
-    /** The session key the middleware reads: ['id', 'user', 'sid', 'at'] once tracked, ['pending' => true, 'remembered' => bool] after a sign-in. */
+    /** The session key the middleware reads: ['id', 'user', 'sid', 'at'] once tracked, ['pending' => true, 'remembered' => bool, 'replaces'?: the row it had] after a sign-in. */
     public const string KEY = 'kit.device';
 
     /** The one header a country is read from, when `kit.devices.country_header` names it: Cloudflare's, set by its proxy, never by the browser. */
@@ -58,9 +58,10 @@ final class SignedInDevices
 
     /**
      * The sign-in and sign-out ends, on the web guard. Login can't key the row: Fortify regenerates the session id after it (PrepareAuthenticatedSession), so
-     * it only leaves `pending` for the middleware, which writes the row once the request ends. Another sign-in over a session that has a row ends that row.
-     * Logout (and CurrentDeviceLogout) retires this session's row and marks the session revoked, so a request still in flight that writes the session back
-     * is signed out too (endHere). Neither runs a query on an ordinary sign-in.
+     * it only leaves `pending` for the middleware, which writes the row once the request ends. Another sign-in over a session that has a row (an invitation,
+     * the demo sign-in) names that row in `pending` as `replaces`, and the new row's transaction retires it (track). Logout (and CurrentDeviceLogout)
+     * retires this session's row, and any row a sign-in in this request was replacing, and marks the session revoked, so a request still in flight that
+     * writes the session back is signed out too (endHere). Neither runs a query on an ordinary sign-in.
      */
     public static function listen(Dispatcher $events): void
     {
@@ -68,10 +69,9 @@ final class SignedInDevices
             if ($event->guard !== 'web' || ($session = self::session()) === null) {
                 return;
             }
-            if (self::tracked($device = $session->get(self::KEY))) {
-                self::forget($device);
-            }
-            $session->put(self::KEY, ['pending' => true, 'remembered' => (bool) $event->remember]);
+            $device = $session->get(self::KEY);
+            $replaces = self::tracked($device) ? $device : (is_array($device) ? $device['replaces'] ?? null : null);
+            $session->put(self::KEY, ['pending' => true, 'remembered' => (bool) $event->remember] + ($replaces === null ? [] : ['replaces' => $replaces]));
         });
         $events->listen([Logout::class, CurrentDeviceLogout::class], function (Logout|CurrentDeviceLogout $event): void {
             if ($event->guard !== 'web' || ($session = self::session()) === null) {
@@ -79,6 +79,8 @@ final class SignedInDevices
             }
             if (self::tracked($device = $session->get(self::KEY))) {
                 self::endHere($device, $session->getId(), $event->user?->getAuthIdentifier() ?? $device['user']);
+            } elseif (is_array($device) && self::tracked($replaces = $device['replaces'] ?? null)) {
+                self::endHere($replaces, $replaces['sid'], $replaces['user']);
             }
             $session->forget(self::KEY);
         });
@@ -189,23 +191,31 @@ final class SignedInDevices
      * caller signs it out. A legacy session signed out by its row is refused by that row's retired HMAC. Once every other session of the person has been
      * ended (closeLegacy), a legacy session is never given a new row either, since endAll could not reach one that had none: it keeps only a row that still
      * holds it (a backfilled one), else it signs out. A person who is gone (deleted, or deleted while this request ran) is never given a row: null.
+     * `$replaces` is the row the session had before a sign-in over it (Login): retired in this same transaction, and its old id marked revoked once it
+     * commits (replace), whether or not the new row is written.
+     *
+     * @param  ?array{id: int, user: int|string, sid: string, at: int}  $replaces
      */
-    public static function track(Request $request, string $sessionId, int|string $userId, bool $remembered, bool $legacy = false): ?int
+    public static function track(Request $request, string $sessionId, int|string $userId, bool $remembered, bool $legacy = false, ?array $replaces = null): ?int
     {
-        return DB::transaction(function () use ($request, $sessionId, $userId, $remembered, $legacy): ?int {
+        return DB::transaction(function () use ($request, $sessionId, $userId, $remembered, $legacy, $replaces): ?int {
             // The person's row, locked: an endAll or a deletion running now finishes first, or waits for this row to commit and then retires it.
-            if (! self::lockUser($userId)) {
+            $present = self::lockUser($userId);
+            if ($replaces !== null) {
+                self::replace($replaces);
+            }
+            if (! $present) {
                 return null;
             }
             // After an APP_KEY rotation, a row under a previous key's HMAC (a backfilled session, say) is this session's: adopted with its id and rewritten
-            // with the current key, never a second row. Another person's row is never adopted.
+            // with the current key (its HMAC and its encrypted id), never a second row. Another person's row is never adopted.
             $previous = self::previous($sessionId);
             $held = $previous === [] ? null : DB::table(self::TABLE)->whereIn('session_hash', $previous)->first(['id', 'user_id']);
             if ($held !== null) {
                 if ((string) $held->user_id !== (string) $userId) {
                     return null;
                 }
-                DB::table(self::TABLE)->where('id', $held->id)->whereIn('session_hash', $previous)->update(['session_hash' => self::hash($sessionId)]);
+                DB::table(self::TABLE)->where('id', $held->id)->whereIn('session_hash', $previous)->update(['session_hash' => self::hash($sessionId), 'session_id' => Crypt::encryptString($sessionId)]);
 
                 return (int) $held->id;
             }
@@ -240,15 +250,16 @@ final class SignedInDevices
     }
 
     /**
-     * Moves last_seen_at forward for this device's row, still held by this session, and rewrites its HMAC with the current key. False when the row is
-     * gone or holds another session: the caller signs the request out.
+     * Moves last_seen_at forward for this device's row, still held by this session, and rewrites its HMAC and its encrypted id with the current key, so
+     * after an APP_KEY rotation the previous key can be retired once every live session has been touched. False when the row is gone or holds another
+     * session: the caller signs the request out.
      *
      * @param  array{id: int, user: int|string, sid: string, at: int}  $device
      */
     public static function touch(array $device, string $sessionId): bool
     {
         $now = now();
-        $updated = self::held($device, $sessionId)->where('last_seen_at', '<', $now)->update(['last_seen_at' => $now, 'session_hash' => self::hash($sessionId)]);
+        $updated = self::held($device, $sessionId)->where('last_seen_at', '<', $now)->update(['last_seen_at' => $now, 'session_hash' => self::hash($sessionId), 'session_id' => Crypt::encryptString($sessionId)]);
 
         // Nothing updated: the row is gone, held by another session, or already touched this second by a concurrent request (last_seen_at only goes forward).
         return $updated > 0 || self::held($device, $sessionId)->exists();
@@ -261,29 +272,38 @@ final class SignedInDevices
     }
 
     /**
-     * Compare-and-swap after a regenerate: the row moves to the new session id only while it still holds the old one, and the old id is marked revoked,
-     * so a request still carrying it is cut off rather than moving the row back. False when the row is gone or moved: the caller signs out.
+     * Compare-and-swap after a regenerate (a privilege change, an invitation): the row moves to the new session id only while it still holds the old one.
+     * In the same transaction the old id keeps a retired row of its own, its HMAC alone, as a signed-out session's does, and once it commits the old id
+     * is marked revoked. A request still carrying the old id is cut off by the mark rather than moving the row back, and with the mark gone by the
+     * retired row: its touch fails, and its HMAC refuses it a new row. False when the row is gone or moved: the caller signs out.
      *
      * @param  array{id: int, user: int|string, sid: string, at: int}  $device
      */
     public static function move(array $device, string $to): bool
     {
-        $moved = self::held($device, $device['sid'])->update(['session_hash' => self::hash($to), 'session_id' => Crypt::encryptString($to)]) > 0;
-        if ($moved) {
-            self::mark(self::hash($device['sid']));
-        }
+        return DB::transaction(function () use ($device, $to): bool {
+            if (self::held($device, $device['sid'])->update(['session_hash' => self::hash($to), 'session_id' => Crypt::encryptString($to)]) === 0) {
+                return false;
+            }
+            DB::table(self::TABLE)->insertOrIgnore(['session_hash' => self::hash($device['sid']), 'created_at' => now()] + self::retired());
+            DB::afterCommit(fn () => self::mark(self::hash($device['sid'])));
 
-        return $moved;
+            return true;
+        });
     }
 
     /**
-     * Another sign-in over this session (Login): the row it had goes, so the session's next id gets a row of its own.
+     * Another sign-in over this session (Login), in the new row's transaction: the row the session had is retired while it still holds the old id, as a
+     * sign-out retires it, and once that commits the old id is marked revoked. The guard regenerated the id before Login (destroying the old one in the
+     * store), so this never touches the id the sign-in goes on with. A request still carrying the old id, which writes it back, is cut off by the mark,
+     * and with the mark gone by the retired row: its touch fails, and its HMAC refuses it a new row.
      *
      * @param  array{id: int, user: int|string, sid: string, at: int}  $device
      */
-    public static function forget(array $device): void
+    private static function replace(array $device): void
     {
-        self::held($device, $device['sid'])->delete();
+        self::held($device, $device['sid'])->update(self::retired());
+        DB::afterCommit(fn () => self::mark(self::hash($device['sid'])));
     }
 
     /**
