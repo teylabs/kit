@@ -39,8 +39,10 @@
 // an invalid tag and one past the limit with a described reason.
 // A searchable InputSelect (?select-query, &modal in the kit Modal) must never search for its chosen label: typing anywhere in it starts a fresh query; Escape, a click
 // outside, a choice and focus leaving drop the query and show the label again; a clearable field has a Clear button in the tab order, a default one none.
-// InputSelect (select-modal.html, on the real Inertia and inertiaui/modal) must be the Input's 36px at 390 and 1280px, taller only when its chips wrap, and in a
-// server-driven modal (a native <dialog> or the package's role=dialog panel) a remote result and a local option picked by click or keyboard must set the model and be posted.
+// InputSelect (select-modal.html, on the real Inertia and inertiaui/modal) must be the Input's 36px at 390 and 1280px, taller only when its chips wrap, have
+// the Input's background beside it on a white card (light and dark) and its chevron 12px in from the end border, and in a server-driven modal (a native <dialog>
+// or the package's role=dialog panel) a remote result and a local option picked by click or keyboard must set the model and be posted; Escape there closes an
+// open list only, then the modal.
 // A FormCard over useSubmitForm (?form-submit) must submit on Enter with no navigation, disable Save while pending, show a 422's field error and summary
 // with focus on the field, then Saved, and pass axe with contrast. A Workbench with :form (?workbench-form=submit|inertia, the latter a stand-in useForm with
 // `save`) must save on Ctrl+S but not from a contenteditable that binds it or while pending, focus a 422's field in its collapsed inspector, show a 409's
@@ -9786,6 +9788,78 @@ test('InputSelect in a server-driven modal: a remote result picked by keyboard s
             await tab.keyboard.press('Enter');
             assert.deepEqual(await bookingModel(modal), { contact: 'grace-hopper', room: 'east' }, `${tag}: the local pick set the model`);
             assert.deepEqual({ ...(await saveBooking(tab, modal, posts)) }, { contact: 'grace-hopper', room: 'east' }, `${tag}: both are submitted`);
+        });
+    }
+});
+
+test('InputSelect in a server-driven modal: Escape on the open list closes only the list; the next Escape, focus still in the field, closes the modal, as does Escape on a read-only one, in a native <dialog> and a role=dialog panel (#1060)', async () => {
+    for (const [panel, tag] of selectPanels) {
+        await selectModalPage({ panel }, async ({ tab }) => {
+            const modal = await openBooking(tab, tag);
+            const room = modal.getByRole('combobox', { name: 'Room' });
+            await room.click();
+            await tab.getByRole('listbox').waitFor();
+            await tab.keyboard.press('Escape');
+            await tab.getByRole('listbox').waitFor({ state: 'detached' });
+            await tab.waitForTimeout(200);
+            assert.equal(await modal.isVisible(), true, `${tag}: the first Escape closes only the list`);
+            assert.equal(await tab.evaluate(() => document.activeElement?.id), 'booking-room', `${tag}: focus stays in the field`);
+            await tab.keyboard.press('Escape');
+            await modal.waitFor({ state: 'detached', timeout: 3000 });
+            assert.equal(await tab.getByRole('dialog').count(), 0, `${tag}: the second Escape closes the modal, as from any other field`);
+            // A read-only select opens nothing, so its Escape closes the modal too.
+            const again = await openBooking(tab, tag);
+            await again.getByRole('combobox', { name: 'Desk' }).focus();
+            await tab.keyboard.press('Escape');
+            await again.waitFor({ state: 'detached', timeout: 3000 });
+        });
+    }
+});
+
+test('InputSelect\'s trigger has the background of the Input beside it on a white card, in light and dark (#1060)', async () => {
+    await selectModalPage({}, async ({ tab }) => {
+        for (const scheme of ['light', 'dark']) {
+            await tab.evaluate((dark) => document.documentElement.classList.toggle('dark', dark), scheme === 'dark');
+            const fills = await tab.evaluate(() => {
+                const fill = (el) => getComputedStyle(el).backgroundColor;
+                const input = document.getElementById('base-name');
+                const card = input.closest('[data-test-card]');
+                return { input: fill(input), trigger: fill(document.getElementById('base-room').closest('.relative.flex')), card: fill(card), ground: fill(card.parentElement) };
+            });
+            assert.notEqual(fills.card, fills.ground, `${scheme}: the card stands off the grey ground`);
+            assert.equal(fills.trigger, fills.input, `${scheme}: the trigger's background is the Input's (${fills.input}), not ${fills.trigger}`);
+        }
+    });
+});
+
+test('InputSelect\'s chevron ends 12px in from the field\'s end border, its start padding, at 390 and 1280px, with a Clear button kept clear of it and of the text (#1060)', async () => {
+    for (const width of [390, 1280]) {
+        await selectModalPage({ width }, async ({ tab }) => {
+            const fields = await tab.evaluate(() => Object.fromEntries(['base-room', 'base-clearable', 'base-many'].map((id) => {
+                const input = document.getElementById(id);
+                const field = input.closest('.relative.flex');
+                const style = getComputedStyle(field);
+                const box = field.getBoundingClientRect();
+                const chevron = field.querySelector('button[aria-haspopup="listbox"]');
+                const clear = field.querySelector('[data-select-clear]')?.getBoundingClientRect();
+                return [id, {
+                    start: input.getBoundingClientRect().left - box.left - parseFloat(style.borderLeftWidth),
+                    inset: box.right - parseFloat(style.borderRightWidth) - chevron.querySelector('svg').getBoundingClientRect().right,
+                    height: box.height,
+                    textEnd: input.getBoundingClientRect().right,
+                    clear: clear && { left: clear.left, right: clear.right },
+                    chevronLeft: chevron.getBoundingClientRect().left,
+                }];
+            })));
+            for (const [id, field] of Object.entries(fields)) {
+                assert.equal(field.inset, 12, `${width}px, ${id}: the chevron's right edge is 12px from the end border (${field.inset}px)`);
+                assert.equal(field.height, 36, `${width}px, ${id}: still 36px tall`);
+            }
+            assert.equal(fields['base-room'].start, 12, `${width}px: the text starts 12px in, the inset the chevron mirrors`);
+            const { clear, chevronLeft, textEnd } = fields['base-clearable'];
+            assert.ok(clear, `${width}px: the clearable field shows Clear`);
+            assert.ok(clear.right <= chevronLeft, `${width}px: Clear (to ${clear.right}) sits before the chevron (from ${chevronLeft})`);
+            assert.ok(textEnd <= clear.left, `${width}px: the text (to ${textEnd}) stops before Clear (from ${clear.left})`);
         });
     }
 });
