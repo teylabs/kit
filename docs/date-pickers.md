@@ -1,10 +1,11 @@
 # Date and time pickers
 
-Six form controls (from `@kit/ui`) ask for dates and times. Each one submits plain ISO strings through hidden inputs, so a form posts them like any other field. All six are built on reka-ui (`@internationalized/date` is a declared npm requirement of `core`).
+Seven form controls (from `@kit/ui`) ask for dates and times. Each one submits plain ISO strings through hidden inputs, so a form posts them like any other field. All seven are built on reka-ui (`@internationalized/date` is a declared npm requirement of `core`).
 
 | Control | Submits | Picks with |
 | --- | --- | --- |
 | `InputDate` | `name` = `2026-11-01` | Segments you can type, plus a calendar |
+| `InputCalendarDate` | `name` (default `id`) = `2026-11-01`, or `''` once cleared | InputDate's segments and calendar, with "Not set" while empty and Clear ([below](#a-date-that-may-be-empty-inputcalendardate)) |
 | `InputDateRange` | `name[start]`, `name[end]` = dates | Segments, plus one calendar (two clicks) |
 | `InputMonth` | `name` = `2026-11` | A 3×4 grid of the year's months |
 | `InputYear` | `name` = `2026` | A 3×4 grid of twelve years |
@@ -17,7 +18,7 @@ Six form controls (from `@kit/ui`) ask for dates and times. Each one submits pla
 <InputTime name="opens_at" label="Opens at" default-value="09:00" :step="15" />
 ```
 
-Every control takes `name`, `label`, `id`, `defaultValue`, `min`, `max`, `description`, `error`, `disabled` and `required`, and emits `canonical` with its value. Inside Inertia's `<Form>`, the error is `errors[name]`; for a range it is also `errors[name.start]` or `errors[name.end]`. Inside a locked `LockedForm` the control is read-only and its calendar or grid doesn't open, but the hidden value is still submitted.
+Every control takes `name`, `label`, `id`, `defaultValue`, `min`, `max`, `description`, `error`, `disabled` and `required`, and emits `canonical` with its value (InputCalendarDate requires `id` and defaults `name` to it). Inside Inertia's `<Form>`, the error is `errors[name]`; for a range it is also `errors[name.start]` or `errors[name.end]`. Inside a locked `LockedForm` the control is read-only and its calendar or grid doesn't open, but the hidden value is still submitted.
 
 ## A date that may be empty: InputCalendarDate
 
