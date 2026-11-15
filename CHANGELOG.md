@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+Features affected: core.
+
+A patch: a page that outlived a deploy reloads, or says a new version is available, through two documented hooks the shell's Toaster installs once. Apps get it by updating the kit.
+
+### Fixed
+
+- **After a deploy, a failed lazy chunk reloads the page, or shows "A new version is available." while a form is unsaved** (#1059, [docs/toasts.md](docs/toasts.md#after-a-deploy-a-new-version)). A page loaded before a deploy asks for chunks the deploy removed, so a lazy page or component failed with a 404 and nothing happened. The Toaster now installs, once, a listener for Vite's `vite:preloadError`: it handles the error (`preventDefault()`) and reloads with `window.location.reload()`, unless a form frame on the page with warn-on-leave on is unsaved (its form dirty, or pending work such as an upload: the leave guard's own state, `pageUnsaved()` in `Form/formFrame.ts`). Then it shows the notice instead, and the edit is kept. It also listens to Inertia's `location` event: a version change shows the same notice, and Inertia's own handling is left unchanged (on a background request, such as `router.reload()` or a poll, Inertia keeps the page). The notice is one quiet, persistent toast with a Reload action, shown once per page load whichever hook fires first.
+  Features affected: core
+  - **Inertia version.** The `location` event needs `@inertiajs/vue3` 3.6 or later; the kit's floor stays `^3.0`. Below 3.6 Inertia fires no `location` event and reloads the page itself on a version change, so there is no notice for it there; the `vite:preloadError` reload works on every version.
+  - **Tests.** `test:js` (`tests/js/new-version.test.mjs`): the decision for each hook, clean and unsaved; the handled error; one persistent notice across both hooks, with Reload reloading; a location visit that isn't a version change left alone; one install. The browser job (`leave.html`, on the real `@inertiajs/vue3` 3.7.1, 3 new tests; the floor is 392): `vite:preloadError` with a clean form reloads the page; with a dirty form the page and edit are kept and one notice shows, and Reload asks through the leave guard, then reloads; a background `router.reload()` answered 409 with a new `X-Inertia-Version` keeps the page and shows the notice. Without the change all three fail, and with the unsaved check stubbed out the dirty-form test fails.
+  - **Not covered:** a real deploy and a real missing chunk (the browser test dispatches the event as Vite's preload helper does), Inertia below 3.6, a consumer app, and browsers other than Chromium.
+
 ## v0.25.6
 
 Features affected: none.

@@ -4,8 +4,10 @@ import { Check } from '@lucide/vue';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { Toaster as Sonner, toast } from 'vue-sonner';
 import 'vue-sonner/style.css';
+import { pageUnsaved } from '@/components/Kit/Form/formFrame';
 import { useStickyBars } from '@/components/Kit/Layout/stickyBars';
 import { useTopLayer } from '@/components/Kit/Overlay/layer';
+import { installNewVersion } from './newVersion';
 import {
     flashedToast,
     isAway,
@@ -27,6 +29,8 @@ import {
  * Reduced motion never flies: a fly-out is a toast and a pulse, and the bubble appears without animating.
  * How long it stays is the server's (`duration`, from kit.toasts.durations; null until dismissed). Shown while the viewer is away (tab hidden, window unfocused), a timed
  * toast waits: its duration starts when they are back.
+ * It also installs, once, the reload after a deploy (newVersion.ts): a lazy chunk that fails to load reloads a page with nothing unsaved; otherwise, and on
+ * an Inertia version change, it shows one persistent "A new version is available." toast with Reload.
  */
 const page = usePage<{ kitToasts?: { position?: string } }>();
 const bars = useStickyBars();
@@ -180,6 +184,13 @@ let stop: (() => void) | undefined;
 const onClientToast = (event: Event) =>
     show((event as CustomEvent<unknown>).detail);
 onMounted(() => {
+    installNewVersion({
+        target: window,
+        onLocation: (listener) => router.on('location', listener),
+        unsaved: pageUnsaved,
+        reload: () => window.location.reload(),
+        toast,
+    });
     window.addEventListener('kit:toast:show', onClientToast);
     media = window.matchMedia('(max-width: 39.99rem)');
     onMedia();

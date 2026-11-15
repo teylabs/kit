@@ -17,6 +17,8 @@
 // The leave-page guard (leave.html, on the real @inertiajs/vue3) must hold Back from a dirty form (Stay keeps it, Leave goes) and not a clean one, with the
 // Navigation API and with window.navigation deleted (the history fallback, leaving no entry behind), count a BulkDrop upload in flight as unsaved, and let a
 // save's onSuccess visit through.
+// After a deploy (leave.html, with the Toaster): vite:preloadError reloads a clean page and shows one "A new version is available." notice on a dirty one,
+// and Inertia's version change on a background request keeps the page and shows it.
 // A SwatchPicker (?swatch, light and dark) must pick by keyboard, post an empty value for its default swatch and pass axe.
 // A SegmentedToggle and a PaneTabs (?segmented, light and dark) must move the selection by keyboard, keep a neutral selected surface and pass axe with contrast.
 // Every kit date and time input (?date-targets, light and dark, at 1280 and 390px) must pass axe target-size: each typed segment at least 24×24, the fields h-9.
@@ -3534,6 +3536,74 @@ test('leave guard: a successful save\'s follow-up visit (from onSuccess, the for
         assert.equal(await asking(), 0, 'the save\'s own visit is let through');
         assert.equal(new URL(tab.url()).pathname, '/other');
     }, { then: '/other' });
+});
+
+// ── The reload after a deploy (Feedback/newVersion.ts, installed by the Toaster on leave.html's Edit page, #1059) ──────────────────────────────────────────
+
+const notice = '[data-sonner-toast]:has-text("A new version is available.")';
+// As Vite's preload helper dispatches it when a lazy chunk fails to load: cancelable, and the error is thrown unless its default is prevented.
+const preloadError = (tab) => tab.evaluate(() => {
+    const event = new Event('vite:preloadError', { cancelable: true });
+    event.payload = new Error('Failed to fetch dynamically imported module: /build/assets/Page-old.js');
+    window.dispatchEvent(event);
+    return event.defaultPrevented;
+});
+// The full reload of /edit (no X-Inertia header), answered with a page that says so; Inertia's own requests go to leavePage's routes.
+const answerReload = (tab) => tab.route(/\/edit$/, route => (route.request().isNavigationRequest() ? route.fulfill({ status: 200, contentType: 'text/html', body: '<p data-reloaded>Reloaded</p>' }) : route.fallback()));
+
+test('after a deploy: vite:preloadError with a clean form is handled and reloads the page, with no notice', async () => {
+    await leavePage(async ({ tab }) => {
+        await answerReload(tab);
+        await tab.evaluate(() => (window.kitBeforeReload = true));
+        assert.equal(await preloadError(tab), true, 'preventDefault, so Vite does not throw');
+        await tab.waitForSelector('[data-reloaded]', { timeout: 3000 });
+        assert.equal(new URL(tab.url()).pathname, '/edit', 'the same page, reloaded');
+        assert.equal(await tab.evaluate(() => window.kitBeforeReload), undefined);
+    });
+});
+
+test('after a deploy: vite:preloadError with a dirty form keeps the page and the edit and shows one quiet, persistent notice; Reload reloads, through the leave guard', async () => {
+    await leavePage(async ({ tab, at }) => {
+        await answerReload(tab);
+        await tab.fill('#title', 'My edit');
+        await tab.waitForSelector('[data-form-status][data-state="dirty"]');
+        await tab.evaluate(() => (window.kitBeforeReload = true));
+        assert.equal(await preloadError(tab), true);
+        await tab.waitForSelector(notice);
+        assert.equal(await preloadError(tab), true, 'a second failed chunk is handled too');
+        await tab.waitForTimeout(300);
+        assert.equal(await tab.locator('[data-sonner-toast]').count(), 1, 'one notice, not one per chunk');
+        assert.equal(await tab.getAttribute(notice, 'data-type'), 'default', 'quiet: not a warning or an error');
+        assert.equal(await tab.evaluate(() => window.kitBeforeReload), true, 'not reloaded');
+        assert.equal(await at(), 'edit');
+        assert.equal(await tab.inputValue('#title'), 'My edit', 'the edit is kept');
+        // Reload asks first while the form is dirty (the leave guard's beforeunload, the browser's own prompt); accepted, the page reloads.
+        const asked = new Promise(resolve => tab.once('dialog', async (dialog) => { resolve(dialog.type()); await dialog.accept(); }));
+        await tab.click(`${notice} button:has-text("Reload")`);
+        assert.equal(await asked, 'beforeunload');
+        await tab.waitForSelector('[data-reloaded]', { timeout: 3000 });
+    });
+});
+
+test("after a deploy: Inertia's location event for a version change on a background request keeps the page and shows the notice", async () => {
+    await leavePage(async ({ tab, at }) => {
+        let refreshes = 0;
+        // The server after a deploy: an Inertia GET with the old version is answered 409 with X-Inertia-Location and the new version.
+        await tab.route(/\/edit$/, (route) => {
+            const request = route.request();
+            if (!request.headers()['x-inertia'] || request.method() !== 'GET') return route.fallback();
+            refreshes++;
+            return route.fulfill({ status: 409, headers: { 'X-Inertia-Location': request.url(), 'X-Inertia-Version': 'after-deploy' }, body: '' });
+        });
+        await tab.evaluate(() => (window.kitBeforeReload = true));
+        await tab.click('[data-refresh]');
+        await tab.waitForSelector(notice, { timeout: 3000 });
+        await tab.waitForTimeout(300);
+        assert.equal(refreshes, 1);
+        assert.equal(await tab.evaluate(() => window.kitBeforeReload), true, 'Inertia kept the page');
+        assert.equal(await at(), 'edit');
+        assert.equal(await tab.locator('[data-sonner-toast]').count(), 1);
+    });
 });
 
 // A host that lays the Workbench out itself (`:fill="false"` in its own full-height flex column) puts the bar at the viewport's foot: it counts as pinned.

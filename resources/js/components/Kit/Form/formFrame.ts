@@ -214,6 +214,12 @@ export async function focusFirstInvalid(
 // Whether an enclosing frame is guarding right now (a getter: a Workbench without `:form` guards nothing, so a FormActions inside it keeps its own).
 const GUARDED: InjectionKey<() => boolean> = Symbol('kit.form-leave-guard');
 
+// Each mounted frame with warn-on-leave on, while unsaved, nested or not: what a reload would lose (Feedback/newVersion.ts reloads only when none is).
+const frames = new Set<() => boolean>();
+export function pageUnsaved(): boolean {
+    return [...frames].some((unsaved) => unsaved());
+}
+
 type NavigateEvent = Event & {
     navigationType: string;
     cancelable: boolean;
@@ -245,6 +251,7 @@ export function useLeaveGuard(
     provide(GUARDED, active);
     const work = usePendingWork();
     const unsaved = () => dirty() || work.pending.value;
+    const frame = () => enabled() && unsaved();
     const leaving = ref(false);
     const askLeave = ref(false);
     const saving = ref(false);
@@ -418,6 +425,7 @@ export function useLeaveGuard(
     onMounted(() => {
         form = ownForm();
         form?.addEventListener('submit', onSubmit, true);
+        frames.add(frame);
         if (!active()) return;
         offRouter = [
             router.on('before', (event) => {
@@ -473,6 +481,7 @@ export function useLeaveGuard(
     onBeforeUnmount(() => {
         clearTimeout(settle);
         form?.removeEventListener('submit', onSubmit, true);
+        frames.delete(frame);
         offRouter.forEach((off) => off());
         window.removeEventListener('beforeunload', unload);
         window.removeEventListener('popstate', popstate, true);
