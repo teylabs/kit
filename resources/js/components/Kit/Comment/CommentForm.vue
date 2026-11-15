@@ -100,6 +100,12 @@ function reset(
     text.value = body;
     colour.value = colourKey;
     key.value = intentKey();
+    // An editor's Remove checkboxes are native (uncontrolled) values: untick them too, or a host that keeps the editor mounted resends the last removals.
+    root.value
+        ?.querySelectorAll<HTMLInputElement>(
+            'input[name="remove_attachments[]"]',
+        )
+        .forEach((box) => (box.checked = false));
 }
 const clear = () => reset('', defaultColour());
 function cancel() {

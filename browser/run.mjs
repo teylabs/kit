@@ -5435,6 +5435,24 @@ test('CommentItem: Edit opens the editor in place with the body, sends PUT as _m
     });
 });
 
+test('CommentForm: an editor kept mounted after a save goes back to its comment, its Remove boxes unticked, so the next save resends no removal', async () => {
+    await commentsPage('', async ({ tab, writes }) => {
+        const editor = tab.locator('[data-kept-editor] [data-comment-form]');
+        await editor.locator('textarea').fill('Edited once.');
+        await editor.getByLabel('Remove floor-plan.pdf').check();
+        await editor.getByRole('button', { name: 'Save' }).click();
+        await waitFor(() => writes.length > 0);
+        assert.match(writes[0].body, /remove_attachments[^]*f-plan/, 'the first save removes the file');
+        await waitFor(async () => (await editor.locator('textarea').inputValue()) !== 'Edited once.');
+        assert.equal(await editor.locator('textarea').inputValue(), 'Please check the measurements on the second floor before Friday.', 'back to the comment');
+        assert.equal(await editor.getByLabel('Remove floor-plan.pdf').isChecked(), false, 'the Remove box is unticked');
+        await editor.locator('textarea').fill('Edited twice.');
+        await editor.getByRole('button', { name: 'Save' }).click();
+        await waitFor(() => writes.length > 1);
+        assert.doesNotMatch(writes[1].body, /f-plan/, 'the second save resends no removal');
+    });
+});
+
 test('CommentItem: Delete asks with the action\'s confirmation, then sends one DELETE with expected_version and an intent key; a refusal shows inline', async () => {
     await commentsPage('', async ({ tab, writes, refuseWith }) => {
         refuseWith(() => ({ stale_comment: 'This comment changed since you opened it.' }));
