@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## v0.25.1
+
+Features affected: none.
 
 Features affected: core, workspaces, settings, session-ui
 
