@@ -15,6 +15,18 @@ A patch: `kit:query-report`, a new on-demand command that shows what each page c
   - **Tests.** `composer test:query-report` (new) tests the command, not any app's counts. It finds the kit's declared pages and fixture pages, in the full form only, and adds an undeclared route only when `--route` matches it. On a fixture page it reports 6 queries more than an empty page and 2 exact duplicates (one row read three times, three rows read once each), with each repeated statement and its count. `--repeat=3` gives the median, not the mean, after a warm-up. Writes roll back: inserts, an update in the page's own transaction, a delete on a second connection and a terminating callback's insert, with no cache entry (database or file store), job or session file written. The dashboard counts the same in the report as in a request outside it (an open transaction alone would add 12 duplicates through the widgets' savepoints). A page that commits the report's transaction on one connection stops the run, with the other connection it wrote to still rolled back. It refuses production without `--force` and requests nothing; it skips a page with an unfilled parameter, with the reason, and reports a page that fails, or whose terminating callback throws, as a 500 while the run carries on. `--route` matches by name and by URI pattern. The summary is checked against the pages it reports. It also covers `--only-duplicates`, `--user`, `--workspace` and the refusals, and the text output.
   - **Not covered:** PostgreSQL (with or without RLS), MySQL, a real artisan process, and consumer apps' own pages.
 
+## v0.25.2
+
+Features affected: none.
+
+Features affected: none.
+
+Allows tey/mod 0.14, and adds two changes an app's own tests need when it comes from below 0.24, found by an adopting app (see Upgrading).
+
+### Changed
+
+- **tey/mod 0.14 is allowed.** The constraint is now `^0.11.6 || ^0.12 || ^0.13 || ^0.14`, so an app can take mod 0.14's automatic dev discovery cache. No kit code changed.
+
 ### Upgrading
 
 - **From below 0.24: call `withCredentials()` in your base TestCase.** Laravel's test client sends no cookies on a JSON request (`postJson`, `putJson`, `getJson` and so on) unless the test calls `withCredentials()`. From 0.24, each such request after a sign-in therefore runs under a fresh session id. `TrackSignedInDevice` treats that as a regenerate and moves the device row to the new id, so the test's next cookie request, still on the old id, is signed out (a 302 to the login page, or Unauthenticated). The fix is one line in the app's base `TestCase::setUp()`:
