@@ -206,7 +206,9 @@ onMounted(() => {
     nextTick(watchOpening);
 });
 // The package's panel is a native <dialog> in the top layer: the overlays inside it (this confirmation, menus, selects, popovers) render into that <dialog>
-// rather than <body>, or they would paint under it and take no clicks (layer.ts). Escape in one of those overlays must close only the overlay: the trusted key
+// rather than <body>, or they would paint under it and take no clicks (layer.ts). The package's role=dialog panel (useNativeDialog off) traps focus instead,
+// so they render into it too: from <body>, a press in a select's list moved focus outside the trap, which took it back and closed the list before the pick
+// landed. Escape in one of those overlays must close only the overlay: the trusted key
 // would also make the browser close the whole <dialog> (its `cancel`), so its default is prevented and the overlay gets an untrusted copy, which carries no
 // close request. (Preventing `cancel` instead is not reliable: browsers stop asking after repeated cancels and close the dialog outright.) Escape in the panel
 // itself is requestClose, below.
@@ -239,7 +241,8 @@ function onEscape(event: KeyboardEvent) {
     );
 }
 onMounted(() => {
-    dialog.value = root.value?.closest('dialog') ?? null;
+    dialog.value =
+        root.value?.closest<HTMLElement>('dialog, [role="dialog"]') ?? null;
     window.addEventListener('keydown', onEscape, true);
 });
 onBeforeUnmount(() => window.removeEventListener('keydown', onEscape, true));

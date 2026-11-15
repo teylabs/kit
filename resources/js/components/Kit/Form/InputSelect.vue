@@ -624,7 +624,7 @@ const inputAttrs = computed(() => {
 });
 const autocomplete = computed(() => (searchOn.value ? 'list' : 'none'));
 const fieldClass = computed(() => [
-    'relative flex w-full min-h-11 flex-wrap items-center gap-1 rounded-md border bg-background py-1 ps-3 pe-14 text-base shadow-xs transition-[color,box-shadow] sm:min-h-9 sm:text-sm',
+    'relative flex w-full min-h-9 flex-wrap items-center gap-1 rounded-md border bg-background py-0.5 ps-3 pe-14 text-base shadow-xs transition-[color,box-shadow] sm:text-sm',
     readOnly.value
         ? 'border-border bg-muted shadow-none focus-within:ring-2 focus-within:ring-ring'
         : aria.value['aria-invalid']
@@ -737,7 +737,7 @@ const layerTarget = useLayerTarget();
                     "
                     autocomplete="off"
                     :class="[
-                        'text-foreground placeholder:text-muted-foreground min-w-16 flex-1 bg-transparent py-1 text-base outline-none disabled:cursor-not-allowed sm:py-0.5 sm:text-sm sm:leading-6',
+                        'text-foreground placeholder:text-muted-foreground h-7 min-w-16 flex-1 bg-transparent text-base outline-none disabled:cursor-not-allowed sm:text-sm',
                         readOnly && 'cursor-default',
                         readOnly && chosen.length === 0 && 'sr-only',
                     ]"
