@@ -2,18 +2,18 @@
 import Alert from '@/components/Kit/Feedback/Alert.vue';
 import Button from '@/components/Kit/Form/Button.vue';
 
-// An Alert's actions in its tone, for run.mjs (?alert-actions, ?alert-actions=dark under .dark): every tone in both `actionsStyle`s with a primary Button and a
-// quiet secondary one (soft is the default, so only link is passed), the solid tier, a Button with `href` (the default style), a plain link in the slot, and a
-// Button in the body (which keeps the host's look). Invented copy only.
+// An Alert's actions in its tone, for run.mjs (?alert-actions, ?alert-actions=dark under .dark): every tone in both `actionsStyle`s with a primary Button, a
+// secondary one and a `variant="link"` one (soft is the default, so only link is passed), the solid tier, a Button with `href` and a ghost one (the default
+// style), a plain link in the slot, and a Button in the body (which keeps the host's look). Invented copy only.
 if (new URLSearchParams(window.location.search).get('alert-actions') === 'dark') document.documentElement.classList.add('dark');
 const tones = [
-    { variant: 'info', title: 'Backups run nightly', body: 'Scheduled backups start at 2:00 each night.', primary: 'View schedule', quiet: 'Dismiss' },
-    { variant: 'success', title: 'Import finished', body: '1,204 rows were added to the ledger.', primary: 'View rows', quiet: 'Dismiss' },
-    { variant: 'warning', title: 'Card expires soon', body: 'The card on file expires at the end of the month.', primary: 'Update card', quiet: 'Remind me later' },
-    { variant: 'danger', title: 'Sync failed', body: 'The last sync stopped after three errors.', primary: 'Retry sync', quiet: 'View errors' },
-    { variant: 'muted', title: 'Read-only', body: 'This record is closed. Reopen it to make changes.', primary: 'Reopen', quiet: 'Dismiss' },
-    { variant: 'primary', title: 'New: saved views', body: 'Save a filter and find it again from the sidebar.', primary: 'Try it', quiet: 'Dismiss' },
-    { variant: 'brand', title: 'Invite your team', body: 'Workspaces are better with people in them.', primary: 'Invite people', quiet: 'Not now' },
+    { variant: 'info', title: 'Backups run nightly', body: 'Scheduled backups start at 2:00 each night.', primary: 'View schedule', secondary: 'Dismiss', link: 'How backups work' },
+    { variant: 'success', title: 'Import finished', body: '1,204 rows were added to the ledger.', primary: 'View rows', secondary: 'Review', link: 'Import log' },
+    { variant: 'warning', title: 'Card expires soon', body: 'The card on file expires at the end of the month.', primary: 'Update card', secondary: 'Remind me later', link: 'Billing help' },
+    { variant: 'danger', title: 'Sync failed', body: 'The last sync stopped after three errors.', primary: 'Retry sync', secondary: 'View errors', link: 'Status page' },
+    { variant: 'muted', title: 'Read-only', body: 'This record is closed. Reopen it to make changes.', primary: 'Reopen', secondary: 'Dismiss', link: 'Why?' },
+    { variant: 'primary', title: 'New: saved views', body: 'Save a filter and find it again from the sidebar.', primary: 'Try it', secondary: 'Dismiss', link: 'Learn more' },
+    { variant: 'brand', title: 'Invite your team', body: 'Workspaces are better with people in them.', primary: 'Invite people', secondary: 'Not now', link: 'Learn more' },
 ] as const;
 </script>
 <template>
@@ -32,7 +32,8 @@ const tones = [
                     {{ tone.body }}
                     <template #actions>
                         <Button data-test-primary>{{ tone.primary }}</Button>
-                        <Button variant="secondary" data-test-quiet>{{ tone.quiet }}</Button>
+                        <Button variant="secondary" data-test-secondary>{{ tone.secondary }}</Button>
+                        <Button variant="link" data-test-link>{{ tone.link }}</Button>
                     </template>
                 </Alert>
             </template>
@@ -49,7 +50,8 @@ const tones = [
                     Sign-in pauses for ten minutes at 23:00.
                     <template #actions>
                         <Button data-test-primary>Details</Button>
-                        <Button variant="secondary" data-test-quiet>Dismiss</Button>
+                        <Button variant="secondary" data-test-secondary>Dismiss</Button>
+                        <Button variant="link" data-test-link>Status page</Button>
                     </template>
                 </Alert>
             </template>
@@ -57,6 +59,7 @@ const tones = [
                 Add a billing address before the next invoice.
                 <template #actions>
                     <Button href="#billing" data-test-primary>Add address</Button>
+                    <Button variant="ghost" data-test-ghost>Later</Button>
                     <a href="#help" data-test-plain>Why?</a>
                 </template>
             </Alert>

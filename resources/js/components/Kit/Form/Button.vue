@@ -9,7 +9,10 @@ import {
     pillControl,
     useSurface,
 } from '@/components/Kit/Surface/surface';
-import { alertActionClass } from '@/components/Kit/Feedback/alertVariants';
+import {
+    alertActionClass,
+    alertActionIsLink,
+} from '@/components/Kit/Feedback/alertVariants';
 import { insideFormSubmit } from './formSubmit';
 
 // What a link's visit may send: the kit's own type (it imports none from @inertiajs/core), shaped like Inertia's form data.
@@ -31,7 +34,7 @@ export type VisitData = Record<string, VisitValue>;
 // `size` is the host button's default, sm, lg or icon; `xl` is the host's lg made a large tap target (about 96px tall: a phone used as a remote) with kit classes. `type` defaults to `submit` only inside a form that submits it (Inertia's <Form> or a FormCard) and to
 // `button` everywhere else, so a toolbar or menu button never submits a form by accident; pass `type` to say otherwise.
 // On a surface (FloatingToolbar's pill, a Surface) it takes that surface's shape and tone; elsewhere the shared radius and tones hold. In an Alert's #actions it
-// takes the alert's tone and actions style (link or soft) whatever its variant, and a variant other than primary, success or destructive is a quiet link there.
+// takes the alert's tone and actions style (soft or link) whatever its variant; the `link` variant there is a link in either style.
 // With `href` it is a link styled as this button (the host button's as-child, so the classes land on the link and a <button> is never inside an <a>): an Inertia
 // <Link> (`method`, `data`, `preserveScroll`; a method other than get renders it as a <button>, as Inertia requires for a non-GET visit), or a plain <a> when
 // `external`, with `rel="noopener noreferrer"` when `target` is `_blank`. A `mailto:`, `tel:` or `sms:` href is always a plain <a>: an Inertia visit would mangle it.
@@ -67,17 +70,14 @@ const props = withDefaults(
     },
 );
 const surface = useSurface();
-// In an Alert's actions the alert decides the colour and the variant only how loud the action is: a filled variant is the alert's link or soft action, any
-// other a quiet link (alertActionClass), on the host's link or ghost button.
+// In an Alert's actions the alert decides the colour and the shape: every variant is a soft action, on the host's ghost button, unless the alert's
+// actionsStyle or the Button's own `link` variant asks for a link, on the host's link button (alertActionClass).
 const alert = computed(() => surface.value.alert);
-const quiet = computed(
-    () => !['primary', 'success', 'destructive'].includes(props.variant),
-);
 const base = computed(() =>
     alert.value
-        ? alert.value.style === 'soft' && !quiet.value
-            ? 'ghost'
-            : 'link'
+        ? alertActionIsLink(alert.value, props.variant)
+            ? 'link'
+            : 'ghost'
         : props.variant === 'primary' || props.variant === 'success'
           ? 'default'
           : props.variant === 'bar'
@@ -111,7 +111,7 @@ const hostSize = computed(() =>
 const xlClass = 'h-24 min-w-24 rounded-xl px-8 text-lg [&_svg]:size-6';
 const blend = computed(() =>
     alert.value
-        ? alertActionClass(alert.value, quiet.value)
+        ? alertActionClass(alert.value, props.variant)
         : [
               props.size === 'xl' && xlClass,
               props.variant === 'bar' && barClass,
