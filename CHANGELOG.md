@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## v0.23.0
+
+Features affected: shell, workspace-ui
 
 A minor release: the workspace switcher loads the page each workspace opens on when it is opened, so a page costs the same queries with one workspace or many. The shell's `switcher.choices` no longer carry a `url` (see Changed and Upgrading).
 
