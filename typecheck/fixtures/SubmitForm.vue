@@ -59,6 +59,9 @@ void [title, titleError, formError, done, noUrl, noMethod, blocked];
     <Workbench workbench-key="post" label="Post" :form="form" />
     <Workbench workbench-key="slides" label="Slides" :form="inertia" :save="save" save-label="Save slides" />
     <FormActions :form="form" :can-submit="ready" />
+    <FormActions :form="form" density="compact" :sticky="false" :cancel="false" />
+    <!-- @vue-expect-error density is default or compact -->
+    <FormActions :form="form" density="tight" />
     <Workbench workbench-key="gated" label="Gated" :form="gated" :can-submit="() => ready" />
     <Workbench workbench-key="custom" label="Custom" :form="form" :warn-on-leave="false" @submit="() => form.submit()" />
 </template>

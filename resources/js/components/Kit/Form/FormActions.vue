@@ -30,7 +30,8 @@ import {
  * overridable: `dirtyLabel`, `errorsLabel`, `upToDateLabel` (empty by default) and `savedLabel`.
  * Save is disabled, and Enter does not submit, while it cannot succeed (formFrame.ts's useSubmitGate): pending work in flight (an upload), an open stale-write
  * conflict (a useSubmitForm's `conflict`), or `canSubmit` false (this prop, a boolean, Ref or getter, or a useSubmitForm's option). The button is described by the reason.
- * It is the form's last child; delete never goes here (a separate danger zone).
+ * It is the form's last child; delete never goes here (a separate danger zone). `density` compact is the bar inside something small that has its own edge and
+ * padding (a comment composer, a card's footer row): no top border or padding of its own and an 8px gap; the default bar is unchanged.
  */
 // The submit may be the server's action descriptor (`:submit="save"`): its label is the button's, and `disabled` with a `reason` shows the reason in the status
 // slot and disables the button; a form the viewer cannot use is never a form with nothing to press.
@@ -55,9 +56,11 @@ const props = withDefaults(
         sticky?: boolean;
         warnOnLeave?: boolean;
         canSubmit?: MaybeRefOrGetter<boolean>;
+        density?: 'default' | 'compact';
     }>(),
     {
         canSubmit: true,
+        density: 'default',
         dirtyLabel: 'Unsaved changes',
         errorsLabel: 'There are errors in your submission.',
         upToDateLabel: '',
@@ -192,10 +195,14 @@ onBeforeUnmount(() => {
     <div
         ref="bar"
         data-form-actions
+        :data-density="density === 'compact' ? density : undefined"
         :data-state="state"
         :data-pinned="sticky && pinned"
         :class="[
-            'relative z-5 flex flex-wrap items-center justify-end gap-3 border-t px-6 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] transition-colors',
+            'relative z-5 flex flex-wrap items-center justify-end transition-colors',
+            density === 'compact'
+                ? 'gap-2'
+                : 'gap-3 border-t px-6 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]',
             sticky && 'sticky bottom-0',
             sticky && pinned
                 ? 'border-border bg-background/95 shadow-[0_-4px_12px_-8px_rgb(0_0_0/0.15)]'

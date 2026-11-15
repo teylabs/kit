@@ -10657,3 +10657,96 @@ test('The Text family under Vue\'s server renderer: truncation, copy, code, numb
         await dev.close();
     }
 });
+
+// ── Field paths (?field-paths): Field's error for bracket, mixed and dot names and in a moved Repeater row; InputCalendarDate's empty state and Clear; FormActions' density ──
+// `KIT_FIELD_PATHS_SCREENSHOT=<path prefix>` saves each scheme.
+
+const fieldAlert = (tab, selector) => tab.$eval(selector, (el) => el.querySelector(':scope > [role="alert"]')?.textContent.trim() ?? null);
+
+test('Field reads a Laravel dot-path error for a bracket, mixed or dot name, and a Repeater row\'s error follows its row when the row moves', async () => {
+    await onPage('field-paths', async (tab) => {
+        const expected = { plain: 'Enter a title.', bracket: 'Enter an email.', mixed: 'Enter an email.', dot: 'Enter a name.', clean: null, explicit: 'Passed in.' };
+        for (const [field, message] of Object.entries(expected)) assert.equal(await fieldAlert(tab, `[data-field="${field}"]`), message, field);
+        const control = (id) => tab.$eval(`#${id}`, (el) => [el.getAttribute('aria-invalid'), el.getAttribute('aria-describedby')]);
+        assert.deepEqual(await control('email-0'), ['true', 'email-0-error'], 'the bracket name is invalid and described by its error');
+        assert.deepEqual(await control('name-1'), ['true', 'name-1-error']);
+        assert.deepEqual(await control('name-0'), [null, 'name-0-description'], 'a name with no error stays valid');
+        // The look is the same markup as before: the field's grid and the error's tokens.
+        assert.equal(await tab.$eval('[data-field="plain"]', (el) => el.className), 'grid content-start gap-2');
+        assert.equal(await tab.$eval('[data-field="plain"] > [role="alert"]', (el) => el.className), 'text-destructive-text text-sm');
+
+        const lineErrors = () => tab.$$eval('[data-lines] [data-line-field]', (els) => els.map((el) => el.querySelector(':scope > [role="alert"]')?.textContent.trim() ?? ''));
+        const amounts = () => tab.$$eval('[data-lines] input[name$="[amount]"]', (els) => els.map((el) => `${el.name}=${el.value}:${el.getAttribute('aria-invalid') ?? ''}`));
+        assert.deepEqual(await lineErrors(), ['', 'Enter an amount of at least 1.', ''], 'lines.1.amount on the second row, named lines[1][amount]');
+        assert.deepEqual(await amounts(), ['lines[0][amount]=4:', 'lines[1][amount]=0:true', 'lines[2][amount]=9:']);
+        await tab.getByRole('button', { name: 'Move Line 2 up' }).click();
+        await tab.waitForFunction(() => document.querySelector('[data-lines] input[name="lines[0][amount]"]')?.value === '0');
+        assert.deepEqual(await lineErrors(), ['Enter an amount of at least 1.', '', ''], 'the error moved with its row');
+        assert.deepEqual(await amounts(), ['lines[0][amount]=0:true', 'lines[1][amount]=4:', 'lines[2][amount]=9:']);
+    });
+});
+
+test('InputCalendarDate: "Not set" while empty, Clear while it may be emptied (not required, disabled or locked), Clear submits an empty date and focuses the field, a reset restores it', async () => {
+    await onPage('field-paths', async (tab) => {
+        const errors = [];
+        tab.on('pageerror', (error) => errors.push(error.message));
+        const box = (hook) => `[data-calendar-date]:has([data-date="${hook}"])`;
+        const state = (hook) => tab.$eval(box(hook), (el) => ({
+            value: el.querySelector('input[type="hidden"]').value,
+            empty: el.querySelector('[data-date-not-set]')?.textContent.trim() ?? null,
+            clear: el.querySelector('[data-date-clear]')?.getAttribute('aria-label') ?? null,
+        }));
+        const hidden = (name) => tab.$eval(`form#dates input[type="hidden"][name="${name}"]`, (el) => el.value);
+        assert.deepEqual(await state('empty'), { value: '', empty: 'Not set', clear: null }, 'name defaults to the id');
+        assert.equal(await hidden('starts'), '');
+        assert.deepEqual(await state('filled'), { value: '2026-11-01', empty: null, clear: 'Clear Ends' });
+        assert.deepEqual(await state('required'), { value: '2026-10-02', empty: null, clear: null }, 'required: no Clear');
+        assert.deepEqual(await state('disabled'), { value: '2026-10-03', empty: null, clear: null }, 'disabled: no Clear');
+        assert.deepEqual(await state('locked'), { value: '2026-11-02', empty: null, clear: null }, 'locked: no Clear');
+        assert.deepEqual(await state('model'), { value: '2026-12-24', empty: null, clear: 'Remove Due' });
+
+        const inputs = await tab.evaluate(() => window.kitDateInputs);
+        await tab.getByRole('button', { name: 'Clear Ends' }).click();
+        await tab.waitForFunction(() => document.querySelector('form#dates input[name="ends_on"]').value === '');
+        assert.deepEqual(await state('filled'), { value: '', empty: 'Not set', clear: null });
+        assert.ok((await tab.evaluate(() => window.kitDateInputs)) > inputs, 'the form hears an input event, so it turns dirty');
+        assert.deepEqual(await tab.evaluate(() => [document.activeElement?.closest('[data-calendar-date]')?.contains(document.querySelector('[data-date="filled"]')), document.activeElement?.getAttribute('role')]), [true, 'spinbutton'], 'focus is on the field\'s first segment');
+
+        await tab.getByRole('button', { name: 'Remove Due' }).click();
+        await tab.waitForFunction(() => document.querySelector('[data-due]').textContent === '(empty)');
+        assert.deepEqual(await state('model'), { value: '', empty: 'No due date', clear: null }, 'v-model is the empty string');
+
+        await tab.click('button[aria-label="Choose Starts"]');
+        await tab.waitForSelector('[role="dialog"] [data-reka-calendar-cell-trigger]');
+        await tab.keyboard.press('Enter');
+        await tab.waitForSelector('[role="dialog"]', { state: 'detached' });
+        const chosen = await state('empty');
+        assert.match(chosen.value, /^\d{4}-\d{2}-\d{2}$/, 'a chosen date');
+        assert.deepEqual([chosen.empty, chosen.clear], [null, 'Clear Starts'], 'a chosen date offers Clear');
+
+        await tab.click('[data-dates-reset]');
+        await tab.waitForFunction(() => document.querySelector('form#dates input[name="ends_on"]').value === '2026-11-01');
+        assert.deepEqual(await state('filled'), { value: '2026-11-01', empty: null, clear: 'Clear Ends' }, 'a reset puts the starting value back');
+        assert.deepEqual(await state('empty'), { value: '', empty: 'Not set', clear: null });
+        assert.deepEqual(errors, []);
+    });
+});
+
+test('FormActions density: the default bar keeps its border, padding and gap; compact has no border or padding and an 8px gap; the page passes axe with contrast, light and dark', async () => {
+    for (const query of ['field-paths', 'field-paths&dark']) {
+        await onPage(query, async (tab) => {
+            const bar = (hook) => tab.$eval(`[data-bar="${hook}"] [data-form-actions]`, (el) => {
+                const style = getComputedStyle(el);
+                return { density: el.getAttribute('data-density'), padding: [style.paddingTop, style.paddingRight, style.paddingBottom, style.paddingLeft].join(' '), border: style.borderTopWidth, gap: style.columnGap };
+            });
+            assert.deepEqual(await bar('default'), { density: null, padding: '12px 24px 12px 24px', border: '1px', gap: '12px' }, 'the default bar is unchanged');
+            assert.deepEqual(await bar('compact'), { density: 'compact', padding: '0px 0px 0px 0px', border: '0px', gap: '8px' });
+            assert.deepEqual(await tab.$eval('[data-bar="compact"] [data-form-actions]', (el) => [el.querySelector('[data-form-status]').textContent, el.querySelector('[data-form-submit]').textContent.trim(), el.querySelectorAll('[data-form-cancel]').length]), ['Unsaved changes', 'PostSaving…', 0], 'compact keeps the status and the submit');
+            // The compact bar sits flush in its parent's own padding: its box is the parent's content box.
+            const [outer, inner] = await tab.$eval('[data-bar="compact"]', (el) => [el.getBoundingClientRect(), el.querySelector('[data-form-actions]').getBoundingClientRect()].map((r) => Math.round(r.left)));
+            assert.equal(inner - outer, 13, '1px border and 12px padding of the parent, none of its own');
+            assert.deepEqual(await axeWithContrast(tab), [], query);
+            if (process.env.KIT_FIELD_PATHS_SCREENSHOT) await tab.screenshot({ path: `${process.env.KIT_FIELD_PATHS_SCREENSHOT}-${query.includes('dark') ? 'dark' : 'light'}.png`, fullPage: true });
+        });
+    }
+});

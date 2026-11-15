@@ -1,11 +1,18 @@
 <script setup lang="ts">
 import { useOptionalFormContext } from '@/components/Kit/Form/formContext';
-import { computed, provide } from 'vue';
+import { computed, inject, provide } from 'vue';
 import { FIELD_ARIA } from './fieldAria';
+import {
+    fieldError,
+    fieldPath,
+    rowErrorsKey,
+    rowPathKey,
+} from './repeaterState';
 import { Label } from '@/components/ui/label';
 
 // A labelled field: the label, the control in the default slot, an optional description, and the error as an alert. Inside Inertia's <Form> the error is
-// the form's `errors[name]`; `error` passes one explicitly. `span` is how many of a FormCard's six columns it takes (a whole row by default, from the card; the wider
+// the form's `errors[name]`, with `name` a bracket path (`items[0][name]`, `items[0].name`) or a dot path (`items.0.name`); inside a Repeater row, a name
+// under that row reads the row's errors instead (the form's, re-keyed to the row's current place, so an error stays with its row when the rows move). `error` passes one explicitly. `span` is how many of a FormCard's six columns it takes (a whole row by default, from the card; the wider
 // widths apply from `sm` up); outside a card there is no grid and no span. The control takes `id`; every Kit/Form control then reads this field (fieldAria) for `aria-describedby`, naming only the description and error actually rendered, and `aria-invalid` while there is an error. The label is `<id>-label`, for a group control (RadioCardGroup) to name itself by.
 const props = withDefaults(
     defineProps<{
@@ -25,9 +32,20 @@ const props = withDefaults(
 );
 const context = useOptionalFormContext() as
     { errors?: Record<string, string> } | undefined;
+const rowErrors = inject(rowErrorsKey, undefined);
+const rowPath = inject(rowPathKey, undefined);
+const inRow = (name: string) =>
+    rowPath !== undefined &&
+    fieldPath(name).startsWith(`${fieldPath(rowPath.value)}.`);
 const message = computed(
     () =>
-        props.error ?? (props.name ? context?.errors?.[props.name] : undefined),
+        props.error ??
+        (props.name
+            ? fieldError(
+                  inRow(props.name) ? rowErrors?.value : context?.errors,
+                  props.name,
+              )
+            : undefined),
 );
 // Whole class strings, never built from the prop (Tailwind finds classes by scanning the source).
 // The ids the control is described by: only nodes this field renders, so none dangles.

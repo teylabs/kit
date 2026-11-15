@@ -491,7 +491,10 @@ function firstControl(row: Element | null | undefined): HTMLElement | null {
                     :name="`${path(index)}[id]`"
                     :value="entry.row.id"
                 />
-                <RepeaterRowProvider :errors="rowErrors(entry, index)">
+                <RepeaterRowProvider
+                    :errors="rowErrors(entry, index)"
+                    :path="path(index)"
+                >
                     <slot
                         name="row"
                         v-bind="{

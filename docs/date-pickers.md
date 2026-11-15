@@ -19,6 +19,20 @@ Six form controls (from `@kit/ui`) ask for dates and times. Each one submits pla
 
 Every control takes `name`, `label`, `id`, `defaultValue`, `min`, `max`, `description`, `error`, `disabled` and `required`, and emits `canonical` with its value. Inside Inertia's `<Form>`, the error is `errors[name]`; for a range it is also `errors[name.start]` or `errors[name.end]`. Inside a locked `LockedForm` the control is read-only and its calendar or grid doesn't open, but the hidden value is still submitted.
 
+## A date that may be empty: InputCalendarDate
+
+`InputCalendarDate` is `InputDate` for a date that may be left blank. While it has no date it says so under the field (`emptyLabel`, "Not set"): an empty segment group reads as a value to some people, and Safari's native date input even shows today. While it has a date it offers a Clear button (`clearLabel`, "Clear", named "Clear <label>" for a screen reader), unless it is `required`, `disabled` or in a locked `LockedForm`, where emptying it is not allowed.
+
+```vue
+<InputCalendarDate id="listed-on" name="listed_on" label="Listed on" :default-value="listing.listed_on" :span="3" />
+<InputCalendarDate id="due" v-model="form.due_on" label="Due" empty-label="No due date" />
+```
+
+- **Clear** submits an empty string (the hidden input's value is `''`), emits `update:modelValue` and `canonical` with `''`, fires an `input` event on the form so it turns dirty, and moves focus to the field's first segment.
+- **Props.** `id` and `label` are required; `name` defaults to `id`. `modelValue` (`v-model`, the date or `''`) or `defaultValue` (a `YYYY-MM-DD`, `''` or null) starts it; a longer ISO value is cut to its date. `span` is a FormCard's columns, as on `Field`. `min`, `max`, `description`, `error`, `disabled` and `required` are InputDate's.
+- **A form reset** puts the starting value back.
+- Other attributes land on the field's segment group, as on `InputDate`.
+
 ## Dates never shift
 
 A date, a month, a year and a time of day are **wall values**. A picker never converts one between zones: a due date of `2026-11-01` is 1 November for every viewer, on every server, across midnight and DST changes. The viewer's zone (`kitTimezone`, the same share `DateTime` reads) decides only which day is "today" in the calendar.
@@ -68,5 +82,6 @@ The bounds are inclusive and written in the same form as the value. A wall value
 
 - **Node:** `tests/js/date-input.test.mjs` covers the values, the zone and DST rules, the range checks and the grid keys.
 - **Browser:** `browser/run.mjs` drives the keys, a date in two far-apart zones, the phone sheet, the locked state and axe in Chromium.
+- **InputCalendarDate (browser, `?field-paths`):** "Not set" while empty; Clear while filled, absent when required, disabled or locked; Clear's empty submitted value, `v-model`, the form's input event and the focus; a date chosen from the calendar; a form reset; axe with contrast, light and dark.
 - **Server:** `tests/IsoDateCheck.php` runs the rules through Laravel's validator.
 - **Not covered:** no test drives these controls inside a host's Inertia `<Form>`, and there is no screen-reader run.

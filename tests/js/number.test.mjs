@@ -12,7 +12,7 @@ const load = async name => {
     return import(pathToFileURL(join(dir, `${name}.ts`)).href);
 };
 const { numberDefaults, numberFormat } = await load('number');
-const { fieldPath, mappedErrors } = await load('repeaterState');
+const { fieldError, fieldPath, mappedErrors } = await load('repeaterState');
 
 test('exact native strings, empty, precision rejection, signed paste and huge values', () => {
     const money = numberFormat({ kind: 'money', currency: 'CAD', signed: true });
@@ -46,6 +46,19 @@ test('repeater error paths map the last server order to the current order', () =
     assert.equal(fieldPath('lines[2][amount]'), 'lines.2.amount');
     const errors = { 'lines.2.amount': 'Required.', 'lines.0.name': 'Too long.' };
     assert.deepEqual(mappedErrors(errors, 'lines[2]', 'lines[0]'), { 'lines[0][amount]': 'Required.' });
+});
+
+test('fieldError finds a bracket or dot name in errors keyed either way, an exact key first', () => {
+    const laravel = { 'lines.2.amount': 'Required.', 'lines.0.name': 'Too long.', title: 'Needed.' };
+    for (const name of ['lines[2][amount]', 'lines[2].amount', 'lines.2.amount']) assert.equal(fieldError(laravel, name), 'Required.', name);
+    // A Repeater row's errors are keyed by bracket paths.
+    const row = { 'lines[1][amount]': 'Too small.' };
+    for (const name of ['lines[1][amount]', 'lines[1].amount', 'lines.1.amount']) assert.equal(fieldError(row, name), 'Too small.', name);
+    assert.equal(fieldError(laravel, 'title'), 'Needed.');
+    assert.equal(fieldError(laravel, 'lines[0][amount]'), undefined, 'another field of the same row');
+    assert.equal(fieldError(laravel, 'lines[20][amount]'), undefined, 'index 2 is not a prefix of 20');
+    assert.equal(fieldError({ 'a[b]': 'Exact.', 'a.b': 'Dotted.' }, 'a[b]'), 'Exact.');
+    assert.equal(fieldError(undefined, 'title'), undefined);
 });
 
 test('percent is canonical in percentage points, never a fraction', () => {

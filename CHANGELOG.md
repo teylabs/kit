@@ -4,7 +4,18 @@
 
 Features affected: none.
 
-Notes only: two changes an app's own tests need when it comes from below 0.24, found by an adopting app (see Upgrading). No code changed.
+A patch: a Field reads errors by bracket or dot path and in a Repeater row, `InputCalendarDate` is new, and FormActions gains a compact density. Each is an addition; no default look changes. Also two notes an app's own tests need when it comes from below 0.24, found by an adopting app (see Upgrading); they change no code.
+
+### Added
+
+- **A Field finds its error by bracket or dot path, and in a Repeater row** ([docs/form-fields.md](docs/form-fields.md), #1039). `<Field name>` read only `errors[name]`, so a Field named with a native bracket path (`items[0][name]`, or `items[0].name`) never showed Laravel's dot-keyed error (`items.0.name`). It now finds it whichever way either is written; an exact key still wins. Inside a Repeater row, a Field named under that row (the row slot's `name('amount')`) reads the row's errors, re-keyed from where the row was when the server answered, so an error follows its row when the rows move; a host no longer passes `errors[name('amount')]` itself. A Field's markup, look and aria are unchanged. `fieldError(errors, name)` (`Form/repeaterState.ts`) is the lookup.
+  Features affected: core
+- **`InputCalendarDate`: a date that may be empty says "Not set" and can be cleared** ([docs/date-pickers.md](docs/date-pickers.md#a-date-that-may-be-empty-inputcalendardate), #1039). InputDate with `emptyLabel` ("Not set") under the field while it has no date, and a Clear button (`clearLabel`, named "Clear <label>") while it has one, except when `required`, `disabled` or locked. Clear submits `''`, emits it through `v-model` and `canonical`, fires the form's `input` event and focuses the field; a form reset restores the starting value. `name` defaults to `id`; `span` is a FormCard's columns, as on Field. Exported from `@kit/ui`, in the contract (`InputCalendarDateProps`) and the date pickers' adoption row. InputDate is unchanged.
+  Features affected: core
+- **FormActions `density="compact"`** ([docs/form-fields.md](docs/form-fields.md#formactions-density), #1039). For a bar inside something small with its own edge (a comment composer): no top border or padding of its own and an 8px gap, with `data-density="compact"`. The default bar keeps its border, 24px by 12px padding and 12px gap. `FormCardProps` leaves `density` out: a FormCard's footer is the default bar.
+  Features affected: core
+  - **Tests.** `test:js` (`tests/js/number.test.mjs`): `fieldError` with bracket, mixed and dot names against dot-keyed and bracket-keyed errors, another field of the row, `2` against `20`, and an exact key first. The browser job (`?field-paths`, three tests; the floor is 379): Fields named `title`, `contacts[0][email]`, `contacts[0].email` and `contacts.1.name` show Laravel's errors and are `aria-invalid` and described by them, a clean Field is described by its description only, and the default Field's classes are unchanged; a Repeater row's error shows on its Field and follows the row when it moves up (on main the row's Field shows nothing); InputCalendarDate's "Not set", Clear (absent when required, disabled or locked), the empty submitted value, `v-model`, the form's input event and focus after Clear, a date chosen from the calendar and a form reset; the default and compact FormActions measured for border, padding and gap; axe with contrast, light and dark. `bin/typecheck-components.sh`: InputCalendarDate's props (`id` required, `span` 1 to 6) and FormActions' `density`.
+  - **Not covered:** a host's real Inertia `<Form>` (the fixture provides the context Inertia does), a consumer app, and a screen-reader run.
 
 ### Upgrading
 

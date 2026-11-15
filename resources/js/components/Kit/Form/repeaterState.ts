@@ -3,8 +3,25 @@ export type RepeaterRow = { id: string; [key: string]: unknown };
 export const rowErrorsKey: InjectionKey<ComputedRef<Record<string, string>>> =
     Symbol('repeater-errors');
 export const repeaterDepthKey: InjectionKey<number> = Symbol('repeater-depth');
+/** The row's bracket path at its current place (`items[1]`), so a Field knows which names the row's errors answer for. */
+export const rowPathKey: InjectionKey<ComputedRef<string>> =
+    Symbol('repeater-path');
 export function fieldPath(name: string): string {
     return name.replace(/\[([^\]]+)\]/g, '.$1');
+}
+/** The error for `name` in `errors`, whichever way either is written: a bracket path (`items[0][name]`, `items[0].name`) or Laravel's dot path
+ * (`items.0.name`). An exact key wins. */
+export function fieldError(
+    errors: Record<string, string> | undefined,
+    name: string,
+): string | undefined {
+    if (!errors) return undefined;
+    if (errors[name] !== undefined) return errors[name];
+    const path = fieldPath(name);
+    return (
+        errors[path] ??
+        Object.entries(errors).find(([key]) => fieldPath(key) === path)?.[1]
+    );
 }
 export function mappedErrors(
     errors: Record<string, string>,
