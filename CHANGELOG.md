@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+Features affected: core.
+
+A patch: InputSelect's trigger is 36px at every width, as the other inputs are, and a select picks in a server-driven modal whose panel is the package's role=dialog one. Below sm the trigger is 8px shorter than before (44px to 36px), by the owner's ruling on #1048.
+
+### Fixed
+
+- **InputSelect's trigger is 36px at every width, the height of Input, InputDate, InputTime and InputNumber** (#1048). It was `min-h-11` (44px) below sm, and at sm and up its padding and line box made it about 38px, so a form with an Input beside it was uneven and every page with a select grew. It is now 36px below sm too (it was 44px), matching the other inputs, as ruled on #1048, and exactly 36px at sm and up. A multiple select grows only when its chips wrap to a second line. The clear and chevron buttons keep their 44px hit area below sm (they sit outside the field's flow, so the field stays 36px), as do a chip's remove buttons and the option rows.
+  Features affected: core
+- **A pick in an InputSelect inside a server-driven modal sets the value when the modal's panel is the package's role=dialog one** (#1048). With `@inertiaui/modal-vue`'s `useNativeDialog` off, the panel is a `role="dialog"` element with the package's focus trap, but the kit's overlays only rendered into a native `<dialog>`, so a select's list went to `<body>`. Pressing a result moved focus to the list, outside the trap; the trap took focus back, the field blurred and the list closed before the click landed, so the model never changed (a remote result and a local option alike). `ModalPanel` now gives its overlays the role=dialog panel too, so the list, and every kit menu, popover and confirmation in that modal, renders inside it. A native `<dialog>` (the package's default) is unchanged.
+  Features affected: core
+  - **Tests.** The browser job (`select-modal.html`, on the real `@inertiajs/vue3` and `@inertiaui/modal-vue`, 3 new tests; the floor is 389): a one-value, a clearable and a one-chip InputSelect measured at the Input's 36px beside it, at 390 and 1280px, and chips that wrap taller; in a ModalLink modal, with the native `<dialog>` and with the role=dialog panel, a `filter="remote"` result picked by click and by keyboard, then a local option in the same modal, each read from the model and from the posted Save. On main the height fails (44px at 390) and the click pick fails in the role=dialog panel; the keyboard picks already passed there.
+  - **Not covered:** a consumer app's own remote search or modal; a native `<dialog>` pick that fails was not reproduced here, and browsers other than Chromium.
+
 ## v0.25.5
 
 Features affected: none.

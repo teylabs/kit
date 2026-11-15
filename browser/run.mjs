@@ -37,6 +37,8 @@
 // an invalid tag and one past the limit with a described reason.
 // A searchable InputSelect (?select-query, &modal in the kit Modal) must never search for its chosen label: typing anywhere in it starts a fresh query; Escape, a click
 // outside, a choice and focus leaving drop the query and show the label again; a clearable field has a Clear button in the tab order, a default one none.
+// InputSelect (select-modal.html, on the real Inertia and inertiaui/modal) must be the Input's 36px at 390 and 1280px, taller only when its chips wrap, and in a
+// server-driven modal (a native <dialog> or the package's role=dialog panel) a remote result and a local option picked by click or keyboard must set the model and be posted.
 // A FormCard over useSubmitForm (?form-submit) must submit on Enter with no navigation, disable Save while pending, show a 422's field error and summary
 // with focus on the field, then Saved, and pass axe with contrast. A Workbench with :form (?workbench-form=submit|inertia, the latter a stand-in useForm with
 // `save`) must save on Ctrl+S but not from a contenteditable that binds it or while pending, focus a 422's field in its collapsed inspector, show a 409's
@@ -9603,6 +9605,119 @@ test('People\'s modals on the real @inertiaui/modal-vue: each is the package\'s 
             await modal.waitFor({ state: 'detached' });
         }
     });
+});
+
+// ── InputSelect beside an Input and in a server-driven modal (select-modal.html, on the real @inertiajs/vue3 and @inertiaui/modal-vue, #1048) ────────────────
+// The test is the server: the base page, the ModalLink's modal, the remote search (contacts whose name contains the query) and the modal's Save.
+const selectContacts = ['Ada Lovelace', 'Grace Hopper', 'Alan Turing', 'Adele Goldberg'].map((label) => ({ value: label.toLowerCase().replace(/ /g, '-'), label }));
+async function selectModalPage({ width = 1280, panel = '' } = {}, run) {
+    const context = await browser.newContext({ viewport: { width, height: 900 } });
+    try {
+        const tab = await context.newPage();
+        const pageErrors = [];
+        tab.on('pageerror', (error) => pageErrors.push(error.message));
+        const posts = [];
+        const html = readFileSync(path.join(here, 'dist-people/select-modal.html'), 'utf8');
+        const pageObject = (component, props, url) => ({ component, props: { ...props, errors: {} }, url, version: null, flash: {}, clearHistory: false, encryptHistory: false });
+        await tab.route((u) => u.pathname.startsWith('/@acme/'), async (route) => {
+            const request = route.request();
+            const at = new URL(request.url());
+            if (at.pathname === '/@acme/contacts') {
+                const query = at.searchParams.get('q').toLowerCase();
+                return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(selectContacts.filter((c) => c.label.toLowerCase().includes(query))) });
+            }
+            if (!request.headers()['x-inertia']) return route.fulfill({ status: 200, contentType: 'text/html', body: html });
+            if (request.method() === 'GET' && at.pathname === '/@acme/bookings/new') return route.fulfill({ status: 200, headers: formsInertia, body: JSON.stringify(pageObject('Select/Modal', { title: 'New booking', submit: { label: 'Save', url: '/@acme/bookings', method: 'post' } }, at.pathname)) });
+            if (request.method() === 'POST') posts.push({ url: at.pathname, body: request.postDataJSON() });
+            return route.fulfill({ status: 200, headers: formsInertia, body: JSON.stringify(pageObject('Select/Base', {}, '/@acme/bookings')) });
+        });
+        await tab.goto(`${peopleUrl}/@acme/bookings${panel ? `?panel=${panel}` : ''}`);
+        await tab.waitForSelector('#base-room');
+        await run({ tab, posts });
+        assert.deepEqual(pageErrors, []);
+    } finally {
+        await context.close();
+    }
+}
+// The modal, open, with each kind of panel: the package's native <dialog> (its default) and its role=dialog one with a focus trap (useNativeDialog off).
+const selectPanels = [['', 'DIALOG'], ['div', 'DIV']];
+async function openBooking(tab, tag) {
+    await tab.getByRole('link', { name: 'New booking' }).click();
+    const modal = tab.getByRole('dialog', { name: 'New booking' });
+    await modal.waitFor();
+    assert.equal(await modal.evaluate((el) => el.tagName), tag);
+    await tab.waitForFunction(() => document.querySelector('[data-inertiaui-modal-entered="true"]'));
+    return modal;
+}
+const bookingModel = async (modal) => JSON.parse(await modal.locator('[data-test-model]').textContent());
+async function saveBooking(tab, modal, posts) {
+    await modal.getByRole('button', { name: 'Save' }).click();
+    await modal.waitFor({ state: 'detached' });
+    assert.equal(posts.length, 1);
+    return posts[0].body;
+}
+
+test('InputSelect is the Input\'s 36px at 390 and 1280px: one value, clearable and one chip; only chips that wrap make it taller (#1048)', async () => {
+    for (const width of [390, 1280]) {
+        await selectModalPage({ width }, async ({ tab }) => {
+            const heights = await tab.evaluate(() => {
+                const height = (el) => el.getBoundingClientRect().height;
+                const trigger = (id) => height(document.getElementById(id).closest('[data-reka-combobox-anchor], .relative.flex'));
+                return { input: height(document.getElementById('base-name')), single: trigger('base-room'), clearable: trigger('base-clearable'), chip: trigger('base-many'), wrapped: trigger('base-wrapped') };
+            });
+            assert.equal(heights.input, 36, `${width}px: the Input is h-9`);
+            for (const kind of ['single', 'clearable', 'chip']) assert.equal(heights[kind], heights.input, `${width}px: the ${kind} trigger is the Input's height`);
+            assert.ok(heights.wrapped > 50, `${width}px: chips on two lines make it taller (${heights.wrapped}px)`);
+            const row = await tab.evaluate(() => [document.getElementById('base-name'), document.getElementById('base-room').closest('.relative.flex')].map((el) => el.getBoundingClientRect().top));
+            assert.equal(row[0], row[1], `${width}px: side by side, the two tops line up`);
+        });
+    }
+});
+
+test('InputSelect in a server-driven modal: a remote result picked by click sets the model and is posted, as is a local pick beside it, in a native <dialog> and a role=dialog panel (#1048)', async () => {
+    for (const [panel, tag] of selectPanels) {
+        await selectModalPage({ panel }, async ({ tab, posts }) => {
+            const modal = await openBooking(tab, tag);
+            const contact = modal.getByRole('combobox', { name: 'Contact' });
+            await contact.click();
+            await contact.pressSequentially('ad');
+            await tab.getByRole('option', { name: 'Adele Goldberg' }).waitFor();
+            assert.ok(await tab.evaluate(() => document.querySelector('[data-kit-select-list]').closest('dialog, [role="dialog"]')), `${tag}: the results render inside the modal`);
+            await tab.getByRole('option', { name: 'Ada Lovelace' }).click();
+            await tab.getByRole('listbox').waitFor({ state: 'detached' });
+            assert.deepEqual(await bookingModel(modal), { contact: 'ada-lovelace', room: null }, `${tag}: the remote pick set the model`);
+            assert.equal(await contact.inputValue(), 'Ada Lovelace');
+            const room = modal.getByRole('combobox', { name: 'Room' });
+            await room.click();
+            await tab.getByRole('option', { name: 'East' }).click();
+            assert.deepEqual(await bookingModel(modal), { contact: 'ada-lovelace', room: 'east' }, `${tag}: the local pick set the model`);
+            assert.deepEqual({ ...(await saveBooking(tab, modal, posts)) }, { contact: 'ada-lovelace', room: 'east' }, `${tag}: both are submitted`);
+        });
+    }
+});
+
+test('InputSelect in a server-driven modal: a remote result picked by keyboard sets the model and is posted, as is a local pick beside it, in a native <dialog> and a role=dialog panel (#1048)', async () => {
+    for (const [panel, tag] of selectPanels) {
+        await selectModalPage({ panel }, async ({ tab, posts }) => {
+            const modal = await openBooking(tab, tag);
+            const contact = modal.getByRole('combobox', { name: 'Contact' });
+            await contact.focus();
+            await tab.keyboard.type('gr');
+            await tab.getByRole('option', { name: 'Grace Hopper' }).waitFor();
+            await tab.keyboard.press('ArrowDown');
+            await tab.keyboard.press('Enter');
+            await tab.getByRole('listbox').waitFor({ state: 'detached' });
+            assert.deepEqual(await bookingModel(modal), { contact: 'grace-hopper', room: null }, `${tag}: the remote pick set the model`);
+            assert.equal(await tab.evaluate(() => document.activeElement?.id), 'booking-contact', `${tag}: focus stays in the field`);
+            await tab.keyboard.press('Tab');
+            assert.equal(await tab.evaluate(() => document.activeElement?.id), 'booking-room');
+            await tab.keyboard.press('e');
+            await tab.getByRole('option', { name: 'East' }).waitFor();
+            await tab.keyboard.press('Enter');
+            assert.deepEqual(await bookingModel(modal), { contact: 'grace-hopper', room: 'east' }, `${tag}: the local pick set the model`);
+            assert.deepEqual({ ...(await saveBooking(tab, modal, posts)) }, { contact: 'grace-hopper', room: 'east' }, `${tag}: both are submitted`);
+        });
+    }
 });
 
 // ── Settings › Security, Add a passkey (auth.html?auth=Workspace/Account/Security, on the real Inertia) ─────────────────────────────────────────────────────
