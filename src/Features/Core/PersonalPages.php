@@ -14,6 +14,8 @@ final class PersonalPages
     /** @param  ?array{0: string, 1: string}  $parent  the parent page's feature and route name, before the feature's name prefix */
     public static function page(Route $route, string|Closure $title, ?array $parent = null): Route
     {
+        // A declared page, for `kit:query-report`.
+        $route->action['kit_page'] = 'personal';
         $route->breadcrumb($title, $parent === null ? null : config('kit.routes.'.$parent[0].'.name', '').$parent[1]);
         $name = $route->getName();
         $names = $route->parameterNames();

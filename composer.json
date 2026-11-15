@@ -104,6 +104,7 @@
         "test:request-hooks": "@php tests/RequestHooksCheck.php vendor/autoload.php",
         "test:request-order": "@php tests/RequestOrderCheck.php vendor/autoload.php",
         "test:request-memos": "@php tests/RequestMemoCheck.php vendor/autoload.php",
+        "test:query-report": "@php tests/QueryReportCheck.php vendor/autoload.php",
         "test:core-request-start": "@php tests/CoreRequestStartCheck.php vendor/autoload.php",
         "test:fonts": "@php tests/FontsCheck.php vendor/autoload.php",
         "test:tables": "@php tests/TableQueryCheck.php vendor/autoload.php",
