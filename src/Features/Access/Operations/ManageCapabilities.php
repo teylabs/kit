@@ -22,7 +22,7 @@ final class ManageCapabilities
         }
         $workspace = Workspaces::query()->findOrFail($workspaceId);
         $capabilities = app(Capabilities::class);
-        Workspaces::run($workspaceId, function () use ($capabilities, $capability, $workspace, $userId, $enabled): void {
+        Workspaces::run($workspace, function () use ($capabilities, $capability, $workspace, $userId, $enabled): void {
             $userId === null ? $capabilities->setForWorkspace($capability, $workspace, $enabled) : $capabilities->setForPerson($capability, $workspace, $userId, $enabled);
         });
         app(Audit::class)->write($operator->actorId, $workspaceId, 'capability.changed', ['capability' => $capability, 'user_id' => $userId, 'enabled' => $enabled, 'reason' => $reason]);

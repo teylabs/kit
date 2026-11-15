@@ -283,6 +283,12 @@ try {
     config(['kit.capabilities' => ['workspace.settings' => true]]);
     permissionCheck($update('owner', $one), 'turning the capability on allows it again');
 
+    // The switcher's checks read memberships, workspace by workspace, only through the bound Concierge: one that resolves them its own way (here, no
+    // membership table at all) keeps an active member active in each, and a person it does not know is in none.
+    app()->instance('request', Illuminate\Http\Request::create('https://kit.test/'));
+    app()->singleton(Tey\Kit\Features\Core\RequestMemo::class);
+    Tey\Kit\Features\Core\RequestMemo::instance()->remember();
+    permissionCheck(Tey\Kit\Features\Core\RequestMemo::membership($users['admin'], $one)?->isActive() && Tey\Kit\Features\Core\RequestMemo::membership($users['admin'], $two)?->isActive() && Tey\Kit\Features\Core\RequestMemo::membership($users['outsider'], $one) === null, 'memberships are read through a Concierge that resolves them its own way, in each workspace');
     permissionCheck(! $permissions->granted($users['owner'], 'undeclared.permission', $one), 'a permission no feature declares is never granted');
     permissionCheck(class_exists(Access::class) && (new ReflectionMethod(SyncPermissionsCommand::class, 'handle'))->getNumberOfParameters() === 1, 'kit:permissions:sync is a command over the sync');
     echo "Permission checks on in-memory SQLite with synthetic membership; no Concierge tables, HTTP, Inertia props rendering or MCP transport.\n";

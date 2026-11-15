@@ -4,12 +4,11 @@ namespace Tey\Kit\Features\Workspaces\Concerns;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Schema;
 use Tey\Concierge\Contracts\Member;
 use Tey\Concierge\Enums\MembershipStatus;
 use Tey\Concierge\Support\ConciergeModels;
 use Tey\Kit\Features\Workspaces\Slugs;
+use Tey\Kit\Features\Workspaces\WorkspaceColumns;
 
 /**
  * The kit's workspace behaviour: slugs, the member-of scope and Concierge's naming and admission. The kit's own model uses it,
@@ -17,8 +16,8 @@ use Tey\Kit\Features\Workspaces\Slugs;
  */
 trait IsKitWorkspace
 {
-    /** The cache key of the workspace table columns found; `migrate` forgets it. */
-    public const string KIT_COLUMNS_KEY = 'kit-workspace-columns';
+    /** The cache key `migrate` forgets to forget the workspace column checks (WorkspaceColumns::KEY). */
+    public const string KIT_COLUMNS_KEY = WorkspaceColumns::KEY;
 
     public static function bootIsKitWorkspace(): void
     {
@@ -73,29 +72,10 @@ trait IsKitWorkspace
         return self::kitHasColumn($this->getConnectionName(), $this->getTable(), 'deleting_at');
     }
 
-    /**
-     * Whether a column is there, asked of the database once per deploy rather than once per request (FPM drops statics after each one). A column found is remembered in the
-     * cache (one key for every table) until the next `migrate` forgets it; one not found yet is asked again, so a table migrated later is seen at once.
-     */
+    /** Whether a column is there, asked of the database once a day rather than once per request (WorkspaceColumns: the request's answers, then the shared cache). */
     private static function kitHasColumn(?string $connection, string $table, string $column): bool
     {
-        static $known = null;
-        $name = ($connection ?? '').'|'.$table.'|'.$column;
-        try {
-            $known ??= (array) Cache::get(self::KIT_COLUMNS_KEY, []);
-            if ($known[$name] ?? false) {
-                return true;
-            }
-            if (! Schema::connection($connection)->hasColumn($table, $column)) {
-                return false;
-            }
-            $known[$name] = true;
-            Cache::forever(self::KIT_COLUMNS_KEY, $known);
-
-            return true;
-        } catch (\Throwable) {
-            return false;
-        }
+        return app(WorkspaceColumns::class)->has($connection, $table, $column);
     }
 
     public function conciergeName(): string

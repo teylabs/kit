@@ -2,6 +2,8 @@
 
 namespace Tey\Kit\Features\Access;
 
+use Illuminate\Database\Events\QueryExecuted;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Pennant\FeatureManager;
@@ -41,6 +43,13 @@ final class AccessProvider extends ServiceProvider implements Contributes
         // On the contract, so the policy covers whichever workspace model the app binds (the Gate matches subclasses), read when first asked.
         Gate::policy(Workspace::class, WorkspacePolicy::class);
         $this->commands([SyncPermissionsCommand::class, CapabilityCommand::class]);
+        // A role or grant written mid-request empties the request's permission sets, so a workspace already asked answers afresh: spatie's pivot writes
+        // fire no model event, so the statement itself is the signal, read with its connection's table prefix. Never answered from a set read before the change.
+        Event::listen(QueryExecuted::class, static function (QueryExecuted $query): void {
+            if (app()->resolved(Permissions::class) && Permissions::writes($query->sql, $query->connection->getTablePrefix())) {
+                app(Permissions::class)->forget();
+            }
+        });
         // Lazily, so a request that never checks a capability (`/up`) resolves no Pennant manager and, for this provider's part, builds no Registry: when the
         // manager is first resolved, and again once every provider has booted if it was resolved before then. The kit boots before the app's providers, so a capability one
         // of them declares in its own boot() would otherwise stay undefined (off, and every route behind it a 404). Contribute in register() all the same:

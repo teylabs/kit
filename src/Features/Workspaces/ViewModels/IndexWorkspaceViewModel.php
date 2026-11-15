@@ -15,7 +15,7 @@ use Tey\Kit\Features\Core\ViewModels\PageViewModel;
 final class IndexWorkspaceViewModel extends PageViewModel
 {
     /**
-     * @param  list<array{id: int, name: string, initials: string, role: ?string, members: int, current: bool, leave: ?\Tey\Kit\Features\Core\Data\Action}>  $workspaces  only the person's own active memberships (the link into each is the shell's switcher choice, by id); `leave` absent for a workspace they own (transfer ownership first)
+     * @param  list<array{id: int, name: string, initials: string, role: ?string, members: int, current: bool, leave: ?\Tey\Kit\Features\Core\Data\Action}>  $workspaces  only the person's own active memberships (the link into each is the switcher's, loaded from the shell's `switcher.landings`, by id); `leave` absent for a workspace they own (transfer ownership first)
      * @param  list<array{workspace: string, inviter: ?string, message: ?string, expires: ?string}>  $invitations  open invitations to the person's verified email
      * @param  ?\Tey\Kit\Features\Core\Data\Action  $create  New workspace, present only when provisioning allows it (never with `invite_only`)
      */
