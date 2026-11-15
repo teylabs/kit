@@ -9,6 +9,7 @@ use Tey\Kit\Features\SessionUi\Http\AccountDeletionController;
 use Tey\Kit\Features\SessionUi\Http\ClockController;
 use Tey\Kit\Features\SessionUi\Http\DashboardController;
 use Tey\Kit\Features\SessionUi\Http\DemoLoginController;
+use Tey\Kit\Features\SessionUi\Http\DevicesController;
 use Tey\Kit\Features\SessionUi\Http\HomeController;
 use Tey\Kit\Features\SessionUi\Http\InvitationAccountController;
 use Tey\Kit\Features\SessionUi\Http\InvitationController;
@@ -129,7 +130,7 @@ Route::middleware(['auth:web', 'concierge.active'])->group(function (): void {
         WorkspaceRoutes::personalPage(Route::get('', 'show')->name('me.delete'), 'Delete account', ['session-ui', 'me.index']);
         Route::delete('', 'destroy')->middleware('throttle:5,1');
     });
-    // Security: two-factor authentication through Fortify's actions, recovery codes, and the other sessions. The password is asked for again.
+    // Security: two-factor authentication through Fortify's actions, recovery codes, and the signed-in devices. The password is asked for again.
     Route::prefix('me/security')->group(function (): void {
         Route::controller(SecurityController::class)->group(function (): void {
             WorkspaceRoutes::personalPage(Route::get('', 'show')->name('me.security'), 'Security', ['session-ui', 'me.index']);
@@ -144,6 +145,10 @@ Route::middleware(['auth:web', 'concierge.active'])->group(function (): void {
         });
         Route::controller(SessionsController::class)->prefix('sessions')->middleware('throttle:10,1')->group(function (): void {
             Route::delete('', 'destroy');
+        });
+        // One signed-in device signed out, with the current password: another person's id is a 404, this device a 422.
+        Route::controller(DevicesController::class)->prefix('devices')->middleware('throttle:10,1')->group(function (): void {
+            Route::delete('{device}', 'destroy')->whereNumber('device');
         });
         // Passkeys: rename, or remove with the current password. Adding one is Fortify's registration (/user/passkeys). 404 without Fortify's passkeys feature.
         Route::controller(PasskeysController::class)->prefix('passkeys')->middleware('throttle:10,1')->group(function (): void {

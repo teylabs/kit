@@ -177,6 +177,12 @@ return [
     // codes or passkeys change. Off turns all of it off; it is never optional per person.
     'security_mail' => env('KIT_SECURITY_MAIL', true),
 
+    // Signed-in devices on /me/security, on every session driver (one `signed_in_devices` row per signed-in session). Each signed-in request reads one
+    // revocation marker from the cache store `store` (null: the default store; name one every server shares that isn't the database store, such as redis), so a device signed out
+    // elsewhere is cut off on its next request. `touch_minutes` is how often a device's last-seen time is written, and how soon a device is signed out
+    // when the cache store can't be reached. `country_header` null stores no country; CF-IPCountry (only behind Cloudflare, whose proxy sets it) stores its code.
+    'devices' => ['touch_minutes' => 5, 'country_header' => null, 'store' => null],
+
     // Concierge grants (roles) whose holders the people lists leave out, such as a support role: People, the People widget and people search (docs/dashboard.md).
     'people' => ['hide_grants' => []],
 

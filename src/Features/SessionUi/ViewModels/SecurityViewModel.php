@@ -17,7 +17,7 @@ final class SecurityViewModel extends PageViewModel
 {
     /**
      * @param  array{state: string, qr_svg: ?string, secret_key: ?string, codes_left: int, recovery_codes: list<string>}  $two_factor  state: unavailable, off, pending (waiting for a code) or on
-     * @param  array{supported: bool, items: list<array{agent: string, ip: ?string, last_active: string, current: bool}>}  $sessions
+     * @param  array{supported: bool, items: list<array{agent: string, ip: ?string, last_active: string, current: bool, id: int, signed_in_at: string, country: ?string, remembered: bool, url: ?string}>}  $sessions  one item per signed-in device (OtherSessions::list); `ip` is its network's prefix, `url` signs it out (null for this device)
      * @param  list<array{type: string, label: string, ip: ?string, agent: string, at: string}>  $events
      * @param  ?array{options_url: string, store_url: string, confirm_url: ?string, url: string, items: list<array{id: int, name: string, created: string, last_used: ?string}>}  $passkeys  null without Fortify's passkeys feature; `url` is the rename/remove base (`{url}/{id}`)
      */
@@ -34,7 +34,7 @@ final class SecurityViewModel extends PageViewModel
         return $this->two_factor;
     }
 
-    /** @return array{supported: bool, items: list<array{agent: string, ip: ?string, last_active: string, current: bool}>} */
+    /** @return array{supported: bool, items: list<array{agent: string, ip: ?string, last_active: string, current: bool, id: int, signed_in_at: string, country: ?string, remembered: bool, url: ?string}>} */
     public function sessions(): array
     {
         return $this->sessions;

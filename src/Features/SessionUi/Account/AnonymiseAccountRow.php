@@ -2,6 +2,7 @@
 
 namespace Tey\Kit\Features\SessionUi\Account;
 
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -14,7 +15,7 @@ use Tey\Kit\Features\SessionUi\Models\UserAvatar;
 /**
  * The kit's anonymiser for a deleted account (`kit.lifecycle.account_user_row` = `anonymise`): the user row stays, as a "Deleted user" tombstone, so
  * history that points at it (RESTRICT foreign keys) survives, and everything personal on it is erased for good. Name and email are replaced, the
- * password is a random hash nobody holds, the email is unverified, two-factor secrets, the remember-me token, passkeys, database sessions and the
+ * password is a random hash nobody holds, the email is unverified, two-factor secrets, the remember-me token, passkeys, every signed-in device's session and the
  * person's files (their avatar and any media on the user) are deleted. The kit keeps the Concierge account deactivated, so the row never signs in.
  *
  * Runs inside the deletion's transaction. Extend it and override attributes() to scrub the app's own personal columns on users as well.
@@ -32,6 +33,10 @@ class AnonymiseAccountRow implements DeletesAccountRow
         }
         if (method_exists($user, 'passkeys')) {
             $user->passkeys()->delete();
+        }
+        // Every signed-in device's session, on any driver, and on the database driver the sessions table's rows for the person.
+        if ($user instanceof Authenticatable) {
+            SignedInDevices::endAll($user);
         }
         if (Schema::hasTable('sessions')) {
             DB::table('sessions')->where('user_id', $id)->delete();

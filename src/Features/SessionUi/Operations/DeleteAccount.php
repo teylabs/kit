@@ -16,6 +16,7 @@ use Tey\Concierge\Support\ConciergeModels;
 use Tey\Concierge\Support\UserSessions;
 use Tey\Kit\Features\Core\Kit;
 use Tey\Kit\Features\SessionUi\Account\AnonymiseAccountRow;
+use Tey\Kit\Features\SessionUi\Account\SignedInDevices;
 use Tey\Kit\Features\SessionUi\Contracts\DefersAccountPurge;
 use Tey\Kit\Features\SessionUi\Contracts\DeletesAccountRow;
 use Tey\Kit\Features\SessionUi\Contracts\PurgesAccountData;
@@ -35,7 +36,7 @@ use Tey\Kit\Features\Workspaces\Workspaces;
  * runs inside the transaction, after the workspaces are left and before the kit's rows and the user row go.
  *
  * Deferred, when the bound handler implements DefersAccountPurge: the workspaces are left and the account closed at once (its Concierge account deactivated, so
- * sign-in is refused; database sessions ended, the remember-me token cycled, API tokens revoked; a `account_deletions` row recorded), AccountDeleting
+ * sign-in is refused; every signed-in device's session ended, the remember-me token cycled, API tokens revoked; a `account_deletions` row recorded), AccountDeleting
  * dispatched, then after the commit the handler's begin() queues the host's job, which ends by calling FinishAccountDeletion. Nothing else is deleted here.
  */
 class DeleteAccount
@@ -122,7 +123,10 @@ class DeleteAccount
         return $left;
     }
 
-    /** Ends every way back in: the remember-me token cycled, database sessions ended, Passport tokens (and their refresh tokens) revoked, Sanctum's deleted. */
+    /**
+     * Ends every way back in: the remember-me token cycled, every signed-in device's session ended on any driver (and, on the database driver, the sessions
+     * table swept), Passport tokens (and their refresh tokens) revoked, Sanctum's deleted.
+     */
     private static function endAccess(Model $user): void
     {
         $id = (int) $user->getKey();
@@ -130,7 +134,7 @@ class DeleteAccount
             UserSessions::cycleRememberToken($user);
             $user->save();
         }
-        UserSessions::endDatabaseSessions($user);
+        SignedInDevices::endAll($user);
         // API tokens, by table: Passport's are revoked (with their refresh tokens and any unexchanged codes), Sanctum's deleted.
         if (Schema::hasTable('oauth_access_tokens')) {
             $tokens = DB::table('oauth_access_tokens')->where('user_id', $id);
@@ -188,7 +192,7 @@ class DeleteAccount
             ConciergeModels::membership()::query()->whereKey($membershipIds)->delete();
         }
         ConciergeModels::account()::query()->where('user_id', $id)->delete();
-        $tables = [['access', 'capability_overrides'], ['session-ui', 'user_state']];
+        $tables = [['access', 'capability_overrides'], ['session-ui', 'user_state'], ['session-ui', SignedInDevices::TABLE]];
         // Named only when session-ui is on: an app without it never registers the security log's model.
         if (Kit::enabled('session-ui')) {
             $tables[] = ['session-ui', Kit::table('security_event')];
@@ -209,6 +213,10 @@ class DeleteAccount
             }
         }
         self::deleteUserRow($user);
+        // A kept (anonymised) row: its user_state went above, so its legacy sessions are closed again, and a session left over is never given a row.
+        if (Kit::enabled('session-ui') && ConciergeModels::user()::query()->whereKey($id)->exists()) {
+            SignedInDevices::closeLegacy($id);
+        }
     }
 
     /**

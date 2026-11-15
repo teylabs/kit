@@ -281,6 +281,9 @@ try {
     [$status, $location, , $session] = $send(null, 'POST', '/login', ['kit' => ['workspace' => $acme->id]], ['email' => 'many@example.test', 'password' => 'a long passphrase']);
     httpCheck($status === 302 && $location === 'https://kit.test' && Auth::guard('web')->id() === $many->id, 'signing in redirects to kit.home ('.$status.' '.$location.')');
     $after = unserialize($handler->read($session));
+    // Replayed under a new session id, after this harness's logout() between requests ended that device (its row): without its device key it is a
+    // session from before signed-in devices, which gets a new row, rather than a copy of an ended one, which is signed out.
+    unset($after['kit']['device']);
     httpCheck($home($many, $after) === [302, 'https://kit.test/@acme', null], 'and kit.home, with the signed-in session, redirects to the last-used workspace, /@acme');
     // The logo (shell.product.url) and links.home: kit.home for a signed-in person, whose resolver picks the workspace; a guest's shell is as before.
     $shellFor = function (?object $user) use ($app): array {

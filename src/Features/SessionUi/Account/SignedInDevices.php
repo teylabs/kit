@@ -1,0 +1,600 @@
+<?php
+
+namespace Tey\Kit\Features\SessionUi\Account;
+
+use Carbon\CarbonInterface;
+use Closure;
+use Illuminate\Auth\Events\CurrentDeviceLogout;
+use Illuminate\Auth\Events\Login;
+use Illuminate\Auth\Events\Logout;
+use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Contracts\Cache\Repository as CacheRepository;
+use Illuminate\Contracts\Events\Dispatcher;
+use Illuminate\Contracts\Session\Session;
+use Illuminate\Database\Query\Builder;
+use Illuminate\Http\Request;
+use Illuminate\Session\CookieSessionHandler;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\DB;
+use RuntimeException;
+use Tey\Concierge\Support\UserSessions;
+use Tey\Kit\Features\Core\Kit;
+use Tey\Kit\Features\Core\Users;
+use Tey\Kit\Features\SessionUi\UserState;
+use Throwable;
+
+/**
+ * A person's signed-in devices, on every session driver: one `signed_in_devices` row per signed-in session, written once at the end of the sign-in
+ * request (keyed by the session's final id) and touched at most every `kit.devices.touch_minutes` after that. The session itself carries what the
+ * middleware compares (`kit.device`: the row's id, the user, the session id the row knows and when it was last touched), so a normal page runs no
+ * query against the table; it reads one revocation marker from the cache store instead (TrackSignedInDevice).
+ *
+ * Signing a device out retires its row first, which is the authority (that session fails its next touch): the row keeps only its HMAC, with no
+ * person, device or address, until the session would have expired, so the unique HMAC refuses that session a new row even when it carries no
+ * `kit.device` (a session from before 0.23). Then it marks the session revoked in the cache store, so its next request is cut off, and destroys the
+ * session through the configured handler. The row holds the session id encrypted
+ * (decrypted only to destroy it) and its HMAC with the app key (to find it); the IP only as its /24 or /48, the user agent only as its browser and
+ * platform, and a country only from Cloudflare's CF-IPCountry when the host names it. Every write is conditioned on the row's id, its user and the
+ * session's current HMAC, so a request carrying an old session id never moves a row back, and a session whose row is gone is never given a new one.
+ *
+ * Each sign-out (this device, another one, every other one) changes the database in one transaction, and only after it commits marks the sessions revoked
+ * and destroys them, both idempotent: a rollback leaves every session as it was. Giving a session a row and ending a person's sessions each lock that
+ * person's user row first, so they never interleave, and a person who is gone is never given a row.
+ */
+final class SignedInDevices
+{
+    public const string TABLE = 'signed_in_devices';
+
+    /** The session key the middleware reads: ['id', 'user', 'sid', 'at'] once tracked, ['pending' => true, 'remembered' => bool, 'replaces'?: the row it had] after a sign-in. */
+    public const string KEY = 'kit.device';
+
+    /** The one header a country is read from, when `kit.devices.country_header` names it: Cloudflare's, set by its proxy, never by the browser. */
+    public const string COUNTRY_HEADER = 'CF-IPCountry';
+
+    /** The person's user_state key, set when every other session of theirs is ended (endAll): from then on a legacy session is never given a new row (track). */
+    public const string LEGACY_CLOSED = 'devices.legacy_closed';
+
+    /**
+     * The sign-in and sign-out ends, on the web guard. Login can't key the row: Fortify regenerates the session id after it (PrepareAuthenticatedSession), so
+     * it only leaves `pending` for the middleware, which writes the row once the request ends. Another sign-in over a session that has a row (an invitation,
+     * the demo sign-in) names that row in `pending` as `replaces`, and the new row's transaction retires it (track). Logout (and CurrentDeviceLogout)
+     * retires this session's row, and any row a sign-in in this request was replacing, and marks the session revoked, so a request still in flight that
+     * writes the session back is signed out too (endHere). Neither runs a query on an ordinary sign-in.
+     */
+    public static function listen(Dispatcher $events): void
+    {
+        $events->listen(Login::class, function (Login $event): void {
+            if ($event->guard !== 'web' || ($session = self::session()) === null) {
+                return;
+            }
+            $device = $session->get(self::KEY);
+            $replaces = self::tracked($device) ? $device : (is_array($device) ? $device['replaces'] ?? null : null);
+            $session->put(self::KEY, ['pending' => true, 'remembered' => (bool) $event->remember] + ($replaces === null ? [] : ['replaces' => $replaces]));
+        });
+        $events->listen([Logout::class, CurrentDeviceLogout::class], function (Logout|CurrentDeviceLogout $event): void {
+            if ($event->guard !== 'web' || ($session = self::session()) === null) {
+                return;
+            }
+            if (self::tracked($device = $session->get(self::KEY))) {
+                self::endHere($device, $session->getId(), $event->user?->getAuthIdentifier() ?? $device['user']);
+            } elseif (is_array($device) && self::tracked($replaces = $device['replaces'] ?? null)) {
+                self::endHere($replaces, $replaces['sid'], $replaces['user']);
+            }
+            $session->forget(self::KEY);
+        });
+    }
+
+    /**
+     * Whether a session's `kit.device` names its row.
+     *
+     * @phpstan-assert-if-true array{id: int, user: int|string, sid: string, at: int} $device
+     */
+    public static function tracked(mixed $device): bool
+    {
+        return is_array($device) && ! isset($device['pending']) && isset($device['id'], $device['user'], $device['sid'], $device['at']);
+    }
+
+    /** N: a device's last-seen time is written at most this often. */
+    public static function touchMinutes(): int
+    {
+        return (int) config('kit.devices.touch_minutes', 5);
+    }
+
+    /**
+     * Refuses a `kit.devices` block the kit can't honour, so a typo never quietly turns a check off. Run at boot. A `store` that names no cache store
+     * (empty, or not in cache.stores) stops the boot in local and testing; anywhere else it is reported and the default store holds the marks instead.
+     */
+    public static function validate(): void
+    {
+        $devices = config('kit.devices', []);
+        if (! is_array($devices) || array_diff(array_keys($devices), ['touch_minutes', 'country_header', 'store']) !== []) {
+            throw new RuntimeException('kit.devices takes touch_minutes, country_header and store only.');
+        }
+        $minutes = $devices['touch_minutes'] ?? 5;
+        if (! is_int($minutes) || $minutes < 1) {
+            throw new RuntimeException('kit.devices.touch_minutes must be a whole number of minutes, at least 1.');
+        }
+        if (($devices['country_header'] ?? null) !== null && $devices['country_header'] !== self::COUNTRY_HEADER) {
+            throw new RuntimeException('kit.devices.country_header is null or '.self::COUNTRY_HEADER.' (Cloudflare\'s, which its proxy sets): the kit reads a country from no other header.');
+        }
+        $store = $devices['store'] ?? null;
+        if ($store !== null && ! is_string($store)) {
+            throw new RuntimeException('kit.devices.store names a cache store, or is null for the default one.');
+        }
+        if ($store !== null && (trim($store) === '' || ! is_array(((array) config('cache.stores', []))[$store] ?? null))) {
+            $message = 'kit.devices.store '.json_encode($store).' names no cache store in cache.stores, so the revocation marks would have nowhere to go.';
+            if (app()->environment('local', 'testing')) {
+                throw new RuntimeException($message.' Name one, or null for the default store.');
+            }
+            report(new RuntimeException($message.' They are kept in the default store instead.'));
+            config(['kit.devices.store' => null]);
+        }
+    }
+
+    /** Rows last seen before this belong to sessions that have ended: the session lifetime plus N. They are no longer listed, and are pruned. */
+    public static function staleBefore(): CarbonInterface
+    {
+        return now()->subMinutes((int) config('session.lifetime', 120) + self::touchMinutes());
+    }
+
+    /** The HMAC-SHA256 of a session id with the app key: how a row is found. Never sent to the page. */
+    public static function hash(string $sessionId): string
+    {
+        return hash_hmac('sha256', $sessionId, (string) config('app.key'));
+    }
+
+    /**
+     * The session id's HMAC with the app key and with each of APP_PREVIOUS_KEYS, so a key rotation finds the row (and the next touch rewrites it with
+     * the current key).
+     *
+     * @return list<string>
+     */
+    public static function hashes(string $sessionId): array
+    {
+        $keys = array_values(array_filter([(string) config('app.key'), ...(array) config('app.previous_keys', [])], fn ($key): bool => is_string($key) && $key !== ''));
+
+        return array_values(array_unique(array_map(fn (string $key): string => hash_hmac('sha256', $sessionId, $key), $keys)));
+    }
+
+    /** The /24 of an IPv4 address (an IPv4-mapped IPv6 one too) or the /48 of an IPv6 one: "203.0.113.0/24", "2001:db8:abcd::/48". The full address is never kept. */
+    public static function ipPrefix(?string $ip): ?string
+    {
+        $packed = $ip === null ? false : @inet_pton($ip);
+        if ($packed === false) {
+            return null;
+        }
+        if (strlen($packed) === 16 && str_starts_with($packed, str_repeat("\0", 10)."\xff\xff")) {
+            $packed = substr($packed, 12);
+        }
+
+        return strlen($packed) === 4
+            ? inet_ntop(substr($packed, 0, 3)."\0").'/24'
+            : inet_ntop(substr($packed, 0, 6).str_repeat("\0", 10)).'/48';
+    }
+
+    /** The two-letter country Cloudflare names, only when the host turned `kit.devices.country_header` on, and only a code (`XX`, unknown, is none). */
+    public static function country(Request $request): ?string
+    {
+        if (config('kit.devices.country_header') !== self::COUNTRY_HEADER) {
+            return null;
+        }
+        $code = (string) $request->headers->get(self::COUNTRY_HEADER, '');
+
+        return preg_match('/\A[A-Z]{2}\z/', $code) === 1 && $code !== 'XX' ? $code : null;
+    }
+
+    /**
+     * The row of a session that has none yet (it signed in during this request, or it is `$legacy`: signed in before 0.23, or backfilled): inserted, or
+     * found when a concurrent first request of the same session got there first (the unique HMAC). Null when no row of this user holds the session: the
+     * caller signs it out. A legacy session signed out by its row is refused by that row's retired HMAC. Once every other session of the person has been
+     * ended (closeLegacy), a legacy session is never given a new row either, since endAll could not reach one that had none: it keeps only a row that still
+     * holds it (a backfilled one), else it signs out. A person who is gone (deleted, or deleted while this request ran) is never given a row: null.
+     * `$replaces` is the row the session had before a sign-in over it (Login): retired in this same transaction, and its old id marked revoked once it
+     * commits (replace), whether or not the new row is written.
+     *
+     * @param  ?array{id: int, user: int|string, sid: string, at: int}  $replaces
+     */
+    public static function track(Request $request, string $sessionId, int|string $userId, bool $remembered, bool $legacy = false, ?array $replaces = null): ?int
+    {
+        return DB::transaction(function () use ($request, $sessionId, $userId, $remembered, $legacy, $replaces): ?int {
+            // The person's row, locked: an endAll or a deletion running now finishes first, or waits for this row to commit and then retires it.
+            $present = self::lockUser($userId);
+            if ($replaces !== null) {
+                self::replace($replaces);
+            }
+            if (! $present) {
+                return null;
+            }
+            // After an APP_KEY rotation, a row under a previous key's HMAC (a backfilled session, say) is this session's: adopted with its id and rewritten
+            // with the current key (its HMAC and its encrypted id), never a second row. Another person's row is never adopted.
+            $previous = self::previous($sessionId);
+            $held = $previous === [] ? null : DB::table(self::TABLE)->whereIn('session_hash', $previous)->first(['id', 'user_id']);
+            if ($held !== null) {
+                if ((string) $held->user_id !== (string) $userId) {
+                    return null;
+                }
+                DB::table(self::TABLE)->where('id', $held->id)->whereIn('session_hash', $previous)->update(['session_hash' => self::hash($sessionId), 'session_id' => Crypt::encryptString($sessionId)]);
+
+                return (int) $held->id;
+            }
+            if (! $legacy || ! UserState::has((int) $userId, self::LEGACY_CLOSED)) {
+                DB::table(self::TABLE)->insertOrIgnore(self::row($sessionId, $userId, $request->userAgent(), $request->ip(), self::country($request), $remembered, now()));
+            }
+            $id = DB::table(self::TABLE)->where('session_hash', self::hash($sessionId))->where('user_id', $userId)->value('id');
+
+            return $id === null ? null : (int) $id;
+        });
+    }
+
+    /**
+     * kit:devices:backfill's row for a session from the database session table, signed in before 0.23: its user agent and IP as the table holds them, cut
+     * to the browser, platform and prefix, and its last activity as both times. False when the session already has a row (a second run adds nothing), when
+     * the person is gone, and once every other session of theirs was ended (closeLegacy): a legacy session written back after that is never adopted.
+     */
+    public static function adopt(string $sessionId, int|string $userId, ?string $agent, ?string $ip, CarbonInterface $lastActive): bool
+    {
+        return DB::transaction(function () use ($sessionId, $userId, $agent, $ip, $lastActive): bool {
+            // Locked as track() locks it, so an endAll running now either finishes first (and this sees its mark) or retires this row after.
+            if (! self::lockUser($userId) || UserState::has((int) $userId, self::LEGACY_CLOSED)) {
+                return false;
+            }
+            $previous = self::previous($sessionId);
+            if ($previous !== [] && DB::table(self::TABLE)->whereIn('session_hash', $previous)->exists()) {
+                return false;
+            }
+
+            return DB::table(self::TABLE)->insertOrIgnore(self::row($sessionId, $userId, $agent, $ip, null, false, $lastActive)) > 0;
+        });
+    }
+
+    /**
+     * Moves last_seen_at forward for this device's row, still held by this session, and rewrites its HMAC and its encrypted id with the current key, so
+     * after an APP_KEY rotation the previous key can be retired once every live session has been touched. False when the row is gone or holds another
+     * session: the caller signs the request out.
+     *
+     * @param  array{id: int, user: int|string, sid: string, at: int}  $device
+     */
+    public static function touch(array $device, string $sessionId): bool
+    {
+        $now = now();
+        $updated = self::held($device, $sessionId)->where('last_seen_at', '<', $now)->update(['last_seen_at' => $now, 'session_hash' => self::hash($sessionId), 'session_id' => Crypt::encryptString($sessionId)]);
+
+        // Nothing updated: the row is gone, held by another session, or already touched this second by a concurrent request (last_seen_at only goes forward).
+        return $updated > 0 || self::held($device, $sessionId)->exists();
+    }
+
+    /** @param  array{id: int, user: int|string, sid: string, at: int}  $device */
+    public static function exists(array $device, string $sessionId): bool
+    {
+        return self::held($device, $sessionId)->exists();
+    }
+
+    /**
+     * Compare-and-swap after a regenerate (a privilege change, an invitation): the row moves to the new session id only while it still holds the old one.
+     * In the same transaction the old id keeps a retired row of its own, its HMAC alone, as a signed-out session's does, and once it commits the old id
+     * is marked revoked. A request still carrying the old id is cut off by the mark rather than moving the row back, and with the mark gone by the
+     * retired row: its touch fails, and its HMAC refuses it a new row. False when the row is gone or moved: the caller signs out.
+     *
+     * @param  array{id: int, user: int|string, sid: string, at: int}  $device
+     */
+    public static function move(array $device, string $to): bool
+    {
+        return DB::transaction(function () use ($device, $to): bool {
+            if (self::held($device, $device['sid'])->update(['session_hash' => self::hash($to), 'session_id' => Crypt::encryptString($to)]) === 0) {
+                return false;
+            }
+            DB::table(self::TABLE)->insertOrIgnore(['session_hash' => self::hash($device['sid']), 'created_at' => now()] + self::retired());
+            DB::afterCommit(fn () => self::mark(self::hash($device['sid'])));
+
+            return true;
+        });
+    }
+
+    /**
+     * Another sign-in over this session (Login), in the new row's transaction: the row the session had is retired while it still holds the old id, as a
+     * sign-out retires it, and once that commits the old id is marked revoked. The guard regenerated the id before Login (destroying the old one in the
+     * store), so this never touches the id the sign-in goes on with. A request still carrying the old id, which writes it back, is cut off by the mark,
+     * and with the mark gone by the retired row: its touch fails, and its HMAC refuses it a new row.
+     *
+     * @param  array{id: int, user: int|string, sid: string, at: int}  $device
+     */
+    private static function replace(array $device): void
+    {
+        self::held($device, $device['sid'])->update(self::retired());
+        DB::afterCommit(fn () => self::mark(self::hash($device['sid'])));
+    }
+
+    /**
+     * A sign-out on this device (Logout): its row retired, keeping its HMAC, then after the commit the session marked revoked. A request that was in flight
+     * and writes the session back is cut off by the mark, and with the mark gone by the retired row: its touch fails, and it is never given a new row.
+     *
+     * @param  array{id: int, user: int|string, sid: string, at: int}  $device
+     */
+    private static function endHere(array $device, string $sessionId, int|string $userId): void
+    {
+        self::held(['user' => $userId] + $device, $sessionId)->update(self::retired());
+        DB::afterCommit(fn () => self::mark(self::hash($sessionId)));
+    }
+
+    /**
+     * Whether this session id was revoked (its device signed out elsewhere, or the id retired by a regenerate): one read of the cache store, for the
+     * marker under the current key's HMAC and each previous key's (a device signed out before an APP_KEY rotation stays out). Null when the store
+     * can't answer (reported, scrubbed): the caller checks the row in the database instead, so the request is never let through unchecked.
+     */
+    public static function revoked(string $sessionId): ?bool
+    {
+        try {
+            return in_array(true, self::store()->many(array_map(self::marker(...), self::hashes($sessionId))), true);
+        } catch (Throwable $e) {
+            report(new RuntimeException('Signed-in devices could not read the cache store ('.$e::class.'), so the request was checked against signed_in_devices instead.'));
+
+            return null;
+        }
+    }
+
+    /**
+     * Signs one of the person's other devices out (DELETE /me/security/devices/{id}). `missing`: no row of theirs by that id (someone else's or one already
+     * gone, alike). `current`: this request's own session, which the Sign out on this device ends instead. `ended`: the row is gone, the session marked
+     * revoked and destroyed; `at_once` is false only when neither the marker nor the handler could reach the store, so the device's next touch ends it.
+     * `$confirm` (the password asked again) runs once the device is found to be another of theirs, before anything changes; it throws to refuse.
+     *
+     * @param  ?Closure(): void  $confirm
+     * @return array{status: 'missing'|'current'|'ended', agent?: string, remembered?: bool, at_once?: bool}
+     */
+    public static function signOut(Authenticatable $user, int $deviceId, Request $request, ?Closure $confirm = null): array
+    {
+        $row = DB::table(self::TABLE)->where('id', $deviceId)->where('user_id', $user->getAuthIdentifier())->first();
+        if ($row === null) {
+            return ['status' => 'missing'];
+        }
+        if (in_array($row->session_hash, self::hashes($request->session()->getId()), true)) {
+            return ['status' => 'current'];
+        }
+        if ($confirm !== null) {
+            $confirm();
+        }
+        $remembered = (bool) $row->remembered;
+        // One transaction: the row and the remember-me token change together, or neither does.
+        $ending = DB::transaction(function () use ($row, $remembered, $user): ?array {
+            // The row first: it is the authority, so even with the store down that session fails its next touch. Gone meanwhile (another tab): already
+            // signed out. The conditional update takes the row's lock, so two sign-outs of one device end it once.
+            if (self::retire($row) === 0) {
+                return null;
+            }
+            // Laravel keeps one remember-me token per person: a remembered device can only be kept from signing back in by cycling it, which ends
+            // remember-me on the person's other devices too (they stay signed in, and sign in again next time).
+            if ($remembered && $user->getRememberTokenName()) {
+                UserSessions::cycleRememberToken($user);
+                if (method_exists($user, 'save')) {
+                    $user->save();
+                }
+            }
+
+            return self::ending($row);
+        });
+        if ($ending === null) {
+            return ['status' => 'missing'];
+        }
+        // Committed: now the session is marked revoked and destroyed.
+        $atOnce = self::end(...$ending);
+        $agent = SecurityLog::describeDevice($row->browser, $row->platform);
+        SecurityLog::record($user->getAuthIdentifier(), 'device_signed_out', $request, ['agent' => $agent, 'ip' => $row->ip_prefix]);
+
+        return ['status' => 'ended', 'agent' => $agent, 'remembered' => $remembered, 'at_once' => $atOnce];
+    }
+
+    /**
+     * Ends every session of the person but $except (none for an account deletion), in one transaction (the caller's, when it has one): the person's row
+     * locked, legacy sessions closed, each row retired. Once it commits, each session is marked revoked and destroyed through the handler, and on the
+     * database driver the person's other rows in the sessions table (sessions from before tracking) are deleted; a rollback ends none. With session-ui on,
+     * a missing signed_in_devices or user_state table throws before anything changes, rolling the caller's changes back too (#967). Returns how many live
+     * sessions end.
+     */
+    public static function endAll(Authenticatable $user, ?string $except = null): int
+    {
+        $userId = $user->getAuthIdentifier();
+
+        return DB::transaction(function () use ($userId, $except): int {
+            $ended = 0;
+            $endings = [];
+            if (Kit::present('session-ui', self::TABLE) && Kit::present('session-ui', 'user_state')) {
+                // Locked first, so a session given a row now (track, adopt) is either retired below or refused by the mark.
+                self::lockUser($userId);
+                // Every other session ends, legacy ones too: those with no row (which this can't reach) are signed out at their next request instead.
+                self::closeLegacy($userId);
+                $keep = $except === null ? [] : self::hashes($except);
+                $live = self::staleBefore();
+                foreach (DB::table(self::TABLE)->where('user_id', $userId)->orderBy('id')->lockForUpdate()->get() as $row) {
+                    if (in_array($row->session_hash, $keep, true) || self::retire($row) === 0) {
+                        continue;
+                    }
+                    $endings[] = self::ending($row);
+                    $ended += (int) Carbon::parse($row->last_seen_at)->greaterThan($live);
+                }
+            }
+            $swept = [];
+            if (config('session.driver') === 'database') {
+                // The rest of the person's database sessions, by id (those with a row are destroyed through the handler): counted now, deleted after the commit.
+                $swept = array_values(array_diff(
+                    DB::connection(config('session.connection'))->table(config('session.table', 'sessions'))->where('user_id', $userId)
+                        ->when($except !== null, fn ($query) => $query->where('id', '!=', $except))->pluck('id')->map(fn ($id): string => (string) $id)->all(),
+                    array_column($endings, 0),
+                ));
+                $ended += count($swept);
+            }
+            DB::afterCommit(function () use ($endings, $swept): void {
+                foreach ($endings as $ending) {
+                    self::end(...$ending);
+                }
+                foreach (array_chunk($swept, 500) as $ids) {
+                    DB::connection(config('session.connection'))->table(config('session.table', 'sessions'))->whereIn('id', $ids)->delete();
+                }
+            });
+
+            return $ended;
+        });
+    }
+
+    /**
+     * The rows of a person last seen within the session lifetime plus N, most recent first (50).
+     *
+     * @return list<object>
+     */
+    public static function live(int|string $userId): array
+    {
+        return DB::table(self::TABLE)->where('user_id', $userId)->where('last_seen_at', '>', self::staleBefore())->orderByDesc('last_seen_at')->orderByDesc('id')->limit(50)->get()->all();
+    }
+
+    /**
+     * A signed-out session's row, retired while it still holds that session: its person, session id, device and network cleared, only its HMAC kept,
+     * last seen now, so it is pruned once that session would have expired anyway. Every read is by person, so it is never listed, touched or moved, and
+     * the unique HMAC refuses that session a new row (track() then finds none of the person's: signed out). Zero when the row is gone or moved meanwhile.
+     */
+    private static function retire(object $row): int
+    {
+        return DB::table(self::TABLE)->where('id', $row->id)->where('user_id', $row->user_id)->where('session_hash', $row->session_hash)->update(self::retired());
+    }
+
+    /** @return array<string, mixed> what a retired row keeps: its HMAC alone, last seen now */
+    private static function retired(): array
+    {
+        return ['user_id' => null, 'session_id' => null, 'browser' => null, 'platform' => null, 'ip_prefix' => null, 'country' => null, 'remembered' => false, 'last_seen_at' => now()];
+    }
+
+    /** @return array<string, mixed> a new row: the session id encrypted and its HMAC, the browser and platform alone, the IP's prefix alone */
+    private static function row(string $sessionId, int|string $userId, ?string $agent, ?string $ip, ?string $country, bool $remembered, CarbonInterface $at): array
+    {
+        [$browser, $platform] = SecurityLog::agentParts($agent);
+
+        return [
+            'user_id' => $userId,
+            'session_hash' => self::hash($sessionId),
+            'session_id' => Crypt::encryptString($sessionId),
+            'browser' => $browser,
+            'platform' => $platform,
+            'ip_prefix' => self::ipPrefix($ip),
+            'country' => $country,
+            'remembered' => $remembered,
+            'created_at' => $at,
+            'last_seen_at' => $at,
+        ];
+    }
+
+    /**
+     * What ending a retired row's session takes, read before the commit: its id, decrypted, and the HMAC to mark (its id's with the current key, which
+     * the middleware reads). An id that won't decrypt is reported, scrubbed, and its stored HMAC is marked instead.
+     *
+     * @return array{?string, string}
+     */
+    private static function ending(object $row): array
+    {
+        try {
+            $id = Crypt::decryptString((string) $row->session_id);
+        } catch (Throwable $e) {
+            report(new RuntimeException('A signed-in device\'s session id could not be decrypted ('.$e::class.'); its row is gone, so it is signed out at its next request.'));
+            $id = null;
+        }
+
+        return [$id, $id === null ? (string) $row->session_hash : self::hash($id)];
+    }
+
+    /**
+     * After the commit: a retired row's session marked revoked, then destroyed through the handler. Both are idempotent, so running it again changes
+     * nothing. True when either reached its store, so it ends on its next request.
+     */
+    private static function end(?string $id, string $hash): bool
+    {
+        $marked = self::mark($hash);
+
+        return ($id !== null && self::destroy($id)) || $marked;
+    }
+
+    /**
+     * Destroys a session through the configured handler. A cookie session can't be reached (CookieSessionHandler would queue a cookie on this response), so it
+     * is skipped: its marker and its next touch end it. A failure (the store down) is reported scrubbed: the class only, never the id.
+     */
+    private static function destroy(string $sessionId): bool
+    {
+        try {
+            $handler = app('session')->driver()->getHandler();
+            if ($handler instanceof CookieSessionHandler) {
+                return false;
+            }
+            $handler->destroy($sessionId);
+
+            return true;
+        } catch (Throwable $e) {
+            report(new RuntimeException('A signed-in device\'s session could not be destroyed ('.$e::class.'); its row is gone, so it is signed out at its next request.'));
+
+            return false;
+        }
+    }
+
+    /** Marks a session HMAC revoked in the cache store for the session lifetime plus N, after which the session has expired anyway. */
+    private static function mark(string $hash): bool
+    {
+        try {
+            return self::store()->put(self::marker($hash), true, now()->addMinutes((int) config('session.lifetime', 120) + self::touchMinutes()));
+        } catch (Throwable $e) {
+            report(new RuntimeException('A signed-in device could not be marked revoked in the cache store ('.$e::class.'); its row is gone, so it is signed out at its next touch.'));
+
+            return false;
+        }
+    }
+
+    /**
+     * From now on none of the person's legacy sessions is given a new row (track, adopt): kept in user_state, not the cache store, so a flush can't undo
+     * it. Also set again on a deleted account's kept row (DeleteAccount::deleteRows), whose user_state went with the rest.
+     */
+    public static function closeLegacy(int|string $userId): void
+    {
+        UserState::set((int) $userId, self::LEGACY_CLOSED);
+    }
+
+    /** Locks the person's user row until the transaction ends (track, adopt and endAll each take it first). False when there is none: the person is gone. */
+    private static function lockUser(int|string $userId): bool
+    {
+        $model = Users::model();
+
+        return $model::query()->whereKey($userId)->toBase()->lockForUpdate()->value((new $model)->getKeyName()) !== null;
+    }
+
+    private static function session(): ?Session
+    {
+        $request = app()->bound('request') ? app('request') : null;
+
+        return $request instanceof Request && $request->hasSession() ? $request->session() : null;
+    }
+
+    /**
+     * The session id's HMACs with APP_PREVIOUS_KEYS alone: none until a key rotation.
+     *
+     * @return list<string>
+     */
+    private static function previous(string $sessionId): array
+    {
+        return array_values(array_diff(self::hashes($sessionId), [self::hash($sessionId)]));
+    }
+
+    private static function marker(string $hash): string
+    {
+        return 'kit.devices.revoked.'.$hash;
+    }
+
+    private static function store(): CacheRepository
+    {
+        return Cache::store(config('kit.devices.store'));
+    }
+
+    /**
+     * The device's row while it still holds this session: its id, its user and the session's HMAC (with any key), never one of them alone.
+     *
+     * @param  array{id: int, user: int|string, sid?: string}  $device
+     */
+    private static function held(array $device, string $sessionId): Builder
+    {
+        return DB::table(self::TABLE)->where('id', $device['id'])->where('user_id', $device['user'])->whereIn('session_hash', self::hashes($sessionId));
+    }
+}

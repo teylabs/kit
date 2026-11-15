@@ -6,7 +6,7 @@ Since 0.19 the kit's domain data is the app's. When you inspect the database, th
 
 | Tier | What | Who owns it | Examples |
 | --- | --- | --- | --- |
-| Infrastructure | Tables the kit reads and writes for itself. They load from the package (0.18). | The kit | `user_state`, `account_deletions`, `plan_entitlements`, `permission_defaults`, `capability_overrides`, `mcp_*`, `kit_meta`, `kit_adoptions`, the operators table |
+| Infrastructure | Tables the kit reads and writes for itself. They load from the package (0.18). | The kit | `user_state`, `signed_in_devices`, `account_deletions`, `plan_entitlements`, `permission_defaults`, `capability_overrides`, `mcp_*`, `kit_meta`, `kit_adoptions`, the operators table |
 | Domain | The app's own records, which the kit's features read and write | The app, once it adopts the feature | the tables below |
 | Pages | The feature's pages and partials, written once by `kit:scaffold <feature>` (0.18) | The app | `resources/js/pages/...` |
 

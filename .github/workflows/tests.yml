@@ -142,6 +142,15 @@ jobs:
           DB_DATABASE: kit_adopt_check
           DB_USERNAME: kit
           DB_PASSWORD: kit
+      # Signed-in devices: a throwaway schema the check creates and drops itself; it prints "Database: pgsql".
+      - run: composer test:signed-in-devices
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_DATABASE: kit_adopt_check
+          DB_USERNAME: kit
+          DB_PASSWORD: kit
 
   components:
     name: Kit components type-check (vue-tsc)
@@ -450,6 +459,9 @@ jobs:
       - name: Passkeys sign-in, list, rename and remove
         timeout-minutes: 4
         run: composer test:passkeys
+      - name: Signed-in devices on every session driver (SQLite files, Fortify, file, database, cache-based and cookie sessions)
+        timeout-minutes: 4
+        run: composer test:signed-in-devices
       - name: Workspace root without a dashboard
         timeout-minutes: 4
         run: composer test:workspace-root
