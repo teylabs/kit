@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## v0.24.0
+
+Features affected: workspace-ui
 
 Features affected: core, session-ui, workspace-ui
 
