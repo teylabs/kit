@@ -4,7 +4,7 @@
 
 Features affected: none.
 
-A patch: a Field reads errors by bracket or dot path and in a Repeater row, `InputCalendarDate` is new, and FormActions gains a compact density. Each is an addition; no default look changes. Also two notes an app's own tests need when it comes from below 0.24, found by an adopting app (see Upgrading); they change no code.
+A patch: a Field reads errors by bracket or dot path and in a Repeater row, `InputCalendarDate` is new, and FormActions gains a compact density. Each is an addition; no default look changes.
 
 ### Added
 
