@@ -58,6 +58,8 @@ const direct = { request: '/uploads', confirm: '/uploads/confirm' };
 const shots = ref(['One', 'Two', 'Three'].map((label, index) => ({ id: `s${index + 1}`, label, thumb: pixel, preview: pixel })));
 const shot = ref(0);
 const arranging = ref(false);
+const single = ref([{ id: 'one', label: 'One', thumb: pixel, preview: pixel }]);
+const headedOpen = ref(false);
 // Lightbox only: no thumbnail row, opened through the exposed show().
 const viewer = ref<InstanceType<typeof MediaGallery>>();
 // A strip the host saves itself (sortable, no reorder url), numbered from 3, with an upload in progress.
@@ -220,6 +222,33 @@ async function persist(order: string[], version: string | number | null) {
                         :subject="{ title: `Listing-${item.label}-screenshot-2026-11-16.png`, caption: `Listing · ${index + 1} of ${shots.length}`, kind: 'file' }"
                         @act="events.push(`shot-remove ${item.id}`)"
                 /></template>
+            </ItemStack>
+        </div>
+        <div data-fixture="single-stack" class="bg-background text-foreground" style="width: 260px">
+            <ItemStack :items="single" label="Single" :noun="['shot', 'shots']" :actions="{ add: true }" :arrange="false" @add="events.push('single-add')">
+                <template #footer-label="{ index, count }">{{ index + 1 }} of {{ count }}</template>
+                <template #menu="{ index }"><RowActions :actions="shotMenu" :label="`Actions for single shot ${index + 1}`" variant="menu" :intercept="['remove']" /></template>
+            </ItemStack>
+        </div>
+        <div data-fixture="headed-stack" class="max-w-xs">
+            <ItemStack
+                v-model:fanout-open="headedOpen"
+                :items="shots"
+                label="Headed"
+                :noun="['shot', 'shots']"
+                title="Listing shots"
+                description="Comparable 2 · 1996 Sample Tractor"
+                :accept="['image/jpeg']"
+                :actions="{ add: true }"
+                @add="events.push('headed-add')"
+                @files="(files) => events.push(`headed-files ${files.map((f) => f.name).join(',')}`)"
+            >
+                <template #after><p data-fixture-after>Drop more from the comparable's folder.</p></template>
+            </ItemStack>
+        </div>
+        <div data-fixture="slotted-stack" class="max-w-xs">
+            <ItemStack :items="shots" label="Slotted" :noun="['shot', 'shots']" :actions="{ add: true }" @add="events.push('slotted-add')">
+                <template #fanout-header="{ count }"><span data-fixture-header>Listing shots · {{ count }} on file</span></template>
             </ItemStack>
         </div>
     </main>

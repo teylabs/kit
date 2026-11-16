@@ -1,12 +1,21 @@
 <script setup lang="ts">
-import { ChevronDown, ChevronUp, Layers, Plus, Trash2 } from '@lucide/vue';
+import {
+    Camera,
+    ChevronDown,
+    ChevronUp,
+    Layers,
+    Plus,
+    Trash2,
+} from '@lucide/vue';
 import { computed, useSlots, watch } from 'vue';
 import SortableList from '@/components/Kit/Data/SortableList.vue';
 import type {
     ReorderAction,
     ReorderPersist,
 } from '@/components/Kit/Data/sortable';
+import Button from '@/components/Kit/Form/Button.vue';
 import Modal from '@/components/Kit/Overlay/Modal.vue';
+import BulkDrop from '@/components/Kit/Form/BulkDrop.vue';
 
 export type StackItem = {
     id: string;
@@ -22,6 +31,8 @@ export type StackItem = {
  * and Previous/Next steps, and a footer with the count, Add and Arrange. Arrange opens the fanout: the whole stack in a column (or a grid) on SortableList,
  * with a grip, keys and Move buttons per item, each opened or removed from its row. The order is the server's: with `actions.reorder` a move sends
  * `{ order, version }` and a 409 rolls back and emits `conflict`. Add, open and remove are emitted for the host to run. `index` and `fanoutOpen` are models.
+ * The fanout's header is `title` and `description` (or the #fanout-header slot); with `actions.add` it ends in one dashed add cell (a BulkDrop row when `accept`
+ * is given: drop or browse emits `files`; else a click emits `add`), then the #after slot. The footer's controls are the kit's ghost Button, one 32px row.
  */
 const props = withDefaults(
     defineProps<{
@@ -43,6 +54,13 @@ const props = withDefaults(
         fill?: boolean;
         /** false hides the footer's Arrange… (a host that opens its own arrange view from Add or the picture); the fanout still opens through `fanoutOpen`. */
         arrange?: boolean;
+        /** The fanout's title, in place of "Arrange <label>" (e.g. "Listing shots"). */
+        title?: string | null;
+        /** The fanout's description, in place of the count (e.g. "Comparable 2 · 1996 FREIGHTLINER FLD120"). */
+        description?: string | null;
+        /** The files the fanout's add cell takes: with it the cell is a drop zone (drag in or browse) that emits `files`; without it a click emits `add`. */
+        accept?: string[] | null;
+        maxBytes?: number;
     }>(),
     {
         actions: () => ({}),
@@ -53,12 +71,17 @@ const props = withDefaults(
         version: null,
         persist: null,
         arrange: true,
+        title: null,
+        description: null,
+        accept: null,
+        maxBytes: 10485760,
     },
 );
 const index = defineModel<number>('index', { default: 0 });
 const fanoutOpen = defineModel<boolean>('fanoutOpen', { default: false });
 const emit = defineEmits<{
     add: [];
+    files: [files: File[]];
     open: [id: string, event: Event];
     remove: [id: string];
     saved: [version: string | number | null, body?: unknown];
@@ -71,6 +94,10 @@ defineSlots<{
     thumb?(props: { item: StackItem; index: number }): unknown;
     /** The footer's label, in place of "<items> · <count>": e.g. "Listing · 1 of 3". The kit still announces the position. */
     'footer-label'?(props: { index: number; count: number }): unknown;
+    /** The fanout's header text in place of `title` and `description` (the dialog keeps `title` as its name). */
+    'fanout-header'?(props: { count: number }): unknown;
+    /** After the fanout's add cell, inside the dialog body. */
+    after?(props: { count: number }): unknown;
 }>();
 const count = computed(() => props.items.length);
 // A host footer label (e.g. "Listing · 1 of 3") carries the position, so the arrows join the footer and the separate "k / N" row goes; the live announcement stays.
@@ -192,40 +219,46 @@ const itemLabel = (item: StackItem, at: number) =>
             </span>
         </div>
         <footer
-            class="text-muted-foreground @container flex items-center gap-0.5 px-2 text-sm"
+            class="text-muted-foreground @container flex min-h-8 items-center gap-0.5 px-2 text-sm"
             data-item-stack-footer
         >
             <span
-                class="min-w-[min(6rem,100%)] flex-1 truncate"
+                class="min-w-[min(6rem,100%)] flex-1 truncate leading-8"
                 data-item-stack-footer-label
                 ><slot name="footer-label" :index="index" :count="count"
                     >{{ noun[1] }} · {{ count }}</slot
                 ></span
             >
             <span v-if="count > 1 && hostLabel" class="flex shrink-0">
-                <button
+                <Button
+                    variant="ghost"
+                    size="icon"
                     type="button"
-                    class="hover:bg-accent text-foreground inline-flex size-6 items-center justify-center rounded-md"
+                    class="text-foreground h-8 w-6"
                     :aria-label="`Previous ${noun[0]}`"
                     data-item-stack-previous
                     @click="step(-1)"
                 >
                     <ChevronUp class="size-4" aria-hidden="true" />
-                </button>
-                <button
+                </Button>
+                <Button
+                    variant="ghost"
+                    size="icon"
                     type="button"
-                    class="hover:bg-accent text-foreground inline-flex size-6 items-center justify-center rounded-md"
+                    class="text-foreground h-8 w-6"
                     :aria-label="`Next ${noun[0]}`"
                     data-item-stack-next
                     @click="step(1)"
                 >
                     <ChevronDown class="size-4" aria-hidden="true" />
-                </button>
+                </Button>
             </span>
-            <button
+            <Button
                 v-if="actions.add"
+                variant="ghost"
+                size="sm"
                 type="button"
-                class="hover:bg-accent text-foreground inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-1"
+                class="text-foreground h-8 min-w-7 gap-1 px-1.5 has-[>svg]:px-1.5"
                 :disabled="busy"
                 data-item-stack-add
                 @click="emit('add')"
@@ -234,11 +267,13 @@ const itemLabel = (item: StackItem, at: number) =>
                     class="sr-only @2xs:not-sr-only"
                     >Add</span
                 >
-            </button>
-            <button
+            </Button>
+            <Button
                 v-if="count > 1 && arrange"
+                variant="ghost"
+                size="sm"
                 type="button"
-                class="hover:bg-accent text-foreground inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-1"
+                class="text-foreground h-8 min-w-8 gap-1 px-2 has-[>svg]:px-2"
                 data-item-stack-arrange
                 @click="fanoutOpen = true"
             >
@@ -246,17 +281,28 @@ const itemLabel = (item: StackItem, at: number) =>
                     class="sr-only @2xs:not-sr-only"
                     >Arrange…</span
                 >
-            </button>
-            <span v-if="current" class="flex shrink-0"
+            </Button>
+            <span v-if="current" class="flex shrink-0 items-center"
                 ><slot name="menu" :item="current" :index="index"
             /></span>
         </footer>
         <Modal
             v-model:open="fanoutOpen"
-            :title="`Arrange ${label}`"
-            :description="`${count} ${nounFor(count)}`"
+            :title="title ?? `Arrange ${label}`"
+            :description="
+                slots['fanout-header']
+                    ? undefined
+                    : (description ?? `${count} ${nounFor(count)}`)
+            "
             size="lg"
         >
+            <div
+                v-if="slots['fanout-header']"
+                class="text-muted-foreground -mt-2 mb-3 text-sm"
+                data-item-stack-fanout-header
+            >
+                <slot name="fanout-header" :count="count" />
+            </div>
             <div data-item-stack-fanout :data-orientation="orientation">
                 <SortableList
                     :items="items"
@@ -317,17 +363,69 @@ const itemLabel = (item: StackItem, at: number) =>
                             </button>
                         </div>
                     </template>
+                    <template v-if="actions.add || slots.after" #after>
+                        <div class="grid gap-1">
+                            <div v-if="actions.add" data-item-stack-add-cell>
+                                <BulkDrop
+                                    v-if="accept"
+                                    name="item-stack"
+                                    :label="`Add ${noun[1]}`"
+                                    :accept="accept"
+                                    :max-bytes="maxBytes"
+                                    :has-files="false"
+                                    multiple
+                                    :disabled="busy"
+                                    compact
+                                    handle-drops
+                                    @files="emit('files', $event)"
+                                >
+                                    <template #default="{ browse }">
+                                        <button
+                                            type="button"
+                                            class="border-border bg-muted/20 text-muted-foreground hover:bg-muted/40 focus-visible:outline-ring flex h-12 w-full items-center gap-2 rounded-md border-2 border-dashed pl-[2.375rem] text-left text-sm focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed"
+                                            :disabled="busy"
+                                            data-item-stack-add-row
+                                            @click="browse"
+                                        >
+                                            <span
+                                                class="flex size-12 shrink-0 items-center justify-center"
+                                                data-item-stack-add-icon
+                                                ><Camera
+                                                    class="size-5"
+                                                    aria-hidden="true"
+                                            /></span>
+                                            <span
+                                                class="text-foreground font-medium"
+                                                >Add {{ noun[1] }}</span
+                                            >
+                                        </button>
+                                    </template>
+                                </BulkDrop>
+                                <button
+                                    v-else
+                                    type="button"
+                                    class="border-border bg-muted/20 text-muted-foreground hover:bg-muted/40 focus-visible:outline-ring flex h-12 w-full items-center gap-2 rounded-md border-2 border-dashed pl-[2.375rem] text-left text-sm focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed"
+                                    :disabled="busy"
+                                    data-item-stack-add
+                                    data-item-stack-add-row
+                                    @click="emit('add')"
+                                >
+                                    <span
+                                        class="flex size-12 shrink-0 items-center justify-center"
+                                        data-item-stack-add-icon
+                                        ><Plus
+                                            class="size-5"
+                                            aria-hidden="true"
+                                    /></span>
+                                    <span class="text-foreground font-medium"
+                                        >Add {{ noun[0] }}</span
+                                    >
+                                </button>
+                            </div>
+                            <slot name="after" :count="count" />
+                        </div>
+                    </template>
                 </SortableList>
-                <button
-                    v-if="actions.add"
-                    type="button"
-                    class="hover:bg-accent mt-3 inline-flex items-center gap-1 rounded-md px-2 py-1 text-sm"
-                    data-item-stack-add
-                    @click="emit('add')"
-                >
-                    <Plus class="size-4" aria-hidden="true" />Add
-                    {{ noun[0] }}
-                </button>
             </div>
         </Modal>
     </section>
