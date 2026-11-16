@@ -91,7 +91,7 @@ defineExpose({
     </p>
     <div v-else-if="dropzone" class="grid gap-1" data-file-input-dropzone>
         <BulkDrop
-            :id="id"
+            :input-id="id"
             :key="zoneKey"
             :name="String(attrs.name ?? id)"
             :label="label ?? 'this field'"

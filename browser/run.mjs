@@ -9310,17 +9310,18 @@ test('Welcome, photo: Upload and continue stays disabled until a photo is chosen
     });
 });
 
-test('Welcome, photo: a file that is not a photo is refused inline on the photo field, the step stays, and Skip for now then moves on without a photo', async () => {
+test('Welcome, photo: a file that is not a photo is refused in the browser on the photo field before any upload, the step stays, and Skip for now then moves on without a photo', async () => {
     const welcome = welcomeFlow();
     await accountPage({ ...welcome, start: 'WelcomePhoto' }, async ({ tab, posts }) => {
         await tab.setInputFiles('#avatar', { name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('not a photo') });
-        await tab.getByRole('button', { name: 'Upload and continue', exact: true }).click();
-        await tab.waitForSelector('#avatar-error');
-        assert.equal(await tab.textContent('#avatar-error'), 'The photo must be a JPEG, PNG or WebP image.');
+        const refusal = tab.locator('[data-file-input-dropzone] [role="alert"]');
+        await refusal.waitFor();
+        assert.match(await refusal.textContent(), /notes\.txt/, 'the dropzone names the refused file');
+        assert.equal(await tab.getByRole('button', { name: 'Upload and continue', exact: true }).isDisabled(), true, 'nothing chosen, nothing to send');
         assert.equal(await tab.locator('[data-welcome-step="photo"]').count(), 1, 'still on the step');
         assert.equal(welcome.store.avatar, null);
         await Promise.all([tab.waitForURL(/\/landed$/), tab.getByRole('button', { name: 'Skip for now', exact: true }).click()]);
-        assert.deepEqual(posts.map(({ method, url }) => [method, url]), [['POST', '/welcome/photo'], ['POST', '/welcome/photo/skip']]);
+        assert.deepEqual(posts.map(({ method, url }) => [method, url]), [['POST', '/welcome/photo/skip']], 'the refused file was never posted');
         assert.deepEqual(welcome.store.skipped, ['photo']);
     });
 });

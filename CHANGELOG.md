@@ -4,12 +4,17 @@
 
 ### Changed
 
+- **Profile and Welcome photo pages** (session-ui, workspace-ui) use FileInput's dropzone: a photo can be dropped, pasted or browsed, and one over the server's `max_kb` is refused in the browser before upload. Generated pages are the app's, so take it with `php artisan kit:scaffold session-ui --diff --only=resources/js/pages/Welcome/Photo` and `php artisan kit:scaffold workspace-ui --diff --only=resources/js/pages/Workspace/Account/Profile`.
 - **Row menu icons:** each RowActions menu item shows its icon: the action's `icon`, else the common intent's (Edit, Delete, Merge, Download…), as other kit menus do. README, "Row menu icons".
 
 ### Added
 
 - **Menu sections** (opt-in): an action's `section` puts it in a labelled section of its menu (role group, named by its label, skipped by the arrows), separated from the next. ActionBar, ButtonGroup and row menus. README, "Menu sections".
 - **Menu subject actions** (opt-in): `subject.actions`, up to three icon menu items on the caption line, first in the arrow-key order. README, "Menu subject actions".
+
+### Fixed
+
+- **FileInput `dropzone`** puts the field's id on its file input (BulkDrop's new `inputId`), so the field's label names it and a click on the label opens the picker. It was on the zone's wrapper.
 
 ## v0.27.3
 
