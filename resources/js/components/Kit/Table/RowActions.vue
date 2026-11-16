@@ -7,12 +7,14 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { actionIcons } from '@/components/Kit/Action/actionIcons';
 import DropdownMenuContent from '@/components/Kit/Menu/MenuContent.vue';
 import ButtonGroup from '@/components/Kit/Action/ButtonGroup.vue';
 import Button from '@/components/Kit/Form/Button.vue';
 import Dialog from '@/components/Kit/Overlay/Dialog.vue';
 import { Link } from '@inertiajs/vue3';
 import {
+    actionIconName,
     opensNewTab,
     rendersAsLink,
 } from '@/components/Kit/Action/actionPlacement';
@@ -34,7 +36,7 @@ import {
 // always asks first with the action's own `confirm` text (and its `typed` text to type, sent as `confirmation`). `intercept` names actions the page performs itself (a dialog) instead of an Inertia visit.
 // The menu trigger is named by `label` ("Actions for Ana Lopez"). Each action's accessible name is its `ariaLabel`, else "<Label> <record>" (`record`, else
 // `label` without "Actions for "); a confirmation without a title asks a short "<Label> this <noun>?" (`noun`, DataTable passes TableQuery::noun()) or "<Label> this item?" and names the record in the body, where it wraps (never in the bold title).
-// In a menu, an action's `description` shows under its label (muted, wrapping; hidden from the name, read as the description) and describes the item (aria-describedby): several "Remove" rows name their grant. A visible label over 24
+// In a menu, each row shows its icon (`icon`, else the common intent's: Edit a pencil, Delete a trash can) and an action's `description` shows under its label (muted, wrapping; hidden from the name, read as the description) and describes the item (aria-describedby): several "Remove" rows name their grant. A visible label over 24
 // characters or 3 words is clamped with an ellipsis, its full text in `title` (and a development warning: labels are verbs, the record goes in the confirm).
 // A destructive action is never a danger button, a lone one included: red is only the menu item's text and the confirmation Dialog's commit, and follows
 // `destructive` alone; a `confirm` without it, such as a role change, asks in a neutral Dialog.
@@ -50,6 +52,7 @@ type RowAction = {
     reason?: string | null;
     ariaLabel?: string | null;
     description?: string | null;
+    icon?: string | null;
     newTab?: boolean | null;
     intent?: string | null;
     confirm: {
@@ -71,6 +74,9 @@ const props = defineProps<{
 }>();
 const emit = defineEmits<{ act: [action: RowAction] }>();
 const laid = computed(() => layOut(props.actions, props.variant));
+// A menu row's icon: the action's own `icon`, else the common intent's (actionIconName in a menu: edit, delete, merge, download…), else none.
+const iconOf = (action: RowAction) =>
+    actionIcons[actionIconName(action, true) ?? ''];
 const inline = computed(() => laid.value.inline);
 const menu = computed(() => laid.value.menu);
 const lone = computed(() => laid.value.lone);
@@ -328,7 +334,13 @@ function confirmed(confirmation?: string) {
                             :href="action.url"
                             target="_blank"
                             rel="noopener noreferrer"
-                            ><span class="flex min-w-0 flex-col"
+                            ><component
+                                :is="iconOf(action)"
+                                v-if="iconOf(action)"
+                                class="size-4 shrink-0"
+                                aria-hidden="true"
+                                data-action-icon
+                            /><span class="flex min-w-0 flex-col"
                                 ><span>{{ shownLabel(action) }}</span
                                 ><span
                                     v-if="action.description"
@@ -341,7 +353,13 @@ function confirmed(confirmation?: string) {
                             ></a
                         >
                         <Link v-else :href="action.url"
-                            ><span class="flex min-w-0 flex-col"
+                            ><component
+                                :is="iconOf(action)"
+                                v-if="iconOf(action)"
+                                class="size-4 shrink-0"
+                                aria-hidden="true"
+                                data-action-icon
+                            /><span class="flex min-w-0 flex-col"
                                 ><span>{{ shownLabel(action) }}</span
                                 ><span
                                     v-if="action.description"
@@ -365,7 +383,13 @@ function confirmed(confirmation?: string) {
                         v-aria-disabled="disabledNow(action)"
                         :data-action="action.key"
                         @select="choose(action, $event)"
-                        ><span class="flex min-w-0 flex-col"
+                        ><component
+                            :is="iconOf(action)"
+                            v-if="iconOf(action)"
+                            class="size-4 shrink-0"
+                            aria-hidden="true"
+                            data-action-icon
+                        /><span class="flex min-w-0 flex-col"
                             ><span>{{ shownLabel(action) }}</span
                             ><span
                                 v-if="action.description"
@@ -414,7 +438,13 @@ function confirmed(confirmation?: string) {
                             :href="action.url"
                             target="_blank"
                             rel="noopener noreferrer"
-                            ><span class="flex min-w-0 flex-col"
+                            ><component
+                                :is="iconOf(action)"
+                                v-if="iconOf(action)"
+                                class="size-4 shrink-0"
+                                aria-hidden="true"
+                                data-action-icon
+                            /><span class="flex min-w-0 flex-col"
                                 ><span>{{ shownLabel(action) }}</span
                                 ><span
                                     v-if="action.description"
@@ -427,7 +457,13 @@ function confirmed(confirmation?: string) {
                             ></a
                         >
                         <Link v-else :href="action.url"
-                            ><span class="flex min-w-0 flex-col"
+                            ><component
+                                :is="iconOf(action)"
+                                v-if="iconOf(action)"
+                                class="size-4 shrink-0"
+                                aria-hidden="true"
+                                data-action-icon
+                            /><span class="flex min-w-0 flex-col"
                                 ><span>{{ shownLabel(action) }}</span
                                 ><span
                                     v-if="action.description"
@@ -451,7 +487,13 @@ function confirmed(confirmation?: string) {
                         v-aria-disabled="disabledNow(action)"
                         :data-action="action.key"
                         @select="choose(action, $event)"
-                        ><span class="flex min-w-0 flex-col"
+                        ><component
+                            :is="iconOf(action)"
+                            v-if="iconOf(action)"
+                            class="size-4 shrink-0"
+                            aria-hidden="true"
+                            data-action-icon
+                        /><span class="flex min-w-0 flex-col"
                             ><span>{{ shownLabel(action) }}</span
                             ><span
                                 v-if="action.description"

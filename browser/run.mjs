@@ -5196,6 +5196,17 @@ test('Row variants: the split and overflow row menus open the same small gap bel
         assert.equal(split, overflow, `split ${split}px, overflow ${overflow}px`);
     }));
 
+test('Row variants: each row-menu item shows its icon (its own, else the common intent\'s), hidden from its name', () =>
+    rowVariants(async (tab) => {
+        await tab.click(`[data-default-split] button[aria-label="Actions for ${longRecord}"]`);
+        await tab.waitForSelector('[role="menu"]');
+        const rows = await tab.$$eval('[role="menu"] [data-action]', els => els.map(el => ({ key: el.getAttribute('data-action'), icon: Boolean(el.querySelector('svg[data-action-icon][aria-hidden="true"]')), name: el.textContent.trim() })));
+        const del = rows.find(r => r.key === 'delete');
+        assert.ok(del?.icon, `Delete carries the trash icon: ${JSON.stringify(rows)}`);
+        assert.ok(rows.every(r => !/svg/.test(r.name)));
+        await tab.keyboard.press('Escape');
+    }));
+
 test('Row variants: the split primary keeps the in-flight guard and aria-busy, a disabled menu item shows its reason, and red is only destructive menu text', () =>
     rowVariants(async (tab) => {
         const open = tab.locator('[data-default-split] [data-action="open"]');
