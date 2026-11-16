@@ -1,11 +1,15 @@
 # Changelog
 
-## Unreleased
+## v0.31.1
 
-- MediaCollection tiles: the footer shows the host's `item.label` (or the `#tile-label="{ item, index }"` slot) in place of the file name; the default stays the name. The ⋯ menu opens with the file name as its subject header (cut in the middle, the extension kept) and `item.caption` under it.
-- docs/media.md shows ItemStack's `#menu` with the same file-name subject header as a MediaCollection tile.
+Features affected: none (kit components only).
 
-Features affected: shell, workspace-ui (re-pinned: their avatar stubs pass the person's colour). Run `php artisan kit:update shell workspace-ui` to take them.
+### Added
+
+- **PageTabs `#actions`**: right-aligned at the end of the tab row (beside the select on phones). A `<Page>` with no visible heading (`:heading="false"`, or no title) that draws its tabs (`layout.navigation`) puts its header actions, status and `#actions` there instead of on a header row of their own; with a heading, nothing changes.
+
+## v0.31.0
+
 Features affected: **shell** and **workspace-ui** (their avatar pages pass the person's colour). After `composer update tey/kit`, take each page you never edited:
 
 - `php artisan kit:scaffold shell --diff --only=resources/js/pages/Workspace/Partials` (UserAvatar, UserMenu, ShellDrawer, focusShell)
@@ -16,12 +20,12 @@ then `--force=<path>` for each. An edited page keeps its neutral avatar until yo
 
 ### Added
 
-- **PageTabs `#actions`**: right-aligned at the end of the tab row (beside the select on phones). A `<Page>` with no visible heading (`:heading="false"`, or no title) that draws its tabs (`layout.navigation`) puts its header actions, status and `#actions` there instead of on a header row of their own; with a heading, nothing changes.
+- MediaCollection tiles: the footer shows the host's `item.label` (or the `#tile-label="{ item, index }"` slot) in place of the file name; the default stays the name. The ⋯ menu opens with the file name as its subject header (cut in the middle, the extension kept) and `item.caption` under it.
+- docs/media.md shows ItemStack's `#menu` with the same file-name subject header as a MediaCollection tile.
 - **EmailMessage forwards**: forwarded-message blocks (Gmail, Apple Mail, Outlook; nested ones in order) fold into collapsed "Forwarded from <sender>, <date>" disclosures holding their header lines, while every message's text stays visible. On by default; a body with no forward is unchanged; `:forwarded="false"` opts out. `splitForwards()` in `Kit/Text/emailForwards.ts` (docs/text.md).
 - **One avatar colour per person** (docs/avatars.md): `AvatarColor::of($user)` derives a stable colour from the user's key (or uses a stored `avatar_color`), from a palette that carries white initials in both themes. Avatar takes `color` (or `identity`, derived in the browser by the matching `avatarColor()`) and draws it instead of the neutral disc. The shell user, People members, the You widget and comment authors carry `avatar_color`, so the header, notes, comments and an activity feed (pass it on the feed's actor as `media.color` or `avatar_color`) show one colour for one person.
 - **InlineDropdown**: a link-styled trigger (optional icon, the current choice in medium weight, a chevron) that opens a menu of `menuitemradio` choices, the current one checked, under an optional subject header and in labelled sections. Items with `href` are links; any other choice emits `select` and `update:modelValue` (docs/inline-dropdown.md). Built generic: sort orders first, breadcrumb sibling menus later.
 - **touched_at pattern** (docs/touched-at.md): the `Touches` concern (`protected array $touchesParents = ['assignment'];`), separate from Eloquent's `$touches`: a child's create, update or delete touches its parents' `touched_at`, and theirs, by a quiet update (no events, `updated_at` unchanged), only on tables with a `touched_at` column, once per request or job, cycle-safe. `Touch::without(fn)`, `kit.touch.console`, `$model->touchTree()`, an `alsoTouch()` hook, the `$table->touchedAt()` migration macro, and `TouchesAssertions` (`assertTouchesParent`, `assertCovered`/`uncovered`). UI convention: "Touched 3 days ago".
-
 - **PhotoField** fills four gaps (docs/media.md). (1) `actions.replace` takes a plain `{ url, method }`, which the kit posts as multipart with `version`, or `true`, where the host posts the emitted `files`. Without direct routes, the modal keeps its drop zone and an empty slot keeps its camera tile. (2) `size`: `sm`, `md`, `lg`, or `fill` for its container's width and height. (3) `title` for the modal. (4) `actions.remove.confirm` words the Remove confirmation. Fixed: the Remove confirmation now renders inside the Change modal's `<dialog>`. Before, it rendered under the modal, and the drop zone painted over it.
 
 ### Changed
