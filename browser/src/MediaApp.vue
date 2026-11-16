@@ -108,6 +108,17 @@ async function persist(order: string[], version: string | number | null) {
                 :direct="direct"
             />
         </div>
+        <div data-fixture="host-upload">
+            <MediaCollection
+                :collection="{ collection: 'host', version: '1', items: [] }"
+                label="Host photos"
+                :accept="['image/jpeg']"
+                :max-bytes="10485760"
+                empty="photo-tile"
+                host-upload
+                @files="(files) => events.push(`host-files:${files.map((file) => file.name).join(',')}`)"
+            />
+        </div>
         <div class="max-w-xs">
             <ItemStack
                 v-model:index="shot"

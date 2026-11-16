@@ -11911,3 +11911,16 @@ test('Widget and SegmentLinks: a widget is a section named by its heading on its
         });
     }
 });
+
+test('MediaCollection host-upload: the add tile shows without direct routes and only emits files; the kit sends nothing', () =>
+    mediaTab(async (tab) => {
+        const requests = [];
+        tab.on('request', request => request.url().includes('/uploads') && requests.push(request.url()));
+        const input = tab.locator('[data-fixture="host-upload"] input[type="file"]');
+        assert.equal(await input.count(), 1, 'the add tile renders');
+        await input.setInputFiles({ name: 'front.jpg', mimeType: 'image/jpeg', buffer: Buffer.from([0xff, 0xd8, 0xff]) });
+        await tab.waitForFunction(() => window.kitEvents.some(event => event.startsWith('host-files:')));
+        assert.ok((await tab.evaluate(() => window.kitEvents)).includes('host-files:front.jpg'));
+        await tab.waitForTimeout(200);
+        assert.deepEqual(requests, [], 'no kit upload');
+    }));

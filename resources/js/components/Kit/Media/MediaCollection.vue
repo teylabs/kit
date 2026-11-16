@@ -61,6 +61,8 @@ const props = withDefaults(
         maxBytes: number;
         single?: boolean;
         direct?: DirectRoutes | null;
+        /** The host uploads: the add tile or drop shows without `direct` and only emits `files` (the kit uploads nothing). */
+        hostUpload?: boolean;
         reorder?: ReorderAction | null;
         moveTargets?: { collection: string; label: string }[];
         disabled?: boolean;
@@ -156,7 +158,7 @@ const targets = computed(() =>
 const canAdd = computed(
     () =>
         !props.disabled &&
-        !!props.direct &&
+        (!!props.direct || props.hostUpload) &&
         (!props.single || items.value.length === 0),
 );
 const itemLabel = (item: MediaItem, index: number) =>
@@ -383,7 +385,7 @@ const itemLabel = (item: MediaItem, index: number) =>
             </div>
         </div>
         <PhotoTile
-            v-if="canAdd && direct && photoTile"
+            v-if="canAdd && photoTile"
             :class="tiles ? 'max-w-48' : 'max-w-64'"
             :name="collection.collection"
             :label="items.length ? addLabel : label"
@@ -394,20 +396,21 @@ const itemLabel = (item: MediaItem, index: number) =>
             :max-files="maxFiles"
             :busy="busy"
             :disabled="!!busy"
-            :direct="direct"
+            :direct="direct ?? undefined"
             @files="emit('files', $event)"
             @uploaded="emit('uploaded', $event)"
         />
         <BulkDrop
-            v-else-if="canAdd && direct"
+            v-else-if="canAdd"
             :name="collection.collection"
             :label="label"
             :accept="accept"
             :max-bytes="maxBytes"
             :has-files="items.length > 0"
             :multiple="!single"
-            :direct="direct"
+            :direct="direct ?? undefined"
             compact
+            @files="hostUpload && emit('files', $event)"
             @uploaded="emit('uploaded', $event)"
         />
     </section>
