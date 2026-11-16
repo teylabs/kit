@@ -1,6 +1,10 @@
 # Changelog
 
-## Unreleased
+## v0.27.1
+
+Features affected: none. No lineage needs kit:update; `composer update tey/kit` is enough.
+
+Upgrading: if you encrypted a value by hand before passing it to `updateIfCurrent()`, pass the plain value now, or it is encrypted twice.
 
 ### Fixed
 
