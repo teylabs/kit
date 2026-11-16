@@ -590,3 +590,6 @@ export {
     type CommentGroup,
     type CommentTone,
 } from './Comment/comments';
+// A link-styled trigger opening a menu of choices, one current (docs/inline-dropdown.md): sort orders, and later a breadcrumb's siblings.
+export { default as InlineDropdown } from './Menu/InlineDropdown.vue';
+export type { InlineDropdownItem } from './Menu/inlineDropdown';

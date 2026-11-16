@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Link, router, usePage } from '@inertiajs/vue3';
+import { ArrowDownUp } from '@lucide/vue';
 import {
     computed,
     getCurrentInstance,
@@ -17,7 +18,7 @@ import {
 import SeeAllLink from '@/components/Kit/Action/SeeAllLink.vue';
 import { seeAllPlacement } from '@/components/Kit/Action/seeAll';
 import Button from '@/components/Kit/Form/Button.vue';
-import InputSelect from '@/components/Kit/Form/InputSelect.vue';
+import InlineDropdown from '@/components/Kit/Menu/InlineDropdown.vue';
 import { cn } from '@/components/Kit/utils';
 import {
     collectionFrameKey,
@@ -30,7 +31,7 @@ import {
  * (CollectionSectionData, or a dashboard widget's frame) decides everything around them:
  * - the title, a heading at `level` (3 by default) that links to `seeAll`'s URL unless it says `linkTitle: false` (heading-coloured, underlined on hover);
  *   `description` under it;
- * - on the header's right, the Sort by menu (`sortBy`, while ready), the `#actions` slot, the descriptor `actions` (a GET action with the see-all's URL is
+ * - on the header's right, the Sort by menu (`sortBy`, while ready: an InlineDropdown, sort icon and current order, its menu headed by the label and the title), the `#actions` slot, the descriptor `actions` (a GET action with the see-all's URL is
  *   left out, so the link is drawn once; one with a confirmation, intent or new tab stays) and a header see-all, shrinking and wrapping inside the header's width
  *   (a long item in `#actions` wraps, or truncates with its own `truncate`). Plain GET navigation is a compact link; every other
  *   action (a confirmation, `disabled`, a `dialog`, `panel` or `document` intent, `newTab`, another method) goes to one ActionBar after the links, which keeps
@@ -137,11 +138,12 @@ const retry = () => router.reload();
 const sort = computed(() =>
     state.value === 'ready' ? (props.section.sortBy ?? null) : null,
 );
-const sortOptions = computed(() =>
-    (sort.value?.options ?? []).map((option) => ({
-        value: option.key,
-        label: option.label,
-    })),
+const sortItems = computed(() => sort.value?.options ?? []);
+// The menu's subject header: the control's label over the section it sorts ("Sort by", "Ongoing cases").
+const sortSubject = computed(() =>
+    sort.value
+        ? { title: sort.value.label, caption: props.section.title }
+        : null,
 );
 const current = ref(props.section.sortBy?.current ?? null);
 const shown = ref(current.value);
@@ -243,25 +245,20 @@ function choose(value: unknown): void {
             >
                 <div
                     v-if="sort"
-                    class="flex items-center gap-2"
+                    class="flex min-w-0 shrink-0 items-center"
                     data-collection-sort
                 >
-                    <label
-                        :for="sortId"
-                        class="text-muted-foreground text-xs font-medium whitespace-nowrap"
-                        >{{ sort.label }}</label
-                    >
-                    <div class="w-40">
-                        <InputSelect
-                            :id="sortId"
-                            :model-value="current"
-                            :options="sortOptions"
-                            :searchable="false"
-                            :clearable="false"
-                            :disabled="saving"
-                            @update:model-value="choose"
-                        />
-                    </div>
+                    <InlineDropdown
+                        :id="sortId"
+                        :model-value="current"
+                        :items="sortItems"
+                        :label="sort.label"
+                        :subject="sortSubject"
+                        :icon="ArrowDownUp"
+                        align="end"
+                        :disabled="saving"
+                        @select="choose"
+                    />
                 </div>
                 <slot name="actions" />
                 <Link

@@ -6252,12 +6252,12 @@ const sortServer = async (tab, server) => {
 };
 const newSortServer = () => ({ saved: {}, hidden: [], sent: [], answered: [] });
 const chooseOrder = async (tab, key, label) => {
-    await tab.locator(`[data-widget="${key}"]`).getByRole('combobox', { name: 'Sort by' }).click();
-    await tab.getByRole('option', { name: label }).click();
+    await tab.locator(`[data-widget="${key}"]`).getByRole('button', { name: /^Sort by/ }).click();
+    await tab.getByRole('menuitemradio', { name: label }).click();
 };
 const showsOrder = (tab, key, label) => tab.waitForFunction(([k, l]) => {
-    const input = document.querySelector(`[data-widget="${k}"] [data-collection-sort] input`);
-    return input && !input.disabled && input.value.trim() === l;
+    const button = document.querySelector(`[data-widget="${k}"] [data-collection-sort] button`);
+    return button && !button.disabled && button.querySelector('[data-inline-dropdown-label]').textContent.trim() === l;
 }, [key, label]);
 // The page's frames by identity (window.kitPage is the live Inertia page), to tell a kept frame from a reloaded one.
 const snapshotFrames = (tab) => tab.evaluate(() => { window.kitBefore = { widgets: [...window.kitPage.props.widgets], cases: window.kitPage.props.cases, people: window.kitPage.props.people }; });
@@ -6282,10 +6282,10 @@ test('a dashboard widget\'s Sort by control: labelled, top right of the header, 
                 await tab.goto(`${authUrl}dashboard.html?sorted${dark}`);
                 await tab.waitForSelector('[data-widget="app.ongoing"] [data-collection-sort]');
                 await tab.waitForSelector('[data-widget="kit.people"] [data-scroll-list="people"]');
-                const control = tab.getByRole('combobox', { name: 'Sort by' });
-                assert.equal(await control.count(), 1, 'one control, named "Sort by" by its visible label');
+                const control = tab.getByRole('button', { name: /^Sort by/ });
+                assert.equal(await control.count(), 1, 'one control, named "Sort by" and its current order');
                 assert.equal(await tab.locator('[data-widget="kit.activity"] [data-collection-sort], [data-widget="kit.people"] [data-collection-sort]').count(), 0, 'a widget that declares no orders has no control');
-                assert.equal((await control.inputValue()).trim(), 'Last touched', 'the default order shows');
+                assert.equal((await control.locator('[data-inline-dropdown-label]').innerText()).trim(), 'Last touched', 'the default order shows');
                 const geometry = await tab.evaluate(() => {
                     const card = document.querySelector('[data-widget="app.ongoing"]');
                     const header = card.querySelector('header').getBoundingClientRect();
@@ -6302,22 +6302,22 @@ test('a dashboard widget\'s Sort by control: labelled, top right of the header, 
                 // Keyboard only: focus the control, open it, move to "Due soonest" and pick it.
                 await control.focus();
                 await tab.keyboard.press('ArrowDown');
-                await tab.getByRole('listbox').waitFor();
-                assert.deepEqual(await tab.getByRole('option').allInnerTexts().then(o => o.map(t => t.trim())), ['Last touched', 'Newest', 'Due soonest'], 'the declared orders, in order');
-                // Open, axe's best-practice `region` rule flags the list's portal outside any landmark (InputSelect's own popper wrapper); every other rule holds.
-                assert.deepEqual((await notesAxe(tab)).filter(v => !(v.id === 'region' && v.targets.every(t => t.includes('data-reka-popper-content-wrapper')))), [], 'open');
+                await tab.getByRole('menu').waitFor();
+                assert.deepEqual(await tab.getByRole('menuitemradio').allInnerTexts().then(o => o.map(t => t.trim())), ['Last touched', 'Newest', 'Due soonest'], 'the declared orders, in order');
+                // Open, axe's best-practice `region` rule flags the menu's portalled content outside any landmark; every other rule holds.
+                assert.deepEqual((await notesAxe(tab)).filter(v => v.id !== 'region'), [], 'open');
                 await tab.keyboard.press('Escape');
-                assert.equal(await tab.getByRole('listbox').count(), 0, 'Escape closes it with nothing chosen');
+                assert.equal(await tab.getByRole('menu').count(), 0, 'Escape closes it with nothing chosen');
                 assert.equal(sent.length, 0);
                 await tab.keyboard.press('ArrowDown');
-                await tab.getByRole('listbox').waitFor();
-                for (let i = 0; i < 5 && (await tab.locator('[role="option"][data-highlighted]').innerText().catch(() => '')).trim() !== 'Due soonest'; i++) await tab.keyboard.press('ArrowDown');
+                await tab.getByRole('menu').waitFor();
+                for (let i = 0; i < 5 && (await tab.locator('[role="menuitemradio"][data-highlighted]').innerText().catch(() => '')).trim() !== 'Due soonest'; i++) await tab.keyboard.press('ArrowDown');
                 await tab.keyboard.press('Enter');
                 await tab.waitForFunction(() => document.querySelector('[data-widget="app.ongoing"] li, [data-widget="app.ongoing"] article')?.textContent.includes('Lease renewal'));
-                await tab.waitForFunction(() => !document.querySelector('[data-widget="app.ongoing"] [data-collection-sort] input')?.disabled);
+                await tab.waitForFunction(() => !document.querySelector('[data-widget="app.ongoing"] [data-collection-sort] button')?.disabled);
                 assert.deepEqual(sent, [{ method: 'PUT', sort: 'due', only: 'widgets' }], 'one PUT of the chosen order, a partial visit for the widget\'s props only');
                 assert.deepEqual(await sortedTitles(tab), ['Lease renewal', 'Boiler check', 'Roof survey'], 'the card shows the new order');
-                assert.equal((await control.inputValue()).trim(), 'Due soonest');
+                assert.equal((await control.locator('[data-inline-dropdown-label]').innerText()).trim(), 'Due soonest');
                 assert.deepEqual(await tab.evaluate(() => [...document.querySelectorAll('[data-widget]')].map(e => e.dataset.widget)), ['app.ongoing', 'kit.activity', 'kit.you', 'kit.people'], 'the other cards stay');
                 const overflow = await tab.evaluate(() => ({ page: document.documentElement.scrollWidth - document.documentElement.clientWidth, overflowing: [...document.querySelectorAll('[data-widget-grid] header, [data-widget-grid] header *')].filter(el => el.scrollWidth > el.clientWidth + 1 && getComputedStyle(el).overflowX === 'visible').map(el => el.tagName) }));
                 assert.deepEqual(overflow, { page: 0, overflowing: [] }, 'nothing overflows');
@@ -6355,11 +6355,11 @@ test('a dashboard widget\'s Sort by control: the choice reloads only that widget
             return cases.scrollTop;
         });
         assert.ok(scrolled > 0, 'the cases list scrolls inside its card');
-        const control = tab.getByRole('combobox', { name: 'Sort by' });
+        const control = tab.getByRole('button', { name: /^Sort by/ });
         await control.click();
-        await tab.getByRole('option', { name: 'Due soonest' }).click();
-        await tab.waitForFunction(() => !document.querySelector('[data-widget="app.ongoing"] [data-collection-sort] input')?.disabled);
-        await tab.waitForFunction(() => document.querySelector('[data-widget="app.ongoing"] [data-collection-sort] input')?.value.trim() === 'Due soonest');
+        await tab.getByRole('menuitemradio', { name: 'Due soonest' }).click();
+        await tab.waitForFunction(() => !document.querySelector('[data-widget="app.ongoing"] [data-collection-sort] button')?.disabled);
+        await tab.waitForFunction(() => document.querySelector('[data-widget="app.ongoing"] [data-collection-sort] [data-inline-dropdown-label]')?.textContent.trim() === 'Due soonest');
         assert.deepEqual(server.sent, [{ widget: 'app.ongoing', sort: 'due', kitSort: 'widget=app.ongoing&set=drawn&sort=due', only: ['widgets'], reset: [] }], 'one choice, naming itself in X-Kit-Sort (its token and the order), a partial reload of widgets that resets nothing');
         assert.deepEqual(server.answered, ['merge']);
         assert.deepEqual(await sortedTitles(tab), ['Lease renewal', 'Boiler check', 'Roof survey'], 'the sorted card shows its new order');
@@ -6409,7 +6409,7 @@ test('a dashboard widget\'s Sort by control: two tabs choosing on different widg
         const afterSecond = new Promise((resolve) => { secondDone = resolve; });
         server.hold = (widget) => (widget === 'app.ongoing' ? afterSecond : null);
         await chooseOrder(first, 'app.ongoing', 'Due soonest');
-        await first.waitForFunction(() => document.querySelector('[data-widget="app.ongoing"] [data-collection-sort] input')?.disabled);
+        await first.waitForFunction(() => document.querySelector('[data-widget="app.ongoing"] [data-collection-sort] button')?.disabled);
         await chooseOrder(second, 'app.followups', 'Newest');
         await showsOrder(second, 'app.followups', 'Newest');
         secondDone();
@@ -6470,11 +6470,11 @@ test('a dashboard widget\'s Sort by control: a choice the server refuses puts th
         });
         await tab.goto(`${authUrl}dashboard.html?sorted`);
         await tab.waitForSelector('[data-widget="app.ongoing"] [data-collection-sort]');
-        const control = tab.getByRole('combobox', { name: 'Sort by' });
+        const control = tab.getByRole('button', { name: /^Sort by/ });
         await control.click();
-        await tab.getByRole('option', { name: 'Newest' }).click();
-        await tab.waitForFunction(() => !document.querySelector('[data-widget="app.ongoing"] [data-collection-sort] input')?.disabled);
-        await tab.waitForFunction(() => document.querySelector('[data-widget="app.ongoing"] [data-collection-sort] input')?.value.trim() === 'Last touched');
+        await tab.getByRole('menuitemradio', { name: 'Newest' }).click();
+        await tab.waitForFunction(() => !document.querySelector('[data-widget="app.ongoing"] [data-collection-sort] button')?.disabled);
+        await tab.waitForFunction(() => document.querySelector('[data-widget="app.ongoing"] [data-collection-sort] [data-inline-dropdown-label]')?.textContent.trim() === 'Last touched');
         assert.deepEqual(await sortedTitles(tab), ['Roof survey', 'Lease renewal', 'Boiler check'], 'the rows keep the order they had');
     } finally {
         await context.close();
@@ -6877,19 +6877,19 @@ test('CollectionSection: segment tabs are links named by the card, the current o
             });
             assert.ok(tabs.below && tabs.distinct, `${mode}: between the header and the items, the current one drawn apart`);
             assert.equal(await card.getByRole('link', { name: 'New case', exact: true }).count(), 1, `${mode}: the header action`);
-            const control = card.getByRole('combobox', { name: 'Sort by' });
-            assert.equal((await control.inputValue()).trim(), 'Last touched', `${mode}: the current order shows`);
+            const control = card.getByRole('button', { name: /^Sort by/ });
+            assert.equal((await control.locator('[data-inline-dropdown-label]').innerText()).trim(), 'Last touched', `${mode}: the current order shows`);
             assert.equal(await tab.locator('[data-case="stat"] [data-collection-sort], [data-case="stat"] [data-collection-segments]').count(), 0, `${mode}: a card that sends neither has no menu and no tabs`);
             assert.deepEqual(await notesAxe(tab), [], mode);
             if (dark) return;
             await control.focus();
             await tab.keyboard.press('ArrowDown');
-            await tab.getByRole('listbox').waitFor();
-            for (let i = 0; i < 4 && (await tab.locator('[role="option"][data-highlighted]').innerText().catch(() => '')).trim() !== 'Due soonest'; i++) await tab.keyboard.press('ArrowDown');
+            await tab.getByRole('menu').waitFor();
+            for (let i = 0; i < 4 && (await tab.locator('[role="menuitemradio"][data-highlighted]').innerText().catch(() => '')).trim() !== 'Due soonest'; i++) await tab.keyboard.press('ArrowDown');
             await tab.keyboard.press('Enter');
             await tab.waitForFunction(() => (window.kitVisits ?? []).length > 0);
             assert.deepEqual(await tab.evaluate(() => window.kitVisits), [{ url: '/@acme', method: 'get', data: { sort: 'due' } }], 'one visit to the sort URL with the chosen order');
-            assert.equal((await control.inputValue()).trim(), 'Due soonest');
+            assert.equal((await control.locator('[data-inline-dropdown-label]').innerText()).trim(), 'Due soonest');
         });
     }
 });
@@ -12022,3 +12022,62 @@ test('PhotoTile aspect="fill": the empty tile fills the height its host gives it
         const h = await tab.$eval('[data-fixture="tile-fill"]', el => [el.getBoundingClientRect().height, el.querySelector('button').getBoundingClientRect().height]);
         assert.ok(Math.abs(h[0] - h[1]) <= 1, `tile ${h[1]}px in a ${h[0]}px container`);
     }));
+
+// ── InlineDropdown (?inline-dropdown, `&dark`, docs/inline-dropdown.md): a link-styled trigger naming the current choice, a menu headed by its subject with
+// menuitemradio rows, the current one checked; state-driven choices emit, link items are anchors, sections are labelled groups. KIT_INLINE_DROPDOWN_SHOTS=<dir>
+// saves each scheme at 1280 and 390px with the sort menu open.
+test('InlineDropdown: the trigger names the current choice; its menu has the subject header and radio rows; a new choice emits once, links are anchors in labelled groups', async () => {
+    const shots = process.env.KIT_INLINE_DROPDOWN_SHOTS;
+    for (const [mode, dark] of [['light', ''], ['dark', '&dark']]) {
+        for (const width of [1280, 390]) {
+            await onPage(`inline-dropdown${dark}`, async (tab) => {
+                const trigger = tab.locator('[data-case="sort"]').getByRole('button', { name: 'Sort by: Last touched' });
+                assert.equal(await trigger.count(), 1, `${mode}: named by its label and the current choice`);
+                assert.equal(await trigger.evaluate(el => el.tagName), 'BUTTON');
+                await trigger.focus();
+                await tab.keyboard.press('ArrowDown');
+                const menu = tab.getByRole('menu');
+                await menu.waitFor();
+                assert.equal((await menu.locator('[data-menu-subject-title]').innerText()).trim(), 'Sort by', 'the subject header');
+                const rows = await menu.getByRole('menuitemradio').evaluateAll(els => els.map(el => [el.textContent.trim(), el.getAttribute('aria-checked')]));
+                assert.deepEqual(rows, [['Last touched', 'true'], ['Newest', 'false'], ['Due soonest', 'false']], 'the choices, the current one checked');
+                // axe's best-practice `region` rule flags the portalled menu outside any landmark; every other rule holds, contrast included.
+                assert.deepEqual((await axeWithContrast(tab)).filter(v => v.id !== 'region'), [], `${mode} ${width}: open`);
+                if (shots) await tab.screenshot({ path: `${shots}/inline-dropdown-${width}-${mode}.png`, fullPage: true });
+                if (dark || width !== 1280) return;
+                await tab.keyboard.press('Enter');
+                await tab.waitForFunction(() => !document.querySelector('[role="menu"]'));
+                assert.deepEqual(await tab.evaluate(() => window.kitPicked), [], 'choosing the current order emits nothing');
+                await trigger.click();
+                await menu.getByRole('menuitemradio', { name: 'Due soonest' }).click();
+                await tab.locator('[data-case="sort"]').getByRole('button', { name: 'Sort by: Due soonest' }).waitFor();
+                assert.deepEqual(await tab.evaluate(() => window.kitPicked), ['due'], 'one emit with the chosen key');
+                await tab.locator('[data-case="links"]').getByRole('button', { name: 'Go to: Overview' }).click();
+                const links = await tab.getByRole('menu').evaluate(el => ({
+                    groups: [...el.querySelectorAll('[data-menu-group-label]')].map(g => g.textContent.trim()),
+                    rows: [...el.querySelectorAll('[role="menuitemradio"]')].map(r => [r.tagName, r.getAttribute('href'), r.getAttribute('aria-checked')]),
+                }));
+                assert.deepEqual(links, {
+                    groups: ['This case', 'Recent cases'],
+                    rows: [['A', '/@acme/cases/7', 'true'], ['A', '/@acme/cases/7/details', 'false'], ['A', '/@acme/cases/8', 'false']],
+                }, 'link items are anchors, in labelled groups, the current one checked');
+            }, { width, height: 800 });
+        }
+    }
+});
+
+// ── InputSelect select-only (?inline-dropdown): a select that is not searchable reads as a button: pointer cursor, no caret, no on-screen keyboard, and typing
+// changes nothing; a searchable one keeps the text cursor.
+test('InputSelect: a non-searchable select shows no text caret or I-beam and opens no keyboard; a searchable one keeps the text cursor', async () => {
+    await onPage('inline-dropdown', async (tab) => {
+        const read = (id) => tab.$eval(`#${id}`, el => ({ inputmode: el.getAttribute('inputmode'), cursor: getComputedStyle(el).cursor, caret: getComputedStyle(el).caretColor, field: getComputedStyle(el.parentElement).cursor, selectOnly: el.hasAttribute('data-select-only') }));
+        const only = await read('status');
+        assert.deepEqual([only.inputmode, only.cursor, only.field, only.selectOnly], ['none', 'pointer', 'pointer', true], 'five fixed options: a select-only field');
+        assert.match(only.caret, /rgba\(0, 0, 0, 0\)|transparent/, 'no visible caret');
+        const typeable = await read('who');
+        assert.deepEqual([typeable.inputmode, typeable.cursor, typeable.selectOnly], [null, 'text', false], 'searchable: a text field');
+        await tab.focus('#status');
+        await tab.keyboard.type('zz');
+        assert.equal(await tab.inputValue('#status'), 'Actual', 'typing into the select-only field changes nothing');
+    });
+});

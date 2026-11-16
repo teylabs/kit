@@ -610,6 +610,7 @@
               "@/components/Kit#Dropdown",
               "@/components/Kit#DropdownMenu",
               "@/components/Kit#ButtonDropdown",
+              "@/components/Kit#InlineDropdown",
               "@/components/Kit#RowActions",
               "@headlessui/vue#Menu",
               "floating-vue",
@@ -1476,6 +1477,7 @@
       "uses": {
         "imports": [
           "@/components/Kit:Dropdown",
+          "@/components/Kit:InlineDropdown",
           "@/components/Kit:DropdownItem",
           "@/components/Kit:DropdownLink",
           "@/components/Kit:DropdownConfirm",
