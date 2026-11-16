@@ -9,6 +9,7 @@ Four `@kit/ui` components draw a discussion on a record, a notes wall or a dashb
 | Component | What it is |
 | --- | --- |
 | `NoteCard` | The card a comment or note sits on: a colour accent on its left or top edge, a header (avatar, author, the `timestamp` slot, the colour's meaning, and the `actions` slot on the right), the body (default slot) and a `footer` slot. Renders what it is given and does nothing else. |
+| `QuickAction` | A quick action for CommentItem's `quick` slot or NoteCard's `actions`: `<QuickAction label="Mark done" :icon="Check" @click="…" />`. A ghost button with its icon and label; on a narrow card (the NoteCard is a size container) only the icon shows, and the label stays its accessible name and tooltip. On a narrow card the header's author, time and meaning cut off with an ellipsis before the actions. |
 | `CommentItem` | One comment on a NoteCard with its time, body, files, subject, menu and replies, and its editor and reply composer in place. |
 | `CommentForm` | The composer for a new comment, a reply or an edit. |
 | `CommentThread` | A titled `PageSection`: the composer, then the comments (or groups of them), or an empty line. |

@@ -8,7 +8,8 @@ import { accentClass, type CommentAuthor } from './comments';
  * `timestamp` slot, the colour's `meaning`, and the `actions` slot on the right), the body (default slot) and a `footer` slot. Presentational: it renders what it
  * is given and does nothing. `accent` is a colour ({tone, label, meaning?}); its label is read out with the author, so a colour never carries meaning alone.
  * `variant` compact is one line: the body truncated, the time after it, no header. `density`: default (a bordered card), compact (no card, an inset row) or flush
- * (a filled tile that fills its cell). `accentWidth`: thin, medium (default) or wide. `authorStyle`: avatar-name (default), name or none. `as` is its element.
+ * (a filled tile that fills its cell). The card is a size container: on a narrow card the author, time and meaning shrink and cut off rather than run under the actions,
+ * and a QuickAction in the actions shows only its icon. `accentWidth`: thin, medium (default) or wide. `authorStyle`: avatar-name (default), name or none. `as` is its element.
  */
 const props = withDefaults(
     defineProps<{
@@ -58,7 +59,7 @@ const header = computed(
     <component
         :is="as"
         :class="[
-            'text-card-foreground grid min-w-0 content-start',
+            'text-card-foreground @container grid min-w-0 content-start',
             variant === 'compact' ? 'gap-1' : 'gap-3',
             density === 'flush'
                 ? 'bg-card h-full p-3'
@@ -83,7 +84,7 @@ const header = computed(
         >
             <p
                 :id="`${id}-meta`"
-                class="text-muted-foreground flex min-w-0 flex-1 items-center gap-1.5 text-xs whitespace-nowrap"
+                class="text-muted-foreground flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden text-xs whitespace-nowrap"
                 data-note-meta
             >
                 <Avatar
@@ -100,7 +101,10 @@ const header = computed(
                     data-note-author
                     >{{ author!.name }}</span
                 >{{ ' ' }}
-                <span v-if="$slots.timestamp" class="shrink-0"
+                <span
+                    v-if="$slots.timestamp"
+                    class="min-w-0 truncate"
+                    data-note-timestamp
                     ><slot name="timestamp" /></span
                 >{{ ' ' }}
                 <span v-if="accent" class="sr-only" data-note-colour-name>{{
@@ -109,7 +113,7 @@ const header = computed(
                 >{{ ' ' }}
                 <span
                     v-if="accent?.meaning"
-                    class="shrink-0"
+                    class="min-w-0 truncate"
                     data-note-meaning
                     >{{ accent.meaning }}</span
                 >{{ ' ' }}
