@@ -449,7 +449,7 @@ export function moveItem(ids: string[], from: number, to: number): string[] {
 }
 
 export type ReorderResult =
-    | { ok: true; version: string | number | null }
+    | { ok: true; version: string | number | null; body?: unknown }
     | { ok: false; conflict: boolean };
 
 /** Whether a failed save is a conflict: a 409, or a refusal code that names one (`stale_write`, `stale_*`, `*conflict*`). */

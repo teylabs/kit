@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Check, MoreHorizontal } from '@lucide/vue';
-import { computed } from 'vue';
+import { computed, type Component } from 'vue';
+import { actionIcons } from '@/components/Kit/Action/actionIcons';
 import {
     DropdownMenu,
     DropdownMenuItem,
@@ -31,6 +32,10 @@ export type MediaTileAction = {
     key: string;
     label: string;
     destructive?: boolean;
+    /** An actionIcons name (kebab case) or a component, drawn before the label. */
+    icon?: string | Component | null;
+    /** Bound on the menu row, e.g. a test hook. */
+    attrs?: Record<string, string | boolean>;
 };
 export type MediaCollectionData = {
     collection: string;
@@ -74,6 +79,13 @@ const props = withDefaults(
         /** `photo-tile` draws the empty collection (and the add tile, in `tiles`) as a dashed camera tile instead of text and a dropzone. */
         empty?: 'text' | 'photo-tile';
         addLabel?: string;
+        /** `tiles`: disables the add tile and shows progress on it (a string is the progress text). */
+        busy?: boolean | string;
+        maxFiles?: number;
+        /** `tiles` without `reorder`: the tiles still move (grip, keys, buttons) and `move(from, to)` is emitted for the host to save. */
+        sortable?: boolean;
+        /** Numbering starts at 1 + this (a strip continued from an earlier one). */
+        indexOffset?: number;
         /** A divider after this many photos, e.g. the ones a listing shows. */
         cutAfter?: number | null;
         cutLabel?: string;
@@ -87,6 +99,10 @@ const props = withDefaults(
         tileActions: () => [],
         empty: 'text',
         addLabel: 'Add photos',
+        busy: false,
+        maxFiles: undefined,
+        sortable: false,
+        indexOffset: 0,
         cutAfter: null,
         cutLabel: undefined,
         single: false,
@@ -106,7 +122,13 @@ const emit = defineEmits<{
     action: [key: string, item: MediaItem];
     show: [item: MediaItem];
     files: [files: File[]];
+    reordered: [from: number, to: number];
 }>();
+const iconFor = (action: MediaTileAction) =>
+    typeof action.icon === 'string'
+        ? (actionIcons[action.icon] ?? null)
+        : (action.icon ?? null);
+const tileSortable = computed(() => !!props.reorder || props.sortable);
 const tiles = computed(() => props.layout === 'tiles');
 const listLayout = computed(() =>
     props.layout === 'tiles' ? 'grid' : props.layout,
@@ -138,7 +160,7 @@ const canAdd = computed(
         (!props.single || items.value.length === 0),
 );
 const itemLabel = (item: MediaItem, index: number) =>
-    `${text.value.item} ${index + 1}${item.name ? ` (${item.name})` : ''}`;
+    `${text.value.item} ${index + 1 + props.indexOffset}${item.name ? ` (${item.name})` : ''}`;
 </script>
 <template>
     <section
@@ -160,9 +182,10 @@ const itemLabel = (item: MediaItem, index: number) =>
             :label="label"
             :reorder="reorder"
             :version="collection.version"
-            :disabled="disabled"
+            :disabled="disabled || (tiles && !tileSortable)"
             :layout="listLayout"
-            :move-buttons="tiles ? !!reorder : undefined"
+            :move-buttons="tiles ? tileSortable : undefined"
+            @moved="(from, to) => emit('reordered', from, to)"
             :cut-after="cutAfter"
             :cut-label="cutLabel"
             @saved="emit('saved', $event)"
@@ -249,9 +272,16 @@ const itemLabel = (item: MediaItem, index: number) =>
                                         action.destructive &&
                                         'text-destructive-text focus:text-destructive-text'
                                     "
+                                    v-bind="action.attrs ?? {}"
                                     :data-media-action="action.key"
                                     @select="emit('action', action.key, item)"
-                                    >{{ action.label }}</DropdownMenuItem
+                                    ><component
+                                        :is="iconFor(action)!"
+                                        v-if="iconFor(action)"
+                                        class="size-4"
+                                        aria-hidden="true"
+                                        data-media-action-icon
+                                    />{{ action.label }}</DropdownMenuItem
                                 >
                             </DropdownMenuContent>
                         </DropdownMenu>
@@ -361,6 +391,9 @@ const itemLabel = (item: MediaItem, index: number) =>
             :max-bytes="maxBytes"
             :multiple="!single"
             :aspect="tileAspect"
+            :max-files="maxFiles"
+            :busy="busy"
+            :disabled="!!busy"
             :direct="direct"
             @files="emit('files', $event)"
             @uploaded="emit('uploaded', $event)"

@@ -9,6 +9,7 @@ import {
     sendOrder,
     useSortable,
     type ReorderAction,
+    type ReorderPersist,
 } from './sortable';
 
 /**
@@ -32,6 +33,8 @@ const props = withDefaults(
         moveButtons?: boolean;
         disabled?: boolean;
         reorder?: ReorderAction | null;
+        /** The host's own save, used in place of `reorder` (same version and rollback rules). */
+        persist?: ReorderPersist | null;
         version?: string | number | null;
         onConflict?: ((order: string[]) => void) | null;
         layout?: 'list' | 'grid' | 'row';
@@ -45,14 +48,17 @@ const props = withDefaults(
         moveButtons: true,
         disabled: false,
         reorder: null,
+        persist: null,
         version: null,
         onConflict: null,
     },
 );
 const emit = defineEmits<{
     update: [ids: string[]];
+    /** The move itself (indexes before it), alongside `update`, when the host applies the order. */
+    moved: [from: number, to: number];
     'update:items': [items: T[]];
-    saved: [version: string | number | null];
+    saved: [version: string | number | null, body?: unknown];
     conflict: [order: string[]];
     failed: [];
 }>();
@@ -107,6 +113,7 @@ const cutClass = computed(() =>
         : 'col-span-full flex items-center gap-2 text-xs text-muted-foreground before:h-px before:flex-1 before:bg-outline after:h-px after:flex-1 after:bg-outline',
 );
 
+let lastBody: unknown;
 const reorderer = createReorder({
     get: () => ids.value,
     set: (next) => {
@@ -119,11 +126,25 @@ const reorderer = createReorder({
             .filter((item): item is T => item !== undefined);
     },
     version: () => token,
-    send: (order, version) =>
-        sendOrder(props.reorder as ReorderAction, order, version),
+    send: async (order, version) => {
+        lastBody = undefined;
+        if (props.persist) {
+            const result = await props.persist(order, version);
+            return result.ok
+                ? { ok: true, version: result.version ?? null }
+                : { ok: false, conflict: !!result.conflict };
+        }
+        const result = await sendOrder(
+            props.reorder as ReorderAction,
+            order,
+            version,
+        );
+        if (result.ok) lastBody = result.body;
+        return result;
+    },
     saved: (version) => {
         token = version;
-        emit('saved', version);
+        emit('saved', version, lastBody);
     },
     rolledBack: (reason) => {
         announcement.value =
@@ -145,13 +166,14 @@ async function move(from: number, to: number): Promise<void> {
     const item = shown.value[from];
     const next = moveItem(ids.value, from, to);
     announcement.value = '';
-    if (props.reorder) {
+    if (props.reorder || props.persist) {
         void reorderer.apply(next);
     } else {
         shown.value = next.map(
             (id) => shown.value.find((row) => String(row.id) === id) as T,
         );
         emit('update', next);
+        emit('moved', from, to);
         emit('update:items', [...shown.value]);
     }
     await nextTick();

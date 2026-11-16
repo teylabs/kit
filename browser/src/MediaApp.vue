@@ -45,6 +45,24 @@ const direct = { request: '/uploads', confirm: '/uploads/confirm' };
 const shots = ref(['One', 'Two', 'Three'].map((label, index) => ({ id: `s${index + 1}`, label, thumb: pixel, preview: pixel })));
 const shot = ref(0);
 const arranging = ref(false);
+// Lightbox only: no thumbnail row, opened through the exposed show().
+const viewer = ref<InstanceType<typeof MediaGallery>>();
+// A strip the host saves itself (sortable, no reorder url), numbered from 3, with an upload in progress.
+const strip = ref({ ...photos, collection: 'strip', items: photos.items.slice(0, 2).map((item) => ({ ...item, id: `x${item.id}` })) });
+function reordered(from: number, to: number) {
+    events.push(`reordered ${from} ${to}`);
+    const items = [...strip.value.items];
+    items.splice(to, 0, items.splice(from, 1)[0]);
+    strip.value = { ...strip.value, items };
+}
+// ItemStack with the host's own save: window.kitPersist.conflict makes the next one a conflict.
+const persisted = ref(['Red', 'Green', 'Blue'].map((label, index) => ({ id: `c${index + 1}`, label, thumb: pixel })));
+const persistOpen = ref(false);
+const kitPersist = ((window as unknown as { kitPersist: { conflict: boolean; calls: { order: string[]; version: string | number | null }[] } }).kitPersist = { conflict: false, calls: [] });
+async function persist(order: string[], version: string | number | null) {
+    kitPersist.calls.push({ order, version });
+    return kitPersist.conflict ? { ok: false, conflict: true } : { ok: true, version: Number(version) + 1 };
+}
 </script>
 <template>
     <main class="grid max-w-3xl gap-8 p-6">
@@ -59,9 +77,26 @@ const arranging = ref(false);
             :selected-ids="['p2']"
             :badges="{ p1: 'Main photo' }"
             :dim-ids="['p3']"
-            :tile-actions="[{ key: 'main', label: 'Make main photo' }, { key: 'remove', label: 'Remove', destructive: true }]"
+            :tile-actions="[{ key: 'main', label: 'Make main photo', icon: 'image', attrs: { 'data-test': 'make-main' } }, { key: 'remove', label: 'Remove', destructive: true, icon: 'trash' }]"
             @action="(key, item) => events.push(`action ${key} ${item.id}`)"
             @show="(item) => events.push(`show ${item.id}`)"
+        />
+        <div data-fixture="viewer">
+            <MediaGallery ref="viewer" :items="attachments" label="Viewer" :thumbnails="false" />
+            <button type="button" data-open-viewer @click="viewer?.show('a4')">Open back</button>
+        </div>
+        <MediaCollection
+            :collection="strip"
+            label="Strip"
+            :accept="['image/jpeg']"
+            :max-bytes="10485760"
+            layout="tiles"
+            :direct="direct"
+            sortable
+            :index-offset="2"
+            :max-files="4"
+            busy="Uploading… 40%"
+            @reordered="reordered"
         />
         <div data-fixture="empty-tiles">
             <MediaCollection
@@ -85,6 +120,18 @@ const arranging = ref(false);
                 @add="events.push('add')"
                 @conflict="(order) => events.push(`conflict ${order.join(',')}`)"
                 @saved="(version) => events.push(`saved ${version}`)"
+            />
+        </div>
+        <div class="max-w-xs" data-fixture="persist">
+            <ItemStack
+                v-model:fanout-open="persistOpen"
+                :items="persisted"
+                label="Colours"
+                :noun="['colour', 'colours']"
+                :persist="persist"
+                :version="5"
+                @conflict="(order) => events.push(`persist-conflict ${order.join(',')}`)"
+                @saved="(version) => events.push(`persist-saved ${version}`)"
             />
         </div>
         <PhotoField

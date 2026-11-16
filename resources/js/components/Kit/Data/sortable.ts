@@ -29,6 +29,15 @@ export {
 
 /** The app's reorder action: it takes `{ order, version }` and answers `{ version }`. */
 export type ReorderAction = { url: string; method: string };
+/** A host's own save for an order, in place of a ReorderAction: `ok` keeps the new version, `conflict` rolls back. */
+export type ReorderPersist = (
+    order: string[],
+    version: string | number | null,
+) => Promise<{
+    ok: boolean;
+    conflict?: boolean;
+    version?: string | number | null;
+}>;
 
 /**
  * Sends the new order to the app's reorder action as `{ order, version }`; a 2xx answers `{ version }`, a 409 or a stale/conflict code is a conflict. The body is
@@ -50,7 +59,7 @@ export async function sendOrder(
             const data = responseJson(response) as {
                 version?: string | number | null;
             } | null;
-            return { ok: true, version: data?.version ?? null };
+            return { ok: true, version: data?.version ?? null, body: data };
         }
         const refused = errorJson({ response });
         return {
