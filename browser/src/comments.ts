@@ -52,6 +52,18 @@ const editable: CommentData = {
 };
 const readOnly: CommentData = { id: 3, body: 'A comment the viewer may only read.', author: { name: 'Ada Lane', initials: 'AL' }, created_at: '2026-11-12T08:00:00Z', version: 1, colour: null, subject: { label: 'Project 8' } };
 const props = { errors: {}, comments: [editable, readOnly], composer };
+// `?adopt`: the opt-ins an adopting app needs (absolute time, an image gallery, a meta link, menu icons, composer slots), on a comment with two images and a PDF.
+const adopt = new URLSearchParams(window.location.search).has('adopt');
+const gallery: CommentData = {
+    ...editable,
+    id: 9,
+    replies: [],
+    attachments: [
+        { id: 'g-1', name: 'kitchen.jpg', mime: 'image/jpeg', url: '/@acme/files/g-1', thumb_url: '/@acme/files/g-1/thumb' },
+        { id: 'g-2', name: 'roof.png', mime: 'image/png', url: '/@acme/files/g-2', thumb_pending: true },
+        { id: 'g-3', name: 'report.pdf', mime: 'application/pdf', url: '/@acme/files/g-3', size: 4096 },
+    ],
+};
 
 const Page = {
     props: ['comments', 'composer'],
@@ -63,7 +75,21 @@ const Page = {
                 ),
             ),
         );
+        const adopted = adopt
+            ? [
+                  h('section', { 'aria-label': 'Adopted', 'data-adopted': '' }, [
+                      h(CommentItem, { comment: gallery, timeFormat: 'absolute', attachmentLayout: 'gallery', menuIcons: true }, {
+                          meta: ({ comment }: { comment: CommentData }) => h('a', { href: '/@acme/cases/7', class: 'text-foreground underline', 'data-case-link': '' }, `Case 7 · ${comment.noun ?? 'comment'}`),
+                      }),
+                      h(CommentForm, { composer }, {
+                          before: () => h('label', { class: 'text-sm', 'data-composer-before': '' }, ['Case ', h('input', { name: 'case_id', value: '7', class: 'border-border rounded border px-1' })]),
+                          after: () => h('label', { class: 'text-sm', 'data-composer-after': '' }, [h('input', { type: 'checkbox', name: 'notify', value: '1' }), ' Notify the team']),
+                      }),
+                  ]),
+              ]
+            : [];
         return [
+            ...adopted,
             h(CommentThread, { title: 'Discussion', comments: this.comments, composer: this.composer }),
             // Groups replace comments even when none has a comment: this one shows its empty line, not the comments it was also given.
             // An editor the host keeps mounted after a save (CommentItem closes its own).

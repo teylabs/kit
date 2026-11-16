@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { router } from '@inertiajs/vue3';
+import { Pencil, Reply, Trash2 } from '@lucide/vue';
 import { computed, nextTick, ref } from 'vue';
 import DateTime from '@/components/Kit/Data/DateTime.vue';
 import FileList from '@/components/Kit/Media/FileList.vue';
@@ -17,6 +18,9 @@ import { intentKey, type CommentData } from './comments';
  * scoped by `comment`, replaces it). Its menu offers what the server sent: Edit (`editor`, opening CommentForm in place), Reply (`reply`, a CommentForm below it)
  * and Delete (`delete`, confirmed with the action's `confirm` (one that needs typing, or a disabled one, shows disabled with its reason), then an Inertia DELETE with `expected_version` and an `intent_key`). A refused delete (a conflict
  * arrives as an error) shows inline. The `quick` slot puts the host's own buttons before the menu. `interactive` false shows no actions (a read-only feed).
+ * `timeFormat` absolute shows the date and time in place of the relative time. `attachmentLayout` gallery shows image files as a grid of thumbnails (other
+ * files stay a FileList); the `attachments` slot, scoped by `files` and `comment`, replaces both. The `meta` slot, scoped by `comment`, adds to the header line
+ * after the time (a case link, its icon). `menuIcons` puts an icon on each menu row (Edit, Reply, Delete). All four are off by default.
  * `variant` compact is one line: no actions, files or replies. `density`, `accentEdge` and `accentWidth` are NoteCard's; `only` limits each visit's props.
  */
 const props = withDefaults(
@@ -29,6 +33,9 @@ const props = withDefaults(
         interactive?: boolean;
         collapsible?: boolean;
         only?: string[];
+        timeFormat?: 'relative' | 'absolute';
+        attachmentLayout?: 'list' | 'gallery';
+        menuIcons?: boolean;
     }>(),
     {
         variant: 'full',
@@ -38,6 +45,9 @@ const props = withDefaults(
         interactive: true,
         collapsible: false,
         only: undefined,
+        timeFormat: 'relative',
+        attachmentLayout: 'list',
+        menuIcons: false,
     },
 );
 const emit = defineEmits<{ deleted: [] }>();
@@ -74,6 +84,19 @@ const files = computed(() =>
         size: file.size ?? null,
         thumb: file.thumb_pending ? null : (file.thumb_url ?? null),
     })),
+);
+
+// In a gallery, images (with a thumbnail, or one still being made) show as tiles and the rest stay a list.
+const isImage = (file: { mime: string }) => file.mime.startsWith('image/');
+const images = computed(() =>
+    props.attachmentLayout === 'gallery'
+        ? (props.comment.attachments ?? []).filter(isImage)
+        : [],
+);
+const listed = computed(() =>
+    props.attachmentLayout === 'gallery'
+        ? files.value.filter((file) => !isImage(file))
+        : files.value,
 );
 
 async function edit() {
@@ -137,7 +160,14 @@ const remove = () =>
             :accent-width="accentWidth"
         >
             <template #timestamp>
-                <DateTime :value="comment.created_at" format="relative" live />
+                <DateTime
+                    :value="comment.created_at"
+                    :format="timeFormat === 'absolute' ? 'local' : 'relative'"
+                    :live="timeFormat !== 'absolute'"
+                />
+            </template>
+            <template v-if="$slots.meta" #meta>
+                <slot name="meta" :comment="comment" />
             </template>
             <template
                 v-if="interactive && full && (menu || $slots.quick)"
@@ -156,6 +186,10 @@ const remove = () =>
                             as="button"
                             data-comment-edit
                             @chosen="edit"
+                            ><template v-if="menuIcons" #icon
+                                ><Pencil
+                                    class="size-4"
+                                    aria-hidden="true" /></template
                             >Edit</DropdownItem
                         >
                         <DropdownItem
@@ -163,6 +197,10 @@ const remove = () =>
                             as="button"
                             data-comment-reply
                             @chosen="startReply"
+                            ><template v-if="menuIcons" #icon
+                                ><Reply
+                                    class="size-4"
+                                    aria-hidden="true" /></template
                             >Reply</DropdownItem
                         >
                         <DropdownItem
@@ -172,6 +210,10 @@ const remove = () =>
                             aria-disabled="true"
                             :title="deleteBlocked"
                             data-comment-delete
+                            ><template v-if="menuIcons" #icon
+                                ><Trash2
+                                    class="size-4"
+                                    aria-hidden="true" /></template
                             >{{ comment.delete.label
                             }}<template #caption>{{
                                 deleteBlocked
@@ -187,6 +229,9 @@ const remove = () =>
                             "
                             data-comment-delete
                         >
+                            <template v-if="menuIcons" #icon
+                                ><Trash2 class="size-4" aria-hidden="true"
+                            /></template>
                             {{ comment.delete.label }}
                             <template #title>{{
                                 comment.delete.confirm?.title ??
@@ -215,11 +260,47 @@ const remove = () =>
                     :collapsible="collapsible"
                     data-comment-text
                 />
-                <FileList
+                <slot
                     v-if="files.length"
-                    :items="files"
-                    label="Attachments"
-                />
+                    name="attachments"
+                    :files="comment.attachments ?? []"
+                    :comment="comment"
+                >
+                    <ul
+                        v-if="images.length"
+                        class="grid grid-cols-3 gap-2 sm:grid-cols-4"
+                        aria-label="Images"
+                        data-comment-gallery
+                    >
+                        <li v-for="image in images" :key="image.id">
+                            <a
+                                :href="image.url"
+                                target="_blank"
+                                rel="noopener"
+                                class="bg-muted focus-visible:outline-ring block aspect-square overflow-hidden rounded-md focus-visible:outline-2 focus-visible:outline-offset-2"
+                                data-comment-gallery-item
+                            >
+                                <img
+                                    v-if="
+                                        !image.thumb_pending && image.thumb_url
+                                    "
+                                    :src="image.thumb_url"
+                                    :alt="image.name"
+                                    class="size-full object-cover"
+                                    loading="lazy"
+                                />
+                                <span v-else class="sr-only">{{
+                                    image.name
+                                }}</span>
+                            </a>
+                        </li>
+                    </ul>
+                    <FileList
+                        v-if="listed.length"
+                        :items="listed"
+                        label="Attachments"
+                    />
+                </slot>
             </template>
             <template v-if="full && ($slots.footer || comment.subject)" #footer>
                 <slot name="footer" :comment="comment">
@@ -261,7 +342,20 @@ const remove = () =>
                     :interactive="interactive"
                     :collapsible="collapsible"
                     :only="only"
-                />
+                    :time-format="timeFormat"
+                    :attachment-layout="attachmentLayout"
+                    :menu-icons="menuIcons"
+                >
+                    <template v-if="$slots.meta" #meta
+                        ><slot name="meta" :comment="child"
+                    /></template>
+                    <template v-if="$slots.attachments" #attachments
+                        ><slot
+                            name="attachments"
+                            :files="child.attachments ?? []"
+                            :comment="child"
+                    /></template>
+                </CommentItem>
             </li>
         </ol>
     </div>
