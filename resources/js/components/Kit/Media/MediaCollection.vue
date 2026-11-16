@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Check, MoreHorizontal } from '@lucide/vue';
 import { computed, type Component } from 'vue';
+import type { MenuSubject } from '@/components/Kit/Menu/menuSubject';
 import { actionIcons } from '@/components/Kit/Action/actionIcons';
 import {
     DropdownMenu,
@@ -26,6 +27,10 @@ export type MediaItem = {
     /** The generated thumbnail; in `tiles`, a tile without one shows a placeholder until it exists (`pending`), never the original. */
     thumb?: string | null;
     pending?: boolean;
+    /** `tiles`: the tile footer's text in place of `name`, e.g. the photo's role ("Feature", "Photo 2"). The `tile-label` slot wins over it. */
+    label?: string | null;
+    /** `tiles`: the caption under the file name in the ⋯ menu's subject header, e.g. "Photo 3 · in report". */
+    caption?: string | null;
 };
 /** A tile's own action, emitted as `action(key, item)` for the host to run. */
 export type MediaTileAction = {
@@ -51,6 +56,8 @@ export type MediaCollectionData = {
  * Words come from `labels`. Nothing here decides what a record may hold: the server's rules do.
  * `layout="tiles"` is the photo strip: square (or `tile-aspect="4/3"`) cards in the server's order, each with a placeholder until its `thumb` exists, a corner
  * badge (`badges`), a check (`selected-ids`), dimmed (`dim-ids`) and its own ⋯ actions (`tile-actions`, emitted as `action(key, item)`); a click emits `show`.
+ * A tile's footer shows `item.label` (or the `#tile-label="{ item, index }"` slot), else the name; its ⋯ menu opens with the file name as the menu's subject
+ * header (cut in the middle, the extension kept) and `item.caption` under it.
  * The add tile and the empty state are a dashed camera tile (PhotoTile); `empty="photo-tile"` draws that in the other layouts too.
  */
 const props = withDefaults(
@@ -126,6 +133,15 @@ const emit = defineEmits<{
     files: [files: File[]];
     reordered: [from: number, to: number];
 }>();
+defineSlots<{
+    /** `tiles`: the tile footer's text in place of `item.label` and the name. */
+    'tile-label'?(props: { item: MediaItem; index: number }): unknown;
+}>();
+const subjectFor = (item: MediaItem): MenuSubject => ({
+    title: item.name,
+    caption: item.caption ?? null,
+    kind: 'file',
+});
 const iconFor = (action: MediaTileAction) =>
     typeof action.icon === 'string'
         ? (actionIcons[action.icon] ?? null)
@@ -247,9 +263,16 @@ const itemLabel = (item: MediaItem, index: number) =>
                         /></span>
                     </button>
                     <div class="flex min-w-0 items-center gap-1">
-                        <span class="min-w-0 flex-1 truncate text-sm">{{
-                            item.name
-                        }}</span>
+                        <span
+                            class="min-w-0 flex-1 truncate text-sm"
+                            data-media-tile-label
+                            ><slot
+                                name="tile-label"
+                                :item="item"
+                                :index="index"
+                                >{{ item.label ?? item.name }}</slot
+                            ></span
+                        >
                         <DropdownMenu
                             v-if="!disabled && actionsFor(item).length"
                         >
@@ -265,7 +288,10 @@ const itemLabel = (item: MediaItem, index: number) =>
                                         aria-hidden="true"
                                     /></button
                             ></DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
+                            <DropdownMenuContent
+                                align="end"
+                                :subject="subjectFor(item)"
+                            >
                                 <DropdownMenuItem
                                     v-for="action in actionsFor(item)"
                                     :key="action.key"

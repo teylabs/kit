@@ -3704,6 +3704,10 @@
       "reason": "Display primitive: a long file name, path or URL cut in the middle, rendered inside a host page or a kit component."
     },
     {
+      "ref": "@/components/Kit:FileName",
+      "reason": "Display primitive: a file name cut in the middle with its extension kept, rendered inside a host page or a kit component."
+    },
+    {
       "ref": "@/components/Kit:avatarColor",
       "reason": "Helper behind Avatar: a person's colour from their identity, matching the server's AvatarColor."
     },

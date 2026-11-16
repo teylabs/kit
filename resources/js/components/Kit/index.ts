@@ -505,6 +505,8 @@ export {
 export { useClock, useTimezone } from './Data/useTimezone';
 // A long file name, path or URL cut in the middle, its start and tail (a file's extension) kept, to fit the width it is given (docs/middle-truncate.md).
 export { default as MiddleTruncate } from './Data/MiddleTruncate.vue';
+// A file name cut in the middle, its extension and last few characters kept (MiddleTruncate kind file; docs/middle-truncate.md, "FileName").
+export { default as FileName } from './Data/FileName.vue';
 export {
     middleTruncate,
     truncationKind,

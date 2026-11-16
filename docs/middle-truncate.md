@@ -35,6 +35,10 @@ On the server, and in the browser until it mounts, it renders the whole value wi
 
 The cut text stays in the element at zero size, and the drawn ellipsis is `aria-hidden`. So the accessible name (of a link around it, say), a selection and a copy are all the whole value, never the shortened one. `title` shows the whole value on hover.
 
+## FileName
+
+`<FileName :name="file.name" />` is MiddleTruncate with `kind="file"` and `min-tail` 6: the start of the name, then the last few characters before the extension and the whole extension (`Screenshot-2026-11…36.11-AM.png`). The full name is the `title` and the accessible text. A menu subject with `kind: 'file'` uses it for its title, so a tile's ⋯ menu names its file this way.
+
 ## Without a component
 
 `middleTruncate(value, width, measure, { kind, minTail })` returns `{ head, middle, tail, end, truncated }`, where `measure(text)` is the width of a string in the same unit as `width`. `head + middle + tail + end` is always the whole value; show `head`, an ellipsis when `middle` is cut, `tail`, and an ellipsis when `end` is. `truncationKind(value)` is how `auto` reads a value.

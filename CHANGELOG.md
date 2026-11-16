@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- MediaCollection tiles: the footer shows the host's `item.label` (or the `#tile-label="{ item, index }"` slot) in place of the file name; the default stays the name. The ⋯ menu opens with the file name as its subject header (cut in the middle, the extension kept) and `item.caption` under it.
+- FileName: a file name cut in the middle with its extension and last few characters kept, the full name in `title` and for screen readers. A menu subject with `kind: 'file'` uses it. docs/media.md shows ItemStack's `#menu` with the same subject header.
+
 Features affected: shell, workspace-ui (re-pinned: their avatar stubs pass the person's colour). Run `php artisan kit:update shell workspace-ui` to take them.
 
 ### Added
