@@ -339,12 +339,15 @@ export interface SectionIconProps {
 /** The frame of a settings section's page: the sidebar of the sections the user may open (the page's `layout.navigation`, `aria-current` on the shown one), and the content in the default slot. */
 export type SettingsFrameProps = Record<string, never>;
 
-/** A person's photo (`src`, `src2x`) or their initials when there is none; `large` is the profile size. */
+/** A person's photo (`src`, `src2x`) or their initials when there is none; `large` is the profile size. The initials sit on the person's `color` (the server's `avatar_color`), or one derived from `identity` (their user id); neither gives the neutral disc. */
 export interface AvatarProps {
     initials: string;
     src?: string | null;
     src2x?: string | null;
     large?: boolean;
+    size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+    color?: string | null;
+    identity?: string | number | null;
 }
 
 /** A file chooser (`v-model`: File or null); `accept` filters the picker. `current` is the record's file (name, size, link), shown in place of the picker inside a locked LockedForm. */
@@ -948,6 +951,7 @@ export interface SectionHeaderProps {
         initials: string;
         src?: string | null;
         src2x?: string | null;
+        color?: string | null;
     } | null;
     /** `page` sets the title at the page heading's scale, for a page that heads itself. Default `section`. */
     size?: 'section' | 'page';

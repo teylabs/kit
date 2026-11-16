@@ -11181,6 +11181,48 @@ async function dateTargets(scheme) {
 test('date and time inputs (light): every segment passes axe target-size, is at least 24×24, keeps h-9 and fits at 390px', () => dateTargets('light'));
 test('date and time inputs (dark): every segment passes axe target-size, is at least 24×24, keeps h-9 and fits at 390px', () => dateTargets('dark'));
 
+// ── Avatar colour (?avatar-color): one colour per person, the same on a note card, white initials with contrast in both themes ─────────────────────────
+test('Avatar: a person gets one derived colour at every size and on their note card, white initials pass contrast, the neutral disc stays; light and dark', async () => {
+    const shots = process.env.KIT_AVATAR_SCREENSHOT;
+    for (const query of ['avatar-color', 'avatar-color=dark']) {
+        for (const width of [1280, 390]) {
+            const context = await browser.newContext({ viewport: { width, height: 700 } });
+            try {
+                const tab = await context.newPage();
+                await tab.goto(`${url}?${query}`);
+                await tab.waitForSelector('[data-note] [data-slot="avatar"]');
+                const discs = await tab.evaluate(() => {
+                    const read = (el) => ({ color: el.dataset.avatarColor ?? null, background: getComputedStyle(el).backgroundColor, text: getComputedStyle(el).color });
+                    return {
+                        people: [...document.querySelectorAll('[data-person]')].map((li) => ({ person: li.dataset.person, ...read(li.querySelector('[data-slot="avatar"]')) })),
+                        sizes: [...document.querySelectorAll('[data-sizes] [data-slot="avatar"]')].map(read),
+                        note: read(document.querySelector('[data-note] [data-slot="avatar"]')),
+                    };
+                });
+                const rgb = (hex) => `rgb(${[1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(', ')})`;
+                const byId = Object.fromEntries(discs.people.map((d) => [d.person, d]));
+                for (const d of discs.people.filter((d) => /^\d+$/.test(d.person))) {
+                    assert.match(d.color ?? '', /^#[0-9a-f]{6}$/, `person ${d.person} has a colour`);
+                    assert.equal(d.background, rgb(d.color), `person ${d.person} paints it`);
+                    assert.equal(d.text, 'rgb(255, 255, 255)', `person ${d.person} has white initials`);
+                }
+                assert.equal(new Set(discs.people.filter((d) => /^\d+$/.test(d.person)).map((d) => d.color)).size, 8, 'eight people, eight colours');
+                assert.equal(byId.stored.color, '#0f766e', 'a stored colour wins');
+                assert.equal(byId.neutral.color, null, 'no colour and no identity: the neutral disc');
+                assert.notEqual(byId.neutral.text, 'rgb(255, 255, 255)');
+                for (const d of discs.sizes) assert.equal(d.color, byId['1'].color, 'the same person is one colour at every size');
+                assert.equal(discs.note.color, byId['1'].color, 'the note card author matches their disc');
+                await tab.addScriptTag({ path: axeSource });
+                const result = await tab.evaluate(() => window.axe.run(document, { runOnly: ['color-contrast'] }));
+                assert.deepEqual(result.violations.map((v) => v.nodes.map((n) => n.html)), [], 'initials pass contrast');
+                if (shots) await tab.screenshot({ path: `${shots}-${query.includes('dark') ? 'dark' : 'light'}-${width}.png`, fullPage: true });
+            } finally {
+                await context.close();
+            }
+        }
+    }
+});
+
 // ── MiddleTruncate (?middle-truncate): cut in the middle to the box's width, refit on resize; the whole value is the name, the title and the copy ─────────
 // Each row is a [data-box] of 320px (w-80); a test sets its width and waits for the ResizeObserver's refit. `shown` is what paints: the parts, the drawn
 // ellipsis for each cut, and none of the zero-size cut text.
