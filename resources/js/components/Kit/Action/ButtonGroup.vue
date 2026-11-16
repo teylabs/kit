@@ -21,10 +21,10 @@ const props = withDefaults(
         appearance?: 'default' | 'text';
         offset?: [number, number];
         weight?: 'medium' | 'semibold';
-        itemClass?: string;
-        triggerClass?: string;
         menuSubject?:
             import('@/components/Kit/Menu/menuSubject').MenuSubject | null;
+        itemClass?: string;
+        triggerClass?: string;
     }>(),
     {
         label: null,
@@ -32,9 +32,9 @@ const props = withDefaults(
         appearance: 'default',
         offset: () => [0, 10],
         weight: 'medium',
+        menuSubject: null,
         itemClass: undefined,
         triggerClass: undefined,
-        menuSubject: null,
     },
 );
 // `itemClass`: the host's own classes for each row in #menu (its row height, say), added after the row's own; destructive and disabled still apply.
