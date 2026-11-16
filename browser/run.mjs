@@ -7503,6 +7503,38 @@ test('a record frame whose PageTabs is turned off gives the tab row back to <Pag
     }
 });
 
+test('Dropzones guard the page: a file dropped outside every zone is kept from the browser, zones ring while files are dragged over the page; FileInput dropzone takes one file under maxBytes', async () => {
+    await page.goto(`${url}?bulk-drop`);
+    await page.waitForSelector('[data-state="file-input"] [data-dropzone]');
+    await page.evaluate(() => {
+        window.__transfer = new DataTransfer();
+        window.__transfer.items.add(new File(['x'], 'x.png', { type: 'image/png' }));
+        document.body.dispatchEvent(new DragEvent('dragenter', { dataTransfer: window.__transfer, bubbles: true, cancelable: true }));
+    });
+    await page.waitForTimeout(50);
+    const ringed = await page.evaluate(() => document.querySelectorAll('[data-dropzone][data-page-dragging]').length);
+    const prevented = await page.evaluate(() => {
+        const drop = new DragEvent('drop', { dataTransfer: window.__transfer, bubbles: true, cancelable: true });
+        document.querySelector('h1').dispatchEvent(drop);
+        return drop.defaultPrevented;
+    });
+    await page.waitForTimeout(50);
+    const outside = { ringed, prevented, after: await page.evaluate(() => document.querySelectorAll('[data-dropzone][data-page-dragging]').length) };
+    assert.ok(outside.ringed >= 2, `every zone rings while files are dragged over the page (${outside.ringed})`);
+    assert.equal(outside.prevented, true, 'a drop outside every zone is kept from the browser');
+    assert.equal(outside.after, 0, 'the ring goes when the drag ends');
+    const dropInto = (name, size) => page.evaluate(([name, size]) => {
+        const transfer = new DataTransfer();
+        transfer.items.add(new File(['x'.repeat(size)], name, { type: 'image/png' }));
+        document.querySelector('[data-state="file-input"] [data-dropzone]').dispatchEvent(new DragEvent('drop', { dataTransfer: transfer, bubbles: true, cancelable: true }));
+    }, [name, size]);
+    await dropInto('too-big.png', 4096);
+    await page.waitForTimeout(50);
+    assert.equal(await page.textContent('[data-signature]'), '', 'a file over maxBytes is refused in the browser');
+    await dropInto('sig.png', 100);
+    await page.waitForFunction(() => document.querySelector('[data-signature]').textContent === 'sig.png');
+});
+
 test('the notes composer: a second browse replaces the chosen files, while a drop and a paste add to them, and the save sends exactly the list shown', async () => {
     await notesPage('', async ({ tab, posts }) => {
         const names = () => tab.evaluate(() => [...document.querySelectorAll('[aria-label="Files to attach"] li span')].map(span => span.textContent.trim()));
