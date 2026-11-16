@@ -11885,6 +11885,11 @@ test('PhotoField remove confirm: the title, description and label come from acti
         assert.match(text, /Take the cover off\?/);
         assert.match(text, /Lists show a placeholder instead\./);
         assert.equal(await dialog.getByRole('button', { name: 'Take off' }).count(), 1);
+        const onTop = await dialog.evaluate(el => {
+            const r = el.getBoundingClientRect();
+            return el.contains(document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2));
+        });
+        assert.equal(onTop, true, 'the confirm paints over the modal behind it');
     });
 });
 

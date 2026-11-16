@@ -270,6 +270,15 @@ function remove() {
         </p>
         <Modal v-model:open="open" :title="modalTitle" size="md">
             <div class="grid gap-5" data-photo-field-modal>
+                <!-- Inside the Modal, so its overlay renders into the Modal's <dialog>, over it (layer.ts). -->
+                <Dialog
+                    v-model:open="confirming"
+                    :title="removeConfirm.title"
+                    :description="removeConfirm.description"
+                    :confirm-label="removeConfirm.label"
+                    variant="danger"
+                    @confirm="remove"
+                />
                 <img
                     v-if="photo?.card ?? photo?.thumb"
                     :src="(photo?.card ?? photo?.thumb)!"
@@ -349,13 +358,5 @@ function remove() {
                 >
             </template>
         </Modal>
-        <Dialog
-            v-model:open="confirming"
-            :title="removeConfirm.title"
-            :description="removeConfirm.description"
-            :confirm-label="removeConfirm.label"
-            variant="danger"
-            @confirm="remove"
-        />
     </div>
 </template>
