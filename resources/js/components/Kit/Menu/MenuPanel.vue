@@ -52,7 +52,7 @@ function focusItem(which: 'first' | 'last') {
     nextTick(() => {
         const items = [
             ...(panel()?.querySelectorAll<HTMLElement>(
-                '[role=menuitem]:not([data-disabled])',
+                '[role^=menuitem]:not([data-disabled])',
             ) ?? []),
         ];
         (which === 'last' ? items[items.length - 1] : items[0])?.focus();
