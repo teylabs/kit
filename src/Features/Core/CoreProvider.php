@@ -6,9 +6,14 @@ use ErrorException;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Contracts\Http\Kernel;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Exceptions\Handler as FrameworkHandler;
+use Illuminate\Foundation\Http\Events\RequestHandled;
 use Illuminate\Http\Request;
 use Illuminate\Pipeline\Pipeline;
+use Illuminate\Queue\Events\JobExceptionOccurred;
+use Illuminate\Queue\Events\JobProcessed;
+use Illuminate\Queue\Events\JobProcessing;
 use Illuminate\Support\ServiceProvider;
 use RuntimeException;
 use Spatie\QueryBuilder\Exceptions\InvalidFilterQuery;
@@ -40,6 +45,13 @@ final class CoreProvider extends ServiceProvider implements Contributes
 
     public function boot(): void
     {
+        // The touched_at pattern (docs/touched-at.md): `$table->touchedAt()` adds the nullable, indexed column, and the set of records touched is
+        // forgotten when a request or a job ends, so the next one touches them again.
+        Blueprint::macro('touchedAt', function () {
+            /** @var Blueprint $this */
+            return $this->timestamp('touched_at')->nullable()->index();
+        });
+        $this->app['events']->listen([RequestHandled::class, JobProcessing::class, JobProcessed::class, JobExceptionOccurred::class], static fn () => Touch::flush());
         // The request's start is core's, so a host without session-ui has it too: StartKitRequest runs first in `web` (first in the group and in the
         // priority list, so no host middleware sorts ahead of it), beginning the request's memos and putting back the kit's Inertia props a flush removed,
         // before the host's middleware, route-model binding or an error page reads them. It joins through the HTTP kernel, which owns the groups, and

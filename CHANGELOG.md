@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **touched_at pattern** (docs/touched-at.md): the `Touches` concern (`protected array $touchesParents = ['assignment'];`), separate from Eloquent's `$touches`: a child's create, update or delete touches its parents' `touched_at`, and theirs, by a quiet update (no events, `updated_at` unchanged), only on tables with a `touched_at` column, once per request or job, cycle-safe. `Touch::without(fn)`, `kit.touch.console`, `$model->touchTree()`, an `alsoTouch()` hook, the `$table->touchedAt()` migration macro, and `TouchesAssertions` (`assertTouchesParent`, `assertCovered`/`uncovered`). UI convention: "Touched 3 days ago".
+
 ## v0.29.2
 
 Features affected: none; `composer update tey/kit` is enough.
