@@ -100,6 +100,9 @@ export interface PlaceholderProps {
 /** A multi-line input (`v-model`: string), as Input. */
 export interface TextareaProps {
     invalid?: boolean;
+    defaultValue?: string;
+    hasFocus?: boolean;
+    autosize?: boolean;
 }
 
 /** A select (`v-model`: string): `options` are values with labels; `id` goes on the trigger. */
