@@ -35,6 +35,8 @@ trait GuardsStaleWrites
     {
         $column = static::lockColumn();
         unset($attributes[$column]);
+        // The stored values save() would write: casts (encrypted, enum, datetime, json) and mutators run, so an encrypted column is never written as plain text.
+        $attributes = $this->newInstance()->forceFill($attributes)->getAttributes();
         if ($this->usesTimestamps() && $this->getUpdatedAtColumn() !== null) {
             $attributes[$this->getUpdatedAtColumn()] = $this->freshTimestampString();
         }
