@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **Menus are at least 14rem wide** (`min-w-56`, was 8rem), whatever their trigger's width, so a filename or a captioned row no longer wraps in a tile's or a split button's menu. A row's icons keep their size.
+- **No icons inside a menu row's label.** A row that opens a new tab shows its arrow at the row's trailing edge, small and muted like a shortcut hint, and screen readers still hear "(opens in new tab)". In bars and buttons the arrow stays after the label.
+- **ItemStack's footer** is padded like the rest of the tile.
+
+### Added
+
+- **ItemStack `#footer-label`** (`{ index, count }`): the host writes the footer, such as "Listing · 1 of 3", and it follows the arrows; the kit still announces the position.
+
 ## v0.29.2
 
 Features affected: none; `composer update tey/kit` is enough.
