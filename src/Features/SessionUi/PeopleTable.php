@@ -6,6 +6,7 @@ use Tey\Concierge\Data\UI\InvitationRow;
 use Tey\Concierge\Data\UI\MemberRow;
 use Tey\Concierge\Data\UI\MembersTable;
 use Tey\Concierge\Data\UI\RowAction;
+use Tey\Kit\Features\Core\AvatarColor;
 use Tey\Kit\Features\Core\Data\Action;
 use Tey\Kit\Features\Core\Data\TableColumn;
 use Tey\Kit\Features\Core\Data\TableData;
@@ -45,7 +46,7 @@ final class PeopleTable
 
         return [
             'id' => $row->id,
-            'member' => ['name' => $row->user->name, 'email' => $row->user->email, 'initials' => $shell->initials($row->user->name), 'avatar' => $avatar, 'is_you' => $row->isSelf, 'invited_as' => $row->acceptedWithOtherEmail ? $row->invitedEmail : null],
+            'member' => ['name' => $row->user->name, 'email' => $row->user->email, 'initials' => $shell->initials($row->user->name), 'avatar' => $avatar, 'avatar_color' => AvatarColor::of($row->user), 'is_you' => $row->isSelf, 'invited_as' => $row->acceptedWithOtherEmail ? $row->invitedEmail : null],
             'roles' => array_map(fn ($badge) => ['value' => $badge->value, 'label' => $badge->label, 'variant' => $badge->variant], $row->roles),
             'role' => $role?->value,
             'status' => $row->status,

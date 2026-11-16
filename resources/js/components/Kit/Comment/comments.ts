@@ -20,6 +20,8 @@ export type CommentAuthor = {
     initials: string;
     avatar_url?: string | null;
     avatar_url_2x?: string | null;
+    /** The person's colour (AvatarColor on the server), so their initials match everywhere else they appear. */
+    avatar_color?: string | null;
 };
 
 /** One attached file. An image whose thumbnail is still being made (`thumb_pending`) shows a placeholder, never the original. */
