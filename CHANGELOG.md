@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## v0.28.1
+
+Features affected: none; `composer update tey/kit` is enough.
 
 ### Fixed
 
