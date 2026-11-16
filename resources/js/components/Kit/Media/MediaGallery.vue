@@ -28,6 +28,8 @@ const props = withDefaults(
         filenames?: boolean;
         lightbox?: boolean;
         readonly?: boolean;
+        /** False hides the thumbnail row: a lightbox only, opened with the exposed `show(item or id)`. */
+        thumbnails?: boolean;
     }>(),
     {
         label: 'Attachments',
@@ -36,6 +38,7 @@ const props = withDefaults(
         filenames: false,
         lightbox: true,
         readonly: true,
+        thumbnails: true,
     },
 );
 const expanded = ref(false);
@@ -52,10 +55,14 @@ const images = computed(() => props.items.filter(isImage));
 const open = ref(false);
 const current = ref(0);
 const viewing = computed(() => images.value[current.value]);
-function show(item: GalleryItem) {
-    current.value = images.value.indexOf(item);
+function show(target: GalleryItem | string) {
+    const id = typeof target === 'string' ? target : target.id;
+    const at = images.value.findIndex((image) => image.id === id);
+    if (at < 0) return;
+    current.value = at;
     open.value = true;
 }
+defineExpose({ show });
 function step(by: number) {
     const count = images.value.length;
     current.value = (current.value + by + count) % count;
@@ -64,7 +71,7 @@ const box = computed(() => (props.size === 'small' ? 'size-16' : 'size-28'));
 </script>
 <template>
     <section :aria-label="label" data-media-gallery :data-size="size">
-        <ul class="flex flex-wrap gap-2">
+        <ul v-if="thumbnails" class="flex flex-wrap gap-2">
             <li
                 v-for="item in shown"
                 :key="item.id"

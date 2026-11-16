@@ -571,6 +571,7 @@ export {
     moveAnnouncement,
     gripMove,
     type UseSortableOptions,
+    type ReorderPersist,
 } from './Data/sortable';
 // Comments and notes (docs/comments.md): the card they sit on, one comment with its replies and actions, its composer, and a titled thread. Presentational: the
 // server sends each comment, composer and action, and every save is the Inertia <Form> or visit it names.

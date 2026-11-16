@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Camera } from '@lucide/vue';
+import Spinner from '@/components/ui/spinner/Spinner.vue';
 import BulkDrop from '@/components/Kit/Form/BulkDrop.vue';
 import type { DirectRoutes } from '@/components/Kit/Form/directUpload';
 
@@ -17,9 +18,17 @@ withDefaults(
         maxFiles?: number;
         aspect?: 'square' | '4/3';
         disabled?: boolean;
+        /** Shows progress on the tile (a string is its text) and blocks adding. */
+        busy?: boolean | string;
         direct?: DirectRoutes;
     }>(),
-    { name: 'photo', aspect: 'square', multiple: false, disabled: false },
+    {
+        name: 'photo',
+        aspect: 'square',
+        multiple: false,
+        disabled: false,
+        busy: false,
+    },
 );
 const emit = defineEmits<{
     files: [files: File[]];
@@ -35,7 +44,7 @@ const emit = defineEmits<{
         :has-files="false"
         :multiple="multiple"
         :max-files="maxFiles"
-        :disabled="disabled"
+        :disabled="disabled || !!busy"
         :direct="direct"
         compact
         handle-drops
@@ -49,13 +58,26 @@ const emit = defineEmits<{
                     aspect === 'square' ? 'aspect-square' : 'aspect-4/3',
                     'border-border bg-muted/20 text-muted-foreground hover:bg-muted/40 focus-visible:outline-ring flex w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed',
                 ]"
-                :disabled="disabled"
+                :disabled="disabled || !!busy"
+                :aria-busy="busy ? 'true' : undefined"
                 data-photo-tile
                 :data-aspect="aspect"
                 @click="browse"
             >
-                <Camera class="size-6" aria-hidden="true" />
-                <span class="text-foreground font-medium">{{ label }}</span>
+                <template v-if="busy">
+                    <Spinner />
+                    <span
+                        class="text-foreground font-medium"
+                        data-photo-tile-busy
+                        >{{
+                            typeof busy === 'string' ? busy : 'Uploading…'
+                        }}</span
+                    >
+                </template>
+                <template v-else>
+                    <Camera class="size-6" aria-hidden="true" />
+                    <span class="text-foreground font-medium">{{ label }}</span>
+                </template>
             </button>
         </template>
     </BulkDrop>

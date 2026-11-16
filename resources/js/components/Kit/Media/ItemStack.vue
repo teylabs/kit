@@ -2,7 +2,10 @@
 import { ChevronDown, ChevronUp, Layers, Plus, Trash2 } from '@lucide/vue';
 import { computed, watch } from 'vue';
 import SortableList from '@/components/Kit/Data/SortableList.vue';
-import type { ReorderAction } from '@/components/Kit/Data/sortable';
+import type {
+    ReorderAction,
+    ReorderPersist,
+} from '@/components/Kit/Data/sortable';
 import Modal from '@/components/Kit/Overlay/Modal.vue';
 
 export type StackItem = {
@@ -34,6 +37,8 @@ const props = withDefaults(
         sizes?: string;
         busy?: boolean;
         version?: string | number | null;
+        /** The host's own save for the fanout's order, in place of `actions.reorder`: ok keeps the version, conflict rolls back and emits `conflict`. */
+        persist?: ReorderPersist | null;
     }>(),
     {
         actions: () => ({}),
@@ -42,6 +47,7 @@ const props = withDefaults(
         sizes: '20rem',
         busy: false,
         version: null,
+        persist: null,
     },
 );
 const index = defineModel<number>('index', { default: 0 });
@@ -50,7 +56,7 @@ const emit = defineEmits<{
     add: [];
     open: [id: string, event: Event];
     remove: [id: string];
-    saved: [version: string | number | null];
+    saved: [version: string | number | null, body?: unknown];
     conflict: [order: string[]];
 }>();
 defineSlots<{
@@ -195,10 +201,11 @@ const itemLabel = (item: StackItem, at: number) =>
                     :item-label="itemLabel"
                     :label="label"
                     :reorder="actions.reorder ?? null"
+                    :persist="persist"
                     :version="version"
-                    :disabled="busy || !actions.reorder"
+                    :disabled="busy || !(actions.reorder || persist)"
                     :layout="orientation === 'grid' ? 'grid' : 'list'"
-                    @saved="emit('saved', $event)"
+                    @saved="(version, body) => emit('saved', version, body)"
                     @conflict="emit('conflict', $event)"
                 >
                     <template #default="{ item, index: at }">

@@ -11746,7 +11746,7 @@ async function mediaTab(check) {
         const errors = [];
         tab.on('pageerror', error => errors.push(error.message));
         await tab.goto(`${url}?media`);
-        await tab.waitForSelector('[data-media-gallery]');
+        await tab.waitForSelector('[data-media-gallery] [data-media-gallery-item]');
         await check(tab);
         assert.deepEqual(errors, [], 'no page errors');
     } finally {
@@ -11756,7 +11756,7 @@ async function mediaTab(check) {
 
 test('MediaGallery: caps at maxThumbnails with "+N", a pending thumbnail is a placeholder, files open as links, images page through the lightbox', async () => {
     await mediaTab(async tab => {
-        const gallery = tab.locator('[data-media-gallery]');
+        const gallery = tab.locator('[data-media-gallery]').first();
         assert.equal(await gallery.locator('[data-media-gallery-item]').count(), 3);
         assert.equal(await gallery.locator('[data-media-more]').innerText(), '+2');
         assert.equal(await gallery.locator('[data-media-item="a2"] [data-media-pending]').count(), 1, 'no thumbnail yet: a placeholder, never the original');
@@ -11791,7 +11791,7 @@ test('MediaCollection tiles: badge, selected check, dimmed pending tile, tile ac
 
 test('ItemStack: steps through the stack, Arrange opens the fanout, a reorder sends the version, and a stale one rolls back and emits conflict', async () => {
     await mediaTab(async tab => {
-        const stack = tab.locator('[data-item-stack]');
+        const stack = tab.locator('[data-item-stack]').first();
         assert.equal(await stack.locator('[data-item-stack-position]').innerText(), '1 / 3');
         assert.equal(await stack.locator('[data-item-stack-layer]').count(), 2);
         await stack.locator('[data-item-stack-next]').click();
@@ -11823,6 +11823,55 @@ test('PhotoField: Change opens the current photo, a drop zone, the other photos 
         await tab.locator('[data-confirm-dialog]').waitFor();
         assert.match(await tab.locator('[data-confirm-dialog]').innerText(), /Remove Main photo\?/);
         assert.equal(await tab.locator('[data-fixture="empty-photo"] [data-photo-tile]').innerText(), 'Workspace logo');
+    });
+});
+
+test('MediaGallery lightbox only: thumbnails=false hides the row, and the exposed show(id) opens that image', async () => {
+    await mediaTab(async tab => {
+        const viewer = tab.locator('[data-fixture="viewer"]');
+        assert.equal(await viewer.locator('[data-media-gallery-item]').count(), 0);
+        await viewer.locator('[data-open-viewer]').click();
+        await tab.locator('[data-media-lightbox]').waitFor();
+        assert.match(await tab.getByRole('dialog').innerText(), /back\.jpg[\s\S]*3 of 4/);
+    });
+});
+
+test('MediaCollection tiles: action icons and attrs on the menu rows; sortable without a url emits reordered(from, to); indexOffset numbers from 1 + offset; busy disables the add tile', async () => {
+    await mediaTab(async tab => {
+        const tiles = tab.locator('[data-media-collection="photos"]');
+        await tiles.getByRole('button', { name: /Actions for Photo 1/ }).click();
+        const row = tab.locator('[data-test="make-main"]');
+        assert.equal(await row.getAttribute('data-media-action'), 'main', 'attrs are bound on the row');
+        assert.equal(await row.locator('[data-media-action-icon]').count(), 1);
+        await tab.keyboard.press('Escape');
+        const strip = tab.locator('[data-media-collection="strip"]');
+        assert.equal(await strip.getByRole('button', { name: 'Move Photo 3 (Front) back' }).count(), 1, 'numbering starts at 1 + indexOffset');
+        await strip.getByRole('button', { name: 'Move Photo 4 (Kitchen) back' }).click();
+        await tab.waitForFunction(() => window.kitEvents.includes('reordered 1 0'));
+        const tile = strip.locator('[data-photo-tile]');
+        assert.equal(await tile.isDisabled(), true);
+        assert.equal(await tile.getAttribute('aria-busy'), 'true');
+        assert.equal(await strip.locator('[data-photo-tile-busy]').innerText(), 'Uploading… 40%');
+    });
+});
+
+test('ItemStack persist: the host save replaces the built-in request; ok keeps the new version, a conflict rolls back and emits conflict', async () => {
+    await mediaTab(async tab => {
+        const stack = tab.locator('[data-fixture="persist"] [data-item-stack]');
+        await stack.locator('[data-item-stack-arrange]').click();
+        const fanout = tab.locator('[data-item-stack-fanout]');
+        await fanout.waitFor();
+        const order = () => fanout.locator('[data-item-stack-item]').evaluateAll(els => els.map(el => el.getAttribute('data-item-stack-item')));
+        await fanout.getByRole('button', { name: 'Move Colour 2 (Green) up' }).click();
+        await tab.waitForFunction(() => window.kitEvents.includes('persist-saved 6'));
+        assert.deepEqual(await tab.evaluate(() => window.kitPersist.calls), [{ order: ['c2', 'c1', 'c3'], version: 5 }]);
+        assert.deepEqual(await tab.evaluate(() => window.kitServer.log), [], 'no built-in request');
+        const before = await order();
+        await tab.evaluate(() => { window.kitPersist.conflict = true; });
+        await fanout.getByRole('button', { name: /Move Colour 3 \(Blue\) up/ }).click();
+        await tab.waitForFunction(() => window.kitEvents.some(e => e.startsWith('persist-conflict')));
+        assert.equal((await tab.evaluate(() => window.kitPersist.calls))[1].version, 6, 'the next save carries the version the last one returned');
+        assert.deepEqual(await order(), before, 'a conflict rolls the order back');
     });
 });
 
