@@ -11980,3 +11980,31 @@ test('PhotoTile aspect="fill": the empty tile fills the height its host gives it
         const h = await tab.$eval('[data-fixture="tile-fill"]', el => [el.getBoundingClientRect().height, el.querySelector('button').getBoundingClientRect().height]);
         assert.ok(Math.abs(h[0] - h[1]) <= 1, `tile ${h[1]}px in a ${h[0]}px container`);
     }));
+
+test('Menus: at least 14rem wide whatever the trigger, and a new-tab row keeps its arrow at the trailing edge, out of the label', async () => {
+    await onPage('small-pieces', async (tab) => {
+        await tab.locator('#narrow-menu [data-action-menu], #narrow-menu [aria-haspopup]').last().click();
+        const menu = await tab.waitForSelector('[role="menu"]');
+        const width = await menu.evaluate(el => el.getBoundingClientRect().width);
+        assert.ok(width >= 224, `menu ${width}px`);
+        const row = await tab.$eval('[role="menu"] [data-new-tab-arrow]', arrow => {
+            const item = arrow.closest('[role="menuitem"]').getBoundingClientRect();
+            const a = arrow.getBoundingClientRect();
+            const label = [...arrow.parentElement.querySelectorAll('span.truncate')].map(el => el.getBoundingClientRect())[0];
+            return { gapToEdge: item.right - a.right, sameLine: Math.abs(a.top - label.top) < 6, after: a.left >= label.right };
+        });
+        assert.ok(row.gapToEdge < 24, `arrow ${row.gapToEdge}px from the edge`);
+        assert.ok(row.sameLine && row.after, JSON.stringify(row));
+    });
+});
+
+test('ItemStack footer: padded like the tile, and #footer-label lets the host write the position as the arrows step', () =>
+    mediaTab(async (tab) => {
+        const stack = tab.locator('[data-fixture="fill"] [data-item-stack]');
+        const label = stack.locator('[data-item-stack-footer-label]');
+        assert.equal((await label.textContent()).trim(), 'Listing · 1 of 3');
+        await stack.locator('[data-item-stack-next]').click();
+        assert.equal((await label.textContent()).trim(), 'Listing · 2 of 3');
+        const pad = await stack.locator('[data-item-stack-footer]').evaluate(el => parseFloat(getComputedStyle(el).paddingLeft));
+        assert.ok(pad >= 8, `footer padding ${pad}px`);
+    }));

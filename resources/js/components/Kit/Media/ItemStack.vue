@@ -66,6 +66,8 @@ defineSlots<{
     badge?(props: { item: StackItem; index: number }): unknown;
     menu?(props: { item: StackItem; index: number }): unknown;
     thumb?(props: { item: StackItem; index: number }): unknown;
+    /** The footer's label, in place of "<items> · <count>": e.g. "Listing · 1 of 3". The kit still announces the position. */
+    'footer-label'?(props: { index: number; count: number }): unknown;
 }>();
 const count = computed(() => props.items.length);
 watch(count, (now) => {
@@ -177,10 +179,14 @@ const itemLabel = (item: StackItem, at: number) =>
             </span>
         </div>
         <footer
-            class="text-muted-foreground flex items-center gap-2 text-sm"
+            class="text-muted-foreground flex items-center gap-2 px-2 text-sm"
             data-item-stack-footer
         >
-            <span class="flex-1">{{ noun[1] }} · {{ count }}</span>
+            <span class="min-w-0 flex-1 truncate" data-item-stack-footer-label
+                ><slot name="footer-label" :index="index" :count="count"
+                    >{{ noun[1] }} · {{ count }}</slot
+                ></span
+            >
             <button
                 v-if="actions.add"
                 type="button"
