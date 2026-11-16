@@ -453,7 +453,9 @@ const showToolbar = computed(
         >
             <div
                 class="relative overflow-x-auto"
-                :class="stickyHeader ? 'max-h-[70svh] overflow-y-auto' : ''"
+                :class="
+                    stickyHeader ? 'sm:max-h-[70svh] sm:overflow-y-auto' : ''
+                "
             >
                 <table
                     class="w-full border-collapse text-sm max-sm:block"

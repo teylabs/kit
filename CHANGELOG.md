@@ -13,6 +13,10 @@ Features affected: shell, workspace-ui (re-pinned: their avatar stubs pass the p
 
 ### Changed
 
+- **A menu's trailing destructive rows get their divider** even with no labelled sections: Delete after Duplicate now sits below a separator in every action menu (ActionBar, ButtonGroup, RowActions).
+- **A disabled InertiaAction is dimmed** and described by its `reason` (a visually hidden element on aria-describedby, as RowActions does); the tooltip stays.
+- **InertiaAction keeps the host's class and data-\***: they land on its button or link instead of being dropped on a fragment.
+- **DataTable's sticky header is desktop-only**: at phone width (below `sm`) the row cards flow with the page instead of scrolling inside a 70svh box.
 - **ItemStack on a narrow tile**: with a host `#footer-label` (e.g. "Listing · 1 of 3"), the arrows join the footer and the separate "k / N" row goes (the position is still announced); the label keeps at least 6rem, and Add and Arrange go icon-only (names kept) when the footer is under 18rem. Without `#footer-label` the position row stays, now padded like the footer. New `:arrange="false"` hides the footer's Arrange… for a host that opens its own arrange view.
 - **FloatingToolbar phone layout**: below `sm` the pill is one full-width row instead of wrapping into a tall balloon. The status truncates, the primary page action stays, and one ⋯ "More actions" menu holds the other page actions and then the client `items`. Before, three page actions shrank to one letter each. Desktop is unchanged. A slotted button still can't move into the menu, so pass `actions` and `items`. HeaderActions gains a `menu` slot (rows after its overflow) and always splits on the pill at phone width.
 - **Menu rows line up across parts**: in the phone ⋯ menu the client items use the same row as the page actions (icon or icon-sized spacer, then label), and `ActionMenuItems` takes `iconSpacer` (HeaderActions `menuIcons`) so a page-action row keeps the spacer when only the items have icons.

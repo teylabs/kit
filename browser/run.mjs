@@ -12176,6 +12176,37 @@ test('InputSelect: a non-searchable select shows no text caret or I-beam and ope
         assert.equal(await tab.inputValue('#status'), 'Actual', 'typing into the select-only field changes nothing');
     });
 });
+
+test('Row gaps: an unsectioned menu draws a divider before its trailing destructive rows; a disabled InertiaAction is dimmed, described by its reason, and keeps the host class and data-*', async () => {
+    await onPage('small-pieces', async (tab) => {
+        const action = tab.locator('#row-gaps [data-inertia-action]');
+        assert.equal(await action.getAttribute('data-host'), 'yes', 'data-* reaches the button');
+        assert.ok((await action.getAttribute('class')).includes('host-class'), 'class reaches the button');
+        assert.ok(Number(await action.evaluate(el => getComputedStyle(el).opacity)) < 0.8, 'dimmed');
+        const described = await action.evaluate(el => document.getElementById(el.getAttribute('aria-describedby') ?? '')?.textContent);
+        assert.equal(described, 'No valuation yet');
+        await tab.locator('#row-gaps [aria-haspopup="menu"]').first().click();
+        const menu = tab.getByRole('menu');
+        await menu.waitFor();
+        const order = await menu.evaluate(el => [...el.querySelectorAll('[role="menuitem"], [data-menu-group-separator]')].map(n => n.hasAttribute('data-menu-group-separator') ? '|' : n.textContent.trim()));
+        assert.deepEqual(order, ['Duplicate', '|', 'Delete']);
+    });
+});
+
+test('DataTable sticky header is desktop-only: at phone width the row cards flow with the page (no inner scroll box); at desktop the header still sticks in a capped box', async () => {
+    for (const [width, inner] of [[390, false], [1280, true]]) {
+        const context = await browser.newContext({ viewport: { width, height: 700 } });
+        try {
+            const tab = await context.newPage();
+            await tab.goto(`${url}?datatable=phone`);
+            await tab.waitForSelector('[data-table]');
+            const box = await tab.$eval('[data-table]', el => { const s = getComputedStyle(el.parentElement); return { y: s.overflowY, max: s.maxHeight }; });
+            assert.equal(box.y === 'auto' && box.max !== 'none', inner, `${width}px: ${JSON.stringify(box)}`);
+        } finally {
+            await context.close();
+        }
+    }
+});
 test('Menus: at least 14rem wide whatever the trigger, and a new-tab row keeps its arrow at the trailing edge, out of the label', async () => {
     await onPage('small-pieces', async (tab) => {
         await tab.locator('#narrow-menu [data-action-menu], #narrow-menu [aria-haspopup]').last().click();

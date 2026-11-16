@@ -6,6 +6,7 @@ import { reveal } from '@/components/Kit/Layout/reveal';
 import EmailMessage from '@/components/Kit/Text/EmailMessage.vue';
 import CardHeader from '@/components/Kit/Card/CardHeader.vue';
 import ActionBar from '@/components/Kit/Action/ActionBar.vue';
+import InertiaAction from '@/components/Kit/Action/InertiaAction.vue';
 
 // Small pieces (?small-pieces): EmailMessage, BusyIndicator, reveal() and applyFormDefaults(). window.revealTarget(duration) reveals the far row.
 const applied = applyFormDefaults();
@@ -67,6 +68,20 @@ const defaultsOnSuccess = (Form as unknown as { props: { setDefaultsOnSuccess: {
             <CardHeader id="long-header" title="2014 Audi S5 Cabriolet 3.0 TFSI 2dr Conv Auto Technik">
                 <template #actions><button type="button" data-header-action>Edit</button><button type="button">Archive</button></template>
             </CardHeader>
+        </div>
+        <div id="row-gaps">
+            <ActionBar
+                :actions="[
+                    { key: 'open', label: 'Open', url: '/c/1', method: 'get', group: 'r' },
+                    { key: 'dup', label: 'Duplicate', url: '/c/1/dup', method: 'post', group: 'r', menu: true },
+                    { key: 'delete', label: 'Delete', url: '/c/1', method: 'delete', destructive: true, group: 'r', menu: true },
+                ]"
+            />
+            <InertiaAction
+                :action="{ key: 'val', label: 'Open valuation', url: '/c/1/val', method: 'get', disabled: true, reason: 'No valuation yet' }"
+                class="host-class"
+                data-host="yes"
+            />
         </div>
         <div id="narrow-menu" style="width: 120px">
             <ActionBar
