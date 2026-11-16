@@ -11907,7 +11907,7 @@ test('ItemStack #menu: a listing tile\'s menu opens with the same file-name subj
         const title = menu.locator('[data-menu-subject-title]');
         await title.waitFor();
         assert.equal(await title.getAttribute('title'), 'Listing-One-screenshot-2026-11-16.png');
-        assert.equal(await title.getAttribute('data-file-name'), '');
+        assert.equal(await title.getAttribute('data-slot'), 'middle-truncate');
         assert.equal(await menu.locator('[data-menu-subject-caption]').innerText(), 'Listing · 1 of 3');
     });
 });

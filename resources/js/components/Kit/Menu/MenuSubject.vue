@@ -3,7 +3,6 @@ import { Link } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { actionIcons } from '@/components/Kit/Action/actionIcons';
-import FileName from '@/components/Kit/Data/FileName.vue';
 import MiddleTruncate from '@/components/Kit/Data/MiddleTruncate.vue';
 import type { MenuSubject, MenuSubjectAction } from './menuSubject';
 
@@ -26,15 +25,8 @@ const itemClass =
         class="border-border -mx-1 -mt-1 mb-1 grid max-w-64 min-w-0 gap-0.5 border-b px-3 py-2"
         data-menu-subject
     >
-        <FileName
-            v-if="subject.kind === 'file'"
-            :id="id"
-            :name="subject.title"
-            class="text-foreground text-sm font-medium"
-            data-menu-subject-title
-        />
         <MiddleTruncate
-            v-else-if="subject.kind"
+            v-if="subject.kind"
             :id="id"
             :value="subject.title"
             :kind="subject.kind"
