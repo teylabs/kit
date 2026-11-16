@@ -2,7 +2,13 @@
 
 ## Unreleased
 
-Features affected: shell, workspace-ui (re-pinned: their avatar stubs pass the person's colour). Run `php artisan kit:update shell workspace-ui` to take them.
+Features affected: **shell** and **workspace-ui** (their avatar pages pass the person's colour). After `composer update tey/kit`, take each page you never edited:
+
+- `php artisan kit:scaffold shell --diff --only=resources/js/pages/Workspace/Partials` (UserAvatar, UserMenu, ShellDrawer, focusShell)
+- `php artisan kit:scaffold workspace-ui --diff --only=resources/js/pages/Workspace/Dashboard/Partials/YouWidget.vue`
+- `php artisan kit:scaffold workspace-ui --diff --only=resources/js/pages/Workspace/Settings/People/Page.vue`
+
+then `--force=<path>` for each. An edited page keeps its neutral avatar until you add `:color` yourself.
 
 ### Added
 
@@ -24,6 +30,19 @@ Features affected: shell, workspace-ui (re-pinned: their avatar stubs pass the p
 - **Menu rows line up across parts**: in the phone ⋯ menu the client items use the same row as the page actions (icon or icon-sized spacer, then label), and `ActionMenuItems` takes `iconSpacer` (HeaderActions `menuIcons`) so a page-action row keeps the spacer when only the items have icons.
 - **CollectionSection Sort by** (and CollectionCard's and dashboard widgets'): an InlineDropdown (sort icon, current order, chevron) in place of the bordered InputSelect. Its menu is headed by the descriptor's label over the section's title. Tests that drove it as a `combobox` now find a button named "Sort by: <order>" and `menuitemradio` items.
 - **InputSelect, not searchable**: the field reads as a button: a pointer cursor, no text caret, no text selection and no on-screen keyboard (`inputmode="none"`); only a searchable select shows a text cursor. Searchable stays off by default for up to 8 local options (`SEARCH_THRESHOLD`), on above it and for `filter="remote"`.
+
+## v0.30.1
+
+Features affected: none; `composer update tey/kit` is enough.
+
+### Fixed
+
+- **MediaCollection `tiles` is the proven photo strip again**: each photo is one square (or 4/3) kit Card, its picture above a compact CardFooter holding the drag grip, the middle-truncated name and the ⋯ menu, so every tile shares one baseline and is exactly a PhotoTile's size (the add tile is the grid's last cell). The grip and Move ←/→ row above each tile is gone: Move earlier and Move later are in the ⋯ menu, and the grip still moves a tile with the arrow keys, Home and End. Tiles take the width they're given (`minmax(min(7rem,100%),1fr)`).
+- **Page header**: from `sm` up a long title wraps in its own column and the header actions stay on its row; below `sm` the actions still drop under it.
+
+### Added
+
+- **SortableList `gripInSlot`** (the slot gets `grip`, `move`, `first`, `last`, for an item that draws its own grip and moves) and an **`#after`** slot: one trailing cell in the same grid, not sortable. New MediaCollection labels: `selected`, `earlier`, `later`.
 
 ## v0.30.0
 

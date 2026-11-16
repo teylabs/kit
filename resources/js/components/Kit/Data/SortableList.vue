@@ -31,6 +31,8 @@ const props = withDefaults(
         itemLabel: (item: T, index: number) => string;
         label: string;
         moveButtons?: boolean;
+        /** The item draws its own grip (the slot's `grip`, bound to a SortableHandle) and move controls (`move`): no row above or beside it, so a tile is only what the slot renders. */
+        gripInSlot?: boolean;
         disabled?: boolean;
         reorder?: ReorderAction | null;
         /** The host's own save, used in place of `reorder` (same version and rollback rules). */
@@ -48,6 +50,7 @@ const props = withDefaults(
         cutAfter: null,
         cutLabel: undefined,
         moveButtons: true,
+        gripInSlot: false,
         disabled: false,
         reorder: null,
         persist: null,
@@ -65,7 +68,22 @@ const emit = defineEmits<{
     conflict: [order: string[]];
     failed: [];
 }>();
-defineSlots<{ default(props: { item: T; index: number }): unknown }>();
+defineSlots<{
+    default(props: {
+        item: T;
+        index: number;
+        grip: {
+            label: string;
+            disabled: boolean;
+            onKeydown: (event: KeyboardEvent) => void;
+        };
+        move: (offset: number, event: Event) => void;
+        first: boolean;
+        last: boolean;
+    }): unknown;
+    /** One trailing cell after the items (e.g. an add tile), in the same grid and not sortable. */
+    after?(): unknown;
+}>();
 
 // The order shown: the host's items, or the optimistic order while a reorder is in flight (then back to the host's on a rollback).
 const shown = ref([...props.items]) as Ref<T[]>;
@@ -97,21 +115,23 @@ const cutAt = computed(() =>
         ? props.cutAfter
         : null,
 );
-const listClass = computed(
-    () =>
-        ({
-            list: 'grid gap-1',
-            grid: 'grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-3',
-            row: 'flex gap-3 overflow-x-auto pb-2',
-        })[props.layout],
+const listClass = computed(() =>
+    props.gripInSlot && props.layout === 'grid'
+        ? 'grid grid-cols-[repeat(auto-fill,minmax(min(7rem,100%),1fr))] gap-3'
+        : {
+              list: 'grid gap-1',
+              grid: 'grid grid-cols-[repeat(auto-fill,minmax(min(9rem,100%),1fr))] gap-3',
+              row: 'flex gap-3 overflow-x-auto pb-2',
+          }[props.layout],
 );
-const itemClass = computed(
-    () =>
-        ({
-            list: 'flex min-w-0 items-center gap-2 rounded-md bg-card',
-            grid: 'flex min-w-0 flex-col gap-2 rounded-md bg-card p-2',
-            row: 'flex w-40 shrink-0 flex-col gap-2 rounded-md bg-card p-2',
-        })[props.layout],
+const itemClass = computed(() =>
+    props.gripInSlot
+        ? 'min-w-0'
+        : {
+              list: 'flex min-w-0 items-center gap-2 rounded-md bg-card',
+              grid: 'flex min-w-0 flex-col gap-2 rounded-md bg-card p-2',
+              row: 'flex w-40 shrink-0 flex-col gap-2 rounded-md bg-card p-2',
+          }[props.layout],
 );
 const cutClass = computed(() =>
     props.layout === 'row'
@@ -273,6 +293,7 @@ async function moveBy(
                     :data-sortable-id="item.id"
                 >
                     <div
+                        v-if="!gripInSlot"
                         :class="
                             flow
                                 ? 'flex items-center justify-between gap-1'
@@ -317,10 +338,25 @@ async function moveBy(
                         </span>
                     </div>
                     <div class="min-w-0 flex-1">
-                        <slot :item="item" :index="index" />
+                        <slot
+                            :item="item"
+                            :index="index"
+                            :grip="{
+                                label: itemLabel(item, index),
+                                disabled: off,
+                                onKeydown: (event: KeyboardEvent) =>
+                                    onGripKeydown(index, event),
+                            }"
+                            :move="
+                                (offset: number, event: Event) =>
+                                    moveBy(index, offset, event)
+                            "
+                            :first="index === 0"
+                            :last="index === shown.length - 1"
+                        />
                     </div>
                     <span
-                        v-if="moveButtons && !flow"
+                        v-if="moveButtons && !flow && !gripInSlot"
                         class="flex shrink-0 items-center gap-0.5"
                     >
                         <button
@@ -350,6 +386,9 @@ async function moveBy(
                     </span>
                 </li>
             </template>
+            <li v-if="$slots.after" class="min-w-0" data-sortable-after>
+                <slot name="after" />
+            </li>
         </ul>
         <p
             v-if="saveError"
