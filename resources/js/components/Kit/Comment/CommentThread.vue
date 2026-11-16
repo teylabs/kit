@@ -13,6 +13,8 @@ import type {
  * A titled discussion (docs/comments.md): a PageSection with the composer on top (`composer`, for someone who may write), then the comments, each a CommentItem
  * with its replies. `groups` shows runs of comments together (one list per group, keyed by its id) in place of `comments`, even when it is
  * empty; with nothing to show, `empty` shows.
+ * `timeFormat`, `attachmentLayout` and `menuIcons` pass to every CommentItem, and its `meta` and `attachments` slots pass through; the `composer-before` and
+ * `composer-after` slots are the composer's `before` and `after`.
  * `level` is the heading's, `only` limits each visit's props, and `interactive` false shows no actions. Other attributes land on the section.
  */
 const props = withDefaults(
@@ -25,6 +27,9 @@ const props = withDefaults(
         level?: 2 | 3 | 4 | 5 | 6;
         interactive?: boolean;
         only?: string[];
+        timeFormat?: 'relative' | 'absolute';
+        attachmentLayout?: 'list' | 'gallery';
+        menuIcons?: boolean;
     }>(),
     {
         comments: () => [],
@@ -34,6 +39,9 @@ const props = withDefaults(
         level: 2,
         interactive: true,
         only: undefined,
+        timeFormat: 'relative',
+        attachmentLayout: 'list',
+        menuIcons: false,
     },
 );
 // Only groups with comments are drawn: a list of empty groups shows the empty line, not a blank region.
@@ -43,7 +51,14 @@ const shown = computed(() =>
 </script>
 <template>
     <PageSection :title="title" :level="level" data-comment-thread>
-        <CommentForm v-if="composer" :composer="composer" :only="only" />
+        <CommentForm v-if="composer" :composer="composer" :only="only">
+            <template v-if="$slots['composer-before']" #before="slotProps"
+                ><slot name="composer-before" v-bind="slotProps"
+            /></template>
+            <template v-if="$slots['composer-after']" #after="slotProps"
+                ><slot name="composer-after" v-bind="slotProps"
+            /></template>
+        </CommentForm>
         <ol v-if="shown.length" class="grid gap-6">
             <li
                 v-for="group in shown"
@@ -56,7 +71,19 @@ const shown = computed(() =>
                             :comment="comment"
                             :interactive="interactive"
                             :only="only"
-                        />
+                            :time-format="timeFormat"
+                            :attachment-layout="attachmentLayout"
+                            :menu-icons="menuIcons"
+                        >
+                            <template v-if="$slots.meta" #meta="slotProps"
+                                ><slot name="meta" v-bind="slotProps"
+                            /></template>
+                            <template
+                                v-if="$slots.attachments"
+                                #attachments="slotProps"
+                                ><slot name="attachments" v-bind="slotProps"
+                            /></template>
+                        </CommentItem>
                     </li>
                 </ol>
             </li>
@@ -67,7 +94,17 @@ const shown = computed(() =>
                     :comment="comment"
                     :interactive="interactive"
                     :only="only"
-                />
+                    :time-format="timeFormat"
+                    :attachment-layout="attachmentLayout"
+                    :menu-icons="menuIcons"
+                >
+                    <template v-if="$slots.meta" #meta="slotProps"
+                        ><slot name="meta" v-bind="slotProps"
+                    /></template>
+                    <template v-if="$slots.attachments" #attachments="slotProps"
+                        ><slot name="attachments" v-bind="slotProps"
+                    /></template>
+                </CommentItem>
             </li>
         </ol>
         <p v-else class="text-muted-foreground text-sm" data-comment-empty>

@@ -19,7 +19,8 @@ import {
  * the writer's avatar and opens on focus into the full box with its toolbar (attach, colour, Cancel and the submit); it closes again when focus leaves it empty.
  * `comment` makes it the editor of that comment: open from the start, its body and colour filled in, its files listed with a Remove checkbox each, and
  * `expected_version` sent, so a comment changed meanwhile is refused, never overwritten. Every save carries a fresh `intent_key` and the composer's `fields`.
- * Files come by drop, paste or the Attach button into the kit's BulkDrop and are sent as `files`; `remove_attachments` lists an edit's removed ones.
+ * The `before` and `after` slots, scoped by `composer` and `processing`, put the host's own controls above and below the body (a record search, options);
+ * their inputs post with the form. Files come by drop, paste or the Attach button into the kit's BulkDrop and are sent as `files`; `remove_attachments` lists an edit's removed ones.
  * Enter saves with `enterSaves` (Shift+Enter for a new line), otherwise Cmd/Ctrl+Enter; Escape closes an empty composer or cancels an edit. `only` limits the
  * visit's props. After a save it clears and keeps focus in the box for the next one. Exposed: focus(), text(), colour(), clear() (empties the body, files and
  * colour, an editor's too) and submit().
@@ -252,6 +253,11 @@ defineExpose({
                         class="text-sm font-medium"
                         >{{ composer.label }}</label
                     >
+                    <slot
+                        name="before"
+                        :composer="composer"
+                        :processing="processing"
+                    />
                     <div class="flex min-w-0 items-start gap-3">
                         <Avatar
                             v-if="!open && author"
@@ -295,6 +301,11 @@ defineExpose({
                     >
                         {{ errors.body }}
                     </p>
+                    <slot
+                        name="after"
+                        :composer="composer"
+                        :processing="processing"
+                    />
                     <ul
                         v-if="comment?.attachments?.length"
                         class="grid gap-1"

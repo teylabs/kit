@@ -5597,6 +5597,36 @@ test('NoteCard and CommentItem: the colour label is read with the author and tim
     });
 });
 
+test('CommentItem opt-ins (?adopt): absolute time, images as a gallery with the other files listed, a meta slot in the header, menu icons, and composer slots whose inputs post', async () => {
+    await commentsPage('?adopt', async ({ tab, writes }) => {
+        const item = tab.locator('[data-adopted] [data-comment="9"]');
+        const time = await item.locator('[data-note-meta] time').first().textContent();
+        assert.doesNotMatch(time, /ago|yesterday|today/i, `absolute, not relative: ${time}`);
+        assert.match(time, /2026|Nov/, `a date: ${time}`);
+        const tiles = item.locator('[data-comment-gallery] [data-comment-gallery-item]');
+        assert.equal(await tiles.count(), 2, 'both images are tiles');
+        assert.equal(await tiles.nth(0).locator('img').getAttribute('alt'), 'kitchen.jpg');
+        assert.equal(await tiles.nth(1).locator('img').count(), 0, 'a pending thumbnail is a placeholder, never the original');
+        assert.equal(await tiles.nth(1).textContent(), 'roof.png', 'named for assistive technology');
+        assert.deepEqual(await item.locator('[data-file-list] li').allTextContents().then(rows => rows.map(r => r.includes('report.pdf'))), [true], 'the PDF stays in the list');
+        assert.equal(await item.locator('[data-note-meta] [data-case-link]').textContent(), 'Case 7 · comment', 'the meta slot sits in the header line');
+        await item.locator('[data-comment-menu]').first().click();
+        await tab.getByRole('menu').waitFor();
+        assert.equal(await tab.locator('[role="menu"] [role="menuitem"] svg').count(), 3, 'Edit, Reply and Delete each carry an icon');
+        assert.deepEqual(await notesAxe(tab), [], 'axe with the menu open');
+        await tab.keyboard.press('Escape');
+        const form = tab.locator('[data-adopted] [data-comment-form]');
+        assert.equal(await form.locator('[data-composer-before]').count(), 1);
+        assert.equal(await form.locator('[data-composer-after]').count(), 1);
+        await form.locator('textarea').fill('With options');
+        await form.locator('[data-composer-after] input').check();
+        await form.locator('textarea').press('Control+Enter');
+        await waitFor(async () => writes.length > 0);
+        assert.equal(part(writes[0].body, 'case_id'), '7', 'the before slot input posts');
+        assert.equal(part(writes[0].body, 'notify'), '1', 'the after slot input posts');
+    });
+});
+
 test('CommentForm: rests on one line, opens on focus, closes empty on Escape, saves on Ctrl+Enter (not Enter) with the colour, fields, files and a fresh intent key, then clears and keeps focus', async () => {
     await commentsPage('', async ({ tab, writes }) => {
         const form = tab.locator('[data-comment-thread] [data-comment-form]').first();

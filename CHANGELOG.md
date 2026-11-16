@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Comments** (opt-in, for adopting apps): CommentItem and CommentThread take `time-format` `absolute`, `attachment-layout` `gallery` (images as thumbnails, other files listed) and `menu-icons`, and a `meta` slot in the header line and an `attachments` slot. CommentForm takes `before` and `after` slots whose inputs post with the form. NoteCard has a `meta` slot. docs/comments.md.
+
 ## v0.27.1
 
 Features affected: none. No lineage needs kit:update; `composer update tey/kit` is enough.

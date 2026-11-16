@@ -111,7 +111,13 @@ const header = computed(
                     class="shrink-0"
                     data-note-meaning
                     >{{ accent.meaning }}</span
-                >
+                >{{ ' ' }}
+                <span
+                    v-if="$slots.meta"
+                    class="flex min-w-0 items-center gap-1.5"
+                    data-note-extra-meta
+                    ><slot name="meta"
+                /></span>
             </p>
             <div v-if="$slots.actions" class="text-muted-foreground shrink-0">
                 <slot name="actions" />

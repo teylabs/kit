@@ -84,23 +84,26 @@ A `put`, `patch` or `delete` submit is posted with `_method`, as Laravel reads i
 **NoteCard:**
 
 - Props: `accent` (`{ tone, label, meaning? }`), `author`, `variant` (`full`, or `compact`: one line, with no header), `density` (`default`: a bordered card; `compact`: no card, an inset row; `flush`: a filled tile that fills its cell), `accentEdge` (`left` or `top`), `accentWidth` (`thin`, `medium` or `wide`), `authorStyle` (`avatar-name`, `name` or `none`) and `as` (`article`, the default, named by its header; `div`; `li`).
-- Slots: default, `timestamp`, `actions` and `footer`.
+- Slots: default, `timestamp`, `meta` (more of the header line, after the time and the colour's meaning), `actions` and `footer`.
 
 **CommentItem:**
 
 - Props: `comment`, plus `variant`, `density`, `accentEdge` and `accentWidth` (NoteCard's). A compact item shows no actions, files or replies. `interactive` false shows no actions at all (a read-only feed). `collapsible` cuts a long body with Show more (TextLong). `only` limits each visit's props.
-- Slots: `quick` (scoped by `comment`): the host's own buttons before the menu. `footer` (scoped by `comment`): replaces the subject (a link when it has a `url`, text otherwise).
+- Opt-ins, all off by default: `time-format` `absolute` shows the date and time (DateTime `local`) in place of the relative time. `attachment-layout` `gallery` shows image files as a grid of square thumbnails, each a link to the file (a thumbnail still being made is a named placeholder, never the original), and keeps the other files in the FileList. `menu-icons` puts an icon on each menu row (Edit, Reply, Delete). Replies take the same three.
+- Slots: `quick` (scoped by `comment`): the host's own buttons before the menu. `meta` (scoped by `comment`): added to the header line after the time, for a record link and its icon. `attachments` (scoped by `files` and `comment`): replaces the gallery and the file list. `footer` (scoped by `comment`): replaces the subject (a link when it has a `url`, text otherwise). Replies receive `meta` and `attachments` too.
 - Event: `deleted`.
 
 **CommentForm:**
 
 - Props: `composer`, `comment` (makes it that comment's editor), `placeholder` (overrides the composer's), `enter-saves`, `only` and `avatar-size` (the resting avatar: `xs`, `sm`, `md` (the default) or `lg`).
+- Slots: `before` and `after` (scoped by `composer` and `processing`): the host's own controls above and below the body, such as a record search or options. Their named inputs post with the form.
 - Events: `start`, `finish`, `success`, `cancel` and `typing(text)`.
 - Exposed: `focus()`, `text()`, `colour()`, `clear()` (empties the body, files and colour without saving, an editor's too; Cancel puts an editor back to its comment) and `submit()`.
 
 **CommentThread:**
 
 - Props: `title`, `comments`, `groups` (runs of comments shown together, `{ id, comments }[]`, in place of `comments`, even when it is empty or none of its groups has a comment), `composer`, `empty` (default "No comments yet."), `level` (the heading's), `interactive` and `only`.
+- Opt-ins and slots passed through: `time-format`, `attachment-layout` and `menu-icons` to every CommentItem, its `meta` and `attachments` slots, and `composer-before` / `composer-after` as the composer's `before` and `after`.
 
 ## Hooks for tests
 
