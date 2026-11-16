@@ -2050,6 +2050,41 @@
       }
     },
     {
+      "id": "media.family",
+      "layer": "ui",
+      "group": "form",
+      "label": "Media gallery, tiles, stack and photo slot",
+      "feature": "core",
+      "applies": "has-file-uploads",
+      "uses": {
+        "imports": [
+          "@/components/Kit:MediaGallery",
+          "@/components/Kit:MediaThumbnail",
+          "@/components/Kit:PhotoTile",
+          "@/components/Kit:ItemStack",
+          "@/components/Kit:PhotoField",
+          "@/components/Kit:directUpload"
+        ]
+      },
+      "handRolled": [],
+      "docs": "docs/media.md",
+      "status": "new",
+      "since": "0.29.0",
+      "replaces": {
+        "components": [
+          "MediaGallery",
+          "MediaUploader",
+          "PhotoStrip",
+          "PhotoPlaceholder",
+          "Thumbnail",
+          "ItemStack",
+          "ItemStackFanout",
+          "*Lightbox*",
+          "*PhotoPicker*"
+        ]
+      }
+    },
+    {
       "id": "form.rich-text",
       "layer": "ui",
       "group": "form",
@@ -3552,6 +3587,18 @@
     {
       "ref": "@/components/Kit:FileList",
       "reason": "Media component: a record's files as a read-only attachment list, rendered inside a host page."
+    },
+    {
+      "ref": "@/components/Kit:tooLarge",
+      "reason": "Helper behind directUpload."
+    },
+    {
+      "ref": "@/components/Kit:DirectUploadError",
+      "reason": "directUpload's error class."
+    },
+    {
+      "ref": "@/components/Kit:UploadTooLargeError",
+      "reason": "directUpload's error class."
     },
     {
       "ref": "@/components/Kit:fileExtension",

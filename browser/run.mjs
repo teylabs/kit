@@ -11701,3 +11701,91 @@ test('FormActions density: the default bar keeps its border, padding and gap; co
         });
     }
 });
+
+// ── The media family (?media): MediaGallery, MediaCollection tiles, ItemStack and PhotoField ─────────────────────────────────────────────────────────────
+async function mediaTab(check) {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        await tab.goto(`${url}?media`);
+        await tab.waitForSelector('[data-media-gallery]');
+        await check(tab);
+        assert.deepEqual(errors, [], 'no page errors');
+    } finally {
+        await context.close();
+    }
+}
+
+test('MediaGallery: caps at maxThumbnails with "+N", a pending thumbnail is a placeholder, files open as links, images page through the lightbox', async () => {
+    await mediaTab(async tab => {
+        const gallery = tab.locator('[data-media-gallery]');
+        assert.equal(await gallery.locator('[data-media-gallery-item]').count(), 3);
+        assert.equal(await gallery.locator('[data-media-more]').innerText(), '+2');
+        assert.equal(await gallery.locator('[data-media-item="a2"] [data-media-pending]').count(), 1, 'no thumbnail yet: a placeholder, never the original');
+        assert.equal(await gallery.getByRole('link', { name: 'Open notes.pdf' }).getAttribute('href'), '/notes.pdf');
+        assert.equal(await gallery.locator('[data-media-filename]').first().innerText(), 'front.jpg');
+        await gallery.locator('[data-media-more]').click();
+        assert.equal(await gallery.locator('[data-media-gallery-item]').count(), 5);
+        await gallery.getByRole('button', { name: 'View front.jpg' }).click();
+        const box = tab.locator('[data-media-lightbox]');
+        await box.waitFor();
+        assert.match(await tab.getByRole('dialog').innerText(), /1 of 4/);
+        await box.locator('[data-media-next]').click();
+        assert.match(await tab.getByRole('dialog').innerText(), /side\.jpg[\s\S]*2 of 4/);
+    });
+});
+
+test('MediaCollection tiles: badge, selected check, dimmed pending tile, tile actions emit, and the add and empty states are camera tiles', async () => {
+    await mediaTab(async tab => {
+        const tiles = tab.locator('[data-media-collection="photos"]');
+        assert.equal(await tiles.locator('[data-media-item="p1"] [data-media-badge]').innerText(), 'Main photo');
+        assert.equal(await tiles.locator('[data-media-item="p2"][data-selected] [data-media-selected]').count(), 1);
+        assert.equal(await tiles.locator('[data-media-item="p3"][data-dim] [data-media-pending]').count(), 1);
+        await tiles.locator('[data-media-item="p2"] button[aria-pressed]').click();
+        await tiles.getByRole('button', { name: /Actions for Photo 1/ }).click();
+        await tab.getByRole('menuitem', { name: 'Make main photo' }).click();
+        assert.deepEqual(await tab.evaluate(() => window.kitEvents), ['show p2', 'action main p1']);
+        assert.equal(await tiles.locator('[data-photo-tile]').innerText(), 'Add photos');
+        assert.equal(await tab.locator('[data-fixture="empty-tiles"] [data-media-empty]').count(), 0, 'photo-tile replaces the empty text');
+        assert.equal(await tab.locator('[data-fixture="empty-tiles"] [data-photo-tile]').innerText(), 'Add a photo');
+    });
+});
+
+test('ItemStack: steps through the stack, Arrange opens the fanout, a reorder sends the version, and a stale one rolls back and emits conflict', async () => {
+    await mediaTab(async tab => {
+        const stack = tab.locator('[data-item-stack]');
+        assert.equal(await stack.locator('[data-item-stack-position]').innerText(), '1 / 3');
+        assert.equal(await stack.locator('[data-item-stack-layer]').count(), 2);
+        await stack.locator('[data-item-stack-next]').click();
+        assert.equal(await stack.locator('[data-item-stack-position]').innerText(), '2 / 3');
+        await stack.locator('[data-item-stack-arrange]').click();
+        const fanout = tab.locator('[data-item-stack-fanout]');
+        await fanout.waitFor();
+        await fanout.getByRole('button', { name: 'Move Shot 2 (Two) up' }).click();
+        await tab.waitForFunction(() => window.kitEvents.includes('saved 2'));
+        assert.deepEqual(await tab.evaluate(() => window.kitServer.log), [{ sent: 1, status: 200 }], 'the loaded version goes with the order');
+        const order = () => fanout.locator('[data-item-stack-item]').evaluateAll(els => els.map(el => el.getAttribute('data-item-stack-item')));
+        const before = await order();
+        await tab.evaluate(() => window.kitServer.stale());
+        await fanout.getByRole('button', { name: /Move Shot 3 \(Three\) up/ }).click();
+        await tab.waitForFunction(() => window.kitEvents.some(e => e.startsWith('conflict')));
+        assert.deepEqual(await order(), before, 'a 409 rolls the order back');
+    });
+});
+
+test('PhotoField: Change opens the current photo, a drop zone, the other photos and a confirmed Remove; an empty slot is a camera tile', async () => {
+    await mediaTab(async tab => {
+        await tab.locator('[data-photo-field-change]').click();
+        const modal = tab.locator('[data-photo-field-modal]');
+        await modal.waitFor();
+        assert.equal(await modal.locator('[data-photo-field-current]').count(), 1);
+        assert.equal(await modal.locator('[data-dropzone]').count(), 1);
+        assert.equal(await modal.getByRole('button', { name: 'Use Kitchen' }).count(), 1);
+        await tab.locator('[data-photo-field-remove]').click();
+        await tab.locator('[data-confirm-dialog]').waitFor();
+        assert.match(await tab.locator('[data-confirm-dialog]').innerText(), /Remove Main photo\?/);
+        assert.equal(await tab.locator('[data-fixture="empty-photo"] [data-photo-tile]').innerText(), 'Workspace logo');
+    });
+});
