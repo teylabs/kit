@@ -160,3 +160,15 @@ try { await saveDraft(); } finally { end(); } // end() is idempotent
 - **`node --test tests/js/pending-work.test.mjs`** covers the pending-work registry: `begin()` and an idempotent `end()`, `track()` on a resolve and a reject, and one page registry.
 - **The browser job, leave guard** (`leave.html`, on the real `@inertiajs/vue3`): Back with a dirty form asks, Stay keeps the page, Leave goes back; once clean again Back doesn't ask; both with the Navigation API and with `window.navigation` deleted (the history fallback, which leaves no entry behind). A BulkDrop upload in flight counts as unsaved on a clean form, and a save whose `onSuccess` visits another page isn't held.
 - **The browser job** (`?form-submit`): a `FormCard` over a fake socket handler. Enter submits with no navigation, Save is disabled while pending, a 422 shows the field error and summary, then Saved; axe passes, colour contrast included.
+
+## Saved forms are no longer dirty: applyFormDefaults()
+
+Inertia's `<Form>` re-snapshots its defaults after a successful submit only with `set-defaults-on-success`, so without it a saved form keeps showing "Unsaved changes" and the leave-page prompt. Call `applyFormDefaults()` once in the app's entry, before mounting, to make that the default for every `<Form>` (useForm already behaves this way):
+
+```ts
+import { applyFormDefaults } from '@/components/Kit';
+
+applyFormDefaults();
+```
+
+A form can still opt out with `:set-defaults-on-success="false"`. It returns false, and changes nothing, on an Inertia version without the prop.

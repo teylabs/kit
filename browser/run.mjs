@@ -11701,3 +11701,36 @@ test('FormActions density: the default bar keeps its border, padding and gap; co
         });
     }
 });
+
+// ── Small pieces (?small-pieces): EmailMessage rows and body, BusyIndicator, reveal() and applyFormDefaults() ─────
+
+test('Small pieces: EmailMessage leaves out empty rows and cuts with limit; BusyIndicator labels a hidden svg; reveal scrolls and flashes then clears; applyFormDefaults sets setDefaultsOnSuccess', async () => {
+    const context = await browser.newContext({ viewport: { width: 1024, height: 700 } });
+    const tab = await context.newPage();
+    const errors = [];
+    tab.on('pageerror', error => errors.push(error.message));
+    try {
+        await tab.goto(`${url}?small-pieces`);
+        await tab.waitForSelector('[data-email-message]');
+        const first = tab.locator('[data-email-message]').first();
+        assert.deepEqual(await first.locator('[data-email-row]').evaluateAll(els => els.map(el => el.dataset.emailRow)), ['from', 'to', 'subject'], 'rows with no value are left out');
+        assert.equal((await first.locator('[data-email-row="to"]').textContent()).trim(), 'desk@example.test, ops@example.test');
+        assert.equal(await first.locator('h2').textContent(), 'What came in');
+        assert.equal(await first.locator('[data-email-attachments] li').count(), 1);
+        assert.equal(await tab.locator('#limited [data-slot="text-long"]').count(), 1, 'limit uses TextLong');
+        assert.equal(await tab.locator('svg[data-busy-indicator]').getAttribute('aria-hidden'), 'true');
+        assert.match(await tab.locator('svg[data-busy-indicator]').getAttribute('class'), /text-primary/, '$attrs land on the svg');
+        assert.equal(await tab.locator('[data-slot="busy-indicator"]').textContent(), 'Saving…');
+        assert.equal((await tab.locator('[data-case="defaults"]').textContent()).trim(), 'true true');
+        const { Form } = await import('@inertiajs/vue3');
+        assert.equal(Form.props.setDefaultsOnSuccess?.default, false, 'the real <Form> still has the prop applyFormDefaults sets');
+        await tab.evaluate(() => window.revealTarget(300));
+        await tab.waitForFunction(() => window.scrollY > 1000);
+        assert.equal(await tab.locator('#far[data-highlighted]').count(), 1, 'flashes');
+        await tab.waitForFunction(() => !document.querySelector('#far[data-highlighted]'));
+        assert.doesNotMatch(await tab.locator('#far').getAttribute('class'), /ring-2/, 'the ring clears');
+    } finally {
+        await context.close();
+    }
+    assert.deepEqual(errors, []);
+});

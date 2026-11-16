@@ -7,6 +7,10 @@
 - **Row actions, declared shapes.** `rowActions: { primary: 'edit' }` (DataTable prop or `TableQuery::rowActions(primary: 'edit')`, or `primary: true` on an action) makes every row the same shape: the primary as its icon (named and titled by its label), joined to a chevron menu of the rest; a row without that action shows its menu alone. `variant: 'menu'` puts every action in the "…" menu, a lone Delete included. `trigger: 'vertical'` draws ⋮ for compact places. Tables that declare nothing keep the earlier inferred layout.
 - **ActionDialogs and `useActionRunner`**, exported: a page runs descriptors from its own buttons, rows or menus (`runner.run(action)`) with their dialogs hosted once. A confirm can carry a `prompt` (a labelled textarea posted as `reason` or its `name`; `required` keeps Confirm disabled until it has text), with the server's error under it and other errors listed. An action's `form` names a `form-<name>` slot drawn in a Modal with `submit(data)`, `errors`, `busy` and `close`. A refused visit keeps the dialog open. `ActionMenuItems` is exported too.
 - **Dialog `confirmDisabled`.**
+- **EmailMessage**: one email as a mail client shows it (header rows with empty ones left out, the body as a TextCode card or a TextLong with `limit`, attachments). docs/text.md.
+- **BusyIndicator**, also exported as **Spinner**: an inline spinning circle (still under reduced motion) with a label slot. docs/text.md.
+- **`reveal(target, { duration, block })`**: scrolls a just-changed item into view (smooth unless reduced motion) and flashes a ring with `data-highlighted`. docs/text.md.
+- **`applyFormDefaults()`**: call it once in the app's entry and every Inertia `<Form>` defaults to `setDefaultsOnSuccess: true`, so a saved form is no longer dirty and the leave prompt stops. docs/submit-form.md.
 
 ## v0.28.1
 
