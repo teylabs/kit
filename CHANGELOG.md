@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.31.1
+
+Features affected: none (kit components only).
+
+### Added
+
+- **PageTabs `#actions`**: right-aligned at the end of the tab row (beside the select on phones). A `<Page>` with no visible heading (`:heading="false"`, or no title) that draws its tabs (`layout.navigation`) puts its header actions, status and `#actions` there instead of on a header row of their own; with a heading, nothing changes.
+
 ## v0.31.0
 
 Features affected: **shell** and **workspace-ui** (their avatar pages pass the person's colour). After `composer update tey/kit`, take each page you never edited:
