@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.31.2
 
 Features affected: none (kit components only).
 
