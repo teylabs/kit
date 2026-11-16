@@ -158,6 +158,23 @@ async function persist(order: string[], version: string | number | null) {
         <div data-fixture="empty-photo">
             <PhotoField :photo="null" label="Workspace logo" :accept="['image/png']" :max-bytes="1048576" :actions="{ replace: { ticket: '/uploads', register: '/logo' } }" />
         </div>
+        <div data-fixture="emit-photo">
+            <PhotoField
+                :photo="{ thumb: pixel, card: pixel }"
+                label="Cover"
+                title="Swap the cover"
+                :accept="['image/png']"
+                :max-bytes="1048576"
+                :actions="{ replace: true, remove: { url: '/cover', method: 'delete', confirm: { title: 'Take the cover off?', description: 'Lists show a placeholder instead.', label: 'Take off' } } }"
+                @files="(files) => events.push(`files ${files.map((f) => f.name).join(',')}`)"
+            />
+        </div>
+        <div data-fixture="endpoint-photo">
+            <PhotoField :photo="null" label="Badge" :accept="['image/png']" :max-bytes="1048576" :actions="{ replace: { url: '/badge', method: 'post' } }" :version="7" />
+        </div>
+        <div data-fixture="fill-photo" style="height: 320px; width: 420px">
+            <PhotoField :photo="{ thumb: pixel, card: pixel }" label="Feature photo" :accept="['image/jpeg']" :max-bytes="10485760" :actions="{ replace: true }" size="fill" />
+        </div>
         <div data-fixture="fill" style="height: 260px; width: 240px">
             <ItemStack :items="shots" label="Filled" :noun="['shot', 'shots']" fill>
                 <template #footer-label="{ index, count }">Listing · {{ index + 1 }} of {{ count }}</template>

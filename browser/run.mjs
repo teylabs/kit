@@ -11894,7 +11894,7 @@ test('ItemStack: steps through the stack, Arrange opens the fanout, a reorder se
 
 test('PhotoField: Change opens the current photo, a drop zone, the other photos and a confirmed Remove; an empty slot is a camera tile', async () => {
     await mediaTab(async tab => {
-        await tab.locator('[data-photo-field-change]').click();
+        await tab.locator('[data-photo-field-change]').first().click();
         const modal = tab.locator('[data-photo-field-modal]');
         await modal.waitFor();
         assert.equal(await modal.locator('[data-photo-field-current]').count(), 1);
@@ -11904,6 +11904,68 @@ test('PhotoField: Change opens the current photo, a drop zone, the other photos 
         await tab.locator('[data-confirm-dialog]').waitFor();
         assert.match(await tab.locator('[data-confirm-dialog]').innerText(), /Remove Main photo\?/);
         assert.equal(await tab.locator('[data-fixture="empty-photo"] [data-photo-tile]').innerText(), 'Workspace logo');
+    });
+});
+
+const pngFile = name => ({ name, mimeType: 'image/png', buffer: Buffer.from('89504e470d0a1a0a', 'hex') });
+
+test('PhotoField replace without direct routes: `true` keeps the drop zone and emits files; a plain endpoint shows the camera tile and posts multipart with the version', async () => {
+    await mediaTab(async tab => {
+        await tab.locator('[data-fixture="emit-photo"] [data-photo-field-change]').click();
+        const modal = tab.locator('[data-photo-field-modal]');
+        await modal.waitFor();
+        assert.equal(await modal.locator('[data-dropzone]').count(), 1, 'the drop zone shows without direct routes');
+        await modal.locator('input[type=file]').setInputFiles(pngFile('new-cover.png'));
+        await tab.waitForFunction(() => window.kitEvents.includes('files new-cover.png'));
+        await modal.waitFor({ state: 'detached' });
+        const empty = tab.locator('[data-fixture="endpoint-photo"]');
+        assert.equal(await empty.locator('[data-photo-tile]').innerText(), 'Badge', 'an empty slot is the camera tile');
+        await empty.locator('input[type=file]').setInputFiles(pngFile('badge.png'));
+        await tab.waitForFunction(() => (window.kitVisits ?? []).some(v => v.url === '/badge'));
+        const sent = await tab.evaluate(() => { const v = window.kitVisits.find(v => v.url === '/badge'); return { method: v.method, photo: v.data.photo instanceof File ? v.data.photo.name : null, version: v.data.version }; });
+        assert.deepEqual(sent, { method: 'post', photo: 'badge.png', version: 7 });
+    });
+});
+
+test('PhotoField size fill: the slot takes its container\'s width and height', async () => {
+    await mediaTab(async tab => {
+        const field = tab.locator('[data-fixture="fill-photo"] [data-photo-field]');
+        const box = await field.boundingBox();
+        assert.ok(Math.abs(box.width - 420) < 1, `width ${box.width}`);
+        assert.ok(Math.abs(box.height - 320) < 1, `height ${box.height}`);
+        const tile = await field.locator('[data-photo-field-tile]').boundingBox();
+        assert.ok(tile.width > 400 && tile.height > 250, `tile ${tile.width}x${tile.height}`);
+    });
+});
+
+test('PhotoField title: the default puts the label inside the sentence ("Change main photo"); `title` overrides it', async () => {
+    await mediaTab(async tab => {
+        await tab.locator('[data-photo-field-change]').first().click();
+        await tab.locator('[data-photo-field-modal]').waitFor();
+        assert.equal(await tab.getByRole('dialog').getByRole('heading').first().innerText(), 'Change main photo');
+        await tab.keyboard.press('Escape');
+        await tab.locator('[data-photo-field-modal]').waitFor({ state: 'detached' });
+        await tab.locator('[data-fixture="emit-photo"] [data-photo-field-change]').click();
+        await tab.locator('[data-photo-field-modal]').waitFor();
+        assert.equal(await tab.getByRole('dialog').getByRole('heading').first().innerText(), 'Swap the cover');
+    });
+});
+
+test('PhotoField remove confirm: the title, description and label come from actions.remove.confirm', async () => {
+    await mediaTab(async tab => {
+        await tab.locator('[data-fixture="emit-photo"] [data-photo-field-change]').click();
+        await tab.locator('[data-photo-field-remove]').click();
+        const dialog = tab.locator('[data-confirm-dialog]');
+        await dialog.waitFor();
+        const text = await dialog.innerText();
+        assert.match(text, /Take the cover off\?/);
+        assert.match(text, /Lists show a placeholder instead\./);
+        assert.equal(await dialog.getByRole('button', { name: 'Take off' }).count(), 1);
+        const onTop = await dialog.evaluate(el => {
+            const r = el.getBoundingClientRect();
+            return el.contains(document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2));
+        });
+        assert.equal(onTop, true, 'the confirm paints over the modal behind it');
     });
 });
 
