@@ -12,6 +12,7 @@ import {
 } from './captureFiles';
 import { directUpload, type DirectRoutes } from './directUpload';
 import { usePendingWork } from './pendingWork';
+import { useFileDropGuard } from './useFileDropGuard';
 
 /*
  * The one dropzone (BulkDrop.md §9): a dashed, focusable surface that takes files by drop, paste (focus it and paste) or a native browse button, into a visually
@@ -22,6 +23,8 @@ import { usePendingWork } from './pendingWork';
  * `direct` (request and confirm routes) makes this control upload itself: each file goes straight to the bucket (directUpload.ts) with progress, then
  * `uploaded` carries the confirm routes' results. The input is cleared afterwards, so no bytes are also submitted with the form. An upload in flight is pending
  * work (pendingWork.ts): the leave-page guard asks before leaving until it ends.
+ * While any dropzone is mounted, the page-wide file drop guard (fileDropGuard.ts) keeps a file released outside every zone from the browser, which would
+ * otherwise open it and leave the app; while files are dragged anywhere over the page, every zone shows its active ring so the target is easy to find.
  */
 const props = withDefaults(
     defineProps<{
@@ -58,6 +61,7 @@ const busyText = () =>
         : `Uploading… ${Math.round(uploading.value * 100)}%`);
 const input = ref<HTMLInputElement>();
 const dragging = ref(0);
+const { pageDragging } = useFileDropGuard();
 const error = ref('');
 const filename = ref('');
 // `showLimit: false` drops the size line when no `hint` is given; an empty hint renders nothing.
@@ -183,7 +187,7 @@ function over(event: DragEvent) {
                           : disabled
                             ? 'border-border bg-muted/50 cursor-not-allowed'
                             : 'border-border bg-muted/20',
-                      active && 'ring-ring/50 ring-2',
+                      (active || pageDragging) && 'ring-ring/50 ring-2',
                   ]
         "
         :tabindex="compact ? undefined : 0"
@@ -193,6 +197,7 @@ function over(event: DragEvent) {
         :aria-disabled="compact || !disabled ? undefined : 'true'"
         data-dropzone
         :data-dragging="dragging > 0 || undefined"
+        :data-page-dragging="pageDragging || undefined"
         @paste="paste"
         @dragenter="enter"
         @dragleave="leave"

@@ -10,10 +10,15 @@
 
 ### Added
 
+- `FileInput` `dropzone`: the kit's dropzone in place of the native picker, taking one file by drop, paste or browse, with `maxBytes` (10 MB by default) checked in the browser and `label` naming the field (#1044).
 - `DescriptionList` `layout` `grid` (the term over its value, in `columns` 1 to 3 from `sm` up) and `compact` (the pairs in one wrapping row), and `highlight` on an item (the success tint, a check and a spoken "(matches)"). The default `inline` layout is unchanged (#1044).
 - `SearchBox` controlled mode: pass `results` (with `busy`, `failed` and `partial`) and bind `v-model:query`, and the box never fetches; choosing a result emits `select` (and still visits its `url` when it has one), and Enter with none active emits `submit`. `url` is now optional. The fetching mode is unchanged (#1044).
 - `EmptyState` `align` (`center`, the default, or `start` for a widget's body), `variant` `first-use` (a dashed border, for a place that has never had anything in it), and `icon` as a name from a server descriptor (the empty states' own icons, then the action icons; an unknown name draws no icon). Existing empty states render as before (#1044).
 - `Textarea` `defaultValue` (the starting text without a v-model), `hasFocus` (focus on mount), `autosize` (grows with its content from 4rem up to 20rem, then scrolls) and an exposed `focus()`. Existing textareas render as before (#1044).
+
+### Fixed
+
+- **A file dropped just outside a dropzone no longer opens in the browser and leaves the app** (#1044). While any dropzone (BulkDrop) is mounted, a page-wide guard keeps a file released outside every zone from the browser, and every zone shows its ring while files are dragged over the page.
 
 ## v0.26.0
 

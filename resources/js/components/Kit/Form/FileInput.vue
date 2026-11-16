@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, useAttrs } from 'vue';
+import BulkDrop from './BulkDrop.vue';
 import { customProperties } from './inputSelect';
 import { fileSize } from './locked';
 import { useLocked } from './useLocked';
@@ -9,6 +10,8 @@ import { useFieldAria } from './fieldAria';
 // record already holds (name, size and, when the host gives one, a link to open or download it), shown in place of the picker while locked.
 // Inside a locked LockedForm (the LockedForm spec) there is no picker, no choose, replace or remove: the current file shows as its name, size and link, or a muted "No file".
 // Caller attributes (`aria-describedby`, `required`, `name`, `data-*` and the rest) land on the file input; `invalid` sets its `aria-invalid`. Only the custom properties (`--*`) of a `style` are kept. While locked, only `class` and those carry over, to the file line.
+// `dropzone` draws the kit's dropzone (BulkDrop) in place of the native picker, taking one file by drop, paste or browse; `maxBytes` (10 MB by default)
+// refuses a larger file in the browser, before any upload, and `label` names the field in the zone's text.
 defineOptions({ inheritAttrs: false });
 const props = defineProps<{
     id: string;
@@ -16,6 +19,9 @@ const props = defineProps<{
     disabled?: boolean;
     invalid?: boolean;
     autofocus?: boolean;
+    dropzone?: boolean;
+    maxBytes?: number;
+    label?: string;
     current?: {
         name: string;
         size?: number | null;
@@ -32,6 +38,13 @@ const inputAttrs = computed(() => {
     return rest;
 });
 const input = ref<HTMLInputElement | null>(null);
+const zoneKey = ref(0);
+const acceptList = computed(() =>
+    (props.accept ?? '')
+        .split(',')
+        .map((type) => type.trim())
+        .filter(Boolean),
+);
 const lock = useLocked();
 const locked = computed(() => lock.locked && !props.disabled);
 const shown = computed(() =>
@@ -47,6 +60,7 @@ defineExpose({
     clear: () => {
         model.value = null;
         if (input.value) input.value.value = '';
+        zoneKey.value++;
     },
 });
 </script>
@@ -75,6 +89,23 @@ defineExpose({
         </template>
         <span v-else class="text-muted-foreground">No file</span>
     </p>
+    <div v-else-if="dropzone" class="grid gap-1" data-file-input-dropzone>
+        <BulkDrop
+            :id="id"
+            :key="zoneKey"
+            :name="String(attrs.name ?? id)"
+            :label="label ?? 'this field'"
+            :accept="acceptList"
+            :max-bytes="maxBytes ?? 10 * 1048576"
+            :has-files="Boolean(model)"
+            :disabled="disabled"
+            handle-drops
+            @files="(files) => (model = files[0] ?? null)"
+        />
+        <p v-if="shown" class="text-muted-foreground text-sm" data-file-chosen>
+            {{ shown.name }}
+        </p>
+    </div>
     <input
         v-else
         v-bind="inputAttrs"
