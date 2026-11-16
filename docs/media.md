@@ -330,6 +330,17 @@ The page:
 
 `single` shows one file, and offers the dropzone only while it's empty. Reordering is SortableList's (drag, keyboard and Move up/down buttons, with an announcement). Move and remove are emitted for the host to run, so it keeps its own confirmation and route.
 
+## The media family
+
+Beyond a record's collection, the kit ships the pieces an adopting app needs to show and manage pictures. Each is exported from `@/components/Kit`.
+
+- **MediaGallery** shows mixed files read-only, such as a note's attachments: `<MediaGallery :items label :max-thumbnails="6" size="small" filenames />`. Items are `{ id, name, url, mimeType (or mime), thumbnail (or thumb) }`. Images open in a lightbox, and other files open as links. A missing thumbnail shows a placeholder, never the original.
+- **MediaThumbnail** is a square picture from the `thumb` and `card` conversions: `<MediaThumbnail :picture="{ thumb, card }" alt size="md" />`. When there is no picture it shows a muted icon tile.
+- **MediaCollection `layout="tiles"`** is the photo strip: `tile-aspect`, `badges` (`{ [id]: 'Main photo' }`), `selected-ids`, `dim-ids` and `tile-actions` (`[{ key, label, destructive? }]`, or a function of the item). It emits `action(key, item)` and `show(item)`. Its add tile and empty state are a **PhotoTile**, and `empty="photo-tile"` uses that tile in any layout.
+- **ItemStack** shows an ordered set as one stack, with `v-model:index`, `v-model:fanout-open`, `noun`, `orientation` and `actions: { add, reorder, remove }`. Arrange opens the fanout on SortableList. With `actions.reorder` and `version`, a move sends `{ order, version }`, and a 409 rolls back and emits `conflict`. The host runs add, open and remove.
+- **PhotoField** manages one photo slot: `<PhotoField :photo="{ thumb, card }" label="Main photo" :accept :max-bytes :actions="{ replace, choose, remove }" :sources :version />`. `replace` takes directUpload routes. `choose` and `remove` are `{ url, method }` and are sent as Inertia visits with `version` (`choose` also sends `media_id`), so the server's toast and fresh props come back. Remove asks for confirmation first. It emits `replaced`, `chosen` and `removed`.
+- **`directUpload(file, { ticket, register, maxBytes })`** is the same upload as `{ request, confirm }`. With `maxBytes`, a larger file is refused before any request with an `UploadTooLargeError` ("front.jpg is larger than 10 MB"), and `tooLarge(file, maxBytes)` gives that message without uploading.
+
 ## Where failed jobs live
 
 When conversions fail, look in both places a failed job can be:

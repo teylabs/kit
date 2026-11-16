@@ -11,6 +11,9 @@
 - **BusyIndicator**, also exported as **Spinner**: an inline spinning circle (still under reduced motion) with a label slot. docs/text.md.
 - **`reveal(target, { duration, block })`**: scrolls a just-changed item into view (smooth unless reduced motion) and flashes a ring with `data-highlighted`. docs/text.md.
 - **`applyFormDefaults()`**: call it once in the app's entry and every Inertia `<Form>` defaults to `setDefaultsOnSuccess: true`, so a saved form is no longer dirty and the leave prompt stops. docs/submit-form.md.
+- **The media family** (kit#1043). `MediaGallery`: a read-only row of mixed files with a lightbox (Previous/Next, arrow keys), a placeholder until the generated thumbnail exists, `maxThumbnails` with "+N", `small|medium` and `filenames`. `MediaThumbnail`: a square `{thumb, card}` picture, `sm|md|lg`, a muted tile when there is none. `PhotoTile`: the dashed camera tile for an empty photo slot (drop, paste or click). `ItemStack`: a stack with "k / N", Previous/Next and an Arrange fanout on SortableList, whose reorder sends the version and rolls back on a 409. `PhotoField`: one photo slot whose Change modal shows the current photo, replaces it by drop or paste (directUpload), picks from `sources`, and removes it after a confirmation, each write carrying `version`; it emits `replaced`, `chosen` and `removed`.
+- **MediaCollection `layout="tiles"`**: square or 4/3 tiles with `badges`, `selected-ids`, `dim-ids`, per-tile `tile-actions` (emitted as `action`), `show`, a placeholder until `thumb` exists, and a camera add tile; `empty="photo-tile"` in any layout. `MediaItem`'s `size`, `width`, `height` and `srcset` are now optional, and it takes `thumb` and `pending`.
+- **`directUpload(file, { ticket, register, maxBytes })`**, exported with `tooLarge`, `DirectUploadError` and `UploadTooLargeError`: a file over the cap is refused before any request with "<name> is larger than N MB".
 
 ### Fixed
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { MoreHorizontal } from '@lucide/vue';
+import { Check, MoreHorizontal } from '@lucide/vue';
 import { computed } from 'vue';
 import {
     DropdownMenu,
@@ -11,16 +11,26 @@ import SortableList from '@/components/Kit/Data/SortableList.vue';
 import type { ReorderAction } from '@/components/Kit/Data/sortable';
 import BulkDrop from '@/components/Kit/Form/BulkDrop.vue';
 import type { DirectRoutes } from '@/components/Kit/Form/directUpload';
+import PhotoTile from '@/components/Kit/Media/PhotoTile.vue';
 
 export type MediaItem = {
     id: string;
     name: string;
     mime: string;
-    size: number;
+    size?: number | null;
     src: string;
-    srcset: string;
-    width: number | null;
-    height: number | null;
+    srcset?: string | null;
+    width?: number | null;
+    height?: number | null;
+    /** The generated thumbnail; in `tiles`, a tile without one shows a placeholder until it exists (`pending`), never the original. */
+    thumb?: string | null;
+    pending?: boolean;
+};
+/** A tile's own action, emitted as `action(key, item)` for the host to run. */
+export type MediaTileAction = {
+    key: string;
+    label: string;
+    destructive?: boolean;
 };
 export type MediaCollectionData = {
     collection: string;
@@ -34,6 +44,9 @@ export type MediaCollectionData = {
  * buttons), sent with `reorder` and the collection's version, and rolls back on a stale one (`conflict`). Each item's menu moves it to another collection
  * (`move-targets`) and removes it; those are emitted for the host to run (its own route, which calls MoveMedia / RemoveMedia, and a confirmation for remove).
  * Words come from `labels`. Nothing here decides what a record may hold: the server's rules do.
+ * `layout="tiles"` is the photo strip: square (or `tile-aspect="4/3"`) cards in the server's order, each with a placeholder until its `thumb` exists, a corner
+ * badge (`badges`), a check (`selected-ids`), dimmed (`dim-ids`) and its own ⋯ actions (`tile-actions`, emitted as `action(key, item)`); a click emits `show`.
+ * The add tile and the empty state are a dashed camera tile (PhotoTile); `empty="photo-tile"` draws that in the other layouts too.
  */
 const props = withDefaults(
     defineProps<{
@@ -50,13 +63,30 @@ const props = withDefaults(
             Record<'item' | 'empty' | 'actions' | 'remove' | 'moveTo', string>
         >;
         /** `grid` lays photos out as tiles (the image above its name and menu), as SortableList's layout. */
-        layout?: 'list' | 'grid' | 'row';
+        layout?: 'list' | 'grid' | 'row' | 'tiles';
+        /** `tiles`: each photo a square (or 4/3) card with its name, a corner badge, a check when selected, dimmed, and its own actions. */
+        tileAspect?: 'square' | '4/3';
+        selectedIds?: string[];
+        badges?: Record<string, string>;
+        dimIds?: string[];
+        tileActions?:
+            MediaTileAction[] | ((item: MediaItem) => MediaTileAction[]);
+        /** `photo-tile` draws the empty collection (and the add tile, in `tiles`) as a dashed camera tile instead of text and a dropzone. */
+        empty?: 'text' | 'photo-tile';
+        addLabel?: string;
         /** A divider after this many photos, e.g. the ones a listing shows. */
         cutAfter?: number | null;
         cutLabel?: string;
     }>(),
     {
         layout: 'list',
+        tileAspect: 'square',
+        selectedIds: () => [],
+        badges: () => ({}),
+        dimIds: () => [],
+        tileActions: () => [],
+        empty: 'text',
+        addLabel: 'Add photos',
         cutAfter: null,
         cutLabel: undefined,
         single: false,
@@ -73,7 +103,19 @@ const emit = defineEmits<{
     remove: [item: MediaItem];
     saved: [version: string | number | null];
     conflict: [order: string[]];
+    action: [key: string, item: MediaItem];
+    show: [item: MediaItem];
+    files: [files: File[]];
 }>();
+const tiles = computed(() => props.layout === 'tiles');
+const listLayout = computed(() =>
+    props.layout === 'tiles' ? 'grid' : props.layout,
+);
+const actionsFor = (item: MediaItem) =>
+    typeof props.tileActions === 'function'
+        ? props.tileActions(item)
+        : props.tileActions;
+const photoTile = computed(() => props.empty === 'photo-tile' || tiles.value);
 const text = computed(() => ({
     item: 'Photo',
     empty: 'Nothing here yet.',
@@ -105,21 +147,22 @@ const itemLabel = (item: MediaItem, index: number) =>
         :data-media-collection="collection.collection"
     >
         <p
-            v-if="items.length === 0"
+            v-if="items.length === 0 && !(photoTile && canAdd)"
             class="text-muted-foreground text-sm"
             data-media-empty
         >
             {{ text.empty }}
         </p>
         <SortableList
-            v-else-if="!single"
+            v-else-if="!single && items.length"
             :items="items"
             :item-label="itemLabel"
             :label="label"
             :reorder="reorder"
             :version="collection.version"
             :disabled="disabled"
-            :layout="layout"
+            :layout="listLayout"
+            :move-buttons="tiles ? !!reorder : undefined"
             :cut-after="cutAfter"
             :cut-label="cutLabel"
             @saved="emit('saved', $event)"
@@ -127,6 +170,95 @@ const itemLabel = (item: MediaItem, index: number) =>
         >
             <template #default="{ item, index }">
                 <div
+                    v-if="tiles"
+                    :class="[
+                        'grid min-w-0 gap-2',
+                        dimIds.includes(item.id) && 'opacity-50',
+                    ]"
+                    :data-media-item="item.id"
+                    data-media-tile
+                    :data-selected="selectedIds.includes(item.id) || undefined"
+                    :data-dim="dimIds.includes(item.id) || undefined"
+                >
+                    <button
+                        type="button"
+                        :class="[
+                            tileAspect === 'square'
+                                ? 'aspect-square'
+                                : 'aspect-4/3',
+                            'border-border bg-muted focus-visible:outline-ring relative w-full overflow-hidden rounded-md border focus-visible:outline-2 focus-visible:outline-offset-2',
+                            selectedIds.includes(item.id) &&
+                                'ring-primary ring-2',
+                        ]"
+                        :aria-label="`View ${itemLabel(item, index)}`"
+                        :aria-pressed="
+                            selectedIds.length
+                                ? selectedIds.includes(item.id)
+                                : undefined
+                        "
+                        @click="emit('show', item)"
+                    >
+                        <img
+                            v-if="item.thumb && !item.pending"
+                            :src="item.thumb"
+                            alt=""
+                            loading="lazy"
+                            class="size-full object-cover"
+                        />
+                        <span
+                            v-else
+                            class="bg-muted block size-full animate-pulse"
+                            data-media-pending
+                        />
+                        <span
+                            v-if="badges[item.id]"
+                            class="bg-background/90 absolute top-1.5 left-1.5 rounded px-1.5 py-0.5 text-xs font-medium"
+                            data-media-badge
+                            >{{ badges[item.id] }}</span
+                        >
+                        <span
+                            v-if="selectedIds.includes(item.id)"
+                            class="bg-primary text-primary-foreground absolute top-1.5 right-1.5 flex size-5 items-center justify-center rounded-full"
+                            data-media-selected
+                            ><Check class="size-3.5" aria-hidden="true"
+                        /></span>
+                    </button>
+                    <div class="flex min-w-0 items-center gap-1">
+                        <span class="min-w-0 flex-1 truncate text-sm">{{
+                            item.name
+                        }}</span>
+                        <DropdownMenu
+                            v-if="!disabled && actionsFor(item).length"
+                        >
+                            <DropdownMenuTrigger as-child
+                                ><button
+                                    type="button"
+                                    class="hover:bg-accent focus-visible:outline-ring inline-flex size-8 items-center justify-center rounded-md focus-visible:outline-2"
+                                    :aria-label="`${text.actions} ${itemLabel(item, index)}`"
+                                >
+                                    <MoreHorizontal
+                                        class="size-4"
+                                        aria-hidden="true"
+                                    /></button
+                            ></DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem
+                                    v-for="action in actionsFor(item)"
+                                    :key="action.key"
+                                    :class="
+                                        action.destructive &&
+                                        'text-destructive-text focus:text-destructive-text'
+                                    "
+                                    :data-media-action="action.key"
+                                    @select="emit('action', action.key, item)"
+                                    >{{ action.label }}</DropdownMenuItem
+                                >
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
+                </div>
+                <div
+                    v-else
                     :class="
                         layout === 'list'
                             ? 'flex min-w-0 items-center gap-3'
@@ -135,8 +267,10 @@ const itemLabel = (item: MediaItem, index: number) =>
                     :data-media-item="item.id"
                 >
                     <img
-                        :src="item.src"
-                        :srcset="item.srcset || undefined"
+                        :src="item.thumb ?? item.src"
+                        :srcset="
+                            item.thumb ? undefined : item.srcset || undefined
+                        "
                         :sizes="layout === 'list' ? '4rem' : '10rem'"
                         :width="item.width ?? undefined"
                         :height="item.height ?? undefined"
@@ -184,7 +318,7 @@ const itemLabel = (item: MediaItem, index: number) =>
             </template>
         </SortableList>
         <div
-            v-else
+            v-else-if="items.length"
             class="flex min-w-0 items-center gap-3"
             :data-media-item="items[0].id"
         >
@@ -218,8 +352,21 @@ const itemLabel = (item: MediaItem, index: number) =>
                 </button>
             </div>
         </div>
+        <PhotoTile
+            v-if="canAdd && direct && photoTile"
+            :class="tiles ? 'max-w-48' : 'max-w-64'"
+            :name="collection.collection"
+            :label="items.length ? addLabel : label"
+            :accept="accept"
+            :max-bytes="maxBytes"
+            :multiple="!single"
+            :aspect="tileAspect"
+            :direct="direct"
+            @files="emit('files', $event)"
+            @uploaded="emit('uploaded', $event)"
+        />
         <BulkDrop
-            v-if="canAdd && direct"
+            v-else-if="canAdd && direct"
             :name="collection.collection"
             :label="label"
             :accept="accept"

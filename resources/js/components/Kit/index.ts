@@ -56,7 +56,31 @@ export {
     default as MediaCollection,
     type MediaItem,
     type MediaCollectionData,
+    type MediaTileAction,
 } from './Media/MediaCollection.vue';
+// The media family (docs/media.md): a read-only gallery with a lightbox, a square thumbnail, the empty photo tile, a stack with its fanout, and one photo slot.
+export {
+    default as MediaGallery,
+    type GalleryItem,
+} from './Media/MediaGallery.vue';
+export {
+    default as MediaThumbnail,
+    type MediaPicture,
+} from './Media/MediaThumbnail.vue';
+export { default as PhotoTile } from './Media/PhotoTile.vue';
+export { default as ItemStack, type StackItem } from './Media/ItemStack.vue';
+export {
+    default as PhotoField,
+    type PhotoSource,
+} from './Media/PhotoField.vue';
+export {
+    directUpload,
+    tooLarge,
+    DirectUploadError,
+    UploadTooLargeError,
+    type DirectRoutes,
+    type DirectTicketRoutes,
+} from './Form/directUpload';
 export { default as FileList, type FileListItem } from './Media/FileList.vue';
 export { fileExtension, fileSize } from './Media/fileList';
 export {
