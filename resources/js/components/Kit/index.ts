@@ -348,10 +348,7 @@ export { default as ActionBar } from './Action/ActionBar.vue';
 // Running descriptors from a page's own buttons, rows and menus: one runner, its dialogs hosted once (confirm, prompt, a host form), and the menu rows for a list.
 export { default as ActionDialogs } from './Action/ActionDialogs.vue';
 export { default as ActionMenuItems } from './Action/ActionMenuItems.vue';
-export {
-    useActionRunner,
-    type ActionRunner,
-} from './Action/actionRunner';
+export { useActionRunner, type ActionRunner } from './Action/actionRunner';
 export { default as ActionLabel } from './Action/ActionLabel.vue';
 // A form's own actions in one row, or stacked full-width for an auth-style card (docs/action-group.md).
 export { default as ActionGroup } from './Action/ActionGroup.vue';

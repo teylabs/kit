@@ -124,7 +124,7 @@ tableCheck($plain()->rowActions('menu')->build(fn (TablePerson $person) => ['id'
 tableCheck((function () use ($plain) { try { $plain()->rowActions(trigger: 'diagonal'); return false; } catch (InvalidArgumentException) { return true; } })(), 'an unknown trigger is refused');
 tableCheck($plain()->rowActions(variant: 'split')->build(fn (TablePerson $person) => ['id' => $person->id])->rowActions === ['variant' => 'split'] && $plain()->rowActions('overflow')->build(fn (TablePerson $person) => ['id' => $person->id])->rowActions === ['variant' => 'overflow'], 'rowActions() carries the chosen variant to the TableData');
 try {
-    $plain()->rowActions('menu');
+    $plain()->rowActions('stack');
     tableCheck(false, 'an unknown row actions variant is refused');
 } catch (InvalidArgumentException) {
     tableCheck(true, 'an unknown row actions variant is refused');
