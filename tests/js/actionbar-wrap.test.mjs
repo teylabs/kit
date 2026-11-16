@@ -65,7 +65,7 @@ test('every default names a known icon: lock-open, x, merge, download and trash'
 
 test('the More menu: a destructive row is red, and a row without an icon keeps an icon-sized spacer when another row has one', () => {
     assert.equal((items.match(/action\.destructive && 'text-destructive-text focus:text-destructive-text'/g) ?? []).length, 2);
-    assert.match(items, /const anyIcon = computed\(\(\) => props\.actions\.some\(action => menuIcon\(action\)\)\);/);
+    assert.match(items, /const anyIcon = computed\(\(\) => props\.iconSpacer \|\| props\.actions\.some\(action => menuIcon\(action\)\)\);/);
     // One spacer after each of the six row kinds' icon.
     assert.equal((items.match(/<span v-else-if="anyIcon" class="inline-block size-4 shrink-0" aria-hidden="true" data-menu-icon-spacer \/>/g) ?? []).length, 6);
 });
