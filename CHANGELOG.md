@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.31.0
 
 - MediaCollection tiles: the footer shows the host's `item.label` (or the `#tile-label="{ item, index }"` slot) in place of the file name; the default stays the name. The ⋯ menu opens with the file name as its subject header (cut in the middle, the extension kept) and `item.caption` under it.
 - docs/media.md shows ItemStack's `#menu` with the same file-name subject header as a MediaCollection tile.
