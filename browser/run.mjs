@@ -5196,6 +5196,34 @@ test('Row variants: the split and overflow row menus open the same small gap bel
         assert.equal(split, overflow, `split ${split}px, overflow ${overflow}px`);
     }));
 
+test('Row variants: each row-menu item shows its icon (its own, else the common intent\'s), hidden from its name', () =>
+    rowVariants(async (tab) => {
+        await tab.click(`[data-default-split] button[aria-label="Actions for ${longRecord}"]`);
+        await tab.waitForSelector('[role="menu"]');
+        const rows = await tab.$$eval('[role="menu"] [data-action]', els => els.map(el => ({ key: el.getAttribute('data-action'), icon: Boolean(el.querySelector('svg[data-action-icon][aria-hidden="true"]')), name: el.textContent.trim() })));
+        const del = rows.find(r => r.key === 'delete');
+        assert.ok(del?.icon, `Delete carries the trash icon: ${JSON.stringify(rows)}`);
+        assert.ok(rows.every(r => !/svg/.test(r.name)));
+        await tab.keyboard.press('Escape');
+    }));
+
+test('Row variants: a menu with sections shows each as a labelled group (named by its label, skipped by the arrows), separated, in the order sent; axe passes', () =>
+    rowVariants(async (tab) => {
+        await tab.click('[data-sectioned] button[aria-label="Actions for Birch Lane"]');
+        await tab.waitForSelector('[role="menu"]');
+        const groups = await tab.$$eval('[role="menu"] [role="group"]', els => els.map(el => ({ name: document.getElementById(el.getAttribute('aria-labelledby') ?? '')?.textContent.trim() ?? null, keys: [...el.querySelectorAll('[data-action]')].map(a => a.getAttribute('data-action')) })));
+        assert.deepEqual(groups, [{ name: 'Change', keys: ['merge', 'reassign'] }, { name: 'Go to', keys: ['listing'] }, { name: 'Danger', keys: ['delete'] }]);
+        assert.equal(await tab.locator('[role="menu"] [data-menu-group-separator]').count(), 2, 'a separator between sections');
+        await tab.keyboard.press('ArrowDown');
+        const seen = [];
+        for (let i = 0; i < 4; i++) { seen.push(await tab.evaluate(() => document.activeElement?.getAttribute('data-action'))); await tab.keyboard.press('ArrowDown'); }
+        assert.deepEqual(seen, ['merge', 'reassign', 'listing', 'delete'], 'the arrows move through items only');
+        if (!(await tab.evaluate(() => Boolean(window.axe)))) await tab.addScriptTag({ path: axeSource });
+        const violations = await tab.evaluate(async () => (await window.axe.run(document.querySelector('[role="menu"]'))).violations.map(v => v.id));
+        assert.deepEqual(violations, []);
+        await tab.keyboard.press('Escape');
+    }));
+
 test('Row variants: the split primary keeps the in-flight guard and aria-busy, a disabled menu item shows its reason, and red is only destructive menu text', () =>
     rowVariants(async (tab) => {
         const open = tab.locator('[data-default-split] [data-action="open"]');
@@ -10831,6 +10859,36 @@ test('Menu descriptions: an action\'s description and a DropdownItem caption sho
         const caption = await read(print);
         assert.equal(caption.description, 'Opens the packing slip for the warehouse.');
         assert.equal(caption.hidden, 'true');
+    } finally {
+        await context.close();
+    }
+});
+
+test('Menu subject actions: icon menu items in the header row, first in the arrow order, named by their label (outside the subject description); a disabled one is skipped when chosen; axe passes', async () => {
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?item-class`);
+        await tab.locator('[data-file-menu] [data-button-group-menu]').click();
+        const menu = tab.getByRole('menu');
+        await menu.waitFor();
+        const header = await tab.$$eval('[role="menu"] [data-menu-subject-actions] [role="menuitem"]', els => els.map(el => el.getAttribute('aria-label')));
+        assert.deepEqual(header, ['Download', 'Copy link', 'Preview']);
+        const described = await menu.evaluate(el => document.getElementById(el.getAttribute('aria-describedby'))?.textContent ?? '');
+        assert.doesNotMatch(described, /Download|Copy link/, 'the description is the subject text alone');
+        await tab.keyboard.press('ArrowDown');
+        assert.equal(await tab.evaluate(() => document.activeElement?.getAttribute('aria-label')), 'Download', 'the header actions come first');
+        await tab.keyboard.press('ArrowDown');
+        await tab.keyboard.press('Enter');
+        assert.equal(await tab.locator('[data-copied]').textContent(), '1', 'Copy link ran');
+        await tab.locator('[data-file-menu] [data-button-group-menu]').click();
+        await menu.waitFor();
+        await tab.locator('[role="menu"] [aria-label="Preview"]').click();
+        assert.equal(await tab.locator('[role="menu"]').count(), 1, 'a disabled header action keeps the menu open and runs nothing');
+        assert.equal(await tab.locator('[role="menu"] [aria-label="Preview"]').getAttribute('title'), 'Still processing');
+        await tab.addScriptTag({ path: axeSource });
+        const violations = await tab.evaluate(async () => (await window.axe.run(document.querySelector('[role="menu"]'))).violations.map(v => v.id));
+        assert.deepEqual(violations, []);
     } finally {
         await context.close();
     }

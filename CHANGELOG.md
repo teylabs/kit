@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **Row menu icons:** each RowActions menu item shows its icon: the action's `icon`, else the common intent's (Edit, Delete, Merge, Download…), as other kit menus do. README, "Row menu icons".
+
+### Added
+
+- **Menu sections** (opt-in): an action's `section` puts it in a labelled section of its menu (role group, named by its label, skipped by the arrows), separated from the next. ActionBar, ButtonGroup and row menus. README, "Menu sections".
+- **Menu subject actions** (opt-in): `subject.actions`, up to three icon menu items on the caption line, first in the arrow-key order. README, "Menu subject actions".
+
 ## v0.27.3
 
 Features affected: none. No lineage needs kit:update; `composer update tey/kit` is enough.
