@@ -486,6 +486,9 @@ jobs:
       - name: Workspace model concerns
         timeout-minutes: 4
         run: composer test:workspace-models
+      - name: touched_at pattern (SQLite)
+        timeout-minutes: 4
+        run: composer test:touched-at
       - name: Workspace adopt-in-place (SQLite)
         timeout-minutes: 4
         run: composer test:workspace-adopt

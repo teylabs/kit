@@ -7,6 +7,7 @@ Features affected: shell, workspace-ui (re-pinned: their avatar stubs pass the p
 ### Added
 
 - **One avatar colour per person** (docs/avatars.md): `AvatarColor::of($user)` derives a stable colour from the user's key (or uses a stored `avatar_color`), from a palette that carries white initials in both themes. Avatar takes `color` (or `identity`, derived in the browser by the matching `avatarColor()`) and draws it instead of the neutral disc. The shell user, People members, the You widget and comment authors carry `avatar_color`, so the header, notes, comments and an activity feed (pass it to Storyfeed as `media.color` or `avatar_color`) show one colour for one person.
+- **touched_at pattern** (docs/touched-at.md): the `Touches` concern (`protected array $touchesParents = ['assignment'];`), separate from Eloquent's `$touches`: a child's create, update or delete touches its parents' `touched_at`, and theirs, by a quiet update (no events, `updated_at` unchanged), only on tables with a `touched_at` column, once per request or job, cycle-safe. `Touch::without(fn)`, `kit.touch.console`, `$model->touchTree()`, an `alsoTouch()` hook, the `$table->touchedAt()` migration macro, and `TouchesAssertions` (`assertTouchesParent`, `assertCovered`/`uncovered`). UI convention: "Touched 3 days ago".
 
 ## v0.29.2
 
