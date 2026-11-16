@@ -9,6 +9,14 @@ import RowActions from '@/components/Kit/Table/RowActions.vue';
 // all read "Remove", each described by its grant in the menu.
 const record =
     'Northwind Farms quarterly supplier reconciliation for the Eastern region';
+// A row whose menu is in labelled sections, destructive last.
+const sectionedRow = [
+    { key: 'edit', label: 'Edit', url: '/r/1/edit', method: 'get', destructive: false, confirm: null },
+    { key: 'merge', label: 'Merge', url: '/r/1/merge', method: 'post', destructive: false, confirm: null, section: 'Change' },
+    { key: 'reassign', label: 'Reassign', url: '/r/1/reassign', method: 'post', destructive: false, confirm: null, section: 'Change' },
+    { key: 'listing', label: 'View listing', url: '/r/1/listing', method: 'get', destructive: false, confirm: null, section: 'Go to' },
+    { key: 'delete', label: 'Delete', url: '/r/1', method: 'delete', destructive: true, confirm: { description: 'Gone for good.', label: 'Delete' }, section: 'Danger' },
+];
 const splitRow = [
     {
         key: 'open',
@@ -156,6 +164,13 @@ const bulk = [
 <template>
     <main class="bg-background text-foreground min-h-screen p-4">
         <h1 class="sr-only">Row action variants</h1>
+        <section data-sectioned>
+            <RowActions
+                :actions="sectionedRow"
+                label="Actions for Birch Lane"
+                variant="split"
+            />
+        </section>
         <section data-default-split>
             <RowActions :actions="splitRow" :label="`Actions for ${record}`" />
         </section>
