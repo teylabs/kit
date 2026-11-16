@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## v0.29.0
+
+Features affected: none; `composer update tey/kit` is enough. New parts are opt-in; tables that declare no row primary keep their layout.
 
 ### Added
 
