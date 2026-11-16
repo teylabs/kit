@@ -5714,9 +5714,14 @@ test('CommentItem and CommentForm fixes (?adopt): one colour field posts, a pres
         const red = await del.evaluate(el => { const p = document.createElement('span'); p.className = 'text-destructive-text'; document.body.append(p); const c = getComputedStyle(p).color; p.remove(); return [getComputedStyle(el).color, c]; });
         assert.equal(red[0], red[1], 'destructive text');
         await tab.keyboard.press('Escape');
+        // The closing menu hands focus back to its trigger: only then open the composer, or that late focus closes it again.
+        await tab.waitForSelector('[role="menu"]', { state: 'detached' });
+        await tab.waitForFunction(() => document.activeElement?.closest('[data-comment="9"]'));
         const form = tab.locator('[data-adopted] [data-comment-form]');
-        await form.locator('textarea').focus();
+        await form.locator('textarea').click();
         await tab.waitForSelector('[data-adopted] [data-comment-toolbar]');
+        // The composer grows as it opens and pushes the button below down: aim once it has stopped moving.
+        await tab.waitForFunction(() => new Promise(done => { const el = document.querySelector('[data-below-composer]'); const y = el.getBoundingClientRect().top; requestAnimationFrame(() => requestAnimationFrame(() => done(el.getBoundingClientRect().top === y))); }));
         const below = tab.locator('[data-below-composer]');
         const box = await below.boundingBox();
         await tab.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
