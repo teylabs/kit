@@ -279,6 +279,7 @@ function confirmed(confirmation?: string) {
         <ButtonGroup
             v-if="primary"
             :menu-label="label"
+            :offset="[0, 4]"
             :menu-subject="menuSubject"
             data-row-split
         >

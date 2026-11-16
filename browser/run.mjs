@@ -5179,6 +5179,23 @@ test('Row variants: one primary plus menu items defaults to split, two plain act
         assert.deepEqual(violations, [], JSON.stringify(violations));
     }));
 
+test('Row variants: the split and overflow row menus open the same small gap below their trigger, so a table row\'s menu never lands over the next row', () =>
+    rowVariants(async (tab) => {
+        const gap = async (trigger) => {
+            await tab.click(trigger);
+            const menu = await tab.waitForSelector('[role="menu"]');
+            await tab.waitForTimeout(250);
+            const [t, m] = await Promise.all([tab.$eval(trigger, el => el.getBoundingClientRect().bottom), menu.evaluate(el => el.getBoundingClientRect().top)]);
+            await tab.keyboard.press('Escape');
+            await tab.waitForSelector('[role="menu"]', { state: 'detached' });
+            return Math.round(m - t);
+        };
+        const split = await gap('[data-explicit-split] button[aria-label="Actions for Ana Lopez"]');
+        const overflow = await gap('[data-explicit-overflow] button[aria-label="Actions for Ana Lopez"]');
+        assert.ok(split >= 0 && split <= 6, `split menu gap ${split}px`);
+        assert.equal(split, overflow, `split ${split}px, overflow ${overflow}px`);
+    }));
+
 test('Row variants: the split primary keeps the in-flight guard and aria-busy, a disabled menu item shows its reason, and red is only destructive menu text', () =>
     rowVariants(async (tab) => {
         const open = tab.locator('[data-default-split] [data-action="open"]');

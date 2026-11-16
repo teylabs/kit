@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed
+
+- **RowActions split menu** opens 4px below its trigger, like the ⋯ menu. It used ButtonGroup's page-level 10px gap, which put a table row's menu over the next row.
+
 ### Added
 
 - **Comments** (opt-in, for adopting apps): CommentItem and CommentThread take `time-format` `absolute`, `attachment-layout` `gallery` (images as thumbnails, other files listed) and `menu-icons`, and a `meta` slot in the header line and an `attachments` slot. CommentForm takes `before` and `after` slots whose inputs post with the form. NoteCard has a `meta` slot. docs/comments.md.
