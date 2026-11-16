@@ -868,10 +868,16 @@ export interface PageEndProps {
 
 /** A search combobox over the server's grouped results (`url` answers JSON `{ groups, partial }`); Enter opens the active result or the full results page. Exposes `focus()`; emits `navigate`. */
 export interface SearchBoxProps {
-    url: string;
+    url?: string;
     label?: string;
     placeholder?: string;
     minLength?: number;
+    /** Controlled mode: the host's results (with `busy`, `failed`, `partial`), bound with `v-model:query`; the box never fetches. */
+    results?: import('./Search/search').SearchGroup[] | null;
+    busy?: boolean;
+    failed?: boolean;
+    partial?: boolean;
+    query?: string;
 }
 
 /**

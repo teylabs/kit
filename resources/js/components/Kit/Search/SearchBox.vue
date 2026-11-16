@@ -9,30 +9,62 @@ import { flatten, move, type SearchGroup, type SearchOption } from './search';
  * first few results). Arrow keys move through every result across groups; Enter opens the active one, or with none active goes to the full results
  * page (`url?q=`), as the list's "All results →" link does. Escape clears, then closes. A stale answer (the person typed on, or left) is dropped. It renders the server's results as they are:
  * labels and descriptions are text, never markup. The host focuses it with the exposed `focus()`.
+ * Controlled: pass `results` (with `busy`, `failed` and `partial` as the host knows them) and bind `v-model:query`; the box then never fetches, the host
+ * searches. Choosing a result emits `select` (it still visits the result's `url` when it has one); Enter with none active emits `submit` with the term,
+ * and visits `url?q=` only when `url` is set. `select` is emitted in both modes.
  */
 const props = withDefaults(
     defineProps<{
-        url: string;
+        url?: string;
         label?: string;
         placeholder?: string;
         minLength?: number;
+        results?: SearchGroup[] | null;
+        busy?: boolean;
+        failed?: boolean;
+        partial?: boolean;
     }>(),
-    { label: 'Search', placeholder: 'Search', minLength: 1 },
+    {
+        url: undefined,
+        label: 'Search',
+        placeholder: 'Search',
+        minLength: 1,
+        results: undefined,
+        busy: false,
+        failed: false,
+        partial: false,
+    },
 );
-const emit = defineEmits<{ navigate: [] }>();
+const emit = defineEmits<{
+    navigate: [];
+    select: [option: SearchOption];
+    submit: [term: string];
+}>();
 const id = useId();
 const input = ref<HTMLInputElement>();
-const query = ref('');
+const query = defineModel<string>('query', { default: '' });
 const groups = ref<SearchGroup[]>([]);
 const partial = ref(false);
 const busy = ref(false);
 const failed = ref(false);
 const open = ref(false);
 const active = ref(-1);
-const options = computed<SearchOption[]>(() => flatten(groups.value));
+// Controlled when the host passes `results`: then the box shows what the host sent and never fetches.
+const controlled = computed(() => props.results != null);
+const shownGroups = computed(() =>
+    controlled.value ? (props.results ?? []) : groups.value,
+);
+const shownBusy = computed(() => (controlled.value ? props.busy : busy.value));
+const shownFailed = computed(() =>
+    controlled.value ? props.failed : failed.value,
+);
+const shownPartial = computed(() =>
+    controlled.value ? props.partial : partial.value,
+);
+const options = computed<SearchOption[]>(() => flatten(shownGroups.value));
 const term = computed(() => query.value.trim());
-const allResults = computed(
-    () => `${props.url}?${new URLSearchParams({ q: term.value })}`,
+const allResults = computed(() =>
+    props.url ? `${props.url}?${new URLSearchParams({ q: term.value })}` : '',
 );
 let sequence = 0;
 let timer: ReturnType<typeof setTimeout> | undefined;
@@ -51,7 +83,7 @@ function reset(): void {
 watch(query, () => {
     reset();
     open.value = term.value.length >= props.minLength;
-    if (!open.value) return;
+    if (!open.value || controlled.value || !props.url) return;
     const asked = ++sequence;
     busy.value = true;
     timer = setTimeout(async () => {
@@ -89,6 +121,20 @@ watch(query, () => {
 });
 onBeforeUnmount(reset);
 
+function choose(option: SearchOption): void {
+    emit('select', option);
+    if (option.url) go(option.url);
+    else if (controlled.value) {
+        open.value = false;
+        active.value = -1;
+    }
+}
+function submit(): void {
+    if (!term.value) return;
+    emit('submit', term.value);
+    if (allResults.value) go(allResults.value);
+    else open.value = false;
+}
 function go(url: string): void {
     reset();
     open.value = false;
@@ -109,8 +155,8 @@ function keydown(event: KeyboardEvent): void {
     } else if (event.key === 'Enter') {
         event.preventDefault();
         const chosen = options.value[active.value];
-        if (chosen?.url) go(chosen.url);
-        else if (term.value) go(allResults.value);
+        if (chosen && (chosen.url || controlled.value)) choose(chosen);
+        else if (!chosen) submit();
     } else if (event.key === 'Escape') {
         if (query.value) {
             event.preventDefault();
@@ -119,13 +165,13 @@ function keydown(event: KeyboardEvent): void {
     }
 }
 const status = computed(() =>
-    busy.value || !open.value
+    shownBusy.value || !open.value
         ? ''
-        : failed.value
+        : shownFailed.value
           ? 'Search is unavailable. Try again.'
           : options.value.length === 0
             ? 'No results'
-            : `${options.value.length} results${partial.value ? ', some sources could not be searched' : ''}`,
+            : `${options.value.length} results${shownPartial.value ? ', some sources could not be searched' : ''}`,
 );
 defineExpose({ focus: () => input.value?.focus() });
 </script>
@@ -164,10 +210,13 @@ defineExpose({ focus: () => input.value?.focus() });
                 class="min-h-0 flex-1 overflow-y-auto p-1"
                 data-search-results
             >
-                <p v-if="busy" class="text-muted-foreground px-2 py-1.5">
+                <p v-if="shownBusy" class="text-muted-foreground px-2 py-1.5">
                     Searching…
                 </p>
-                <p v-else-if="failed" class="text-destructive-text px-2 py-1.5">
+                <p
+                    v-else-if="shownFailed"
+                    class="text-destructive-text px-2 py-1.5"
+                >
                     Search is unavailable. Try again.
                 </p>
                 <p
@@ -179,7 +228,7 @@ defineExpose({ focus: () => input.value?.focus() });
                 </p>
                 <template v-else>
                     <div
-                        v-for="group in groups"
+                        v-for="group in shownGroups"
                         :key="group.key"
                         role="group"
                         :aria-label="group.label"
@@ -201,17 +250,21 @@ defineExpose({ focus: () => input.value?.focus() });
                             :aria-selected="
                                 options[active]?.optionId === option.optionId
                             "
-                            :aria-disabled="option.url ? undefined : 'true'"
+                            :aria-disabled="
+                                option.url || controlled ? undefined : 'true'
+                            "
                             :class="[
                                 'grid gap-0.5 rounded-sm px-2 py-1.5',
                                 options[active]?.optionId === option.optionId &&
                                     'bg-accent text-accent-foreground',
-                                option.url
+                                option.url || controlled
                                     ? 'cursor-pointer'
                                     : 'cursor-default',
                             ]"
                             data-search-option
-                            @click="option.url && go(option.url)"
+                            @click="
+                                (option.url || controlled) && choose(option)
+                            "
                         >
                             <span class="font-medium">{{ option.label }}</span>
                             <span
@@ -226,7 +279,7 @@ defineExpose({ focus: () => input.value?.focus() });
                         </div>
                     </div>
                     <p
-                        v-if="partial"
+                        v-if="shownPartial"
                         class="text-muted-foreground px-2 py-1.5 text-xs"
                     >
                         Some sources could not be searched.
@@ -237,7 +290,7 @@ defineExpose({ focus: () => input.value?.focus() });
                  view at the bottom while the results scroll. The click is taken on the way down so `go` closes the list and clears the field before it visits,
                  and the link's own visit never starts. -->
             <div
-                v-if="term"
+                v-if="term && allResults"
                 class="border-border flex shrink-0 justify-end border-t p-1"
                 data-search-all
                 @click.capture.prevent="go(allResults)"
