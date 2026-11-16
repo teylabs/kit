@@ -9362,7 +9362,7 @@ test('Welcome, photo: Upload and continue stays disabled until a photo is chosen
     await accountPage({ ...welcome, start: 'WelcomePhoto' }, async ({ tab, posts }) => {
         const upload = tab.getByRole('button', { name: 'Upload and continue', exact: true });
         assert.equal(await upload.isDisabled(), true, 'no photo, no upload');
-        await tab.waitForFunction(() => document.activeElement?.id === 'avatar');
+        await tab.waitForFunction(() => document.activeElement?.matches('[data-dropzone]'));
         await tab.setInputFiles('#avatar', photo);
         assert.equal(await tab.locator('[data-welcome-step] img').count(), 1, 'the preview shows');
         await Promise.all([tab.waitForURL(/\/landed$/), upload.click()]);
