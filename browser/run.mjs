@@ -2225,6 +2225,36 @@ test('Named tones have no axe violations, colour contrast included, light and da
     }
 });
 
+// ── Textarea (?textarea): defaultValue without a v-model, hasFocus, autosize growing to its maximum; a v-model wins over defaultValue ──
+
+test('Textarea: defaultValue starts an uncontrolled one, hasFocus focuses it, autosize grows with its content up to 20rem, v-model wins over defaultValue', async () => {
+    const context = await browser.newContext({ viewport: { width: 1024, height: 900 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?textarea`);
+        await tab.waitForSelector('[data-plain]');
+        assert.equal(await tab.inputValue('[data-uncontrolled]'), 'Starting text');
+        assert.equal(await tab.evaluate(() => document.activeElement?.hasAttribute('data-uncontrolled')), true, 'hasFocus focuses it on mount');
+        await tab.fill('[data-uncontrolled]', 'Edited');
+        assert.equal(await tab.inputValue('[data-uncontrolled]'), 'Edited', 'uncontrolled: typing keeps the text');
+        assert.equal(await tab.inputValue('[data-bound]'), 'From the model');
+        await tab.fill('[data-bound]', 'Typed');
+        assert.equal(await tab.textContent('[data-bound-value]'), 'Typed');
+        const height = sel => tab.locator(sel).evaluate(el => el.getBoundingClientRect().height);
+        const empty = await height('[data-autosize-box]');
+        await tab.fill('[data-autosize-box]', 'one\ntwo\nthree\nfour\nfive\nsix');
+        const grown = await height('[data-autosize-box]');
+        assert.ok(grown > empty, `autosize grows (${empty} → ${grown})`);
+        await tab.fill('[data-autosize-box]', Array.from({ length: 60 }, (_, i) => `line ${i}`).join('\n'));
+        assert.equal(await height('[data-autosize-box]'), 320, 'autosize stops at 20rem, then scrolls');
+        const plain = await height('[data-plain]');
+        await tab.fill('[data-plain]', 'one\ntwo\nthree\nfour\nfive\nsix\nseven\neight');
+        assert.equal(await height('[data-plain]'), plain, 'without autosize the height is fixed');
+    } finally {
+        await context.close();
+    }
+});
+
 // ── SwatchPicker (?swatch): suggested swatches and a palette in one radiogroup, the arrows, Home and End; the default swatch is an empty value; axe ──────
 
 const swatches = (tab) => tab.evaluate(() => [...document.querySelectorAll('[data-swatch-picker] [role="radio"]')].map(el => `${el.dataset.swatch}:${el.getAttribute('aria-checked')}:${el.tabIndex}`).join(' '));

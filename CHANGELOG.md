@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `Textarea` `defaultValue` (the starting text without a v-model), `hasFocus` (focus on mount), `autosize` (grows with its content from 4rem up to 20rem, then scrolls) and an exposed `focus()`. Existing textareas render as before (#1044).
+
 ## v0.26.0
 
 Features affected: core. Run `php artisan kit:update core` for the new tone tokens in kit.css.
