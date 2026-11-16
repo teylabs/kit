@@ -12617,3 +12617,26 @@ test('Dialog size lg with #footer-start: the secondary actions sit at the start 
         }
     }
 });
+
+test('NoteCard on a narrow card: the date line cuts off before the actions (never under them), and a QuickAction shows only its icon, named and titled by its label; on a wide card the label shows', () =>
+    commentsPage('', async ({ tab }) => {
+        await tab.waitForSelector('[data-narrow] [data-quick-action]');
+        const shape = await tab.evaluate(() => {
+            const card = (s) => document.querySelector(s);
+            const narrow = card('[data-narrow] [data-note-card]');
+            const meta = narrow.querySelector('[data-note-meta]').getBoundingClientRect();
+            const time = narrow.querySelector('[data-note-timestamp]').getBoundingClientRect();
+            const button = narrow.querySelector('[data-quick-action]');
+            const b = button.getBoundingClientRect();
+            const box = narrow.getBoundingClientRect();
+            const wideLabel = card('[data-wide] [data-quick-action-label]').getBoundingClientRect();
+            return { metaRight: Math.round(meta.right), timeVisibleRight: Math.round(Math.min(time.right, meta.right)), buttonLeft: Math.round(b.left), buttonRight: Math.round(b.right), cardRight: Math.round(box.right), buttonW: Math.round(b.width), name: button.textContent.trim(), title: button.title, wideLabelW: Math.round(wideLabel.width) };
+        });
+        assert.ok(shape.metaRight <= shape.buttonLeft, `the date line ends before the action: ${JSON.stringify(shape)}`);
+        assert.ok(shape.buttonRight <= shape.cardRight, `the action stays inside the card: ${JSON.stringify(shape)}`);
+        assert.ok(shape.buttonW <= 40, `icon only on a narrow card: ${JSON.stringify(shape)}`);
+        assert.equal(shape.name, 'Mark done');
+        assert.equal(shape.title, 'Mark done');
+        assert.ok(shape.wideLabelW > 20, `the label shows on a wide card: ${JSON.stringify(shape)}`);
+        if (process.env.SHOT_DIR) await tab.locator('[data-narrow]').screenshot({ path: `${process.env.SHOT_DIR}/notecard-narrow.png` });
+    }));

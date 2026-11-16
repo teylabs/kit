@@ -72,5 +72,6 @@ export { default as CommentThread } from '@/components/Kit/Comment/CommentThread
 export { default as CommentItem } from '@/components/Kit/Comment/CommentItem.vue';
 export { default as CommentForm } from '@/components/Kit/Comment/CommentForm.vue';
 export { default as NoteCard } from '@/components/Kit/Comment/NoteCard.vue';
+export { default as QuickAction } from '@/components/Kit/Comment/QuickAction.vue';
 export { COMMENT_TONES } from '@/components/Kit/Comment/comments';
 export type { CommentComposerData, CommentData } from '@/components/Kit/Comment/comments';

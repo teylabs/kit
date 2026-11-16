@@ -1,7 +1,8 @@
 import { createInertiaApp } from '@inertiajs/vue3';
 import { createApp, h } from 'vue';
+import { Check } from '@lucide/vue';
 import './app.css';
-import { COMMENT_TONES, CommentForm, CommentItem, CommentThread, NoteCard, type CommentComposerData, type CommentData } from '@kit/ui';
+import { COMMENT_TONES, CommentForm, CommentItem, CommentThread, NoteCard, QuickAction, type CommentComposerData, type CommentData } from '@kit/ui';
 
 // The comment and note components (comments.html, built with the auth pages by vite.auth.config.js) on the real @inertiajs/vue3, so CommentForm's <Form>, transform and
 // CommentItem's delete visit run as in an app. The test answers each write under /@acme/comments with Playwright's page.route. A thread with a composer, a comment the
@@ -102,6 +103,17 @@ const Page = {
                 h(NoteCard, { accent: { tone: 'green', label: 'Green' }, density: 'flush', author, 'data-look': 'flush' }, () => 'A flush tile.'),
                 h(CommentItem, { comment: editable, variant: 'compact', 'data-look': 'compact-item' }),
                 ...cards,
+            ]),
+            // A narrow card (240px) with an absolute date and a quick action: the date cuts off before the action, which shows only its icon.
+            h('section', { 'aria-label': 'Narrow', class: 'grid w-60 gap-3', 'data-narrow': '' }, [
+                h(NoteCard, { author: { name: 'Samantha Reed-Alvarez', initials: 'SR' } }, {
+                    timestamp: () => 'Nov 9, 2026, 11:34 AM',
+                    actions: () => h(QuickAction, { label: 'Mark done', icon: Check }),
+                    default: () => 'Call the owner back.',
+                }),
+            ]),
+            h('section', { 'aria-label': 'Wide', class: 'grid w-[36rem] max-w-full gap-3', 'data-wide': '' }, [
+                h(NoteCard, { author }, { timestamp: () => 'Nov 9, 2026, 11:34 AM', actions: () => h(QuickAction, { label: 'Mark done', icon: Check }), default: () => 'Wide.' }),
             ]),
         ];
     },

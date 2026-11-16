@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## v0.31.5
+
+Features affected: none (kit components only).
 
 ### Added
 
@@ -9,6 +11,18 @@
 ### Fixed
 
 - **PhotoField** no longer stretches in a taller grid row: the root is `content-start self-start`, so Change sits right under the photo.
+
+## v0.31.4
+
+Features affected: none (kit components only).
+
+### Added
+
+- **QuickAction** (Comment): a comment's quick action, a small ghost button with an icon and its label, for CommentItem's `quick` slot or NoteCard's `actions`. On a narrow card only the icon shows; the label stays its accessible name and its tooltip.
+
+### Fixed
+
+- **NoteCard on a narrow card**: the author, the time and the colour's meaning shrink and cut off with an ellipsis instead of running under the actions (an absolute date beside a quick action overflowed). The card is now a size container.
 
 ## v0.31.3
 
