@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+Features affected: shell, workspace-ui (re-pinned: their avatar stubs pass the person's colour). Run `php artisan kit:update shell workspace-ui` to take them.
+
+### Added
+
+- **One avatar colour per person** (docs/avatars.md): `AvatarColor::of($user)` derives a stable colour from the user's key (or uses a stored `avatar_color`), from a palette that carries white initials in both themes. Avatar takes `color` (or `identity`, derived in the browser by the matching `avatarColor()`) and draws it instead of the neutral disc. The shell user, People members, the You widget and comment authors carry `avatar_color`, so the header, notes, comments and an activity feed (pass it to Storyfeed as `media.color` or `avatar_color`) show one colour for one person.
+
 ## v0.29.2
 
 Features affected: none; `composer update tey/kit` is enough.

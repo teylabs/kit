@@ -92,6 +92,7 @@ export {
 export { default as Toaster } from './Feedback/Toaster.vue';
 export { useStickyBars } from './Layout/stickyBars';
 export { default as Avatar } from './Layout/Avatar.vue';
+export { avatarColor, avatarPalette } from './Layout/avatarColor';
 // Vertical rhythm (Stack), titled page regions (PageSection) and page columns (PageGrid, PageGridItem): the page's spacing, with no outer margins on children.
 export { default as Stack } from './Layout/Stack.vue';
 // Deprecated: BlockStack renders a Stack and is removed in the next release.
