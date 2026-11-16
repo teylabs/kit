@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## v0.26.0
+
+Features affected: core. Run `php artisan kit:update core` for the new tone tokens in kit.css.
 
 A minor: the kit has one fixed set of ten named tones. Badge takes the five new ones and a `dot`, and ColourDot and ToneLabel are new. Existing badges look the same. The new tone tokens live in `kit.css`, so run `php artisan kit:update core` to use them (#1042).
 
