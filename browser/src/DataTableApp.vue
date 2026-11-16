@@ -42,11 +42,12 @@ const table = {
     pagination: phone ? { page: 1, perPage: 8, total: 8, from: 1, to: 8, lastPage: 1 } : { page: 1, perPage: 1, total: 1, from: 1, to: 1, lastPage: 1 },
     emptyState: null,
 };
+const subject = new URLSearchParams(window.location.search).has('subject');
 </script>
 <template>
     <main class="min-h-screen bg-muted p-4 text-foreground">
         <h1>AI assistants</h1>
-        <div :class="phone ? 'w-full' : 'w-[34rem]'"><DataTable :table="table as never" :toolbar="false" row-label="assistant" :row-actions="rows ? { variant: rows } : null" /></div>
+        <div :class="phone ? 'w-full' : 'w-[34rem]'"><DataTable :table="table as never" :toolbar="false" row-label="assistant" :row-actions="rows ? { variant: rows } : null" :row-subject="subject ? (row: { assistant: string; connectedBy: string }) => ({ title: row.assistant, caption: `Connected by ${row.connectedBy}, a long caption that wraps at phone width so the header grows` }) : null" /></div>
         <footer v-if="phone" class="mt-4" data-test="page-footer">Footer</footer>
     </main>
 </template>

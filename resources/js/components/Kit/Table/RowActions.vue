@@ -276,7 +276,12 @@ function confirmed(confirmation?: string) {
                 >{{ action.reason }}</span
             ></Button
         >
-        <ButtonGroup v-if="primary" :menu-label="label" data-row-split>
+        <ButtonGroup
+            v-if="primary"
+            :menu-label="label"
+            :menu-subject="menuSubject"
+            data-row-split
+        >
             <Button
                 v-if="linked(primary)"
                 variant="ghost"
