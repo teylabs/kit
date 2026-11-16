@@ -11980,3 +11980,50 @@ test('PhotoTile aspect="fill": the empty tile fills the height its host gives it
         const h = await tab.$eval('[data-fixture="tile-fill"]', el => [el.getBoundingClientRect().height, el.querySelector('button').getBoundingClientRect().height]);
         assert.ok(Math.abs(h[0] - h[1]) <= 1, `tile ${h[1]}px in a ${h[0]}px container`);
     }));
+
+// ── FloatingToolbar's phone layout (?toolbar-phone): one full-width row with the primary action and a menu for the rest; desktop unchanged ─────────────────
+
+async function toolbarPhone(width, check, dark = false) {
+    const context = await browser.newContext({ viewport: { width, height: 800 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?toolbar-phone${dark ? '&dark' : ''}`);
+        await tab.waitForSelector('[data-phone-toolbar]');
+        await tab.waitForTimeout(250);
+        const shots = process.env.KIT_TOOLBAR_PHONE_SCREENSHOT;
+        if (shots) await tab.screenshot({ path: `${shots}-${width}-${dark ? 'dark' : 'light'}.png` });
+        await check(tab);
+    } finally {
+        await context.close();
+    }
+}
+
+test('FloatingToolbar at phone width: one full-width row (never a wrapping balloon) with the primary action and a menu holding the rest; at desktop width every action stays inline', async () => {
+    for (const dark of [false, true]) {
+        await toolbarPhone(390, async tab => {
+            const pill = tab.locator('[data-phone-toolbar]');
+            const box = await pill.boundingBox();
+            assert.ok(box.height <= 56, `one row, not a balloon: ${box.height}px tall`);
+            assert.ok(box.width >= 390 - 32 - 1, `full width less the 16px gutters: ${box.width}px`);
+            const rows = await pill.evaluate(el => new Set([...el.querySelectorAll('button, [role="status"], [data-header-status]')].filter(b => b.checkVisibility({ visibilityProperty: true }) && b.getBoundingClientRect().width > 0).map(b => Math.round(b.getBoundingClientRect().top + b.getBoundingClientRect().height / 2))).size);
+            assert.equal(rows, 1, 'every visible control on one line');
+            assert.equal(await pill.evaluate(el => el.scrollWidth <= el.clientWidth + 1), true, 'nothing runs past the pill');
+            assert.equal(await tab.locator('[data-phone-toolbar] [data-header-action="primary"]', { hasText: 'Preview report' }).isVisible(), true, 'the primary page action stays');
+            await tab.getByRole('button', { name: 'More actions', exact: true }).first().click();
+            await tab.waitForTimeout(150);
+            if (process.env.KIT_TOOLBAR_PHONE_SCREENSHOT) await tab.screenshot({ path: `${process.env.KIT_TOOLBAR_PHONE_SCREENSHOT}-390-${dark ? 'dark' : 'light'}-menu.png` });
+            await tab.getByRole('menuitem', { name: 'Appraiser notes' }).click();
+            await tab.waitForTimeout(50);
+            assert.equal(await tab.textContent('[data-used]'), 'notes', 'a client item reached from the menu still reaches the host');
+        }, dark);
+        await toolbarPhone(1280, async tab => {
+            const pill = tab.locator('[data-phone-toolbar]');
+            const box = await pill.boundingBox();
+            assert.ok(box.width < 1000, `desktop keeps the centred, content-width pill: ${box.width}px`);
+            assert.ok(box.height <= 56, 'one row');
+            for (const name of ['Add comparable', 'Appraiser notes', 'Preview report', 'Finalize'])
+                assert.equal(await tab.locator('[data-phone-toolbar]').getByText(name, { exact: true }).isVisible(), true, `${name} inline`);
+            assert.equal(await tab.locator('[data-toolbar-menu]').count(), 0, 'no item overflow menu on desktop');
+        }, dark);
+    }
+});

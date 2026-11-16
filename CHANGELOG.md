@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **FloatingToolbar phone layout**: below `sm` the pill is one full-width row instead of wrapping into a tall balloon. The status truncates, the primary page action stays, and one ⋯ "More actions" menu holds the other page actions and then the client `items`. Before, three page actions shrank to one letter each. Desktop is unchanged. A slotted button still can't move into the menu, so pass `actions` and `items`. HeaderActions gains a `menu` slot (rows after its overflow) and always splits on the pill at phone width.
+
 ## v0.29.2
 
 Features affected: none; `composer update tey/kit` is enough.
