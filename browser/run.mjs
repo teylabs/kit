@@ -11952,3 +11952,25 @@ test('ItemStack persist: rapid moves in the fanout settle into one request with 
         assert.deepEqual(calls[0].order, ['c3', 'c1', 'c2']);
     });
 });
+
+test('CardHeader: a long title truncates and the actions stay on its row', async () => {
+    await onPage('small-pieces', async (tab) => {
+        const [title, action] = await Promise.all([
+            tab.$eval('#long-header [data-card-header] h3, #long-header h3, #long-header h2', el => ({ top: el.getBoundingClientRect().top, bottom: el.getBoundingClientRect().bottom, truncated: el.scrollWidth > el.clientWidth })),
+            tab.$eval('#long-header [data-header-action]', el => el.getBoundingClientRect().top),
+        ]);
+        assert.ok(title.truncated, 'the title truncates');
+        assert.ok(action < title.bottom, `the actions sit on the title row (action top ${action}, title ${title.top}-${title.bottom})`);
+    });
+});
+
+test('ItemStack fill: the stack takes its container\'s height and the picture shrinks above the footer, uncropped', () =>
+    mediaTab(async (tab) => {
+        const box = await tab.$eval('[data-fixture="fill"]', el => {
+            const stack = el.querySelector('[data-item-stack]').getBoundingClientRect();
+            const img = el.querySelector('[data-item-stack-top] img');
+            return { container: el.getBoundingClientRect().height, stack: stack.height, fit: getComputedStyle(img).objectFit };
+        });
+        assert.ok(Math.abs(box.stack - box.container) <= 1, `stack ${box.stack}px in a ${box.container}px container`);
+        assert.equal(box.fit, 'contain');
+    }));

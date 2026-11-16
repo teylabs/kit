@@ -8,7 +8,7 @@ import { CARD_GUTTER, CARD_TONES, type CardTone } from './cardTone';
  * and on the other side `#status` and `#actions` (a ButtonGroup of named actions). `tone` colours it as a band; `unstyled` drops the padding, rule and type so
  * the host's classes rule, with every slot still working. `align` places `#leading`, `#avatar` and the title column against each other: `center` (default)
  * centres them across the title and meta, `start` puts them at the top, and `baseline` lines up text in `#leading` or `#avatar` (an index such as "5.")
- * with the title's first line. `actionsAlign` places `#status` and `#actions` against the title column: `center` (default) or `start` (pinned to the top). `stackActions` puts them on
+ * with the title's first line. `actionsAlign` places `#status` and `#actions` against the title column: `center` (default) or `start` (pinned to the top). A long title truncates and leaves `#status` and `#actions` on its row. `stackActions` puts them on
  * their own line under the title below `sm` (a phone), whatever their width.
  */
 const props = withDefaults(
@@ -51,7 +51,9 @@ const aligns = {
                 actionsAlign === 'start' ? 'items-start' : 'items-center',
             ]"
         >
-            <div :class="['flex min-w-0 gap-x-3', aligns[align]]">
+            <div
+                :class="['flex min-w-24 flex-1 basis-0 gap-x-3', aligns[align]]"
+            >
                 <slot name="leading" />
                 <div v-if="$slots.avatar" class="shrink-0">
                     <slot name="avatar" />
