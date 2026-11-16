@@ -17,7 +17,18 @@ export type ActionDescriptor = {
         description: string;
         label: string;
         typed?: string | null;
+        /** A text the confirmation asks for (a reason): a labelled textarea, posted as `name` (default `reason`); `required` keeps Confirm disabled until it has text. */
+        prompt?: {
+            label: string;
+            name?: string | null;
+            required?: boolean | null;
+            placeholder?: string | null;
+        } | null;
     } | null;
+    /** Fields posted with the visit (a stage, a lock version), under any confirmation, prompt or form data. */
+    payload?: Record<string, unknown> | null;
+    /** A form the host draws for this action (ActionDialogs' `form-<name>` slot, such as a date to record), its fields posted with the visit. */
+    form?: string | null;
     intent?: string | null;
     group?: string | null;
     menu?: boolean;

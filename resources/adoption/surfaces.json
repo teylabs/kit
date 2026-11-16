@@ -1248,7 +1248,10 @@
           "@/components/Kit:StickyBar",
           "@/components/Kit:Surface",
           "@/components/Kit:Collapsible",
-          "@/components/Kit:Placeholder"
+          "@/components/Kit:Placeholder",
+          "@/components/Kit:Widget",
+          "@/components/Kit:WidgetHeader",
+          "@/components/Kit:SegmentLinks"
         ]
       },
       "handRolled": [
@@ -1278,7 +1281,10 @@
           "Card",
           "Panel",
           "Collapse*",
-          "Accordion*"
+          "Accordion*",
+          "Widget",
+          "WidgetHeader",
+          "SegmentTabs"
         ]
       }
     },
@@ -1370,7 +1376,10 @@
           "@/components/Kit:ButtonGroup",
           "@/components/Kit:ButtonDropdown",
           "@/components/Kit:FloatingToolbar",
-          "@/components/Kit:FloatingToolbarDot"
+          "@/components/Kit:FloatingToolbarDot",
+          "@/components/Kit:ActionDialogs",
+          "@/components/Kit:ActionMenuItems",
+          "@/components/Kit:useActionRunner"
         ]
       },
       "handRolled": [
@@ -1391,7 +1400,9 @@
       "replaces": {
         "components": [
           "*ActionBar*",
-          "*ButtonGroup*"
+          "*ButtonGroup*",
+          "*DescriptorAction*",
+          "*MenuAction*"
         ]
       }
     },
@@ -2041,6 +2052,41 @@
           "*Upload*",
           "*Dropzone*",
           "FileInput"
+        ]
+      }
+    },
+    {
+      "id": "media.family",
+      "layer": "ui",
+      "group": "form",
+      "label": "Media gallery, tiles, stack and photo slot",
+      "feature": "core",
+      "applies": "has-file-uploads",
+      "uses": {
+        "imports": [
+          "@/components/Kit:MediaGallery",
+          "@/components/Kit:MediaThumbnail",
+          "@/components/Kit:PhotoTile",
+          "@/components/Kit:ItemStack",
+          "@/components/Kit:PhotoField",
+          "@/components/Kit:directUpload"
+        ]
+      },
+      "handRolled": [],
+      "docs": "docs/media.md",
+      "status": "new",
+      "since": "0.29.0",
+      "replaces": {
+        "components": [
+          "MediaGallery",
+          "MediaUploader",
+          "PhotoStrip",
+          "PhotoPlaceholder",
+          "Thumbnail",
+          "ItemStack",
+          "ItemStackFanout",
+          "*Lightbox*",
+          "*PhotoPicker*"
         ]
       }
     },
@@ -3337,6 +3383,89 @@
           "TextTimeAgo"
         ]
       }
+    },
+    {
+      "id": "text.email-message",
+      "layer": "ui",
+      "group": "content",
+      "label": "An email read as a mail client shows it (header rows, body, attachments)",
+      "feature": "core",
+      "applies": true,
+      "uses": {
+        "imports": [
+          "@/components/Kit:EmailMessage"
+        ]
+      },
+      "handRolled": [],
+      "docs": "docs/text.md",
+      "status": "new",
+      "since": "0.29.0",
+      "replaces": {
+        "components": [
+          "EmailMessage",
+          "MailMessage",
+          "EmailPreview"
+        ]
+      }
+    },
+    {
+      "id": "feedback.busy-indicator",
+      "layer": "ui",
+      "group": "feedback",
+      "label": "Inline busy indicator with a label",
+      "feature": "core",
+      "applies": true,
+      "uses": {
+        "imports": [
+          "@/components/Kit:BusyIndicator",
+          "@/components/Kit:Spinner"
+        ]
+      },
+      "handRolled": [],
+      "docs": "docs/text.md",
+      "status": "new",
+      "since": "0.29.0",
+      "replaces": {
+        "components": [
+          "Spinner",
+          "LoadingSpinner",
+          "BusyIndicator"
+        ]
+      }
+    },
+    {
+      "id": "layout.reveal",
+      "layer": "ui",
+      "group": "layout",
+      "label": "Reveal a just-changed item: scroll to it and flash a ring",
+      "feature": "core",
+      "applies": true,
+      "uses": {
+        "imports": [
+          "@/components/Kit:reveal"
+        ]
+      },
+      "handRolled": [],
+      "docs": "docs/text.md",
+      "status": "new",
+      "since": "0.29.0"
+    },
+    {
+      "id": "form.defaults",
+      "layer": "ui",
+      "group": "form",
+      "label": "Inertia <Form> keeps its submitted values as defaults on success",
+      "feature": "core",
+      "applies": "has-forms",
+      "uses": {
+        "imports": [
+          "@/components/Kit:applyFormDefaults"
+        ]
+      },
+      "handRolled": [],
+      "docs": "docs/submit-form.md",
+      "status": "new",
+      "since": "0.29.0"
     }
   ],
   "nonSurfaces": [
@@ -3547,6 +3676,18 @@
     {
       "ref": "@/components/Kit:FileList",
       "reason": "Media component: a record's files as a read-only attachment list, rendered inside a host page."
+    },
+    {
+      "ref": "@/components/Kit:tooLarge",
+      "reason": "Helper behind directUpload."
+    },
+    {
+      "ref": "@/components/Kit:DirectUploadError",
+      "reason": "directUpload's error class."
+    },
+    {
+      "ref": "@/components/Kit:UploadTooLargeError",
+      "reason": "directUpload's error class."
     },
     {
       "ref": "@/components/Kit:fileExtension",

@@ -5179,6 +5179,35 @@ test('Row variants: one primary plus menu items defaults to split, two plain act
         assert.deepEqual(violations, [], JSON.stringify(violations));
     }));
 
+test('Row variants (0.29): a declared primary is its icon joined to the menu on every row, a row without it shows its menu alone, and menu puts a lone Delete behind ⋮', () =>
+    rowVariants(async (tab) => {
+        const declared = await tab.$eval('[data-declared] [data-row-actions]', el => ({ variant: el.dataset.rowActions, icon: Boolean(el.querySelector('[data-action="edit"] [data-action-icon]')), text: el.querySelector('[data-action="edit"]').textContent.trim(), title: el.querySelector('[data-action="edit"]').getAttribute('title'), name: el.querySelector('[data-action="edit"]').getAttribute('aria-label') }));
+        assert.deepEqual({ ...declared, name: Boolean(declared.name) }, { variant: 'split', icon: true, text: '', title: 'Edit', name: true }, 'the icon-only primary is titled by its label and keeps an accessible name');
+        assert.equal(await tab.$eval('[data-declared-missing] [data-row-actions]', el => el.dataset.rowActions), 'menu');
+        assert.equal(await tab.locator('[data-declared-missing] [data-row-actions] > [data-action]').count(), 0, 'no inline buttons on a row without the primary');
+        const lone = await tab.$eval('[data-menu-only] [data-row-actions]', el => ({ variant: el.dataset.rowActions, inline: el.querySelectorAll(':scope > [data-action]').length, vertical: Boolean(el.querySelector('svg.lucide-ellipsis-vertical')) }));
+        assert.deepEqual(lone, { variant: 'menu', inline: 0, vertical: true });
+        await tab.click('[data-menu-only] button[aria-label="Actions for Ana Lopez"]');
+        await tab.waitForSelector('[role="menu"]');
+        assert.deepEqual(await menuKeys(tab), ['delete']);
+        await tab.keyboard.press('Escape');
+    }));
+
+test('ActionDialogs: a required prompt keeps Confirm disabled until it has text, is labelled, and the dialog passes axe', () =>
+    rowVariants(async (tab) => {
+        await tab.click('[data-run-reopen]');
+        const dialog = await tab.waitForSelector('[role="alertdialog"]');
+        const confirm = tab.locator('[role="alertdialog"] button', { hasText: 'Reopen' });
+        assert.equal(await confirm.isDisabled(), true, 'Confirm waits for a reason');
+        await tab.getByLabel('Reason').fill('Client sent new documents');
+        assert.equal(await confirm.isDisabled(), false);
+        if (!(await tab.evaluate(() => Boolean(window.axe)))) await tab.addScriptTag({ path: axeSource });
+        const violations = await tab.evaluate(async () => (await window.axe.run('[role="alertdialog"]')).violations.map(v => v.id));
+        assert.deepEqual(violations, []);
+        await tab.keyboard.press('Escape');
+        await dialog.waitForElementState('hidden');
+    }));
+
 test('Row variants: the split and overflow row menus open the same small gap below their trigger, so a table row\'s menu never lands over the next row', () =>
     rowVariants(async (tab) => {
         const gap = async (trigger) => {
@@ -5685,9 +5714,14 @@ test('CommentItem and CommentForm fixes (?adopt): one colour field posts, a pres
         const red = await del.evaluate(el => { const p = document.createElement('span'); p.className = 'text-destructive-text'; document.body.append(p); const c = getComputedStyle(p).color; p.remove(); return [getComputedStyle(el).color, c]; });
         assert.equal(red[0], red[1], 'destructive text');
         await tab.keyboard.press('Escape');
+        // The closing menu hands focus back to its trigger: only then open the composer, or that late focus closes it again.
+        await tab.waitForSelector('[role="menu"]', { state: 'detached' });
+        await tab.waitForFunction(() => document.activeElement?.closest('[data-comment="9"]'));
         const form = tab.locator('[data-adopted] [data-comment-form]');
-        await form.locator('textarea').focus();
+        await form.locator('textarea').click();
         await tab.waitForSelector('[data-adopted] [data-comment-toolbar]');
+        // The composer grows as it opens and pushes the button below down: aim once it has stopped moving.
+        await tab.waitForFunction(() => new Promise(done => { const el = document.querySelector('[data-below-composer]'); const y = el.getBoundingClientRect().top; requestAnimationFrame(() => requestAnimationFrame(() => done(el.getBoundingClientRect().top === y))); }));
         const below = tab.locator('[data-below-composer]');
         const box = await below.boundingBox();
         await tab.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
@@ -5697,6 +5731,8 @@ test('CommentItem and CommentForm fixes (?adopt): one colour field posts, a pres
         await tab.waitForTimeout(150);
         assert.equal(await tab.evaluate(() => window.belowClicks ?? 0), 1, 'the click landed on the button it was aimed at');
         assert.equal(await tab.locator('[data-adopted] [data-comment-toolbar]').count(), 0, 'and the empty composer then closed');
+        await form.locator('textarea').focus();
+        await tab.waitForSelector('[data-adopted] [data-comment-toolbar]');
         await form.locator('textarea').fill('One colour');
         await form.locator('textarea').press('Control+Enter');
         await waitFor(async () => writes.length > 0);
@@ -9333,6 +9369,7 @@ test('Welcome, photo: Upload and continue stays disabled until a photo is chosen
     await accountPage({ ...welcome, start: 'WelcomePhoto' }, async ({ tab, posts }) => {
         const upload = tab.getByRole('button', { name: 'Upload and continue', exact: true });
         assert.equal(await upload.isDisabled(), true, 'no photo, no upload');
+        await tab.waitForFunction(() => document.activeElement?.matches('[data-dropzone]'));
         await tab.setInputFiles('#avatar', photo);
         assert.equal(await tab.locator('[data-welcome-step] img').count(), 1, 'the preview shows');
         await Promise.all([tab.waitForURL(/\/landed$/), upload.click()]);
@@ -11671,4 +11708,247 @@ test('FormActions density: the default bar keeps its border, padding and gap; co
             if (process.env.KIT_FIELD_PATHS_SCREENSHOT) await tab.screenshot({ path: `${process.env.KIT_FIELD_PATHS_SCREENSHOT}-${query.includes('dark') ? 'dark' : 'light'}.png`, fullPage: true });
         });
     }
+});
+
+// ── Small pieces (?small-pieces): EmailMessage rows and body, BusyIndicator, reveal() and applyFormDefaults() ─────
+
+test('Small pieces: EmailMessage leaves out empty rows and cuts with limit; BusyIndicator labels a hidden svg; reveal scrolls and flashes then clears; applyFormDefaults sets setDefaultsOnSuccess', async () => {
+    const context = await browser.newContext({ viewport: { width: 1024, height: 700 } });
+    const tab = await context.newPage();
+    const errors = [];
+    tab.on('pageerror', error => errors.push(error.message));
+    try {
+        await tab.goto(`${url}?small-pieces`);
+        await tab.waitForSelector('[data-email-message]');
+        const first = tab.locator('[data-email-message]').first();
+        assert.deepEqual(await first.locator('[data-email-row]').evaluateAll(els => els.map(el => el.dataset.emailRow)), ['from', 'to', 'subject'], 'rows with no value are left out');
+        assert.equal((await first.locator('[data-email-row="to"]').textContent()).trim(), 'desk@example.test, ops@example.test');
+        assert.equal(await first.locator('h2').textContent(), 'What came in');
+        assert.equal(await first.locator('[data-email-attachments] li').count(), 1);
+        assert.equal(await tab.locator('#limited [data-slot="text-long"]').count(), 1, 'limit uses TextLong');
+        assert.equal(await tab.locator('svg[data-busy-indicator]').getAttribute('aria-hidden'), 'true');
+        assert.match(await tab.locator('svg[data-busy-indicator]').getAttribute('class'), /text-primary/, '$attrs land on the svg');
+        assert.equal(await tab.locator('[data-slot="busy-indicator"]').textContent(), 'Saving…');
+        assert.equal((await tab.locator('[data-case="defaults"]').textContent()).trim(), 'true true');
+        const { Form } = await import('@inertiajs/vue3');
+        assert.equal(Form.props.setDefaultsOnSuccess?.default, false, 'the real <Form> still has the prop applyFormDefaults sets');
+        await tab.evaluate(() => window.revealTarget(300));
+        await tab.waitForFunction(() => window.scrollY > 1000);
+        assert.equal(await tab.locator('#far[data-highlighted]').count(), 1, 'flashes');
+        await tab.waitForFunction(() => !document.querySelector('#far[data-highlighted]'));
+        assert.doesNotMatch(await tab.locator('#far').getAttribute('class'), /ring-2/, 'the ring clears');
+    } finally {
+        await context.close();
+    }
+    assert.deepEqual(errors, []);
+});
+
+// ── The media family (?media): MediaGallery, MediaCollection tiles, ItemStack and PhotoField ─────────────────────────────────────────────────────────────
+async function mediaTab(check) {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        await tab.goto(`${url}?media`);
+        await tab.waitForSelector('[data-media-gallery] [data-media-gallery-item]');
+        await check(tab);
+        assert.deepEqual(errors, [], 'no page errors');
+    } finally {
+        await context.close();
+    }
+}
+
+test('MediaGallery: caps at maxThumbnails with "+N", a pending thumbnail is a placeholder, files open as links, images page through the lightbox', async () => {
+    await mediaTab(async tab => {
+        const gallery = tab.locator('[data-media-gallery]').first();
+        assert.equal(await gallery.locator('[data-media-gallery-item]').count(), 3);
+        assert.equal(await gallery.locator('[data-media-more]').innerText(), '+2');
+        assert.equal(await gallery.locator('[data-media-item="a2"] [data-media-pending]').count(), 1, 'no thumbnail yet: a placeholder, never the original');
+        assert.equal(await gallery.getByRole('link', { name: 'Open notes.pdf' }).getAttribute('href'), '/notes.pdf');
+        assert.equal(await gallery.locator('[data-media-filename]').first().innerText(), 'front.jpg');
+        await gallery.locator('[data-media-more]').click();
+        assert.equal(await gallery.locator('[data-media-gallery-item]').count(), 5);
+        await gallery.getByRole('button', { name: 'View front.jpg' }).click();
+        const box = tab.locator('[data-media-lightbox]');
+        await box.waitFor();
+        assert.match(await tab.getByRole('dialog').innerText(), /1 of 4/);
+        await box.locator('[data-media-next]').click();
+        assert.match(await tab.getByRole('dialog').innerText(), /side\.jpg[\s\S]*2 of 4/);
+    });
+});
+
+test('MediaCollection tiles: badge, selected check, dimmed pending tile, tile actions emit, and the add and empty states are camera tiles', async () => {
+    await mediaTab(async tab => {
+        const tiles = tab.locator('[data-media-collection="photos"]');
+        assert.equal(await tiles.locator('[data-media-item="p1"] [data-media-badge]').innerText(), 'Main photo');
+        assert.equal(await tiles.locator('[data-media-item="p2"][data-selected] [data-media-selected]').count(), 1);
+        assert.equal(await tiles.locator('[data-media-item="p3"][data-dim] [data-media-pending]').count(), 1);
+        await tiles.locator('[data-media-item="p2"] button[aria-pressed]').click();
+        await tiles.getByRole('button', { name: /Actions for Photo 1/ }).click();
+        await tab.getByRole('menuitem', { name: 'Make main photo' }).click();
+        assert.deepEqual(await tab.evaluate(() => window.kitEvents), ['show p2', 'action main p1']);
+        assert.equal(await tiles.locator('[data-photo-tile]').innerText(), 'Add photos');
+        assert.equal(await tab.locator('[data-fixture="empty-tiles"] [data-media-empty]').count(), 0, 'photo-tile replaces the empty text');
+        assert.equal(await tab.locator('[data-fixture="empty-tiles"] [data-photo-tile]').innerText(), 'Add a photo');
+    });
+});
+
+test('ItemStack: steps through the stack, Arrange opens the fanout, a reorder sends the version, and a stale one rolls back and emits conflict', async () => {
+    await mediaTab(async tab => {
+        const stack = tab.locator('[data-item-stack]').first();
+        assert.equal(await stack.locator('[data-item-stack-position]').innerText(), '1 / 3');
+        assert.equal(await stack.locator('[data-item-stack-layer]').count(), 2);
+        await stack.locator('[data-item-stack-next]').click();
+        assert.equal(await stack.locator('[data-item-stack-position]').innerText(), '2 / 3');
+        await stack.locator('[data-item-stack-arrange]').click();
+        const fanout = tab.locator('[data-item-stack-fanout]');
+        await fanout.waitFor();
+        await fanout.getByRole('button', { name: 'Move Shot 2 (Two) up' }).click();
+        await tab.waitForFunction(() => window.kitEvents.includes('saved 2'));
+        assert.deepEqual(await tab.evaluate(() => window.kitServer.log), [{ sent: 1, status: 200 }], 'the loaded version goes with the order');
+        const order = () => fanout.locator('[data-item-stack-item]').evaluateAll(els => els.map(el => el.getAttribute('data-item-stack-item')));
+        const before = await order();
+        await tab.evaluate(() => window.kitServer.stale());
+        await fanout.getByRole('button', { name: /Move Shot 3 \(Three\) up/ }).click();
+        await tab.waitForFunction(() => window.kitEvents.some(e => e.startsWith('conflict')));
+        assert.deepEqual(await order(), before, 'a 409 rolls the order back');
+    });
+});
+
+test('PhotoField: Change opens the current photo, a drop zone, the other photos and a confirmed Remove; an empty slot is a camera tile', async () => {
+    await mediaTab(async tab => {
+        await tab.locator('[data-photo-field-change]').click();
+        const modal = tab.locator('[data-photo-field-modal]');
+        await modal.waitFor();
+        assert.equal(await modal.locator('[data-photo-field-current]').count(), 1);
+        assert.equal(await modal.locator('[data-dropzone]').count(), 1);
+        assert.equal(await modal.getByRole('button', { name: 'Use Kitchen' }).count(), 1);
+        await tab.locator('[data-photo-field-remove]').click();
+        await tab.locator('[data-confirm-dialog]').waitFor();
+        assert.match(await tab.locator('[data-confirm-dialog]').innerText(), /Remove Main photo\?/);
+        assert.equal(await tab.locator('[data-fixture="empty-photo"] [data-photo-tile]').innerText(), 'Workspace logo');
+    });
+});
+
+test('MediaGallery lightbox only: thumbnails=false hides the row, and the exposed show(id) opens that image', async () => {
+    await mediaTab(async tab => {
+        const viewer = tab.locator('[data-fixture="viewer"]');
+        assert.equal(await viewer.locator('[data-media-gallery-item]').count(), 0);
+        await viewer.locator('[data-open-viewer]').click();
+        await tab.locator('[data-media-lightbox]').waitFor();
+        assert.match(await tab.getByRole('dialog').innerText(), /back\.jpg[\s\S]*3 of 4/);
+    });
+});
+
+test('MediaCollection tiles: action icons and attrs on the menu rows; sortable without a url emits reordered(from, to); indexOffset numbers from 1 + offset; busy disables the add tile', async () => {
+    await mediaTab(async tab => {
+        const tiles = tab.locator('[data-media-collection="photos"]');
+        await tiles.getByRole('button', { name: /Actions for Photo 1/ }).click();
+        const row = tab.locator('[data-test="make-main"]');
+        assert.equal(await row.getAttribute('data-media-action'), 'main', 'attrs are bound on the row');
+        assert.equal(await row.locator('[data-media-action-icon]').count(), 1);
+        await tab.keyboard.press('Escape');
+        const strip = tab.locator('[data-media-collection="strip"]');
+        assert.equal(await strip.getByRole('button', { name: 'Move Photo 3 (Front) back' }).count(), 1, 'numbering starts at 1 + indexOffset');
+        await strip.getByRole('button', { name: 'Move Photo 4 (Kitchen) back' }).click();
+        await tab.waitForFunction(() => window.kitEvents.includes('reordered 1 0'));
+        const tile = strip.locator('[data-photo-tile]');
+        assert.equal(await tile.isDisabled(), true);
+        assert.equal(await tile.getAttribute('aria-busy'), 'true');
+        assert.equal(await strip.locator('[data-photo-tile-busy]').innerText(), 'Uploading… 40%');
+    });
+});
+
+test('ItemStack persist: the host save replaces the built-in request; ok keeps the new version, a conflict rolls back and emits conflict', async () => {
+    await mediaTab(async tab => {
+        const stack = tab.locator('[data-fixture="persist"] [data-item-stack]');
+        await stack.locator('[data-item-stack-arrange]').click();
+        const fanout = tab.locator('[data-item-stack-fanout]');
+        await fanout.waitFor();
+        const order = () => fanout.locator('[data-item-stack-item]').evaluateAll(els => els.map(el => el.getAttribute('data-item-stack-item')));
+        await fanout.getByRole('button', { name: 'Move Colour 2 (Green) up' }).click();
+        await tab.waitForFunction(() => window.kitEvents.includes('persist-saved 6'));
+        assert.deepEqual(await tab.evaluate(() => window.kitPersist.calls), [{ order: ['c2', 'c1', 'c3'], version: 5 }]);
+        assert.deepEqual(await tab.evaluate(() => window.kitServer.log), [], 'no built-in request');
+        await fanout.locator('[data-sortable-saved]').waitFor();
+        const before = await order();
+        await tab.evaluate(() => { window.kitPersist.conflict = true; });
+        await fanout.getByRole('button', { name: /Move Colour 3 \(Blue\) up/ }).click();
+        await tab.waitForFunction(() => window.kitEvents.some(e => e.startsWith('persist-conflict')));
+        assert.equal((await tab.evaluate(() => window.kitPersist.calls))[1].version, 6, 'the next save carries the version the last one returned');
+        assert.deepEqual(await order(), before, 'a conflict rolls the order back');
+        const error = fanout.locator('[data-sortable-error][role="alert"]');
+        assert.match(await error.textContent(), /not saved/, 'the failure is shown, not only announced');
+        assert.equal(await fanout.locator('[data-sortable-saved]').count(), 0);
+        await tab.evaluate(() => { window.kitPersist.conflict = false; });
+        await fanout.getByRole('button', { name: /Move Colour 3 \(Blue\) up/ }).click();
+        await fanout.locator('[data-sortable-saved]').waitFor();
+        assert.equal(await error.count(), 0, 'the next successful save clears it');
+    });
+});
+
+test('Widget and SegmentLinks: a widget is a section named by its heading on its own card, with a count, header or footer actions, a busy skeleton, the EmptyState and a bare form; segment links mark the current one and hand the click to navigate; axe with contrast, light and dark', async () => {
+    for (const query of ['widget', 'widget&dark']) {
+        await onPage(query, async (tab) => {
+            const widget = (key) => tab.$eval(`[data-widget="${key}"]`, (el) => ({
+                name: el.getAttribute('aria-labelledby') ? document.getElementById(el.getAttribute('aria-labelledby')).textContent.trim() : el.getAttribute('aria-label'),
+                state: el.dataset.widgetState,
+                busy: el.getAttribute('aria-busy'),
+                card: el.classList.contains('bg-card'),
+                header: !!el.querySelector('[data-widget-header]'),
+                headerActions: el.querySelector('[data-widget-actions]')?.textContent.trim() ?? null,
+                footer: el.querySelector('[data-widget-footer]')?.textContent.trim() ?? null,
+                count: el.querySelector('[data-widget-count]')?.textContent.trim() ?? null,
+                empty: el.querySelector('[data-empty-state] h3')?.textContent.trim() ?? null,
+            }));
+            assert.deepEqual(await widget('notes'), { name: 'Notes', state: 'ready', busy: null, card: true, header: true, headerActions: 'Add note', footer: null, count: '2', empty: null });
+            assert.deepEqual(await widget('footer'), { name: 'Footer actions', state: 'ready', busy: null, card: true, header: true, headerActions: null, footer: 'See all', count: null, empty: null });
+            assert.deepEqual(await widget('loading'), { name: 'Loading', state: 'loading', busy: 'true', card: true, header: true, headerActions: null, footer: null, count: null, empty: null });
+            assert.deepEqual(await widget('empty'), { name: 'Empty', state: 'empty', busy: null, card: true, header: true, headerActions: 'Quiet', footer: null, count: null, empty: 'No notes yet' });
+            assert.deepEqual(await widget('bare'), { name: 'Bare widget', state: 'ready', busy: null, card: false, header: false, headerActions: null, footer: null, count: null, empty: null });
+            assert.equal(await tab.getByRole('region', { name: 'Notes', exact: true }).count(), 1, 'a region named by its heading');
+
+            const nav = tab.getByRole('navigation', { name: 'Filter notes' });
+            const currentLink = () => nav.locator('[aria-current="page"]').getAttribute('data-segment');
+            assert.equal(await currentLink(), 'all');
+            assert.equal(await nav.locator('[data-segment="all"] [data-segment-count]').textContent(), '12');
+            assert.equal(await nav.locator('[data-segment="all"] [data-colour-dot]').count(), 0, 'no tone, no dot');
+            assert.equal(await nav.locator('[data-segment="red"] [data-colour-dot]').getAttribute('data-tone'), 'danger');
+            await nav.getByRole('link', { name: /Red/ }).click();
+            await tab.waitForFunction(() => window.kitSegmentVisits.length === 1);
+            assert.deepEqual(await tab.evaluate(() => [window.kitSegmentVisits, location.search]), [['/notes?colour=red'], `?${query}`], 'navigate took over the visit');
+            assert.equal(await currentLink(), 'red');
+            assert.equal(await tab.getAttribute('[data-segment-links][data-appearance="neutral"] [aria-current="page"]', 'data-segment'), 'red');
+            assert.deepEqual(await axeWithContrast(tab), [], query);
+        });
+    }
+});
+
+test('MediaCollection host-upload: the add tile shows without direct routes and only emits files; the kit sends nothing', () =>
+    mediaTab(async (tab) => {
+        const requests = [];
+        tab.on('request', request => request.url().includes('/uploads') && requests.push(request.url()));
+        const input = tab.locator('[data-fixture="host-upload"] input[type="file"]');
+        assert.equal(await input.count(), 1, 'the add tile renders');
+        await input.setInputFiles({ name: 'front.jpg', mimeType: 'image/jpeg', buffer: Buffer.from([0xff, 0xd8, 0xff]) });
+        await tab.waitForFunction(() => window.kitEvents.some(event => event.startsWith('host-files:')));
+        assert.ok((await tab.evaluate(() => window.kitEvents)).includes('host-files:front.jpg'));
+        await tab.waitForTimeout(200);
+        assert.deepEqual(requests, [], 'no kit upload');
+    }));
+
+test('ItemStack persist: rapid moves in the fanout settle into one request with the final order', async () => {
+    await mediaTab(async tab => {
+        const stack = tab.locator('[data-fixture="persist"] [data-item-stack]');
+        await stack.locator('[data-item-stack-arrange]').click();
+        const fanout = tab.locator('[data-item-stack-fanout]');
+        await fanout.waitFor();
+        await fanout.getByRole('button', { name: /Move Colour \d \(Blue\) up/ }).click();
+        await fanout.getByRole('button', { name: /Move Colour \d \(Blue\) up/ }).click();
+        await fanout.locator('[data-sortable-saved]').waitFor();
+        const calls = await tab.evaluate(() => window.kitPersist.calls);
+        assert.equal(calls.length, 1, JSON.stringify(calls));
+        assert.deepEqual(calls[0].order, ['c3', 'c1', 'c2']);
+    });
 });

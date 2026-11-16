@@ -1,5 +1,32 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Row actions, declared shapes.** `rowActions: { primary: 'edit' }` (DataTable prop or `TableQuery::rowActions(primary: 'edit')`, or `primary: true` on an action) makes every row the same shape: the primary as its icon (named and titled by its label), joined to a chevron menu of the rest; a row without that action shows its menu alone. `variant: 'menu'` puts every action in the "…" menu, a lone Delete included. `trigger: 'vertical'` draws ⋮ for compact places. Tables that declare nothing keep the earlier inferred layout.
+- **ActionDialogs and `useActionRunner`**, exported: a page runs descriptors from its own buttons, rows or menus (`runner.run(action)`) with their dialogs hosted once. A confirm can carry a `prompt` (a labelled textarea posted as `reason` or its `name`; `required` keeps Confirm disabled until it has text), with the server's error under it and other errors listed. An action's `form` names a `form-<name>` slot drawn in a Modal with `submit(data)`, `errors`, `busy` and `close`. An action's `payload` posts with its visit, under the dialog's fields. A refused visit keeps the dialog open. `ActionMenuItems` is exported too.
+- **Dialog `confirmDisabled`.**
+- **EmailMessage**: one email as a mail client shows it (header rows with empty ones left out, the body as a TextCode card or a TextLong with `limit`, attachments). docs/text.md.
+- **BusyIndicator**, also exported as **Spinner**: an inline spinning circle (still under reduced motion) with a label slot. docs/text.md.
+- **`reveal(target, { duration, block })`**: scrolls a just-changed item into view (smooth unless reduced motion) and flashes a ring with `data-highlighted`. docs/text.md.
+- **`applyFormDefaults()`**: call it once in the app's entry and every Inertia `<Form>` defaults to `setDefaultsOnSuccess: true`, so a saved form is no longer dirty and the leave prompt stops. docs/submit-form.md.
+- **The media family** (kit#1043). `MediaGallery`: a read-only row of mixed files with a lightbox (Previous/Next, arrow keys), a placeholder until the generated thumbnail exists, `maxThumbnails` with "+N", `small|medium` and `filenames`. `MediaThumbnail`: a square `{thumb, card}` picture, `sm|md|lg`, a muted tile when there is none. `PhotoTile`: the dashed camera tile for an empty photo slot (drop, paste or click). `ItemStack`: a stack with "k / N", Previous/Next and an Arrange fanout on SortableList, whose reorder sends the version and rolls back on a 409. `PhotoField`: one photo slot whose Change modal shows the current photo, replaces it by drop or paste (directUpload), picks from `sources`, and removes it after a confirmation, each write carrying `version`; it emits `replaced`, `chosen` and `removed`.
+- **MediaCollection `layout="tiles"`**: square or 4/3 tiles with `badges`, `selected-ids`, `dim-ids`, per-tile `tile-actions` (emitted as `action`), `show`, a placeholder until `thumb` exists, and a camera add tile; `empty="photo-tile"` in any layout. `MediaItem`'s `size`, `width`, `height` and `srcset` are now optional, and it takes `thumb` and `pending`.
+- **Media family, second round.** MediaGallery `thumbnails` (false: a lightbox only) and an exposed `show(item or id)`. MediaTileAction `icon` (an actionIcons name or a component) and `attrs` (bound on the menu row). MediaCollection tiles: `busy` (disables the add tile and shows progress), `maxFiles`, `sortable` without a reorder url (emits `reordered(from, to)`; `move` stays the move to another collection), and `indexOffset`. ItemStack and SortableList `persist(order, version)`: the host's own save in place of the reorder request, with the same version and rollback rules. `saved` now also carries the parsed response body, and SortableList emits `moved(from, to)` alongside `update`.
+- **`directUpload(file, { ticket, register, maxBytes })`**, exported with `tooLarge`, `DirectUploadError` and `UploadTooLargeError`: a file over the cap is refused before any request with "<name> is larger than N MB".
+- **Widget and WidgetHeader** (docs/widgets.md): a dashboard widget frame on its own card (`bg-card`, drawn on a tinted ground too) with a header of title, avatar, meta, count badge and actions; `loading` (a busy skeleton), an `empty` state drawn by EmptyState, a `planned` dashed frame, `action-placement` header or footer, and `bare`. Slots `title`, `avatar`, `meta`, `badge`, `actions` and default.
+- **SegmentLinks** (docs/widgets.md): in-place filter segments that are links (`{key, label, href, count?, tone?}`), the `current` one marked `aria-current`, `appearance` link or neutral, and a `navigate` emit that lets a page take over the visit (a partial reload).
+
+- **MediaCollection tiles**: a dimmed tile dims only its picture (its name keeps full contrast), and each tile's ⋯ trigger carries `data-media-menu`.
+- **SortableList** shows a failed or stale save inline (`role="alert"`, `data-sortable-error`) until the next save succeeds, which shows a quiet "Saved" (`data-sortable-saved`); before, it was only announced.
+- **SortableList `settle`** (ms): moves show at once and one request goes once they stop, with the final order; ItemStack's fanout settles for 400ms. Closing the list sends pending moves at once.
+- **MediaCollection `hostUpload`**: the add tile or drop shows without `direct` and only emits `files`, for a host that runs its own uploads.
+
+### Fixed
+
+- **FileInput `dropzone`** keeps `autofocus`: the generated Welcome photo step focuses its field on load again.
+
 ## v0.28.1
 
 Features affected: none; `composer update tey/kit` is enough.

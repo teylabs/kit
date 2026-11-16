@@ -12,6 +12,14 @@ export type DirectRoutes = {
     complete?: string;
     abort?: string;
 };
+/** The same flow named for one file to a record: `ticket` asks for the upload, `register` confirms it, and `maxBytes` refuses a larger file before anything is sent. */
+export type DirectTicketRoutes = {
+    ticket: string;
+    register: string;
+    maxBytes?: number | null;
+    complete?: string;
+    abort?: string;
+};
 export type UploadPart = {
     part: number;
     url: string | null;
@@ -62,6 +70,37 @@ export class DirectUploadError extends Error {
         this.status = status;
         this.body = body;
     }
+}
+
+/** Refused before anything is sent: the file is over the cap. Its message names the file ("<name> is larger than N MB"). */
+export class UploadTooLargeError extends Error {
+    maxBytes: number;
+    constructor(name: string, maxBytes: number) {
+        super(`${name} is larger than ${megabytes(maxBytes)} MB`);
+        this.maxBytes = maxBytes;
+    }
+}
+function megabytes(bytes: number): string {
+    const value = bytes / 1024 / 1024;
+    return Number.isInteger(value) ? String(value) : value.toFixed(1);
+}
+/** The refusal for a file over `maxBytes`, or null when it fits (or there is no cap). */
+export function tooLarge(
+    file: { name: string; size: number },
+    maxBytes?: number | null,
+): string | null {
+    return maxBytes && file.size > maxBytes
+        ? new UploadTooLargeError(file.name, maxBytes).message
+        : null;
+}
+function normalize(routes: DirectRoutes | DirectTicketRoutes): DirectRoutes {
+    if ('request' in routes) return routes;
+    return {
+        request: routes.ticket,
+        confirm: routes.register,
+        ...(routes.complete ? { complete: routes.complete } : {}),
+        ...(routes.abort ? { abort: routes.abort } : {}),
+    };
 }
 
 const mutations = new WeakMap<Blob, string>();
@@ -272,14 +311,22 @@ async function uploadParts(
     );
 }
 
-/** Uploads one file; `progress` gets 0..1. Resolves with the confirm route's JSON. */
+/**
+ * Uploads one file; `progress` gets 0..1. Resolves with the confirm route's JSON. `routes` is `{ request, confirm }` or `{ ticket, register, maxBytes }`;
+ * with `maxBytes` a larger file rejects with an UploadTooLargeError before any request.
+ */
 export async function directUpload(
     file: File,
-    routes: DirectRoutes,
+    given: DirectRoutes | DirectTicketRoutes,
     progress: (fraction: number) => void = () => {},
     transport: DirectTransport = browserTransport,
     signal?: AbortSignal,
 ): Promise<any> {
+    if ('ticket' in given) {
+        const refusal = tooLarge(file, given.maxBytes);
+        if (refusal) throw new UploadTooLargeError(file.name, given.maxBytes!);
+    }
+    const routes = normalize(given);
     const sha256 = await transport.digest(file);
     const requestBody = {
         mime: file.type,

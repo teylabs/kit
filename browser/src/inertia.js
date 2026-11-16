@@ -8,7 +8,7 @@ const fire = (name, detail) => (listeners[name] ?? []).slice().forEach((callback
 // <Head> sets the document head in Inertia; here it renders nothing.
 export const Head = defineComponent({ setup: () => () => null });
 export const Link = defineComponent({ props: ['href'], setup: (p, { slots }) => () => h('a', { href: p.href }, slots.default?.()) });
-export const Form = defineComponent({ setup: (_, { slots }) => () => h('form', slots.default?.({})) });
+export const Form = defineComponent({ props: { setDefaultsOnSuccess: { type: Boolean, default: false } }, setup: (_, { slots }) => () => h('form', slots.default?.({})) });
 // ScrollList's (kit-ui.ts exports it for dashboard.html, which builds on the real Inertia): a pass-through here.
 export const InfiniteScroll = defineComponent({ setup: (_, { slots }) => () => h('div', slots.default?.({})) });
 export const router = {

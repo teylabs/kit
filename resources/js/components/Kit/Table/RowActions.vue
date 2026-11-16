@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { router } from '@inertiajs/vue3';
-import { Ellipsis } from '@lucide/vue';
+import { Ellipsis, EllipsisVertical } from '@lucide/vue';
 import { computed, ref, shallowRef, useId, type Directive } from 'vue';
 import {
     DropdownMenu,
@@ -56,6 +56,7 @@ type RowAction = {
     description?: string | null;
     icon?: string | null;
     section?: string | null;
+    primary?: boolean | null;
     newTab?: boolean | null;
     intent?: string | null;
     confirm: {
@@ -74,9 +75,25 @@ const props = defineProps<{
     noun?: string | null;
     subject?:
         import('@/components/Kit/Menu/menuSubject').MenuSubject | true | null;
+    primaryKey?: string | null;
+    trigger?: 'horizontal' | 'vertical' | null;
 }>();
 const emit = defineEmits<{ act: [action: RowAction] }>();
-const laid = computed(() => layOut(props.actions, props.variant));
+const laid = computed(() =>
+    layOut(props.actions, props.variant, props.primaryKey),
+);
+// The menu trigger: ⋯ (horizontal, the default in table rows and wide bars) or ⋮ (vertical, for compact places: list rows, cards, tiles, a table shown as cards).
+const TriggerIcon = computed(() =>
+    props.trigger === 'vertical' ? EllipsisVertical : Ellipsis,
+);
+// A declared split primary (`primary: true` or the table's `primaryKey`) shows its icon alone when it has one (its own, else the intent's: Edit a pencil), named by its accessible name and titled by its label.
+const primaryIcon = computed(() =>
+    laid.value.primary &&
+    (laid.value.primary.primary ||
+        (props.primaryKey && laid.value.primary.key === props.primaryKey))
+        ? iconOf(laid.value.primary)
+        : undefined,
+);
 // A menu row's icon: the action's own `icon`, else the common intent's (actionIconName in a menu: edit, delete, merge, download…), else none.
 const iconOf = (action: RowAction) =>
     actionIcons[actionIconName(action, true) ?? ''];
@@ -302,8 +319,19 @@ function confirmed(confirmation?: string) {
                 :external="opensNewTab(primary)"
                 :target="opensNewTab(primary) ? '_blank' : undefined"
                 v-bind="linkState(primary)"
+                :title="
+                    linkState(primary).title ??
+                    (primaryIcon ? primary.label : undefined)
+                "
+                :class="primaryIcon && 'size-8 px-0'"
                 :data-action="primary.key"
-                >{{ shownLabel(primary) }}</Button
+                ><component
+                    :is="primaryIcon"
+                    v-if="primaryIcon"
+                    class="size-4"
+                    aria-hidden="true"
+                    data-action-icon
+                /><template v-else>{{ shownLabel(primary) }}</template></Button
             >
             <Button
                 v-else
@@ -311,10 +339,25 @@ function confirmed(confirmation?: string) {
                 size="sm"
                 type="button"
                 v-bind="state(primary)"
+                :title="
+                    state(primary).title ??
+                    (primaryIcon ? primary.label : undefined)
+                "
+                :class="[
+                    primaryIcon && 'size-8 px-0',
+                    (primary.disabled || running !== null) &&
+                        'cursor-not-allowed opacity-50',
+                ]"
                 :data-action="primary.key"
                 @click="perform(primary)"
-                >{{ shownLabel(primary)
-                }}<span
+                ><component
+                    :is="primaryIcon"
+                    v-if="primaryIcon"
+                    class="size-4"
+                    aria-hidden="true"
+                    data-action-icon
+                /><template v-else>{{ shownLabel(primary) }}</template
+                ><span
                     v-if="describes(primary)"
                     :id="reasonId(primary)"
                     class="sr-only"
@@ -433,7 +476,10 @@ function confirmed(confirmation?: string) {
                     class="text-muted-foreground hover:text-foreground size-8"
                     :aria-label="label"
                     data-row-menu
-                    ><Ellipsis class="size-4" aria-hidden="true" /></Button
+                    ><component
+                        :is="TriggerIcon"
+                        class="size-4"
+                        aria-hidden="true" /></Button
             ></DropdownMenuTrigger>
             <DropdownMenuContent align="end" :subject="menuSubject">
                 <MenuGroup

@@ -56,7 +56,31 @@ export {
     default as MediaCollection,
     type MediaItem,
     type MediaCollectionData,
+    type MediaTileAction,
 } from './Media/MediaCollection.vue';
+// The media family (docs/media.md): a read-only gallery with a lightbox, a square thumbnail, the empty photo tile, a stack with its fanout, and one photo slot.
+export {
+    default as MediaGallery,
+    type GalleryItem,
+} from './Media/MediaGallery.vue';
+export {
+    default as MediaThumbnail,
+    type MediaPicture,
+} from './Media/MediaThumbnail.vue';
+export { default as PhotoTile } from './Media/PhotoTile.vue';
+export { default as ItemStack, type StackItem } from './Media/ItemStack.vue';
+export {
+    default as PhotoField,
+    type PhotoSource,
+} from './Media/PhotoField.vue';
+export {
+    directUpload,
+    tooLarge,
+    DirectUploadError,
+    UploadTooLargeError,
+    type DirectRoutes,
+    type DirectTicketRoutes,
+} from './Form/directUpload';
 export { default as FileList, type FileListItem } from './Media/FileList.vue';
 export { fileExtension, fileSize } from './Media/fileList';
 export {
@@ -345,6 +369,10 @@ export {
 } from './Surface/surface';
 export type { Surface as SurfaceContext } from './Surface/surface';
 export { default as ActionBar } from './Action/ActionBar.vue';
+// Running descriptors from a page's own buttons, rows and menus: one runner, its dialogs hosted once (confirm, prompt, a host form), and the menu rows for a list.
+export { default as ActionDialogs } from './Action/ActionDialogs.vue';
+export { default as ActionMenuItems } from './Action/ActionMenuItems.vue';
+export { useActionRunner, type ActionRunner } from './Action/actionRunner';
 export { default as ActionLabel } from './Action/ActionLabel.vue';
 // A form's own actions in one row, or stacked full-width for an auth-style card (docs/action-group.md).
 export { default as ActionGroup } from './Action/ActionGroup.vue';
@@ -410,6 +438,12 @@ export { default as SplitPane } from './Layout/SplitPane.vue';
 export { default as PaneScroll } from './Layout/PaneScroll.vue';
 export { default as PaneTabs } from './Layout/PaneTabs.vue';
 export { default as PageTabs } from './Layout/PageTabs.vue';
+// A dashboard widget frame and in-place segment links (docs/widgets.md).
+export { default as Widget } from './Layout/Widget.vue';
+export { default as WidgetHeader } from './Layout/WidgetHeader.vue';
+export type { WidgetDescriptor, WidgetEmpty } from './Layout/Widget.vue';
+export { default as SegmentLinks } from './Layout/SegmentLinks.vue';
+export type { SegmentLink } from './Layout/SegmentLinks.vue';
 export { default as PaneToggle } from './Layout/PaneToggle.vue';
 export type { SplitPreference } from './Layout/splitState';
 export { default as BulkDrop } from './Form/BulkDrop.vue';
@@ -493,6 +527,11 @@ export { default as TextProse } from './Text/TextProse.vue';
 export { default as TextCode } from './Text/TextCode.vue';
 export { default as TextTable } from './Text/TextTable.vue';
 export { default as TextLong } from './Text/TextLong.vue';
+export { default as EmailMessage } from './Text/EmailMessage.vue';
+export { default as BusyIndicator } from './Feedback/BusyIndicator.vue';
+export { default as Spinner } from './Feedback/BusyIndicator.vue';
+export { reveal } from './Layout/reveal';
+export { applyFormDefaults } from './Form/formDefaults';
 export { default as TextTruncate } from './Text/TextTruncate.vue';
 export { default as TextCopy } from './Text/TextCopy.vue';
 export { default as CopyField } from './Text/CopyField.vue';
@@ -532,6 +571,7 @@ export {
     moveAnnouncement,
     gripMove,
     type UseSortableOptions,
+    type ReorderPersist,
 } from './Data/sortable';
 // Comments and notes (docs/comments.md): the card they sit on, one comment with its replies and actions, its composer, and a titled thread. Presentational: the
 // server sends each comment, composer and action, and every save is the Inertia <Form> or visit it names.

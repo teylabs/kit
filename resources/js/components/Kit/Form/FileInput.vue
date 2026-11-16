@@ -52,7 +52,13 @@ const shown = computed(() =>
         ? { name: model.value.name, size: model.value.size, url: null }
         : (props.current ?? null),
 );
-onMounted(() => props.autofocus && input.value?.focus());
+// With `dropzone` the input sits hidden inside BulkDrop, so focus goes to the drop target (the zone, a tab stop).
+onMounted(() => {
+    if (!props.autofocus) return;
+    if (input.value) return input.value.focus();
+    const hidden = document.getElementById(props.id);
+    hidden?.closest<HTMLElement>('[data-dropzone]')?.focus();
+});
 function chosen(event: Event) {
     model.value = (event.target as HTMLInputElement).files?.[0] ?? null;
 }
