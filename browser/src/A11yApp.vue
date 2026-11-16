@@ -34,6 +34,8 @@ const checklist = [
         <Field id="agree" label="Agree" error="Accept to continue."><InputCheckbox id="agree" v-model="agree" description="Read the terms first." /></Field>
         <section data-details><DescriptionList :items="[{ term: 'Client ID', description: 'abc-123', copy: true }, { term: 'Secret', description: null, copy: true }]" /></section>
         <EmptyState data-empty :level="2" title="No invoices yet" body="Invoices you send show here." />
+        <EmptyState data-empty-start align="start" variant="first-use" icon="calendar" :level="2" title="No visits booked" body="Book the first site visit." />
+        <EmptyState data-empty-unknown icon="not-an-icon" :level="2" title="Nothing to show" />
         <section data-checklist><Checklist :items="checklist" label="Setup" @action="item => steps.push(item.key)" /></section>
         <p data-steps>{{ steps.join(',') }}</p>
         <section data-emoji><EmojiTray :reactions="[{ emoji: '👍', label: 'Like' }, { emoji: '🎉', label: 'Celebrate' }, { emoji: '❤️', label: 'Love' }]" @react="r => reactions.push(r.label)" /></section>

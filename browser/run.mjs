@@ -4176,6 +4176,16 @@ test('DescriptionList: a value copies through a button named for its term and th
     });
 });
 
+test('EmptyState: align start sits at the start edge, first-use draws a dashed border, a named icon renders, an unknown name draws none; the default stays centred', async () => {
+    await a11yPage(async tab => {
+        const read = sel => tab.locator(sel).evaluate(el => ({ items: getComputedStyle(el).justifyItems, text: getComputedStyle(el).textAlign, border: getComputedStyle(el).borderTopWidth === '0px' ? 'none' : getComputedStyle(el).borderTopStyle, icon: Boolean(el.querySelector('[data-empty-state-icon] svg')) }));
+        assert.deepEqual(await read('[data-empty]'), { items: 'center', text: 'center', border: 'none', icon: false });
+        assert.deepEqual(await read('[data-empty-start]'), { items: 'start', text: 'start', border: 'dashed', icon: true });
+        assert.equal(await tab.getAttribute('[data-empty-start]', 'data-variant'), 'first-use');
+        assert.equal(await tab.locator('[data-empty-unknown] [data-empty-state-icon]').count(), 0, 'an unknown icon name draws no icon box');
+    });
+});
+
 test('EmptyState is a region named by its heading, never a live region, with a decorative icon; HeaderStatus is a polite status, not a button', async () => {
     await a11yPage(async tab => {
         const region = tab.getByRole('region', { name: 'No invoices yet' });
