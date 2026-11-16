@@ -24,6 +24,7 @@ import { confirmationData, typedMatches } from './confirmText';
 // The kit's Dialog: a confirmation or a prompt (a title, a message, actions, and optionally a prompt control in the `body` slot), on Reka's AlertDialog. It is static: Escape and the backdrop do nothing but cancel, and it never holds a form (that is <Modal>). `variant="danger"` draws an icon circle and a destructive action (`:icon="false"` drops the circle and its gutter, on any variant, and keeps the action's style); the default, neutral, does not. `action` (a server action: url and method) is performed by the dialog, which closes when it succeeds; without it `@confirm` is for local handling. Declared in the template, opened with `v-model:open` or by its trigger (the default slot, the button that asks); there is no programmatic confirm(). On a phone it is bottom-aligned.
 // Behaviour: the trigger is the default slot (the button that asks), Cancel is
 // focused first, and the action runs only on `confirm`. Without a trigger slot it is opened with `v-model:open`. Slots: `icon`, `title`, `body` (content above the buttons, such as a password to confirm with) and `footer`. A destructive confirm (the default) has an icon circle; on a phone it is bottom-aligned.
+// `size="lg"` widens the panel (max-w-xl, 36rem) for a footer with more actions. `#footer-start` puts secondary actions (ghost Buttons: the other ways out, "Decline…") at the footer's start, with Cancel and the action at its end; when they do not fit (a phone) the end group wraps onto its own line, right-aligned.
 // `confirmDisabled` keeps Confirm disabled (a required prompt in the `body` slot that is still empty).
 // Typed confirmation: with `confirmText`, a labelled input asks for that exact text (case-sensitive unless `caseSensitive` is false; pasting is fine) and Confirm stays
 // disabled until it matches; the change is announced politely. The typed text is emitted with `confirm` and sent as `confirmation` with the `action` visit, so
@@ -41,6 +42,7 @@ const props = withDefaults(
         confirmTextLabel?: string;
         icon?: boolean;
         confirmDisabled?: boolean;
+        size?: 'md' | 'lg';
     }>(),
     {
         description: undefined,
@@ -52,6 +54,7 @@ const props = withDefaults(
         confirmTextLabel: undefined,
         icon: true,
         confirmDisabled: false,
+        size: 'md',
     },
 );
 const open = defineModel<boolean>('open', { default: false });
@@ -104,7 +107,9 @@ provideCard();
                     class="bg-scrim fixed inset-0 z-(--z-dialog)"
                 />
                 <AlertDialogContent
-                    class="border-border bg-background text-foreground fixed top-1/2 left-1/2 z-(--z-dialog) grid w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 gap-4 rounded-lg border p-6 shadow-lg max-sm:top-auto max-sm:bottom-0 max-sm:left-0 max-sm:w-full max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-b-none"
+                    class="border-border bg-background text-foreground fixed top-1/2 left-1/2 z-(--z-dialog) grid w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-lg border p-6 shadow-lg max-sm:top-auto max-sm:bottom-0 max-sm:left-0 max-sm:w-full max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-b-none"
+                    :class="size === 'lg' ? 'max-w-xl' : 'max-w-md'"
+                    :data-size="size"
                     data-confirm-dialog
                     @close-auto-focus="nextTick(() => emit('closed'))"
                 >
@@ -176,35 +181,47 @@ provideCard();
                         </div>
                     </div>
                     <slot name="footer">
-                        <div class="flex flex-wrap justify-end gap-2">
-                            <AlertDialogCancel as-child
-                                ><Button
-                                    variant="secondary"
-                                    type="button"
-                                    data-cancel-action
-                                    @click="emit('cancel')"
-                                    >{{ cancelLabel }}</Button
-                                ></AlertDialogCancel
+                        <div
+                            class="flex flex-wrap items-center justify-end gap-2"
+                            data-confirm-footer
+                        >
+                            <div
+                                v-if="$slots['footer-start']"
+                                class="mr-auto flex flex-wrap items-center gap-2"
+                                data-confirm-footer-start
                             >
-                            <AlertDialogAction as-child
-                                ><Button
-                                    :variant="
-                                        variant === 'danger'
-                                            ? 'destructive'
-                                            : 'primary'
-                                    "
-                                    type="button"
-                                    :disabled="!matches || confirmDisabled"
-                                    :aria-describedby="
-                                        asksTyped
-                                            ? `${inputId}-hint`
-                                            : undefined
-                                    "
-                                    data-confirm-action
-                                    @click="confirm"
-                                    >{{ confirmLabel }}</Button
-                                ></AlertDialogAction
-                            >
+                                <slot name="footer-start" />
+                            </div>
+                            <div class="flex flex-wrap justify-end gap-2">
+                                <AlertDialogCancel as-child
+                                    ><Button
+                                        variant="secondary"
+                                        type="button"
+                                        data-cancel-action
+                                        @click="emit('cancel')"
+                                        >{{ cancelLabel }}</Button
+                                    ></AlertDialogCancel
+                                >
+                                <AlertDialogAction as-child
+                                    ><Button
+                                        :variant="
+                                            variant === 'danger'
+                                                ? 'destructive'
+                                                : 'primary'
+                                        "
+                                        type="button"
+                                        :disabled="!matches || confirmDisabled"
+                                        :aria-describedby="
+                                            asksTyped
+                                                ? `${inputId}-hint`
+                                                : undefined
+                                        "
+                                        data-confirm-action
+                                        @click="confirm"
+                                        >{{ confirmLabel }}</Button
+                                    ></AlertDialogAction
+                                >
+                            </div>
                         </div>
                     </slot>
                 </AlertDialogContent>

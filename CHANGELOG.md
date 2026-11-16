@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.31.3
+
+Features affected: none (kit components only).
+
+### Added
+
+- **Dialog `size="lg"` and `#footer-start`**: `lg` widens the panel to 36rem; `#footer-start` puts secondary actions (ghost Buttons, the other ways out such as "Decline…") at the footer's start, with Cancel and the action at its end. On a phone the end group wraps onto its own right-aligned line, inside the panel.
+
 ## v0.31.2
 
 Features affected: none (kit components only).
