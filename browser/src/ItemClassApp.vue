@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 const post = (key: string, label: string, extra = {}) => ({ key, label, url: `/orders/12/${key}`, method: 'post', destructive: false, confirm: null, ...extra });
 const actions = [
     post('approve', 'Approve order'),
-    post('edit', 'Edit details'),
+    post('edit', 'Edit details', { description: 'Change the delivery address, the contact and the notes the warehouse sees on the packing slip.' }),
     post('archive', 'Archive order', { disabled: true, reason: 'Already archived' }),
     post('cancel', 'Cancel order', { destructive: true }),
 ];
@@ -24,7 +24,7 @@ const actions = [
             <ButtonGroup :item-class="cls" menu-label="More order actions">
                 <Button variant="outline">Open order</Button>
                 <template #menu>
-                    <DropdownItem as="button">Print order</DropdownItem>
+                    <DropdownItem as="button">Print order<template #caption>Opens the packing slip for the warehouse.</template></DropdownItem>
                     <DropdownItem as="a" href="#print">Download order</DropdownItem>
                     <DropdownItem href="#history">Order history</DropdownItem>
                     <DropdownLink as="button">Resend receipt</DropdownLink>

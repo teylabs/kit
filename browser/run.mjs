@@ -5230,7 +5230,7 @@ test('Row variants: with the table noun, a confirmation without a title asks "<L
         assert.equal((await tab.locator('[data-confirm-record]').textContent()).trim(), 'Ana Lopez', 'the record is still in the body');
     }));
 
-test('Row variants: menu items that share a label show their description under it, muted, on one truncated line, and are described by it', () =>
+test('Row variants: menu items that share a label show their description under it, muted, wrapping, hidden from the name and described by it', () =>
     rowVariants(async (tab) => {
         await tab.click('[data-grants] button[aria-label="Actions for Acme Assistant"]');
         await tab.waitForSelector('[role="menu"]');
@@ -5244,6 +5244,7 @@ test('Row variants: menu items that share a label show their description under i
                 describedBy: ids.map(id => document.getElementById(id)?.textContent.trim()).join(' '),
                 oneLine: Math.round(line.getBoundingClientRect().height / parseFloat(style.lineHeight)) === 1,
                 ellipsis: style.textOverflow === 'ellipsis' && style.whiteSpace === 'nowrap',
+                hidden: line.getAttribute('aria-hidden') === 'true',
                 overflows: line.scrollWidth > line.clientWidth + 1,
                 belowLabel: line.getBoundingClientRect().top >= el.querySelector('span > span').getBoundingClientRect().bottom - 1,
                 muted: style.color !== getComputedStyle(el).color,
@@ -5252,12 +5253,14 @@ test('Row variants: menu items that share a label show their description under i
         const ledger = 'Read and export every ledger entry across all of the workspace accounts';
         assert.deepEqual(items.map(i => [i.label, i.description, i.describedBy]), [['Remove', 'Files', 'Files'], ['Remove', 'Calendar', 'Calendar'], ['Remove', ledger, ledger]]);
         for (const item of items) {
-            assert.equal(item.oneLine, true, `${item.description} is one line`);
-            assert.equal(item.ellipsis, true, 'truncated with an ellipsis');
+            assert.equal(item.ellipsis, false, 'never truncated');
+            assert.equal(item.hidden, true, 'hidden from the name, read as the description');
             assert.equal(item.belowLabel, true, 'under the label');
             assert.equal(item.muted, true, 'muted');
         }
-        assert.equal(items[2].overflows, true, 'the long grant is cut, not wrapped');
+        assert.equal(items[0].oneLine, true, 'a short description is one line');
+        assert.equal(items[2].oneLine, false, 'the long grant wraps, not cut');
+        assert.equal(items[2].overflows, false, 'nothing is cut');
         await tab.screenshot({ path: `${process.env.SCREENSHOT_DIR ?? '/tmp'}/row-variants-descriptions.png` });
         await tab.click('[role="menu"] [data-action="remove-grant:calendar"]');
         const dialog = await tab.waitForSelector('[role="alertdialog"]');
@@ -10742,6 +10745,45 @@ test('Menu subject kind file: a long file name is cut in the middle, keeping its
         assert.match(cut.kept, /^Screenshot.*\.png$/, `the start and the extension are kept: ${cut.kept}`);
         assert.ok(cut.width <= 256, `the header is at most 16rem (${cut.width})`);
         assert.equal((await title.textContent()).replace(/\s+/g, ''), 'Screenshot-2026-11-16-at-10.36.11-AM.png'.replace(/\s+/g, '') , 'the whole name stays in the text');
+    } finally {
+        await context.close();
+    }
+});
+
+test('Menu descriptions: an action\'s description and a DropdownItem caption show under the label, muted and wrapping, outside the name and read as the description; axe with contrast', async () => {
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?item-class`);
+        await tab.locator('[data-item-class] [data-button-group-menu]:visible, [data-item-class] [data-action-menu]:visible').first().click();
+        await tab.getByRole('menu').waitFor();
+        const read = (row) => row.evaluate(el => {
+            const line = el.querySelector('[data-action-description], [id^="dropdown-caption-"]');
+            const style = getComputedStyle(line);
+            return {
+                description: (el.getAttribute('aria-describedby') ?? '').split(' ').filter(Boolean).map(id => document.getElementById(id)?.textContent.trim()).join(' '),
+                hidden: line.getAttribute('aria-hidden'),
+                lines: Math.round(line.getBoundingClientRect().height / parseFloat(style.lineHeight)),
+                muted: style.color !== getComputedStyle(el).color,
+            };
+        });
+        const edit = tab.getByRole('menuitem', { name: 'Edit details', exact: true });
+        assert.equal(await edit.count(), 1, 'the name is the label alone');
+        const action = await read(edit);
+        assert.equal(action.description, 'Change the delivery address, the contact and the notes the warehouse sees on the packing slip.');
+        assert.equal(action.hidden, 'true');
+        assert.ok(action.lines >= 2, `a long description wraps (${action.lines} lines)`);
+        assert.equal(action.muted, true, 'muted');
+        await tab.addScriptTag({ path: axeSource });
+        const violations = await tab.evaluate(async () => (await window.axe.run(document.querySelector('[role="menu"]'))).violations.map(v => v.id));
+        assert.deepEqual(violations, []);
+        await tab.keyboard.press('Escape');
+        await tab.locator('[data-group-item-class="unset"] [data-button-group-menu]').click();
+        const print = tab.getByRole('menuitem', { name: 'Print order', exact: true });
+        await print.waitFor();
+        const caption = await read(print);
+        assert.equal(caption.description, 'Opens the packing slip for the warehouse.');
+        assert.equal(caption.hidden, 'true');
     } finally {
         await context.close();
     }

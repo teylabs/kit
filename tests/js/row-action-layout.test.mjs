@@ -223,7 +223,7 @@ test('ConnectionController labels grant removals Remove, describes each by its g
     assert.match(controller, /new Action\('Revoke',/);
 });
 
-test('RowActions shows a menu item description under its label, truncated, and describes the item by it', async () => {
+test('RowActions shows a menu item description under its label, wrapping, hidden from the name, and describes the item by it', async () => {
     const { readFileSync } = await import('node:fs');
     const read = (path) =>
         readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8');
@@ -235,7 +235,9 @@ test('RowActions shows a menu item description under its label, truncated, and d
     for (const span of shown) {
         assert.match(span, /:id="descriptionId\(action\)"/);
         assert.match(span, /text-muted-foreground/);
-        assert.match(span, /\btruncate\b/);
+        assert.doesNotMatch(span, /\btruncate\b/);
+        assert.match(span, /\btext-pretty\b/);
+        assert.match(span, /aria-hidden="true"/);
     }
     assert.match(rows, /inMenu && action\.description \? descriptionId\(action\)/);
     assert.equal((rows.match(/v-bind="state\(action, true\)"/g) ?? []).length, 2);

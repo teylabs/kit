@@ -34,7 +34,7 @@ import {
 // always asks first with the action's own `confirm` text (and its `typed` text to type, sent as `confirmation`). `intercept` names actions the page performs itself (a dialog) instead of an Inertia visit.
 // The menu trigger is named by `label` ("Actions for Ana Lopez"). Each action's accessible name is its `ariaLabel`, else "<Label> <record>" (`record`, else
 // `label` without "Actions for "); a confirmation without a title asks a short "<Label> this <noun>?" (`noun`, DataTable passes TableQuery::noun()) or "<Label> this item?" and names the record in the body, where it wraps (never in the bold title).
-// In a menu, an action's `description` shows under its label (muted, one line, truncated) and describes the item (aria-describedby): several "Remove" rows name their grant. A visible label over 24
+// In a menu, an action's `description` shows under its label (muted, wrapping; hidden from the name, read as the description) and describes the item (aria-describedby): several "Remove" rows name their grant. A visible label over 24
 // characters or 3 words is clamped with an ellipsis, its full text in `title` (and a development warning: labels are verbs, the record goes in the confirm).
 // A destructive action is never a danger button, a lone one included: red is only the menu item's text and the confirmation Dialog's commit, and follows
 // `destructive` alone; a `confirm` without it, such as a role change, asks in a neutral Dialog.
@@ -332,7 +332,8 @@ function confirmed(confirmation?: string) {
                                 ><span
                                     v-if="action.description"
                                     :id="descriptionId(action)"
-                                    class="text-muted-foreground truncate text-xs"
+                                    class="text-muted-foreground text-xs text-pretty"
+                                    aria-hidden="true"
                                     data-action-description
                                     >{{ action.description }}</span
                                 ></span
@@ -344,7 +345,8 @@ function confirmed(confirmation?: string) {
                                 ><span
                                     v-if="action.description"
                                     :id="descriptionId(action)"
-                                    class="text-muted-foreground truncate text-xs"
+                                    class="text-muted-foreground text-xs text-pretty"
+                                    aria-hidden="true"
                                     data-action-description
                                     >{{ action.description }}</span
                                 ></span
@@ -367,7 +369,8 @@ function confirmed(confirmation?: string) {
                             ><span
                                 v-if="action.description"
                                 :id="descriptionId(action)"
-                                class="text-muted-foreground truncate text-xs"
+                                class="text-muted-foreground text-xs text-pretty"
+                                aria-hidden="true"
                                 data-action-description
                                 >{{ action.description }}</span
                             ></span
@@ -415,7 +418,8 @@ function confirmed(confirmation?: string) {
                                 ><span
                                     v-if="action.description"
                                     :id="descriptionId(action)"
-                                    class="text-muted-foreground truncate text-xs"
+                                    class="text-muted-foreground text-xs text-pretty"
+                                    aria-hidden="true"
                                     data-action-description
                                     >{{ action.description }}</span
                                 ></span
@@ -427,7 +431,8 @@ function confirmed(confirmation?: string) {
                                 ><span
                                     v-if="action.description"
                                     :id="descriptionId(action)"
-                                    class="text-muted-foreground truncate text-xs"
+                                    class="text-muted-foreground text-xs text-pretty"
+                                    aria-hidden="true"
                                     data-action-description
                                     >{{ action.description }}</span
                                 ></span
@@ -450,7 +455,8 @@ function confirmed(confirmation?: string) {
                             ><span
                                 v-if="action.description"
                                 :id="descriptionId(action)"
-                                class="text-muted-foreground truncate text-xs"
+                                class="text-muted-foreground text-xs text-pretty"
+                                aria-hidden="true"
                                 data-action-description
                                 >{{ action.description }}</span
                             ></span
