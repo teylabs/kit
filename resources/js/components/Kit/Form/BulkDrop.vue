@@ -30,6 +30,8 @@ const props = withDefaults(
     defineProps<{
         name: string;
         label: string;
+        /** The file input's id, so a field's label (`for`) names it and a click on the label opens the picker. */
+        inputId?: string;
         accept: string[];
         maxBytes: number;
         hasFiles: boolean;
@@ -254,6 +256,7 @@ function over(event: DragEvent) {
             </p>
         </div>
         <input
+            :id="inputId"
             ref="input"
             :aria-label="`Files for ${label}`"
             :name="name"

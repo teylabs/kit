@@ -12,6 +12,10 @@
 - **Menu sections** (opt-in): an action's `section` puts it in a labelled section of its menu (role group, named by its label, skipped by the arrows), separated from the next. ActionBar, ButtonGroup and row menus. README, "Menu sections".
 - **Menu subject actions** (opt-in): `subject.actions`, up to three icon menu items on the caption line, first in the arrow-key order. README, "Menu subject actions".
 
+### Fixed
+
+- **FileInput `dropzone`** puts the field's id on its file input (BulkDrop's new `inputId`), so the field's label names it and a click on the label opens the picker. It was on the zone's wrapper.
+
 ## v0.27.3
 
 Features affected: none. No lineage needs kit:update; `composer update tey/kit` is enough.
