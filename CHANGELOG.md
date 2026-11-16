@@ -4,6 +4,7 @@
 
 ### Added
 
+- `DescriptionList` `layout` `grid` (the term over its value, in `columns` 1 to 3 from `sm` up) and `compact` (the pairs in one wrapping row), and `highlight` on an item (the success tint, a check and a spoken "(matches)"). The default `inline` layout is unchanged (#1044).
 - `EmptyState` `align` (`center`, the default, or `start` for a widget's body), `variant` `first-use` (a dashed border, for a place that has never had anything in it), and `icon` as a name from a server descriptor (the empty states' own icons, then the action icons; an unknown name draws no icon). Existing empty states render as before (#1044).
 
 ## v0.26.0
