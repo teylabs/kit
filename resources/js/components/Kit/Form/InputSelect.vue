@@ -625,6 +625,9 @@ const inputAttrs = computed(() => {
     delete rest.style;
     return rest;
 });
+// Not searchable: a select-only combobox. The field reads as a button (pointer cursor, no caret, no text selection, no on-screen keyboard), so it never
+// looks typeable; only a searchable select shows a text cursor.
+const selectOnly = computed(() => interactive.value && !searchOn.value);
 const autocomplete = computed(() => (searchOn.value ? 'list' : 'none'));
 // The fill is Input's (transparent on light, `input/30` on dark), so the field shows the card it sits on; read-only keeps the muted one. Below sm, Clear and the
 // chevron keep their 32px-wide hit areas, so a field with Clear reserves more end padding there.
@@ -639,6 +642,7 @@ const fieldClass = computed(() => [
                   ? 'border-destructive focus-within:ring-2 focus-within:ring-destructive'
                   : 'border-input hover:border-ring/60 focus-within:ring-2 focus-within:ring-ring',
           ],
+    selectOnly.value ? 'cursor-pointer' : interactive.value && 'cursor-text',
     props.disabled && 'cursor-not-allowed opacity-60',
     attrs.class as string | undefined,
 ]);
@@ -745,9 +749,14 @@ const layerTarget = useLayerTarget();
                         placeholderShown && !readOnly ? placeholder : undefined
                     "
                     autocomplete="off"
+                    :inputmode="selectOnly ? 'none' : undefined"
+                    :data-select-only="selectOnly || undefined"
                     :class="[
                         'text-foreground placeholder:text-muted-foreground h-7 min-w-16 flex-1 bg-transparent text-base outline-none disabled:cursor-not-allowed sm:text-sm',
                         readOnly && 'cursor-default',
+                        selectOnly
+                            ? 'cursor-pointer caret-transparent select-none'
+                            : interactive && 'cursor-text',
                         readOnly && chosen.length === 0 && 'sr-only',
                     ]"
                     @focus="onInputFocus"

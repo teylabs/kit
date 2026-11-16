@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **InlineDropdown**: a link-styled trigger (optional icon, the current choice in medium weight, a chevron) that opens a menu of `menuitemradio` choices, the current one checked, under an optional subject header and in labelled sections. Items with `href` are links; any other choice emits `select` and `update:modelValue` (docs/inline-dropdown.md). Built generic: sort orders first, breadcrumb sibling menus later.
+
+### Changed
+
+- **CollectionSection Sort by** (and CollectionCard's and dashboard widgets'): an InlineDropdown (sort icon, current order, chevron) in place of the bordered InputSelect. Its menu is headed by the descriptor's label over the section's title. Tests that drove it as a `combobox` now find a button named "Sort by: <order>" and `menuitemradio` items.
+- **InputSelect, not searchable**: the field reads as a button: a pointer cursor, no text caret, no text selection and no on-screen keyboard (`inputmode="none"`); only a searchable select shows a text cursor. Searchable stays off by default for up to 8 local options (`SEARCH_THRESHOLD`), on above it and for `filter="remote"`.
+
 ## v0.29.2
 
 Features affected: none; `composer update tey/kit` is enough.
