@@ -192,13 +192,13 @@ const size = computed(
                     status ||
                     actions.length
                 "
-                class="flex flex-wrap items-start justify-between gap-x-4 gap-y-2"
+                class="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 sm:flex-nowrap"
                 data-slot="page-header"
             >
                 <h1
                     v-if="headingText"
                     data-slot="page-heading"
-                    class="font-display text-3xl font-(weight:--font-display-weight) tracking-tight"
+                    class="font-display min-w-0 text-3xl font-(weight:--font-display-weight) tracking-tight text-pretty break-words sm:flex-1"
                 >
                     {{ headingText }}
                 </h1>
@@ -209,7 +209,8 @@ const size = computed(
                         status ||
                         actions.length
                     "
-                    class="flex items-center gap-2"
+                    class="flex items-center gap-2 sm:shrink-0"
+                    data-slot="page-header-actions"
                 >
                     <HeaderStatus v-if="$slots.status"
                         ><slot name="status" /></HeaderStatus

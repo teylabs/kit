@@ -11850,8 +11850,9 @@ test('MediaCollection tiles: action icons and attrs on the menu rows; sortable w
         assert.equal(await row.locator('[data-media-action-icon]').count(), 1);
         await tab.keyboard.press('Escape');
         const strip = tab.locator('[data-media-collection="strip"]');
-        assert.equal(await strip.getByRole('button', { name: 'Move Photo 3 (Front) back' }).count(), 1, 'numbering starts at 1 + indexOffset');
-        await strip.getByRole('button', { name: 'Move Photo 4 (Kitchen) back' }).click();
+        assert.equal(await strip.getByRole('button', { name: 'Reorder Photo 3 (Front)' }).count(), 1, 'numbering starts at 1 + indexOffset');
+        await strip.getByRole('button', { name: /Actions for Photo 4 \(Kitchen\)/ }).click();
+        await tab.getByRole('menuitem', { name: 'Move earlier' }).click();
         await tab.waitForFunction(() => window.kitEvents.includes('reordered 1 0'));
         const tile = strip.locator('[data-photo-tile]');
         assert.equal(await tile.isDisabled(), true);
@@ -12008,3 +12009,55 @@ test('ItemStack footer: padded like the tile, and #footer-label lets the host wr
         const pad = await stack.locator('[data-item-stack-footer]').evaluate(el => parseFloat(getComputedStyle(el).paddingLeft));
         assert.ok(pad >= 8, `footer padding ${pad}px`);
     }));
+
+test('MediaCollection tiles share one baseline: no row above the picture; the grip sits in the footer beside the name and the menu; Move earlier/later are in the menu; tiles fit a narrow container', () =>
+    mediaTab(async (tab) => {
+        const strip = tab.locator('[data-media-collection="strip"]');
+        const shape = await strip.evaluate(root => {
+            const tiles = [...root.querySelectorAll('[data-sortable-item]')];
+            return tiles.map(li => {
+                const pic = li.querySelector('[data-media-view]').getBoundingClientRect();
+                const card = li.querySelector('[data-media-tile]').getBoundingClientRect();
+                const add = root.querySelector('[data-photo-tile]')?.getBoundingClientRect();
+                const box = li.getBoundingClientRect();
+                const grip = li.querySelector('[data-media-grip]');
+                const name = li.querySelector('[data-media-tile-name]')?.getBoundingClientRect();
+                return { square: Math.abs(card.height - card.width) < 1.5, sameAsAdd: !add || Math.abs(card.height - add.height) < 1.5, above: Math.round(pic.top - box.top), gripInFooter: Boolean(grip) && Math.abs(grip.getBoundingClientRect().top - name.top) < 12 && grip.getBoundingClientRect().top >= pic.bottom - 1, buttons: li.querySelectorAll('[data-sortable-up], [data-sortable-down]').length };
+            });
+        });
+        assert.ok(shape.length > 1, 'the fixture has several tiles');
+        for (const tile of shape) {
+            assert.ok(tile.above <= 1, 'the picture is the top of the tile (inside its 1px border)');
+            assert.ok(tile.square && tile.sameAsAdd, `the tile, footer included, is the square of a PhotoTile: ${JSON.stringify(tile)}`);
+            assert.ok(tile.gripInFooter, 'the grip is in the footer row');
+            assert.equal(tile.buttons, 0, 'no move buttons on the tile');
+        }
+        await strip.getByRole('button', { name: /Actions for Photo 3 \(Front\)/ }).click();
+        assert.deepEqual(await tab.getByRole('menuitem').allInnerTexts().then(t => t.map(x => x.trim()).filter(x => /^Move/.test(x))), ['Move later']);
+        await tab.keyboard.press('Escape');
+        if (process.env.SHOT) await strip.screenshot({ path: process.env.SHOT });
+        const overflow = await strip.evaluate(root => { const host = root.parentElement; const old = host.style.width; host.style.width = '200px'; const o = root.scrollWidth - root.clientWidth; host.style.width = old; return o; });
+        assert.ok(overflow <= 0, `overflows a 200px container by ${overflow}px`);
+    }));
+
+test('Page header (?page-title): from sm up a long title wraps in its own column and the actions stay on its row; below sm the actions may drop under it', async () => {
+    for (const width of [1280, 768, 390]) {
+        const context = await browser.newContext({ viewport: { width, height: 800 } });
+        try {
+            const tab = await context.newPage();
+            await tab.goto(`${url}?page-title`);
+            await tab.waitForSelector('[data-slot="page-heading"]');
+            const shot = await tab.evaluate(() => {
+                const h = document.querySelector('[data-slot="page-heading"]').getBoundingClientRect();
+                const a = document.querySelector('[data-slot="page-header-actions"]').getBoundingClientRect();
+                const header = document.querySelector('[data-slot="page-header"]');
+                return { sameRow: a.top < h.bottom - 4, actionsRight: a.left >= h.right, overflow: header.scrollWidth - header.clientWidth };
+            });
+            assert.ok(shot.overflow <= 0, `${width}px: the header overflows by ${shot.overflow}px`);
+            if (width >= 640) assert.ok(shot.sameRow && shot.actionsRight, `${width}px: ${JSON.stringify(shot)}`);
+            if (process.env.SHOT_DIR) await tab.locator('[data-slot="page-header"]').screenshot({ path: `${process.env.SHOT_DIR}/page-title-${width}.png` });
+        } finally {
+            await context.close();
+        }
+    }
+});
