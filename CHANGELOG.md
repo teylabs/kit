@@ -9,6 +9,10 @@
 
 ### Changed
 
+- **A menu's trailing destructive rows get their divider** even with no labelled sections: Delete after Duplicate now sits below a separator in every action menu (ActionBar, ButtonGroup, RowActions).
+- **A disabled InertiaAction is dimmed** and described by its `reason` (a visually hidden element on aria-describedby, as RowActions does); the tooltip stays.
+- **InertiaAction keeps the host's class and data-\***: they land on its button or link instead of being dropped on a fragment.
+- **DataTable's sticky header is desktop-only**: at phone width (below `sm`) the row cards flow with the page instead of scrolling inside a 70svh box.
 - **FloatingToolbar phone layout**: below `sm` the pill is one full-width row instead of wrapping into a tall balloon. The status truncates, the primary page action stays, and one ⋯ "More actions" menu holds the other page actions and then the client `items`. Before, three page actions shrank to one letter each. Desktop is unchanged. A slotted button still can't move into the menu, so pass `actions` and `items`. HeaderActions gains a `menu` slot (rows after its overflow) and always splits on the pill at phone width.
 - **Menu rows line up across parts**: in the phone ⋯ menu the client items use the same row as the page actions (icon or icon-sized spacer, then label), and `ActionMenuItems` takes `iconSpacer` (HeaderActions `menuIcons`) so a page-action row keeps the spacer when only the items have icons.
 - **CollectionSection Sort by** (and CollectionCard's and dashboard widgets'): an InlineDropdown (sort icon, current order, chevron) in place of the bordered InputSelect. Its menu is headed by the descriptor's label over the section's title. Tests that drove it as a `combobox` now find a button named "Sort by: <order>" and `menuitemradio` items.
