@@ -1,14 +1,19 @@
 <script setup lang="ts">
-import { Check, MoreHorizontal } from '@lucide/vue';
+import { ArrowLeft, ArrowRight, Check, MoreHorizontal } from '@lucide/vue';
 import { computed, type Component } from 'vue';
 import { actionIcons } from '@/components/Kit/Action/actionIcons';
 import {
     DropdownMenu,
     DropdownMenuItem,
+    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import DropdownMenuContent from '@/components/Kit/Menu/MenuContent.vue';
 import SortableList from '@/components/Kit/Data/SortableList.vue';
+import SortableHandle from '@/components/Kit/Data/SortableHandle.vue';
+import MiddleTruncate from '@/components/Kit/Data/MiddleTruncate.vue';
+import Card from '@/components/Kit/Card/Card.vue';
+import CardFooter from '@/components/Kit/Card/CardFooter.vue';
 import type { ReorderAction } from '@/components/Kit/Data/sortable';
 import BulkDrop from '@/components/Kit/Form/BulkDrop.vue';
 import type { DirectRoutes } from '@/components/Kit/Form/directUpload';
@@ -67,7 +72,17 @@ const props = withDefaults(
         moveTargets?: { collection: string; label: string }[];
         disabled?: boolean;
         labels?: Partial<
-            Record<'item' | 'empty' | 'actions' | 'remove' | 'moveTo', string>
+            Record<
+                | 'item'
+                | 'empty'
+                | 'actions'
+                | 'remove'
+                | 'moveTo'
+                | 'selected'
+                | 'earlier'
+                | 'later',
+                string
+            >
         >;
         /** `grid` lays photos out as tiles (the image above its name and menu), as SortableList's layout. */
         layout?: 'list' | 'grid' | 'row' | 'tiles';
@@ -132,6 +147,7 @@ const iconFor = (action: MediaTileAction) =>
         : (action.icon ?? null);
 const tileSortable = computed(() => !!props.reorder || props.sortable);
 const tiles = computed(() => props.layout === 'tiles');
+// In tiles, the add tile is the grid's last cell (SortableList's #after), so it is exactly a photo tile's size.
 const listLayout = computed(() =>
     props.layout === 'tiles' ? 'grid' : props.layout,
 );
@@ -146,6 +162,9 @@ const text = computed(() => ({
     actions: 'Actions for',
     remove: 'Remove',
     moveTo: 'Move to',
+    selected: 'Selected',
+    earlier: 'Move earlier',
+    later: 'Move later',
     ...props.labels,
 }));
 const items = computed(() => props.collection.items);
@@ -160,6 +179,10 @@ const canAdd = computed(
         !props.disabled &&
         (!!props.direct || props.hostUpload) &&
         (!props.single || items.value.length === 0),
+);
+const inGrid = computed(
+    () =>
+        tiles.value && canAdd.value && !props.single && items.value.length > 0,
 );
 const itemLabel = (item: MediaItem, index: number) =>
     `${text.value.item} ${index + 1 + props.indexOffset}${item.name ? ` (${item.name})` : ''}`;
@@ -187,107 +210,168 @@ const itemLabel = (item: MediaItem, index: number) =>
             :disabled="disabled || (tiles && !tileSortable)"
             :layout="listLayout"
             :move-buttons="tiles ? tileSortable : undefined"
+            :grip-in-slot="tiles"
             @moved="(from, to) => emit('reordered', from, to)"
             :cut-after="cutAfter"
             :cut-label="cutLabel"
             @saved="emit('saved', $event)"
             @conflict="emit('conflict', $event)"
         >
-            <template #default="{ item, index }">
-                <div
+            <template #default="{ item, index, grip, move, first, last }">
+                <Card
                     v-if="tiles"
-                    class="grid min-w-0 gap-2"
+                    as="div"
+                    :class="[
+                        tileAspect === 'square'
+                            ? 'aspect-square'
+                            : 'aspect-4/3',
+                        'flex flex-col overflow-hidden',
+                        selectedIds.includes(item.id) && 'ring-primary ring-2',
+                    ]"
                     :data-media-item="item.id"
                     data-media-tile
                     :data-selected="selectedIds.includes(item.id) || undefined"
                     :data-dim="dimIds.includes(item.id) || undefined"
                 >
-                    <button
-                        type="button"
-                        :class="[
-                            tileAspect === 'square'
-                                ? 'aspect-square'
-                                : 'aspect-4/3',
-                            'border-border bg-muted focus-visible:outline-ring relative w-full overflow-hidden rounded-md border focus-visible:outline-2 focus-visible:outline-offset-2',
-                            selectedIds.includes(item.id) &&
-                                'ring-primary ring-2',
-                            dimIds.includes(item.id) && 'opacity-50',
-                        ]"
-                        :aria-label="`View ${itemLabel(item, index)}`"
-                        :aria-pressed="
-                            selectedIds.length
-                                ? selectedIds.includes(item.id)
-                                : undefined
-                        "
-                        @click="emit('show', item)"
-                    >
-                        <img
-                            v-if="item.thumb && !item.pending"
-                            :src="item.thumb"
-                            alt=""
-                            loading="lazy"
-                            class="size-full object-cover"
-                        />
-                        <span
-                            v-else
-                            class="bg-muted block size-full animate-pulse"
-                            data-media-pending
-                        />
+                    <div class="relative isolate min-h-0 flex-1">
+                        <button
+                            type="button"
+                            class="focus-visible:outline-ring block size-full focus-visible:outline-2 focus-visible:-outline-offset-2"
+                            :aria-label="`View ${itemLabel(item, index)}`"
+                            :aria-pressed="
+                                selectedIds.length
+                                    ? selectedIds.includes(item.id)
+                                    : undefined
+                            "
+                            data-media-view
+                            @click="emit('show', item)"
+                        >
+                            <img
+                                v-if="item.thumb && !item.pending"
+                                :src="item.thumb"
+                                :alt="item.name"
+                                class="size-full object-cover"
+                                :class="
+                                    dimIds.includes(item.id) && 'opacity-60'
+                                "
+                                loading="lazy"
+                                decoding="async"
+                                draggable="false"
+                            />
+                            <span
+                                v-else
+                                class="bg-muted/30 block size-full animate-pulse"
+                                data-media-pending
+                            />
+                        </button>
                         <span
                             v-if="badges[item.id]"
-                            class="bg-background/90 absolute top-1.5 left-1.5 rounded px-1.5 py-0.5 text-xs font-medium"
+                            class="bg-primary text-primary-foreground pointer-events-none absolute top-1.5 left-1.5 z-10 rounded-sm px-1.5 text-xs leading-5 font-medium shadow-sm"
                             data-media-badge
                             >{{ badges[item.id] }}</span
                         >
                         <span
                             v-if="selectedIds.includes(item.id)"
-                            class="bg-primary text-primary-foreground absolute top-1.5 right-1.5 flex size-5 items-center justify-center rounded-full"
+                            class="bg-primary text-primary-foreground pointer-events-none absolute top-1.5 right-1.5 inline-flex size-5 items-center justify-center rounded-full shadow-sm"
                             data-media-selected
-                            ><Check class="size-3.5" aria-hidden="true"
-                        /></span>
-                    </button>
-                    <div class="flex min-w-0 items-center gap-1">
-                        <span class="min-w-0 flex-1 truncate text-sm">{{
-                            item.name
-                        }}</span>
-                        <DropdownMenu
-                            v-if="!disabled && actionsFor(item).length"
+                            ><Check class="size-3.5" aria-hidden="true" /><span
+                                class="sr-only"
+                                >{{ text.selected }}</span
+                            ></span
                         >
-                            <DropdownMenuTrigger as-child
-                                ><button
-                                    type="button"
-                                    data-media-menu
-                                    class="hover:bg-accent focus-visible:outline-ring inline-flex size-8 items-center justify-center rounded-md focus-visible:outline-2"
-                                    :aria-label="`${text.actions} ${itemLabel(item, index)}`"
-                                >
-                                    <MoreHorizontal
-                                        class="size-4"
-                                        aria-hidden="true"
-                                    /></button
-                            ></DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                                <DropdownMenuItem
-                                    v-for="action in actionsFor(item)"
-                                    :key="action.key"
-                                    :class="
-                                        action.destructive &&
-                                        'text-destructive-text focus:text-destructive-text'
-                                    "
-                                    v-bind="action.attrs ?? {}"
-                                    :data-media-action="action.key"
-                                    @select="emit('action', action.key, item)"
-                                    ><component
-                                        :is="iconFor(action)!"
-                                        v-if="iconFor(action)"
-                                        class="size-4"
-                                        aria-hidden="true"
-                                        data-media-action-icon
-                                    />{{ action.label }}</DropdownMenuItem
-                                >
-                            </DropdownMenuContent>
-                        </DropdownMenu>
                     </div>
-                </div>
+                    <CardFooter
+                        class="shrink-0 px-1! py-0.5!"
+                        data-media-tile-footer
+                    >
+                        <div class="flex min-w-0 items-center gap-0.5">
+                            <SortableHandle
+                                v-if="tileSortable && !disabled"
+                                :label="grip.label"
+                                :disabled="grip.disabled"
+                                class="size-7!"
+                                data-media-grip
+                                @keydown="grip.onKeydown"
+                            />
+                            <MiddleTruncate
+                                :value="item.name"
+                                kind="file"
+                                class="min-w-0 flex-1 px-1 text-xs"
+                                data-media-tile-name
+                            />
+                            <DropdownMenu
+                                :modal="false"
+                                v-if="
+                                    !disabled &&
+                                    (actionsFor(item).length ||
+                                        (tileSortable && items.length > 1))
+                                "
+                            >
+                                <DropdownMenuTrigger as-child
+                                    ><button
+                                        type="button"
+                                        data-media-menu
+                                        class="hover:bg-accent text-muted-foreground hover:text-foreground focus-visible:outline-ring inline-flex size-7 shrink-0 items-center justify-center rounded-md focus-visible:outline-2"
+                                        :aria-label="`${text.actions} ${itemLabel(item, index)}`"
+                                    >
+                                        <MoreHorizontal
+                                            class="size-4"
+                                            aria-hidden="true"
+                                        /></button
+                                ></DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <template
+                                        v-if="tileSortable && items.length > 1"
+                                    >
+                                        <DropdownMenuItem
+                                            v-if="!first"
+                                            data-media-move="earlier"
+                                            @select="move(-1, $event)"
+                                            ><ArrowLeft
+                                                class="size-4"
+                                                aria-hidden="true"
+                                            />{{
+                                                text.earlier
+                                            }}</DropdownMenuItem
+                                        >
+                                        <DropdownMenuItem
+                                            v-if="!last"
+                                            data-media-move="later"
+                                            @select="move(1, $event)"
+                                            ><ArrowRight
+                                                class="size-4"
+                                                aria-hidden="true"
+                                            />{{ text.later }}</DropdownMenuItem
+                                        >
+                                        <DropdownMenuSeparator
+                                            v-if="actionsFor(item).length"
+                                        />
+                                    </template>
+                                    <DropdownMenuItem
+                                        v-for="action in actionsFor(item)"
+                                        :key="action.key"
+                                        :class="
+                                            action.destructive &&
+                                            'text-destructive-text focus:text-destructive-text'
+                                        "
+                                        v-bind="action.attrs ?? {}"
+                                        :data-media-action="action.key"
+                                        @select="
+                                            emit('action', action.key, item)
+                                        "
+                                        ><component
+                                            :is="iconFor(action)!"
+                                            v-if="iconFor(action)"
+                                            class="size-4"
+                                            aria-hidden="true"
+                                            data-media-action-icon
+                                        />{{ action.label }}</DropdownMenuItem
+                                    >
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        </div>
+                    </CardFooter>
+                </Card>
                 <div
                     v-else
                     :class="
@@ -347,6 +431,22 @@ const itemLabel = (item: MediaItem, index: number) =>
                     </DropdownMenu>
                 </div>
             </template>
+            <template v-if="inGrid" #after>
+                <PhotoTile
+                    :name="collection.collection"
+                    :label="items.length ? addLabel : label"
+                    :accept="accept"
+                    :max-bytes="maxBytes"
+                    :multiple="!single"
+                    :aspect="tileAspect"
+                    :max-files="maxFiles"
+                    :busy="busy"
+                    :disabled="!!busy"
+                    :direct="direct ?? undefined"
+                    @files="emit('files', $event)"
+                    @uploaded="emit('uploaded', $event)"
+                />
+            </template>
         </SortableList>
         <div
             v-else-if="items.length"
@@ -384,7 +484,7 @@ const itemLabel = (item: MediaItem, index: number) =>
             </div>
         </div>
         <PhotoTile
-            v-if="canAdd && photoTile"
+            v-if="canAdd && photoTile && !inGrid"
             :class="tiles ? 'max-w-48' : 'max-w-64'"
             :name="collection.collection"
             :label="items.length ? addLabel : label"

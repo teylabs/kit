@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **MediaCollection `tiles` is the proven photo strip again**: each photo is one square (or 4/3) kit Card, its picture above a compact CardFooter holding the drag grip, the middle-truncated name and the ⋯ menu, so every tile shares one baseline and is exactly a PhotoTile's size (the add tile is the grid's last cell). The grip and Move ←/→ row above each tile is gone: Move earlier and Move later are in the ⋯ menu, and the grip still moves a tile with the arrow keys, Home and End. Tiles take the width they're given (`minmax(min(7rem,100%),1fr)`).
+- **Page header**: from `sm` up a long title wraps in its own column and the header actions stay on its row; below `sm` the actions still drop under it.
+
+### Added
+
+- **SortableList `gripInSlot`** (the slot gets `grip`, `move`, `first`, `last`, for an item that draws its own grip and moves) and an **`#after`** slot: one trailing cell in the same grid, not sortable. New MediaCollection labels: `selected`, `earlier`, `later`.
+
 ## v0.30.0
 
 Features affected: none; `composer update tey/kit` is enough. Menus look wider, and new-tab arrows in menu rows move to the trailing edge.
