@@ -9,10 +9,25 @@
 
 ### Changed
 
+- **ItemStack on a narrow tile**: with a host `#footer-label` (e.g. "Listing · 1 of 3"), the arrows join the footer and the separate "k / N" row goes (the position is still announced); the label keeps at least 6rem, and Add and Arrange go icon-only (names kept) when the footer is under 18rem. Without `#footer-label` the position row stays, now padded like the footer. New `:arrange="false"` hides the footer's Arrange… for a host that opens its own arrange view.
 - **FloatingToolbar phone layout**: below `sm` the pill is one full-width row instead of wrapping into a tall balloon. The status truncates, the primary page action stays, and one ⋯ "More actions" menu holds the other page actions and then the client `items`. Before, three page actions shrank to one letter each. Desktop is unchanged. A slotted button still can't move into the menu, so pass `actions` and `items`. HeaderActions gains a `menu` slot (rows after its overflow) and always splits on the pill at phone width.
 - **Menu rows line up across parts**: in the phone ⋯ menu the client items use the same row as the page actions (icon or icon-sized spacer, then label), and `ActionMenuItems` takes `iconSpacer` (HeaderActions `menuIcons`) so a page-action row keeps the spacer when only the items have icons.
 - **CollectionSection Sort by** (and CollectionCard's and dashboard widgets'): an InlineDropdown (sort icon, current order, chevron) in place of the bordered InputSelect. Its menu is headed by the descriptor's label over the section's title. Tests that drove it as a `combobox` now find a button named "Sort by: <order>" and `menuitemradio` items.
 - **InputSelect, not searchable**: the field reads as a button: a pointer cursor, no text caret, no text selection and no on-screen keyboard (`inputmode="none"`); only a searchable select shows a text cursor. Searchable stays off by default for up to 8 local options (`SEARCH_THRESHOLD`), on above it and for `filter="remote"`.
+
+## v0.30.0
+
+Features affected: none; `composer update tey/kit` is enough. Menus look wider, and new-tab arrows in menu rows move to the trailing edge.
+
+### Changed
+
+- **Menus are at least 14rem wide** (`min-w-56`, was 8rem), whatever their trigger's width, so a filename or a captioned row no longer wraps in a tile's or a split button's menu. A row's icons keep their size.
+- **No icons inside a menu row's label.** A row that opens a new tab shows its arrow at the row's trailing edge, small and muted like a shortcut hint, and screen readers still hear "(opens in new tab)". In bars and buttons the arrow stays after the label.
+- **ItemStack's footer** is padded like the rest of the tile.
+
+### Added
+
+- **ItemStack `#footer-label`** (`{ index, count }`): the host writes the footer, such as "Listing · 1 of 3", and it follows the arrows; the kit still announces the position.
 
 ## v0.29.2
 

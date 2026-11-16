@@ -12100,3 +12100,48 @@ test('InputSelect: a non-searchable select shows no text caret or I-beam and ope
         assert.equal(await tab.inputValue('#status'), 'Actual', 'typing into the select-only field changes nothing');
     });
 });
+test('Menus: at least 14rem wide whatever the trigger, and a new-tab row keeps its arrow at the trailing edge, out of the label', async () => {
+    await onPage('small-pieces', async (tab) => {
+        await tab.locator('#narrow-menu [data-action-menu], #narrow-menu [aria-haspopup]').last().click();
+        const menu = await tab.waitForSelector('[role="menu"]');
+        const width = await menu.evaluate(el => el.getBoundingClientRect().width);
+        assert.ok(width >= 224, `menu ${width}px`);
+        const row = await tab.$eval('[role="menu"] [data-new-tab-arrow]', arrow => {
+            const item = arrow.closest('[role="menuitem"]').getBoundingClientRect();
+            const a = arrow.getBoundingClientRect();
+            const label = [...arrow.parentElement.querySelectorAll('span.truncate')].map(el => el.getBoundingClientRect())[0];
+            return { gapToEdge: item.right - a.right, sameLine: Math.abs(a.top - label.top) < 6, after: a.left >= label.right };
+        });
+        assert.ok(row.gapToEdge < 24, `arrow ${row.gapToEdge}px from the edge`);
+        assert.ok(row.sameLine && row.after, JSON.stringify(row));
+    });
+});
+
+test('ItemStack footer: padded like the tile, and #footer-label lets the host write the position as the arrows step', () =>
+    mediaTab(async (tab) => {
+        const stack = tab.locator('[data-fixture="fill"] [data-item-stack]');
+        const label = stack.locator('[data-item-stack-footer-label]');
+        assert.equal((await label.textContent()).trim(), 'Listing · 1 of 3');
+        await stack.locator('[data-item-stack-next]').click();
+        assert.equal((await label.textContent()).trim(), 'Listing · 2 of 3');
+        const pad = await stack.locator('[data-item-stack-footer]').evaluate(el => parseFloat(getComputedStyle(el).paddingLeft));
+        assert.ok(pad >= 8, `footer padding ${pad}px`);
+    }));
+
+test('ItemStack on a 220px tile: the host footer label stays readable, the arrows join the footer with no separate k / N row, :arrange="false" hides Arrange, and the position is still announced', () =>
+    mediaTab(async (tab) => {
+        const stack = tab.locator('[data-fixture="narrow-stack"] [data-item-stack]');
+        const label = stack.locator('[data-item-stack-footer-label]');
+        const fits = await label.evaluate(el => ({ width: el.getBoundingClientRect().width, clipped: el.scrollWidth > el.clientWidth }));
+        assert.ok(fits.width >= 90 && !fits.clipped, `footer label ${JSON.stringify(fits)}`);
+        assert.equal(await stack.locator('[data-item-stack-position]').count(), 0, 'no separate position row');
+        assert.equal(await stack.locator('[data-item-stack-arrange]').count(), 0, 'Arrange hidden');
+        assert.equal(await stack.locator('[data-item-stack-footer] [data-item-stack-next]').count(), 1, 'arrows in the footer');
+        assert.equal(await stack.getByRole('button', { name: 'Add' }).count(), 1, 'Add keeps its name');
+        const footer = await stack.locator('[data-item-stack-footer]').evaluate(el => ({ h: el.getBoundingClientRect().height, w: el.scrollWidth - el.clientWidth }));
+        assert.ok(footer.h < 40 && footer.w <= 0, JSON.stringify(footer));
+        await stack.locator('[data-item-stack-next]').click();
+        assert.equal((await label.textContent()).trim(), 'Listing · 2 of 3');
+        assert.equal((await stack.locator('[data-item-stack-announce]').textContent()).trim(), 'shot 2 of 3');
+        if (process.env.SHOT) await tab.locator('[data-fixture="narrow-stack"]').screenshot({ path: process.env.SHOT });
+    }));

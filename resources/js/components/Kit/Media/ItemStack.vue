@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ChevronDown, ChevronUp, Layers, Plus, Trash2 } from '@lucide/vue';
-import { computed, watch } from 'vue';
+import { computed, useSlots, watch } from 'vue';
 import SortableList from '@/components/Kit/Data/SortableList.vue';
 import type {
     ReorderAction,
@@ -41,6 +41,8 @@ const props = withDefaults(
         persist?: ReorderPersist | null;
         /** Fill the container's height: the picture takes the space left above the counter and footer (contained, not cropped), so the stack matches a sibling tile's height. */
         fill?: boolean;
+        /** false hides the footer's Arrange… (a host that opens its own arrange view from Add or the picture); the fanout still opens through `fanoutOpen`. */
+        arrange?: boolean;
     }>(),
     {
         actions: () => ({}),
@@ -50,6 +52,7 @@ const props = withDefaults(
         busy: false,
         version: null,
         persist: null,
+        arrange: true,
     },
 );
 const index = defineModel<number>('index', { default: 0 });
@@ -66,8 +69,13 @@ defineSlots<{
     badge?(props: { item: StackItem; index: number }): unknown;
     menu?(props: { item: StackItem; index: number }): unknown;
     thumb?(props: { item: StackItem; index: number }): unknown;
+    /** The footer's label, in place of "<items> · <count>": e.g. "Listing · 1 of 3". The kit still announces the position. */
+    'footer-label'?(props: { index: number; count: number }): unknown;
 }>();
 const count = computed(() => props.items.length);
+// A host footer label (e.g. "Listing · 1 of 3") carries the position, so the arrows join the footer and the separate "k / N" row goes; the live announcement stays.
+const slots = useSlots();
+const hostLabel = computed(() => Boolean(slots['footer-label']));
 watch(count, (now) => {
     if (index.value > now - 1) index.value = Math.max(0, now - 1);
 });
@@ -148,9 +156,16 @@ const itemLabel = (item: StackItem, at: number) =>
                 /></span>
             </button>
         </div>
+        <span
+            v-if="count > 1 && hostLabel"
+            class="sr-only"
+            aria-live="polite"
+            data-item-stack-announce
+            >{{ noun[0] }} {{ index + 1 }} of {{ count }}</span
+        >
         <div
-            v-if="count > 1"
-            class="flex items-center justify-between gap-2 text-sm"
+            v-if="count > 1 && !hostLabel"
+            class="flex items-center justify-between gap-2 px-2 text-sm"
         >
             <span data-item-stack-position aria-live="polite"
                 >{{ index + 1 }} / {{ count }}</span
@@ -177,30 +192,64 @@ const itemLabel = (item: StackItem, at: number) =>
             </span>
         </div>
         <footer
-            class="text-muted-foreground flex items-center gap-2 text-sm"
+            class="text-muted-foreground @container flex items-center gap-0.5 px-2 text-sm"
             data-item-stack-footer
         >
-            <span class="flex-1">{{ noun[1] }} · {{ count }}</span>
+            <span
+                class="min-w-[min(6rem,100%)] flex-1 truncate"
+                data-item-stack-footer-label
+                ><slot name="footer-label" :index="index" :count="count"
+                    >{{ noun[1] }} · {{ count }}</slot
+                ></span
+            >
+            <span v-if="count > 1 && hostLabel" class="flex shrink-0">
+                <button
+                    type="button"
+                    class="hover:bg-accent text-foreground inline-flex size-6 items-center justify-center rounded-md"
+                    :aria-label="`Previous ${noun[0]}`"
+                    data-item-stack-previous
+                    @click="step(-1)"
+                >
+                    <ChevronUp class="size-4" aria-hidden="true" />
+                </button>
+                <button
+                    type="button"
+                    class="hover:bg-accent text-foreground inline-flex size-6 items-center justify-center rounded-md"
+                    :aria-label="`Next ${noun[0]}`"
+                    data-item-stack-next
+                    @click="step(1)"
+                >
+                    <ChevronDown class="size-4" aria-hidden="true" />
+                </button>
+            </span>
             <button
                 v-if="actions.add"
                 type="button"
-                class="hover:bg-accent text-foreground inline-flex items-center gap-1 rounded-md px-2 py-1"
+                class="hover:bg-accent text-foreground inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-1"
                 :disabled="busy"
                 data-item-stack-add
                 @click="emit('add')"
             >
-                <Plus class="size-4" aria-hidden="true" />Add
+                <Plus class="size-4" aria-hidden="true" /><span
+                    class="sr-only @2xs:not-sr-only"
+                    >Add</span
+                >
             </button>
             <button
-                v-if="count > 1"
+                v-if="count > 1 && arrange"
                 type="button"
-                class="hover:bg-accent text-foreground inline-flex items-center gap-1 rounded-md px-2 py-1"
+                class="hover:bg-accent text-foreground inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-1"
                 data-item-stack-arrange
                 @click="fanoutOpen = true"
             >
-                <Layers class="size-4" aria-hidden="true" />Arrange…
+                <Layers class="size-4" aria-hidden="true" /><span
+                    class="sr-only @2xs:not-sr-only"
+                    >Arrange…</span
+                >
             </button>
-            <slot v-if="current" name="menu" :item="current" :index="index" />
+            <span v-if="current" class="flex shrink-0"
+                ><slot name="menu" :item="current" :index="index"
+            /></span>
         </footer>
         <Modal
             v-model:open="fanoutOpen"
