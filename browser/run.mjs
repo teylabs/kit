@@ -11701,3 +11701,40 @@ test('FormActions density: the default bar keeps its border, padding and gap; co
         });
     }
 });
+
+test('Widget and SegmentLinks: a widget is a section named by its heading on its own card, with a count, header or footer actions, a busy skeleton, the EmptyState and a bare form; segment links mark the current one and hand the click to navigate; axe with contrast, light and dark', async () => {
+    for (const query of ['widget', 'widget&dark']) {
+        await onPage(query, async (tab) => {
+            const widget = (key) => tab.$eval(`[data-widget="${key}"]`, (el) => ({
+                name: el.getAttribute('aria-labelledby') ? document.getElementById(el.getAttribute('aria-labelledby')).textContent.trim() : el.getAttribute('aria-label'),
+                state: el.dataset.widgetState,
+                busy: el.getAttribute('aria-busy'),
+                card: el.classList.contains('bg-card'),
+                header: !!el.querySelector('[data-widget-header]'),
+                headerActions: el.querySelector('[data-widget-actions]')?.textContent.trim() ?? null,
+                footer: el.querySelector('[data-widget-footer]')?.textContent.trim() ?? null,
+                count: el.querySelector('[data-widget-count]')?.textContent.trim() ?? null,
+                empty: el.querySelector('[data-empty-state] h3')?.textContent.trim() ?? null,
+            }));
+            assert.deepEqual(await widget('notes'), { name: 'Notes', state: 'ready', busy: null, card: true, header: true, headerActions: 'Add note', footer: null, count: '2', empty: null });
+            assert.deepEqual(await widget('footer'), { name: 'Footer actions', state: 'ready', busy: null, card: true, header: true, headerActions: null, footer: 'See all', count: null, empty: null });
+            assert.deepEqual(await widget('loading'), { name: 'Loading', state: 'loading', busy: 'true', card: true, header: true, headerActions: null, footer: null, count: null, empty: null });
+            assert.deepEqual(await widget('empty'), { name: 'Empty', state: 'empty', busy: null, card: true, header: true, headerActions: 'Quiet', footer: null, count: null, empty: 'No notes yet' });
+            assert.deepEqual(await widget('bare'), { name: 'Bare widget', state: 'ready', busy: null, card: false, header: false, headerActions: null, footer: null, count: null, empty: null });
+            assert.equal(await tab.getByRole('region', { name: 'Notes', exact: true }).count(), 1, 'a region named by its heading');
+
+            const nav = tab.getByRole('navigation', { name: 'Filter notes' });
+            const currentLink = () => nav.locator('[aria-current="page"]').getAttribute('data-segment');
+            assert.equal(await currentLink(), 'all');
+            assert.equal(await nav.locator('[data-segment="all"] [data-segment-count]').textContent(), '12');
+            assert.equal(await nav.locator('[data-segment="all"] [data-colour-dot]').count(), 0, 'no tone, no dot');
+            assert.equal(await nav.locator('[data-segment="red"] [data-colour-dot]').getAttribute('data-tone'), 'danger');
+            await nav.getByRole('link', { name: /Red/ }).click();
+            await tab.waitForFunction(() => window.kitSegmentVisits.length === 1);
+            assert.deepEqual(await tab.evaluate(() => [window.kitSegmentVisits, location.search]), [['/notes?colour=red'], `?${query}`], 'navigate took over the visit');
+            assert.equal(await currentLink(), 'red');
+            assert.equal(await tab.getAttribute('[data-segment-links][data-appearance="neutral"] [aria-current="page"]', 'data-segment'), 'red');
+            assert.deepEqual(await axeWithContrast(tab), [], query);
+        });
+    }
+});

@@ -414,6 +414,12 @@ export { default as SplitPane } from './Layout/SplitPane.vue';
 export { default as PaneScroll } from './Layout/PaneScroll.vue';
 export { default as PaneTabs } from './Layout/PaneTabs.vue';
 export { default as PageTabs } from './Layout/PageTabs.vue';
+// A dashboard widget frame and in-place segment links (docs/widgets.md).
+export { default as Widget } from './Layout/Widget.vue';
+export { default as WidgetHeader } from './Layout/WidgetHeader.vue';
+export type { WidgetDescriptor, WidgetEmpty } from './Layout/Widget.vue';
+export { default as SegmentLinks } from './Layout/SegmentLinks.vue';
+export type { SegmentLink } from './Layout/SegmentLinks.vue';
 export { default as PaneToggle } from './Layout/PaneToggle.vue';
 export type { SplitPreference } from './Layout/splitState';
 export { default as BulkDrop } from './Form/BulkDrop.vue';

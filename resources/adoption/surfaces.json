@@ -1248,7 +1248,10 @@
           "@/components/Kit:StickyBar",
           "@/components/Kit:Surface",
           "@/components/Kit:Collapsible",
-          "@/components/Kit:Placeholder"
+          "@/components/Kit:Placeholder",
+          "@/components/Kit:Widget",
+          "@/components/Kit:WidgetHeader",
+          "@/components/Kit:SegmentLinks"
         ]
       },
       "handRolled": [
@@ -1278,7 +1281,10 @@
           "Card",
           "Panel",
           "Collapse*",
-          "Accordion*"
+          "Accordion*",
+          "Widget",
+          "WidgetHeader",
+          "SegmentTabs"
         ]
       }
     },
