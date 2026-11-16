@@ -5207,6 +5207,23 @@ test('Row variants: each row-menu item shows its icon (its own, else the common 
         await tab.keyboard.press('Escape');
     }));
 
+test('Row variants: a menu with sections shows each as a labelled group (named by its label, skipped by the arrows), separated, in the order sent; axe passes', () =>
+    rowVariants(async (tab) => {
+        await tab.click('[data-sectioned] button[aria-label="Actions for Birch Lane"]');
+        await tab.waitForSelector('[role="menu"]');
+        const groups = await tab.$$eval('[role="menu"] [role="group"]', els => els.map(el => ({ name: document.getElementById(el.getAttribute('aria-labelledby') ?? '')?.textContent.trim() ?? null, keys: [...el.querySelectorAll('[data-action]')].map(a => a.getAttribute('data-action')) })));
+        assert.deepEqual(groups, [{ name: 'Change', keys: ['merge', 'reassign'] }, { name: 'Go to', keys: ['listing'] }, { name: 'Danger', keys: ['delete'] }]);
+        assert.equal(await tab.locator('[role="menu"] [data-menu-group-separator]').count(), 2, 'a separator between sections');
+        await tab.keyboard.press('ArrowDown');
+        const seen = [];
+        for (let i = 0; i < 4; i++) { seen.push(await tab.evaluate(() => document.activeElement?.getAttribute('data-action'))); await tab.keyboard.press('ArrowDown'); }
+        assert.deepEqual(seen, ['merge', 'reassign', 'listing', 'delete'], 'the arrows move through items only');
+        if (!(await tab.evaluate(() => Boolean(window.axe)))) await tab.addScriptTag({ path: axeSource });
+        const violations = await tab.evaluate(async () => (await window.axe.run(document.querySelector('[role="menu"]'))).violations.map(v => v.id));
+        assert.deepEqual(violations, []);
+        await tab.keyboard.press('Escape');
+    }));
+
 test('Row variants: the split primary keeps the in-flight guard and aria-busy, a disabled menu item shows its reason, and red is only destructive menu text', () =>
     rowVariants(async (tab) => {
         const open = tab.locator('[data-default-split] [data-action="open"]');

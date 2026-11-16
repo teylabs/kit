@@ -22,6 +22,8 @@ export type ActionDescriptor = {
     group?: string | null;
     menu?: boolean;
     icon?: string | null;
+    /** In a menu, the labelled section this action sits in (MenuGroup): consecutive actions with the same `section` share one, separated from the next. Not `group`, which joins a button group. */
+    section?: string | null;
     newTab?: boolean | null;
     priority?: 'primary' | 'secondary' | 'overflow' | null;
     checked?: boolean | null;

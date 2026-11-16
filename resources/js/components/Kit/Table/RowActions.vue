@@ -8,6 +8,8 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { actionIcons } from '@/components/Kit/Action/actionIcons';
+import MenuGroup from '@/components/Kit/Menu/MenuGroup.vue';
+import { menuSections } from '@/components/Kit/Menu/menuGroups';
 import DropdownMenuContent from '@/components/Kit/Menu/MenuContent.vue';
 import ButtonGroup from '@/components/Kit/Action/ButtonGroup.vue';
 import Button from '@/components/Kit/Form/Button.vue';
@@ -53,6 +55,7 @@ type RowAction = {
     ariaLabel?: string | null;
     description?: string | null;
     icon?: string | null;
+    section?: string | null;
     newTab?: boolean | null;
     intent?: string | null;
     confirm: {
@@ -79,6 +82,8 @@ const iconOf = (action: RowAction) =>
     actionIcons[actionIconName(action, true) ?? ''];
 const inline = computed(() => laid.value.inline);
 const menu = computed(() => laid.value.menu);
+// Menu actions with a `section` render in labelled sections (MenuGroup), in the order the server sent them.
+const menuSectioned = computed(() => menuSections(menu.value));
 const lone = computed(() => laid.value.lone);
 const primary = computed(() => laid.value.primary);
 // The row's name: `record`, else `label` without its "Actions for " prefix, else `label` itself (a caller that passes the row title as the label).
@@ -319,21 +324,77 @@ function confirmed(confirmation?: string) {
                 ></Button
             >
             <template v-if="menu.length" #menu>
-                <template
-                    v-for="action in menu"
-                    :key="action.key ?? action.label"
+                <MenuGroup
+                    v-for="(section, sectionIndex) in menuSectioned.sections"
+                    :key="section.key"
+                    :on="menuSectioned.grouped"
+                    :first="sectionIndex === 0"
+                    :label="section.label"
                 >
-                    <DropdownMenuItem
-                        v-if="linked(action)"
-                        as-child
-                        v-bind="menuLinkState(action)"
-                        :data-action="action.key"
+                    <template
+                        v-for="{ action } in section.items"
+                        :key="action.key ?? action.label"
                     >
-                        <a
-                            v-if="opensNewTab(action)"
-                            :href="action.url"
-                            target="_blank"
-                            rel="noopener noreferrer"
+                        <DropdownMenuItem
+                            v-if="linked(action)"
+                            as-child
+                            v-bind="menuLinkState(action)"
+                            :data-action="action.key"
+                        >
+                            <a
+                                v-if="opensNewTab(action)"
+                                :href="action.url"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                ><component
+                                    :is="iconOf(action)"
+                                    v-if="iconOf(action)"
+                                    class="size-4 shrink-0"
+                                    aria-hidden="true"
+                                    data-action-icon
+                                /><span class="flex min-w-0 flex-col"
+                                    ><span>{{ shownLabel(action) }}</span
+                                    ><span
+                                        v-if="action.description"
+                                        :id="descriptionId(action)"
+                                        class="text-muted-foreground text-xs text-pretty"
+                                        aria-hidden="true"
+                                        data-action-description
+                                        >{{ action.description }}</span
+                                    ></span
+                                ></a
+                            >
+                            <Link v-else :href="action.url"
+                                ><component
+                                    :is="iconOf(action)"
+                                    v-if="iconOf(action)"
+                                    class="size-4 shrink-0"
+                                    aria-hidden="true"
+                                    data-action-icon
+                                /><span class="flex min-w-0 flex-col"
+                                    ><span>{{ shownLabel(action) }}</span
+                                    ><span
+                                        v-if="action.description"
+                                        :id="descriptionId(action)"
+                                        class="text-muted-foreground text-xs text-pretty"
+                                        aria-hidden="true"
+                                        data-action-description
+                                        >{{ action.description }}</span
+                                    ></span
+                                ></Link
+                            >
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                            v-else
+                            :class="
+                                action.destructive
+                                    ? 'text-destructive-text focus:text-destructive-text'
+                                    : ''
+                            "
+                            v-bind="state(action, true)"
+                            v-aria-disabled="disabledNow(action)"
+                            :data-action="action.key"
+                            @select="choose(action, $event)"
                             ><component
                                 :is="iconOf(action)"
                                 v-if="iconOf(action)"
@@ -350,65 +411,17 @@ function confirmed(confirmation?: string) {
                                     data-action-description
                                     >{{ action.description }}</span
                                 ></span
-                            ></a
-                        >
-                        <Link v-else :href="action.url"
-                            ><component
-                                :is="iconOf(action)"
-                                v-if="iconOf(action)"
-                                class="size-4 shrink-0"
-                                aria-hidden="true"
-                                data-action-icon
-                            /><span class="flex min-w-0 flex-col"
-                                ><span>{{ shownLabel(action) }}</span
-                                ><span
-                                    v-if="action.description"
-                                    :id="descriptionId(action)"
-                                    class="text-muted-foreground text-xs text-pretty"
-                                    aria-hidden="true"
-                                    data-action-description
-                                    >{{ action.description }}</span
-                                ></span
-                            ></Link
-                        >
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                        v-else
-                        :class="
-                            action.destructive
-                                ? 'text-destructive-text focus:text-destructive-text'
-                                : ''
-                        "
-                        v-bind="state(action, true)"
-                        v-aria-disabled="disabledNow(action)"
-                        :data-action="action.key"
-                        @select="choose(action, $event)"
-                        ><component
-                            :is="iconOf(action)"
-                            v-if="iconOf(action)"
-                            class="size-4 shrink-0"
-                            aria-hidden="true"
-                            data-action-icon
-                        /><span class="flex min-w-0 flex-col"
-                            ><span>{{ shownLabel(action) }}</span
                             ><span
-                                v-if="action.description"
-                                :id="descriptionId(action)"
-                                class="text-muted-foreground text-xs text-pretty"
+                                v-if="describes(action)"
+                                :id="reasonId(action)"
+                                class="sr-only"
                                 aria-hidden="true"
-                                data-action-description
-                                >{{ action.description }}</span
-                            ></span
-                        ><span
-                            v-if="describes(action)"
-                            :id="reasonId(action)"
-                            class="sr-only"
-                            aria-hidden="true"
-                            data-action-reason
-                            >{{ action.reason }}</span
-                        ></DropdownMenuItem
-                    >
-                </template>
+                                data-action-reason
+                                >{{ action.reason }}</span
+                            ></DropdownMenuItem
+                        >
+                    </template>
+                </MenuGroup>
             </template>
         </ButtonGroup>
         <DropdownMenu v-else-if="menu.length">
@@ -423,21 +436,77 @@ function confirmed(confirmation?: string) {
                     ><Ellipsis class="size-4" aria-hidden="true" /></Button
             ></DropdownMenuTrigger>
             <DropdownMenuContent align="end" :subject="menuSubject">
-                <template
-                    v-for="action in menu"
-                    :key="action.key ?? action.label"
+                <MenuGroup
+                    v-for="(section, sectionIndex) in menuSectioned.sections"
+                    :key="section.key"
+                    :on="menuSectioned.grouped"
+                    :first="sectionIndex === 0"
+                    :label="section.label"
                 >
-                    <DropdownMenuItem
-                        v-if="linked(action)"
-                        as-child
-                        v-bind="menuLinkState(action)"
-                        :data-action="action.key"
+                    <template
+                        v-for="{ action } in section.items"
+                        :key="action.key ?? action.label"
                     >
-                        <a
-                            v-if="opensNewTab(action)"
-                            :href="action.url"
-                            target="_blank"
-                            rel="noopener noreferrer"
+                        <DropdownMenuItem
+                            v-if="linked(action)"
+                            as-child
+                            v-bind="menuLinkState(action)"
+                            :data-action="action.key"
+                        >
+                            <a
+                                v-if="opensNewTab(action)"
+                                :href="action.url"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                ><component
+                                    :is="iconOf(action)"
+                                    v-if="iconOf(action)"
+                                    class="size-4 shrink-0"
+                                    aria-hidden="true"
+                                    data-action-icon
+                                /><span class="flex min-w-0 flex-col"
+                                    ><span>{{ shownLabel(action) }}</span
+                                    ><span
+                                        v-if="action.description"
+                                        :id="descriptionId(action)"
+                                        class="text-muted-foreground text-xs text-pretty"
+                                        aria-hidden="true"
+                                        data-action-description
+                                        >{{ action.description }}</span
+                                    ></span
+                                ></a
+                            >
+                            <Link v-else :href="action.url"
+                                ><component
+                                    :is="iconOf(action)"
+                                    v-if="iconOf(action)"
+                                    class="size-4 shrink-0"
+                                    aria-hidden="true"
+                                    data-action-icon
+                                /><span class="flex min-w-0 flex-col"
+                                    ><span>{{ shownLabel(action) }}</span
+                                    ><span
+                                        v-if="action.description"
+                                        :id="descriptionId(action)"
+                                        class="text-muted-foreground text-xs text-pretty"
+                                        aria-hidden="true"
+                                        data-action-description
+                                        >{{ action.description }}</span
+                                    ></span
+                                ></Link
+                            >
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                            v-else
+                            :class="
+                                action.destructive
+                                    ? 'text-destructive-text focus:text-destructive-text'
+                                    : ''
+                            "
+                            v-bind="state(action, true)"
+                            v-aria-disabled="disabledNow(action)"
+                            :data-action="action.key"
+                            @select="choose(action, $event)"
                             ><component
                                 :is="iconOf(action)"
                                 v-if="iconOf(action)"
@@ -454,65 +523,17 @@ function confirmed(confirmation?: string) {
                                     data-action-description
                                     >{{ action.description }}</span
                                 ></span
-                            ></a
-                        >
-                        <Link v-else :href="action.url"
-                            ><component
-                                :is="iconOf(action)"
-                                v-if="iconOf(action)"
-                                class="size-4 shrink-0"
-                                aria-hidden="true"
-                                data-action-icon
-                            /><span class="flex min-w-0 flex-col"
-                                ><span>{{ shownLabel(action) }}</span
-                                ><span
-                                    v-if="action.description"
-                                    :id="descriptionId(action)"
-                                    class="text-muted-foreground text-xs text-pretty"
-                                    aria-hidden="true"
-                                    data-action-description
-                                    >{{ action.description }}</span
-                                ></span
-                            ></Link
-                        >
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                        v-else
-                        :class="
-                            action.destructive
-                                ? 'text-destructive-text focus:text-destructive-text'
-                                : ''
-                        "
-                        v-bind="state(action, true)"
-                        v-aria-disabled="disabledNow(action)"
-                        :data-action="action.key"
-                        @select="choose(action, $event)"
-                        ><component
-                            :is="iconOf(action)"
-                            v-if="iconOf(action)"
-                            class="size-4 shrink-0"
-                            aria-hidden="true"
-                            data-action-icon
-                        /><span class="flex min-w-0 flex-col"
-                            ><span>{{ shownLabel(action) }}</span
                             ><span
-                                v-if="action.description"
-                                :id="descriptionId(action)"
-                                class="text-muted-foreground text-xs text-pretty"
+                                v-if="describes(action)"
+                                :id="reasonId(action)"
+                                class="sr-only"
                                 aria-hidden="true"
-                                data-action-description
-                                >{{ action.description }}</span
-                            ></span
-                        ><span
-                            v-if="describes(action)"
-                            :id="reasonId(action)"
-                            class="sr-only"
-                            aria-hidden="true"
-                            data-action-reason
-                            >{{ action.reason }}</span
-                        ></DropdownMenuItem
-                    >
-                </template>
+                                data-action-reason
+                                >{{ action.reason }}</span
+                            ></DropdownMenuItem
+                        >
+                    </template>
+                </MenuGroup>
             </DropdownMenuContent>
         </DropdownMenu>
         <Dialog

@@ -20,6 +20,8 @@ import {
 } from '@/components/Kit/Action/actionPlacement';
 import { deferSelect } from '@/components/Kit/Action/menuSelect';
 import { useMenuItemClass } from '@/components/Kit/Action/menuItemClass';
+import MenuGroup from '@/components/Kit/Menu/MenuGroup.vue';
+import { menuSections } from '@/components/Kit/Menu/menuGroups';
 
 // The menu rows for a list of actions, inside a DropdownMenuContent: dialog → route modal, document → new tab, a GET without a confirmation → the row itself is the
 // link (role="menuitem" on an Inertia Link, or on an <a> in a new tab with `newTab`), everything else handed to `onAction` after the menu closes. `onAction` is a prop, not an emit: the rows unmount with the menu before the deferred call, and an unmounted component's emit is dropped (an
@@ -62,6 +64,8 @@ function ariaDisabled(el: HTMLElement, value: boolean | undefined) {
     if (value) el.setAttribute('aria-disabled', 'true');
     else el.removeAttribute('aria-disabled');
 }
+// Actions with a `section` render in labelled sections (MenuGroup); with none, the rows render as before.
+const sectioned = computed(() => menuSections(props.actions));
 const baseId = useId();
 const reasonId = (index: number) => `${baseId}-reason-${index}`;
 const describes = (action: ActionDescriptor) =>
@@ -77,184 +81,192 @@ const describedBy = (action: ActionDescriptor, index: number) =>
         .join(' ') || undefined;
 </script>
 <template>
-    <template
-        v-for="(action, index) in actions"
-        :key="action.key ?? action.url"
+    <MenuGroup
+        v-for="(section, sectionIndex) in sectioned.sections"
+        :key="section.key"
+        :on="sectioned.grouped"
+        :first="sectionIndex === 0"
+        :label="section.label"
     >
-        <DropdownMenuCheckboxItem
-            v-if="menuItemRole(action) === 'menuitemcheckbox'"
-            :model-value="action.checked === true"
-            :disabled="busy"
-            v-aria-disabled="action.disabled"
-            :class="[
-                action.destructive &&
-                    'text-destructive-text focus:text-destructive-text',
-                action.disabled && 'cursor-not-allowed opacity-50',
-                rowClass,
-            ]"
-            :title="(describes(action) && action.reason) || undefined"
-            :aria-describedby="describedBy(action, index)"
-            :aria-label="action.ariaLabel || undefined"
-            :data-action="action.key"
-            @select="choose(action, $event)"
+        <template
+            v-for="{ action, index } in section.items"
+            :key="action.key ?? action.url"
         >
-            <component
-                :is="menuIcon(action)"
-                v-if="menuIcon(action)"
-                class="size-4"
-                aria-hidden="true"
-            /><span
-                v-else-if="anyIcon"
-                class="inline-block size-4 shrink-0"
-                aria-hidden="true"
-                data-menu-icon-spacer
-            /><ActionLabel
-                :action="action"
-                menu
-                :description-id="descriptionId(index)"
-            /><span
-                v-if="describes(action)"
-                :id="reasonId(index)"
-                class="sr-only"
-                aria-hidden="true"
-                data-action-reason
-                >{{ action.reason }}</span
+            <DropdownMenuCheckboxItem
+                v-if="menuItemRole(action) === 'menuitemcheckbox'"
+                :model-value="action.checked === true"
+                :disabled="busy"
+                v-aria-disabled="action.disabled"
+                :class="[
+                    action.destructive &&
+                        'text-destructive-text focus:text-destructive-text',
+                    action.disabled && 'cursor-not-allowed opacity-50',
+                    rowClass,
+                ]"
+                :title="(describes(action) && action.reason) || undefined"
+                :aria-describedby="describedBy(action, index)"
+                :aria-label="action.ariaLabel || undefined"
+                :data-action="action.key"
+                @select="choose(action, $event)"
             >
-        </DropdownMenuCheckboxItem>
-        <DropdownMenuItem
-            v-else-if="action.intent === 'dialog' && !action.disabled"
-            as-child
-            :disabled="busy"
-            :class="rowClass"
-            :aria-label="action.ariaLabel || undefined"
-            :aria-describedby="describedBy(action, index)"
-            :data-action="action.key"
-        >
-            <ModalLink
-                :href="action.url"
-                :method="
-                    action.method.toLowerCase() as
-                        'get' | 'post' | 'put' | 'patch' | 'delete'
-                "
-                :navigate="action.method.toLowerCase() === 'get'"
-                ><component
+                <component
                     :is="menuIcon(action)"
                     v-if="menuIcon(action)"
                     class="size-4"
-                    aria-hidden="true" /><span
+                    aria-hidden="true"
+                /><span
                     v-else-if="anyIcon"
                     class="inline-block size-4 shrink-0"
                     aria-hidden="true"
-                    data-menu-icon-spacer /><ActionLabel
+                    data-menu-icon-spacer
+                /><ActionLabel
                     :action="action"
                     menu
                     :description-id="descriptionId(index)"
-            /></ModalLink>
-        </DropdownMenuItem>
-        <DropdownMenuItem
-            v-else-if="action.intent === 'document' && !action.disabled"
-            as-child
-            :disabled="busy"
-            :class="rowClass"
-            :aria-label="action.ariaLabel || undefined"
-            :aria-describedby="describedBy(action, index)"
-            :data-action="action.key"
-        >
-            <a :href="action.url" target="_blank" rel="noopener noreferrer"
-                ><component
-                    :is="menuIcon(action)"
-                    v-if="menuIcon(action)"
-                    class="size-4"
-                    aria-hidden="true" /><span
-                    v-else-if="anyIcon"
-                    class="inline-block size-4 shrink-0"
+                /><span
+                    v-if="describes(action)"
+                    :id="reasonId(index)"
+                    class="sr-only"
                     aria-hidden="true"
-                    data-menu-icon-spacer /><ActionLabel
-                    :action="action"
-                    menu
-                    :description-id="descriptionId(index)"
-            /></a>
-        </DropdownMenuItem>
-        <DropdownMenuItem
-            v-else-if="rendersAsLink(action)"
-            as-child
-            :disabled="busy"
-            :class="rowClass"
-            :aria-label="action.ariaLabel || undefined"
-            :aria-describedby="describedBy(action, index)"
-            :data-action="action.key"
-        >
-            <a
-                v-if="opensNewTab(action)"
-                :href="action.url"
-                target="_blank"
-                rel="noopener noreferrer"
-                ><component
-                    :is="menuIcon(action)"
-                    v-if="menuIcon(action)"
-                    class="size-4"
-                    aria-hidden="true" /><span
-                    v-else-if="anyIcon"
-                    class="inline-block size-4 shrink-0"
-                    aria-hidden="true"
-                    data-menu-icon-spacer /><ActionLabel
-                    :action="action"
-                    menu
-                    :description-id="descriptionId(index)"
-            /></a>
-            <Link v-else :href="action.url"
-                ><component
-                    :is="menuIcon(action)"
-                    v-if="menuIcon(action)"
-                    class="size-4"
-                    aria-hidden="true" /><span
-                    v-else-if="anyIcon"
-                    class="inline-block size-4 shrink-0"
-                    aria-hidden="true"
-                    data-menu-icon-spacer /><ActionLabel
-                    :action="action"
-                    menu
-                    :description-id="descriptionId(index)"
-            /></Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem
-            v-else
-            :disabled="busy"
-            v-aria-disabled="action.disabled"
-            :class="[
-                action.destructive &&
-                    'text-destructive-text focus:text-destructive-text',
-                action.disabled && 'cursor-not-allowed opacity-50',
-                rowClass,
-            ]"
-            :title="(describes(action) && action.reason) || undefined"
-            :aria-describedby="describedBy(action, index)"
-            :aria-label="action.ariaLabel || undefined"
-            :data-action="action.key"
-            @select="choose(action, $event)"
-        >
-            <component
-                :is="menuIcon(action)"
-                v-if="menuIcon(action)"
-                class="size-4"
-                aria-hidden="true"
-            /><span
-                v-else-if="anyIcon"
-                class="inline-block size-4 shrink-0"
-                aria-hidden="true"
-                data-menu-icon-spacer
-            /><ActionLabel
-                :action="action"
-                menu
-                :description-id="descriptionId(index)"
-            /><span
-                v-if="describes(action)"
-                :id="reasonId(index)"
-                class="sr-only"
-                aria-hidden="true"
-                data-action-reason
-                >{{ action.reason }}</span
+                    data-action-reason
+                    >{{ action.reason }}</span
+                >
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuItem
+                v-else-if="action.intent === 'dialog' && !action.disabled"
+                as-child
+                :disabled="busy"
+                :class="rowClass"
+                :aria-label="action.ariaLabel || undefined"
+                :aria-describedby="describedBy(action, index)"
+                :data-action="action.key"
             >
-        </DropdownMenuItem>
-    </template>
+                <ModalLink
+                    :href="action.url"
+                    :method="
+                        action.method.toLowerCase() as
+                            'get' | 'post' | 'put' | 'patch' | 'delete'
+                    "
+                    :navigate="action.method.toLowerCase() === 'get'"
+                    ><component
+                        :is="menuIcon(action)"
+                        v-if="menuIcon(action)"
+                        class="size-4"
+                        aria-hidden="true" /><span
+                        v-else-if="anyIcon"
+                        class="inline-block size-4 shrink-0"
+                        aria-hidden="true"
+                        data-menu-icon-spacer /><ActionLabel
+                        :action="action"
+                        menu
+                        :description-id="descriptionId(index)"
+                /></ModalLink>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+                v-else-if="action.intent === 'document' && !action.disabled"
+                as-child
+                :disabled="busy"
+                :class="rowClass"
+                :aria-label="action.ariaLabel || undefined"
+                :aria-describedby="describedBy(action, index)"
+                :data-action="action.key"
+            >
+                <a :href="action.url" target="_blank" rel="noopener noreferrer"
+                    ><component
+                        :is="menuIcon(action)"
+                        v-if="menuIcon(action)"
+                        class="size-4"
+                        aria-hidden="true" /><span
+                        v-else-if="anyIcon"
+                        class="inline-block size-4 shrink-0"
+                        aria-hidden="true"
+                        data-menu-icon-spacer /><ActionLabel
+                        :action="action"
+                        menu
+                        :description-id="descriptionId(index)"
+                /></a>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+                v-else-if="rendersAsLink(action)"
+                as-child
+                :disabled="busy"
+                :class="rowClass"
+                :aria-label="action.ariaLabel || undefined"
+                :aria-describedby="describedBy(action, index)"
+                :data-action="action.key"
+            >
+                <a
+                    v-if="opensNewTab(action)"
+                    :href="action.url"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    ><component
+                        :is="menuIcon(action)"
+                        v-if="menuIcon(action)"
+                        class="size-4"
+                        aria-hidden="true" /><span
+                        v-else-if="anyIcon"
+                        class="inline-block size-4 shrink-0"
+                        aria-hidden="true"
+                        data-menu-icon-spacer /><ActionLabel
+                        :action="action"
+                        menu
+                        :description-id="descriptionId(index)"
+                /></a>
+                <Link v-else :href="action.url"
+                    ><component
+                        :is="menuIcon(action)"
+                        v-if="menuIcon(action)"
+                        class="size-4"
+                        aria-hidden="true" /><span
+                        v-else-if="anyIcon"
+                        class="inline-block size-4 shrink-0"
+                        aria-hidden="true"
+                        data-menu-icon-spacer /><ActionLabel
+                        :action="action"
+                        menu
+                        :description-id="descriptionId(index)"
+                /></Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+                v-else
+                :disabled="busy"
+                v-aria-disabled="action.disabled"
+                :class="[
+                    action.destructive &&
+                        'text-destructive-text focus:text-destructive-text',
+                    action.disabled && 'cursor-not-allowed opacity-50',
+                    rowClass,
+                ]"
+                :title="(describes(action) && action.reason) || undefined"
+                :aria-describedby="describedBy(action, index)"
+                :aria-label="action.ariaLabel || undefined"
+                :data-action="action.key"
+                @select="choose(action, $event)"
+            >
+                <component
+                    :is="menuIcon(action)"
+                    v-if="menuIcon(action)"
+                    class="size-4"
+                    aria-hidden="true"
+                /><span
+                    v-else-if="anyIcon"
+                    class="inline-block size-4 shrink-0"
+                    aria-hidden="true"
+                    data-menu-icon-spacer
+                /><ActionLabel
+                    :action="action"
+                    menu
+                    :description-id="descriptionId(index)"
+                /><span
+                    v-if="describes(action)"
+                    :id="reasonId(index)"
+                    class="sr-only"
+                    aria-hidden="true"
+                    data-action-reason
+                    >{{ action.reason }}</span
+                >
+            </DropdownMenuItem>
+        </template>
+    </MenuGroup>
 </template>
