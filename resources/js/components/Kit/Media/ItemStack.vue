@@ -39,6 +39,8 @@ const props = withDefaults(
         version?: string | number | null;
         /** The host's own save for the fanout's order, in place of `actions.reorder`: ok keeps the version, conflict rolls back and emits `conflict`. */
         persist?: ReorderPersist | null;
+        /** Fill the container's height: the picture takes the space left above the counter and footer (contained, not cropped), so the stack matches a sibling tile's height. */
+        fill?: boolean;
     }>(),
     {
         actions: () => ({}),
@@ -81,7 +83,7 @@ const itemLabel = (item: StackItem, at: number) =>
 </script>
 <template>
     <section
-        class="grid gap-2"
+        :class="fill ? 'flex h-full min-h-0 flex-col gap-2' : 'grid gap-2'"
         :aria-label="label"
         data-item-stack
         :data-count="count"
@@ -90,6 +92,7 @@ const itemLabel = (item: StackItem, at: number) =>
             v-if="current"
             :class="[
                 'relative',
+                fill && 'min-h-0 flex-1',
                 layers === 2 ? 'pb-3' : layers === 1 ? 'pb-1.5' : '',
             ]"
         >
@@ -110,7 +113,10 @@ const itemLabel = (item: StackItem, at: number) =>
             />
             <button
                 type="button"
-                class="border-border bg-card focus-visible:outline-ring relative z-10 block w-full overflow-hidden rounded-md border focus-visible:outline-2 focus-visible:outline-offset-2"
+                :class="[
+                    'border-border bg-card focus-visible:outline-ring relative z-10 block w-full overflow-hidden rounded-md border focus-visible:outline-2 focus-visible:outline-offset-2',
+                    fill && 'h-full',
+                ]"
                 :aria-label="`Open ${itemLabel(current, index)}`"
                 data-item-stack-top
                 @click="emit('open', current.id, $event)"
@@ -122,11 +128,18 @@ const itemLabel = (item: StackItem, at: number) =>
                         :srcset="current.srcset ?? undefined"
                         :sizes="sizes"
                         alt=""
-                        class="aspect-4/3 w-full object-cover object-top"
+                        :class="
+                            fill
+                                ? 'h-full w-full object-contain'
+                                : 'aspect-4/3 w-full object-cover object-top'
+                        "
                     />
                     <span
                         v-else
-                        class="bg-muted block aspect-4/3 w-full animate-pulse"
+                        :class="[
+                            'bg-muted block w-full animate-pulse',
+                            fill ? 'h-full' : 'aspect-4/3',
+                        ]"
                         data-media-pending
                     />
                 </slot>

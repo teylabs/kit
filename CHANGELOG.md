@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+
+- **ItemStack `fill`**: the stack fills its container's height and the picture (contained, not cropped) takes the space above the counter and footer, so it matches a sibling tile's height.
+
 ### Fixed
 
 - **CardHeader**: a long title truncates and leaves `#status` and `#actions` on its row; before, it took the row's full width and pushed the actions onto a second line.

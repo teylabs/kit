@@ -157,5 +157,8 @@ async function persist(order: string[], version: string | number | null) {
         <div data-fixture="empty-photo">
             <PhotoField :photo="null" label="Workspace logo" :accept="['image/png']" :max-bytes="1048576" :actions="{ replace: { ticket: '/uploads', register: '/logo' } }" />
         </div>
+        <div data-fixture="fill" style="height: 260px; width: 240px">
+            <ItemStack :items="shots" label="Filled" :noun="['shot', 'shots']" fill />
+        </div>
     </main>
 </template>

@@ -11963,3 +11963,14 @@ test('CardHeader: a long title truncates and the actions stay on its row', async
         assert.ok(action < title.bottom, `the actions sit on the title row (action top ${action}, title ${title.top}-${title.bottom})`);
     });
 });
+
+test('ItemStack fill: the stack takes its container\'s height and the picture shrinks above the footer, uncropped', () =>
+    mediaTab(async (tab) => {
+        const box = await tab.$eval('[data-fixture="fill"]', el => {
+            const stack = el.querySelector('[data-item-stack]').getBoundingClientRect();
+            const img = el.querySelector('[data-item-stack-top] img');
+            return { container: el.getBoundingClientRect().height, stack: stack.height, fit: getComputedStyle(img).objectFit };
+        });
+        assert.ok(Math.abs(box.stack - box.container) <= 1, `stack ${box.stack}px in a ${box.container}px container`);
+        assert.equal(box.fit, 'contain');
+    }));
