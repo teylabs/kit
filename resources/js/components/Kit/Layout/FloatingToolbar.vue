@@ -18,7 +18,10 @@ import DropdownMenuContent from '@/components/Kit/Menu/MenuContent.vue';
 import { actionIcons } from '@/components/Kit/Action/actionIcons';
 import HeaderActions from '@/components/Kit/Action/HeaderActions.vue';
 import HeaderStatus from '@/components/Kit/Action/HeaderStatus.vue';
-import type { ActionDescriptor } from '@/components/Kit/Action/actionPlacement';
+import {
+    actionIconName,
+    type ActionDescriptor,
+} from '@/components/Kit/Action/actionPlacement';
 import type { HeaderStatus as HeaderStatusValue } from '@/components/Kit/Action/headerSplit';
 import {
     inverseControl,
@@ -61,6 +64,9 @@ import { anchorToolbar, unionRect, type ToolbarAnchor } from './toolbarAnchor';
  * toolbar instead (in place when the Workbench has no toolbar). Both teleport into the stage, so the host may put the toolbar anywhere in its slots. `reposition()`
  * is exposed for a host that moves elements without changing the selection (a drag).
  * Floats at z-35: above the page's StickyBar (z-30) and under the modal layer (z-40, @inertiaui/modal's container) and sheets, so a modal opened from the pill's own slot covers it; registers its height with useStickyBars while it floats (so the shell's Toaster sits above it), honours the bottom safe-area inset, and needs ancestors that do not clip overflow. Attributes go on the pill.
+ * Below `sm` (a media query, as HeaderActions reads it) the pill is one full-width row, never a wrapping balloon: status first and truncating, the actions at
+ * the end. With page `actions` and `items` both, the page's primary stays and one ⋯ "More actions" menu holds the other page actions, then every item (in
+ * HeaderActions' `menu` slot); with items alone they fit as above. Desktop is unchanged.
  * Below `sm` the pill keeps one row (ActionBar, measuring its own width, collapses to its main action and a ⌄ menu when it does not fit, which keep their size while other content truncates); dark mode uses the popover surface with a border ring.
  * The page header's mirror: `actions` (server descriptors) and `status` ({ state, label }) render as the page header renders them (HeaderStatus, then HeaderActions,
  * split by headerSplit: a primary, up to two secondaries and More; only the primary below `sm`), after the slot. A non-navigating one goes to the host's
@@ -101,6 +107,16 @@ useStickyBars().track(
 );
 const revealed = defineModel<boolean>('revealed', { default: false });
 const lock = useLocked();
+// Phone: below Tailwind's `sm` (40rem), as HeaderActions reads it. Unset until mounted, so a server render shows the wide layout.
+const phone = ref(false);
+let phoneMedia: MediaQueryList | undefined;
+const onPhone = () => {
+    phone.value = !!phoneMedia?.matches;
+};
+// One menu on a phone: the items join the page actions' ⋯ menu instead of keeping a row (and a ⌄) of their own.
+const itemsInMenu = computed(
+    () => phone.value && props.actions.length > 0 && props.items.length > 0,
+);
 provideSurface(() => ({ tone: 'inverse', shape: 'pill' }));
 const icon = (item: ToolbarAction) => actionIcons[item.icon ?? ''];
 const choose = (item: ToolbarAction) => runToolbarAction(props.onAction, item);
@@ -109,6 +125,15 @@ const itemClass = (item: ToolbarAction) => [
     'inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring aria-disabled:cursor-not-allowed aria-disabled:opacity-50',
     item.iconOnly ? 'w-9 justify-center' : 'px-3.5',
 ];
+// A menu row without an icon keeps an icon-sized spacer when another row in the menu has one (page actions included), so labels share one left edge (as ActionMenuItems).
+const menuHasIcon = computed(
+    () =>
+        props.items.some((item) => icon(item)) ||
+        (itemsInMenu.value &&
+            props.actions.some(
+                (action) => actionIcons[actionIconName(action, true) ?? ''],
+            )),
+);
 const chooseFromMenu = (item: ToolbarAction) =>
     deferToolbarAction(props.onAction, item);
 const tip = (item: ToolbarAction) =>
@@ -268,6 +293,11 @@ function warnOnStrayControls(): void {
         );
 }
 onMounted(() => {
+    if (window.matchMedia) {
+        phoneMedia = window.matchMedia('(max-width: 39.99rem)');
+        onPhone();
+        phoneMedia.addEventListener('change', onPhone);
+    }
     warnOnStrayControls();
     observeItems();
     observeStage();
@@ -286,6 +316,7 @@ onMounted(() => {
     observer.observe(revealTarget);
 });
 onBeforeUnmount(() => {
+    phoneMedia?.removeEventListener('change', onPhone);
     observer?.disconnect();
     resize?.disconnect();
     itemObserver?.disconnect();
@@ -331,7 +362,13 @@ onBeforeUnmount(() => {
                 v-bind="$attrs"
                 role="toolbar"
                 :aria-label="label"
-                :class="['pointer-events-auto', items.length && 'flex-nowrap!']"
+                :class="[
+                    'pointer-events-auto',
+                    items.length && 'flex-nowrap!',
+                    !anchored &&
+                        mode !== 'docked' &&
+                        'max-sm:w-full max-sm:justify-between',
+                ]"
                 class="bg-foreground/87 text-background supports-[not(backdrop-filter:blur(1px))]:bg-foreground [@media(prefers-reduced-transparency:reduce)]:bg-foreground dark:bg-popover/87 dark:text-popover-foreground dark:ring-border dark:supports-[not(backdrop-filter:blur(1px))]:bg-popover dark:[@media(prefers-reduced-transparency:reduce)]:bg-popover flex max-w-full flex-wrap items-center justify-center gap-x-3 gap-y-2 rounded-full px-3 py-2 text-sm shadow-lg ring-1 ring-white/15 backdrop-blur-md [--kit-outline-foreground:currentColor] [--kit-outline-muted:currentColor] [--kit-outline-wash:color-mix(in_oklab,currentColor_10%,transparent)] [--kit-outline:color-mix(in_oklab,currentColor_20%,transparent)] [--kit-paper:transparent] max-sm:flex-nowrap max-sm:*:min-w-0 max-sm:[&>:not(.shrink-0)]:shrink max-sm:[&>:not(.shrink-0)]:truncate [@media(prefers-reduced-transparency:reduce)]:backdrop-blur-none"
             >
                 <slot :revealed="revealed" />
@@ -339,10 +376,41 @@ onBeforeUnmount(() => {
                 <HeaderActions
                     v-if="actions.length"
                     :actions="actions"
+                    class="ml-auto"
+                    :menu-icons="itemsInMenu && menuHasIcon"
                     v-bind="pageListeners"
-                />
+                >
+                    <template v-if="itemsInMenu" #menu>
+                        <template
+                            v-for="(group, index) in allGroups"
+                            :key="group[0].key"
+                        >
+                            <DropdownMenuSeparator v-if="index" />
+                            <DropdownMenuItem
+                                v-for="item in group"
+                                :key="item.key"
+                                :disabled="item.disabled"
+                                :title="item.reason ?? undefined"
+                                :data-toolbar-action="item.key"
+                                @select="chooseFromMenu(item)"
+                            >
+                                <component
+                                    :is="icon(item)"
+                                    v-if="icon(item)"
+                                    class="size-4"
+                                    aria-hidden="true"
+                                /><span
+                                    v-else-if="menuHasIcon"
+                                    class="inline-block size-4 shrink-0"
+                                    aria-hidden="true"
+                                    data-menu-icon-spacer
+                                />{{ item.label }}
+                            </DropdownMenuItem>
+                        </template>
+                    </template>
+                </HeaderActions>
                 <div
-                    v-if="items.length"
+                    v-if="items.length && !itemsInMenu"
                     ref="itemsRoot"
                     class="grid min-w-0 shrink"
                     data-toolbar-items
@@ -475,6 +543,11 @@ onBeforeUnmount(() => {
                                             v-if="icon(item)"
                                             class="size-4"
                                             aria-hidden="true"
+                                        /><span
+                                            v-else-if="menuHasIcon"
+                                            class="inline-block size-4 shrink-0"
+                                            aria-hidden="true"
+                                            data-menu-icon-spacer
                                         />{{ item.label }}
                                     </DropdownMenuItem>
                                 </template>

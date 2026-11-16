@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ChevronDown } from '@lucide/vue';
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { ChevronDown, Ellipsis } from '@lucide/vue';
+import { computed, onBeforeUnmount, onMounted, ref, useSlots } from 'vue';
 import {
     DropdownMenu,
+    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import DropdownMenuContent from '@/components/Kit/Menu/MenuContent.vue';
@@ -31,6 +32,9 @@ import { useLocked } from '@/components/Kit/Form/useLocked';
  * secondaries move into More. Like ActionBar, a host that listens to `action` runs every non-navigating action itself; otherwise this runs it: its `confirm`
  * first (typed when it has `typed`, sent as `confirmation`), then an Inertia visit. Inside a locked LockedForm an `intent: 'edit'` descriptor is hidden. On the
  * FloatingToolbar's inverse pill the buttons take the pill's tokens and radius. Nothing here checks a permission.
+ * On the pill below `sm` the split path is always taken (never ActionBar's, whose buttons would truncate to a letter on a shared row) and More is an icon-only
+ * ⋯ named "More actions". The `menu` slot adds rows after the overflow actions, behind a separator, and shows More for them alone: FloatingToolbar puts its
+ * client items there on a phone, so the pill keeps one menu; `menuIcons` says those rows have icons, so icon-less overflow rows keep the icon spacer.
  */
 const props = withDefaults(
     defineProps<{
@@ -38,8 +42,9 @@ const props = withDefaults(
         busy?: boolean;
         dialogOpen?: boolean;
         primary?: boolean;
+        menuIcons?: boolean;
     }>(),
-    { busy: false, dialogOpen: false, primary: false },
+    { busy: false, dialogOpen: false, primary: false, menuIcons: false },
 );
 const emit = defineEmits<{ action: [action: ActionDescriptor] }>();
 const { hostRuns, pending, asking, run, visit, running, isRunning } =
@@ -53,7 +58,7 @@ const barListeners = computed(() =>
 );
 const lock = useLocked();
 const shown = computed(() => withoutEditActions(props.actions, lock.locked));
-const legacy = computed(() => keepsActionBar(props.actions));
+const slots = useSlots();
 
 // Phone: below Tailwind's `sm` (40rem). Unset until mounted, so a server render shows the wide split.
 const phone = ref(false);
@@ -72,6 +77,12 @@ const split = computed(() => headerSplit(shown.value, { phone: phone.value }));
 
 const surface = useSurface();
 const pill = computed(() => surface.value.shape === 'pill');
+// The pill's phone layout: primary and ⋯ (FloatingToolbar's phone row).
+const compactPill = computed(() => pill.value && phone.value);
+const legacy = computed(
+    () => keepsActionBar(props.actions) && !compactPill.value && !slots.menu,
+);
+const more = computed(() => split.value.overflow.length > 0 || !!slots.menu);
 const inverse = computed(() => surface.value.tone === 'inverse');
 function button(filled: boolean): string[] {
     return [
@@ -124,9 +135,21 @@ const holdFocus = (event: Event) => {
             data-header-action="secondary"
             @action="run($event)"
         />
-        <DropdownMenu v-if="split.overflow.length">
+        <DropdownMenu v-if="more">
             <DropdownMenuTrigger as-child>
                 <button
+                    v-if="compactPill"
+                    type="button"
+                    :class="[button(false), 'w-9 px-0!']"
+                    aria-label="More actions"
+                    title="More actions"
+                    data-header-more
+                    data-action-menu
+                >
+                    <Ellipsis class="size-4" aria-hidden="true" />
+                </button>
+                <button
+                    v-else
                     type="button"
                     :class="[button(false), 'pr-2.5']"
                     data-header-more
@@ -141,10 +164,16 @@ const holdFocus = (event: Event) => {
                 @close-auto-focus="holdFocus"
             >
                 <ActionMenuItems
+                    v-if="split.overflow.length"
                     :actions="split.overflow"
                     :busy="blocked"
                     :on-action="run"
+                    :icon-spacer="menuIcons"
                 />
+                <DropdownMenuSeparator
+                    v-if="split.overflow.length && slots.menu"
+                />
+                <slot name="menu" />
             </DropdownMenuContent>
         </DropdownMenu>
         <Dialog
