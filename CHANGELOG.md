@@ -1,6 +1,10 @@
 # Changelog
 
-## Unreleased
+## v0.27.0
+
+Features affected: none. No lineage needs kit:update; `composer update tey/kit` is enough.
+
+A minor: every kit menu shows an action's description under its label, wrapping, and a menu can name what it acts on in a subject header (opt-in). With them, the components that were missing for one app's adoption: EmptyState align and first-use, Textarea defaultValue, hasFocus and autosize, DescriptionList grid and compact, a controlled SearchBox, a FileInput dropzone, and a page-wide drop guard.
 
 ### Added
 
