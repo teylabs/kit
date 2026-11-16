@@ -201,6 +201,27 @@ async function persist(order: string[], version: string | number | null) {
         <div data-fixture="fill-photo" style="height: 320px; width: 420px">
             <PhotoField :photo="{ thumb: pixel, card: pixel }" label="Feature photo" :accept="['image/jpeg']" :max-bytes="10485760" :actions="{ replace: true }" size="fill" />
         </div>
+        <div data-fixture="tile-photo" class="grid grid-cols-2 gap-4" style="width: 520px">
+            <PhotoField
+                variant="tile"
+                badge="Main photo"
+                :photo="{ thumb: pixel, card: pixel }"
+                label="Front"
+                :accept="['image/jpeg']"
+                :max-bytes="10485760"
+                :actions="{ replace: true, remove: { url: '/front', method: 'delete' } }"
+                :tile-actions="[{ key: 'download', label: 'Download', icon: 'download' }]"
+                @action="(key) => events.push(`photo-action ${key}`)"
+            />
+            <div data-tall style="height: 480px">Tall sibling</div>
+        </div>
+        <div data-fixture="tile-empty" style="width: 240px">
+            <PhotoField variant="tile" badge="Main photo" :photo="null" label="Front" :accept="['image/jpeg']" :max-bytes="10485760" :actions="{ replace: true }" />
+        </div>
+        <div data-fixture="tall-row" class="grid grid-cols-2 gap-4" style="width: 520px">
+            <PhotoField :photo="{ thumb: pixel, card: pixel }" label="Logo" :accept="['image/png']" :max-bytes="1048576" :actions="{ replace: true }" />
+            <div style="height: 480px">Tall sibling</div>
+        </div>
         <div data-fixture="fill" style="height: 260px; width: 240px">
             <ItemStack :items="shots" label="Filled" :noun="['shot', 'shots']" fill>
                 <template #footer-label="{ index, count }">Listing · {{ index + 1 }} of {{ count }}</template>

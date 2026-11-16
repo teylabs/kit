@@ -1,6 +1,18 @@
 <script setup lang="ts">
 import { router } from '@inertiajs/vue3';
+import { MoreHorizontal } from '@lucide/vue';
 import { computed, ref } from 'vue';
+import { actionIcons } from '@/components/Kit/Action/actionIcons';
+import Card from '@/components/Kit/Card/Card.vue';
+import CardFooter from '@/components/Kit/Card/CardFooter.vue';
+import {
+    DropdownMenu,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import DropdownMenuContent from '@/components/Kit/Menu/MenuContent.vue';
+import type { MediaTileAction } from '@/components/Kit/Media/MediaCollection.vue';
 import Button from '@/components/Kit/Form/Button.vue';
 import BulkDrop from '@/components/Kit/Form/BulkDrop.vue';
 import {
@@ -42,6 +54,8 @@ export type PhotoSource = {
  * `replace` also takes a plain `{ url, method }` (the kit posts the file as multipart, field `photo`, with `version`, as an Inertia visit) or `true` (the kit
  * only emits `files` and the host posts them). Every replace emits `files` first. `size` widens the slot (`fill` takes its container's width and height),
  * `title` names the modal (default "Change main photo"), and `actions.remove.confirm` words the Remove confirmation.
+ * `variant="tile"` draws the standard photo tile (MediaCollection's `tiles` card): the photo with a `badge`, and a footer with the label, Change and a ⋯ menu
+ * holding Remove (confirmed) and the host's `tile-actions`, emitted as `action(key)`. The root keeps to its content's height in a taller grid row.
  */
 /** "Main photo" inside a sentence: "main photo". An acronym ("PDF cover") keeps its case. */
 function inSentence(label: string): string {
@@ -68,6 +82,12 @@ const props = withDefaults(
         size?: 'sm' | 'md' | 'lg' | 'fill';
         /** The modal's title. Default: "Change " and the label inside the sentence. */
         title?: string | null;
+        /** `field` (the default): the photo with a Change button under it. `tile`: the standard photo tile, a card with a footer and a ⋯ menu. */
+        variant?: 'field' | 'tile';
+        /** `tile`: a badge drawn on the photo, e.g. "Main photo". */
+        badge?: string | null;
+        /** `tile`: the host's own ⋯ menu rows, after Remove, emitted as `action(key)`. */
+        tileActions?: MediaTileAction[];
     }>(),
     {
         actions: () => ({}),
@@ -76,6 +96,9 @@ const props = withDefaults(
         aspect: 'square',
         size: 'sm',
         title: null,
+        variant: 'field',
+        badge: null,
+        tileActions: () => [],
     },
 );
 const emit = defineEmits<{
@@ -83,9 +106,11 @@ const emit = defineEmits<{
     replaced: [item: unknown];
     chosen: [id: string];
     removed: [];
+    action: [key: string];
 }>();
 const open = ref(false);
 const confirming = ref(false);
+const confirmingTile = ref(false);
 const working = ref(false);
 const progress = ref<number | null>(null);
 const error = ref('');
@@ -121,6 +146,14 @@ const removeConfirm = computed(() => {
         label: confirm?.label ?? 'Remove',
     };
 });
+const iconFor = (action: MediaTileAction) =>
+    typeof action.icon === 'string'
+        ? (actionIcons[action.icon] ?? null)
+        : (action.icon ?? null);
+const hasMenu = computed(
+    () =>
+        !!(props.actions.remove && props.photo) || props.tileActions.length > 0,
+);
 const sized = {
     sm: 'max-w-48',
     md: 'max-w-72',
@@ -197,18 +230,142 @@ function choose(source: PhotoSource) {
 }
 function remove() {
     confirming.value = false;
+    confirmingTile.value = false;
     if (props.actions.remove)
         visit(props.actions.remove, {}, () => emit('removed'));
 }
 </script>
 <template>
     <div
-        :class="['grid gap-2', sized[size]]"
+        :class="[
+            'grid gap-2',
+            size !== 'fill' && 'content-start self-start',
+            sized[size],
+        ]"
         :data-size="size"
+        :data-variant="variant"
         data-photo-field
         :data-has-photo="!!photo || undefined"
     >
-        <template v-if="photo">
+        <Card
+            v-if="photo && variant === 'tile'"
+            as="div"
+            :class="[
+                'flex flex-col overflow-hidden',
+                size === 'fill' && 'h-full',
+            ]"
+            data-photo-field-card
+        >
+            <div
+                :class="[
+                    'relative isolate',
+                    size === 'fill'
+                        ? 'min-h-0 flex-1'
+                        : aspect === 'square'
+                          ? 'aspect-square'
+                          : 'aspect-4/3',
+                ]"
+            >
+                <button
+                    type="button"
+                    class="bg-muted focus-visible:outline-ring block size-full focus-visible:outline-2 focus-visible:-outline-offset-2"
+                    :aria-label="`Change ${label}`"
+                    :disabled="!canChange"
+                    data-photo-field-tile
+                    @click="open = true"
+                >
+                    <img
+                        v-if="photo.thumb"
+                        :src="photo.thumb"
+                        :srcset="
+                            photo.card
+                                ? `${photo.thumb} 400w, ${photo.card} 800w`
+                                : undefined
+                        "
+                        :sizes="size === 'sm' ? '12rem' : '24rem'"
+                        :alt="label"
+                        class="size-full object-cover"
+                    />
+                    <span
+                        v-else
+                        class="bg-muted block size-full animate-pulse"
+                        data-media-pending
+                    />
+                </button>
+                <span
+                    v-if="badge"
+                    class="bg-primary text-primary-foreground pointer-events-none absolute top-1.5 left-1.5 z-10 rounded-sm px-1.5 text-xs leading-5 font-medium shadow-sm"
+                    data-photo-field-badge
+                    >{{ badge }}</span
+                >
+            </div>
+            <CardFooter class="shrink-0 px-1! py-0.5!" data-photo-field-footer>
+                <div class="flex min-w-0 items-center gap-0.5">
+                    <span
+                        class="min-w-0 flex-1 truncate px-1 text-xs"
+                        data-photo-field-label
+                        >{{ label }}</span
+                    >
+                    <Button
+                        v-if="canChange"
+                        variant="ghost"
+                        size="sm"
+                        class="h-7 px-2 text-xs"
+                        data-photo-field-change
+                        @click="open = true"
+                        >Change</Button
+                    >
+                    <DropdownMenu v-if="hasMenu" :modal="false">
+                        <DropdownMenuTrigger as-child
+                            ><button
+                                type="button"
+                                data-photo-field-menu
+                                class="hover:bg-accent text-muted-foreground hover:text-foreground focus-visible:outline-ring inline-flex size-7 shrink-0 items-center justify-center rounded-md focus-visible:outline-2"
+                                :aria-label="`Actions for ${label}`"
+                            >
+                                <MoreHorizontal
+                                    class="size-4"
+                                    aria-hidden="true"
+                                /></button
+                        ></DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                                v-for="action in tileActions"
+                                :key="action.key"
+                                :class="
+                                    action.destructive &&
+                                    'text-destructive-text focus:text-destructive-text'
+                                "
+                                v-bind="action.attrs ?? {}"
+                                :data-photo-field-action="action.key"
+                                @select="emit('action', action.key)"
+                                ><component
+                                    :is="iconFor(action)!"
+                                    v-if="iconFor(action)"
+                                    class="size-4"
+                                    aria-hidden="true"
+                                />{{ action.label }}</DropdownMenuItem
+                            >
+                            <template v-if="actions.remove">
+                                <DropdownMenuSeparator
+                                    v-if="tileActions.length"
+                                />
+                                <DropdownMenuItem
+                                    class="text-destructive-text focus:text-destructive-text"
+                                    :disabled="working"
+                                    data-photo-field-menu-remove
+                                    @select="confirmingTile = true"
+                                    >{{
+                                        actions.remove.label ?? 'Remove'
+                                    }}</DropdownMenuItem
+                                >
+                            </template>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </div>
+            </CardFooter>
+        </Card>
+        <template v-else-if="photo">
             <button
                 type="button"
                 :class="[
@@ -268,6 +425,15 @@ function remove() {
         >
             {{ error }}
         </p>
+        <Dialog
+            v-if="variant === 'tile'"
+            v-model:open="confirmingTile"
+            :title="removeConfirm.title"
+            :description="removeConfirm.description"
+            :confirm-label="removeConfirm.label"
+            variant="danger"
+            @confirm="remove"
+        />
         <Modal v-model:open="open" :title="modalTitle" size="md">
             <div class="grid gap-5" data-photo-field-modal>
                 <!-- Inside the Modal, so its overlay renders into the Modal's <dialog>, over it (layer.ts). -->
