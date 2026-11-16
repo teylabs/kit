@@ -48,6 +48,15 @@ const defaultsOnSuccess = (Form as unknown as { props: { setDefaultsOnSuccess: {
                 data-host="yes"
             />
         </div>
+        <div id="narrow-menu" style="width: 120px">
+            <ActionBar
+                :actions="[
+                    { key: 'edit', label: 'Edit', url: '/l/1/edit', method: 'get', group: 'g' },
+                    { key: 'pdf', label: 'Saved listing (PDF)', url: '/l/1.pdf', method: 'get', icon: 'file-text', newTab: true, group: 'g', menu: true, description: 'The listing as saved on 12 Nov' },
+                    { key: 'copy', label: 'Copy link', url: '/l/1/copy', method: 'post', group: 'g', menu: true },
+                ]"
+            />
+        </div>
         <div style="height: 2000px" />
         <p id="far">Far row</p>
     </main>
