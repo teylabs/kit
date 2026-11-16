@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import MiddleTruncate from '@/components/Kit/Data/MiddleTruncate.vue';
 import type { MenuSubject } from './menuSubject';
 
 // INTERNAL. A menu's subject as a header row above its items (README, "Menu subject"): the title (one line, the full text in a tooltip) and a muted caption that
@@ -9,10 +10,18 @@ defineProps<{ subject: MenuSubject; id: string }>();
 <template>
     <div
         :id="id"
-        class="border-border -mx-1 -mt-1 mb-1 grid min-w-0 gap-0.5 border-b px-3 py-2"
+        class="border-border -mx-1 -mt-1 mb-1 grid max-w-64 min-w-0 gap-0.5 border-b px-3 py-2"
         data-menu-subject
     >
+        <MiddleTruncate
+            v-if="subject.kind"
+            :value="subject.title"
+            :kind="subject.kind"
+            class="text-foreground text-sm font-medium"
+            data-menu-subject-title
+        />
         <span
+            v-else
             class="text-foreground truncate text-sm font-medium"
             :title="subject.title"
             data-menu-subject-title

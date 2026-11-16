@@ -10728,6 +10728,25 @@ test('ActionCard panel (dark): the same under the dark tokens', () => cardNames(
 
 // ── ActionBar `item-class` (?item-class): each row of its More menu takes the host's classes (min-h-12, 48px), and Cancel keeps the destructive colour and the
 // disabled row its dimming ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+test('Menu subject kind file: a long file name is cut in the middle, keeping its start and its extension, and stays whole for assistive technology', async () => {
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?item-class`);
+        await tab.locator('[data-file-menu] [data-button-group-menu]').click();
+        const title = tab.locator('[role="menu"] [data-menu-subject-title]');
+        await title.waitFor();
+        await tab.waitForTimeout(100);
+        const cut = await title.evaluate(el => ({ truncated: el.hasAttribute('data-truncated'), kept: [...el.querySelectorAll('span:not([data-cut])')].map(s => s.textContent).join(''), width: el.getBoundingClientRect().width }));
+        assert.equal(cut.truncated, true, 'cut to fit');
+        assert.match(cut.kept, /^Screenshot.*\.png$/, `the start and the extension are kept: ${cut.kept}`);
+        assert.ok(cut.width <= 256, `the header is at most 16rem (${cut.width})`);
+        assert.equal((await title.textContent()).replace(/\s+/g, ''), 'Screenshot-2026-11-16-at-10.36.11-AM.png'.replace(/\s+/g, '') , 'the whole name stays in the text');
+    } finally {
+        await context.close();
+    }
+});
+
 test('ActionBar item-class: every menu row takes the host class; destructive and disabled rows keep their look', async () => {
     const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
     try {
