@@ -2,10 +2,17 @@
 
 ## Unreleased
 
+### Added
+
+- **InlineDropdown**: a link-styled trigger (optional icon, the current choice in medium weight, a chevron) that opens a menu of `menuitemradio` choices, the current one checked, under an optional subject header and in labelled sections. Items with `href` are links; any other choice emits `select` and `update:modelValue` (docs/inline-dropdown.md). Built generic: sort orders first, breadcrumb sibling menus later.
+- **touched_at pattern** (docs/touched-at.md): the `Touches` concern (`protected array $touchesParents = ['assignment'];`), separate from Eloquent's `$touches`: a child's create, update or delete touches its parents' `touched_at`, and theirs, by a quiet update (no events, `updated_at` unchanged), only on tables with a `touched_at` column, once per request or job, cycle-safe. `Touch::without(fn)`, `kit.touch.console`, `$model->touchTree()`, an `alsoTouch()` hook, the `$table->touchedAt()` migration macro, and `TouchesAssertions` (`assertTouchesParent`, `assertCovered`/`uncovered`). UI convention: "Touched 3 days ago".
+
 ### Changed
 
 - **FloatingToolbar phone layout**: below `sm` the pill is one full-width row instead of wrapping into a tall balloon. The status truncates, the primary page action stays, and one ⋯ "More actions" menu holds the other page actions and then the client `items`. Before, three page actions shrank to one letter each. Desktop is unchanged. A slotted button still can't move into the menu, so pass `actions` and `items`. HeaderActions gains a `menu` slot (rows after its overflow) and always splits on the pill at phone width.
 - **Menu rows line up across parts**: in the phone ⋯ menu the client items use the same row as the page actions (icon or icon-sized spacer, then label), and `ActionMenuItems` takes `iconSpacer` (HeaderActions `menuIcons`) so a page-action row keeps the spacer when only the items have icons.
+- **CollectionSection Sort by** (and CollectionCard's and dashboard widgets'): an InlineDropdown (sort icon, current order, chevron) in place of the bordered InputSelect. Its menu is headed by the descriptor's label over the section's title. Tests that drove it as a `combobox` now find a button named "Sort by: <order>" and `menuitemradio` items.
+- **InputSelect, not searchable**: the field reads as a button: a pointer cursor, no text caret, no text selection and no on-screen keyboard (`inputmode="none"`); only a searchable select shows a text cursor. Searchable stays off by default for up to 8 local options (`SEARCH_THRESHOLD`), on above it and for `filter="remote"`.
 
 ## v0.29.2
 
