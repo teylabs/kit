@@ -124,7 +124,11 @@ Tests: `tests/js/text.test.mjs` (`composer test:js`) covers `copyText` with and 
 <EmailMessage title="What came in" :from="mail.from" :to="mail.to" :date="mail.date" :subject="mail.subject" :body="mail.text" :attachments="mail.files" />
 ```
 
-Hooks: `data-email-message`, `data-email-row="from|to|cc|reply-to|date|subject"`, `data-email-body`, `data-email-attachments`.
+### Forwarded messages
+
+By default the body is split at forwarded-message blocks: Gmail's `---------- Forwarded message ---------`, Apple Mail's `Begin forwarded message:`, and Outlook's `From: … Sent: … To: … Subject:` run (after an optional `-----Original Message-----` or `_____` rule). The text above the first block stays the body. Each forward becomes a collapsed disclosure, "Forwarded from Ana Lopez, Mon, Nov 9, 2026 at 3:14 PM" (the sender's display name, or the address, and the date as written), that opens on its header lines; its own text stays visible below it as "Message from Ana Lopez". A forward of a forward is the next block, outermost first. A body with no forward renders as before; `:forwarded="false"` turns the split off. With `limit`, each part is its own TextLong. The splitting is `splitForwards(text)` in `Kit/Text/emailForwards.ts` (plain TypeScript), for a host that wants the parts itself.
+
+Hooks: `data-email-message`, `data-email-row="from|to|cc|reply-to|date|subject"`, `data-email-body`, `data-email-attachments`, `data-email-forward="<depth>"`, `data-email-forward-headers`, `data-email-forward-body`.
 
 ## BusyIndicator (Spinner)
 

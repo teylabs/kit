@@ -11743,6 +11743,40 @@ test('Small pieces: EmailMessage leaves out empty rows and cuts with limit; Busy
     assert.deepEqual(errors, []);
 });
 
+test('Small pieces: EmailMessage folds Gmail and Apple Mail forward headers into collapsed "Forwarded from" disclosures, keeps every body visible, and :forwarded="false" leaves the text whole', async () => {
+    for (const scheme of ['light', 'dark']) {
+        const context = await browser.newContext({ viewport: { width: 1024, height: 700 }, colorScheme: scheme });
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        try {
+            await tab.goto(`${url}?small-pieces&forwards${scheme === 'dark' ? '&dark' : ''}`);
+            const mail = tab.locator('#forwarded');
+            await mail.waitFor();
+            const triggers = mail.locator('[data-email-forward] [data-collapsible-trigger]');
+            assert.deepEqual((await triggers.allTextContents()).map(t => t.trim()), ['Forwarded from Ana Lopez, Mon, Nov 9, 2026 at 3:14 PM', 'Forwarded from Bo Chen, November 8, 2026 at 9:00 AM AST']);
+            assert.deepEqual(await triggers.evaluateAll(els => els.map(el => el.getAttribute('aria-expanded'))), ['false', 'false'], 'collapsed');
+            assert.equal(await mail.locator('[data-email-forward-headers]').first().isVisible(), false, 'the header lines are folded away');
+            const body = await mail.locator('[data-email-body]').innerText();
+            for (const text of ['FYI, see below.', 'Hello, please see the order below.', 'Twelve crates, pickup Tuesday.']) assert.ok(body.includes(text), `${text} stays visible`);
+            assert.ok(!body.includes('---------- Forwarded message'), 'the marker is folded');
+            assert.ok(!body.includes('Begin forwarded message'), 'the nested marker is folded');
+            await triggers.first().click();
+            assert.equal(await triggers.first().getAttribute('aria-expanded'), 'true');
+            assert.match(await mail.locator('[data-email-forward="1"] [data-email-forward-headers]').innerText(), /Subject\s+Farm order/);
+            const plain = tab.locator('#plain-forward');
+            assert.equal(await plain.locator('[data-email-forward]').count(), 0, 'opt out');
+            assert.match(await plain.locator('[data-email-body]').innerText(), /Begin forwarded message:/);
+            await tab.waitForTimeout(400); // the disclosure's open transition (opacity) settles before contrast is read
+            assert.deepEqual(await axeWithContrast(tab), [], scheme);
+            if (process.env.KIT_EMAIL_SCREENSHOT) await mail.screenshot({ path: `${process.env.KIT_EMAIL_SCREENSHOT}-${scheme}.png` });
+        } finally {
+            await context.close();
+        }
+        assert.deepEqual(errors, []);
+    }
+});
+
 // ── The media family (?media): MediaGallery, MediaCollection tiles, ItemStack and PhotoField ─────────────────────────────────────────────────────────────
 async function mediaTab(check) {
     const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });

@@ -8,6 +8,29 @@ import CardHeader from '@/components/Kit/Card/CardHeader.vue';
 
 // Small pieces (?small-pieces): EmailMessage, BusyIndicator, reveal() and applyFormDefaults(). window.revealTarget(duration) reveals the far row.
 const applied = applyFormDefaults();
+// ?small-pieces&forwards: only the forwarded fixtures (one TextCode "Message" per page keeps axe's landmark-unique quiet).
+const forwards = new URLSearchParams(location.search).has('forwards');
+// Synthetic: a Gmail forward of an Apple Mail forward.
+const forwardedBody = [
+    'FYI, see below.',
+    '',
+    '---------- Forwarded message ---------',
+    'From: Ana Lopez <ana@example.test>',
+    'Date: Mon, Nov 9, 2026 at 3:14 PM',
+    'Subject: Farm order',
+    'To: <desk@example.test>',
+    '',
+    'Hello, please see the order below.',
+    '',
+    'Begin forwarded message:',
+    '',
+    'From: Bo Chen <bo@example.test>',
+    'Subject: Order',
+    'Date: November 8, 2026 at 9:00 AM AST',
+    'To: Ana Lopez <ana@example.test>',
+    '',
+    'Twelve crates, pickup Tuesday.',
+].join('\n');
 const defaultsOnSuccess = (Form as unknown as { props: { setDefaultsOnSuccess: { default: unknown } } }).props.setDefaultsOnSuccess.default;
 (window as unknown as { revealTarget: (duration: number) => void }).revealTarget = (duration) => {
     reveal('#far', { duration });
@@ -18,6 +41,17 @@ const defaultsOnSuccess = (Form as unknown as { props: { setDefaultsOnSuccess: {
         <h1>Small pieces</h1>
         <p data-case="defaults">{{ applied }} {{ defaultsOnSuccess }}</p>
         <BusyIndicator class="text-primary">Saving…</BusyIndicator>
+        <template v-if="forwards">
+        <EmailMessage
+            id="forwarded"
+            title="Forwarded in"
+            from="Desk <desk@example.test>"
+            subject="Fwd: Farm order"
+            :body="forwardedBody"
+        />
+        <EmailMessage id="plain-forward" from="desk@example.test" :body="forwardedBody" :forwarded="false" :limit="2000" />
+        </template>
+        <template v-else>
         <EmailMessage
             title="What came in"
             from="Ana Lopez <ana@example.test>"
@@ -27,6 +61,7 @@ const defaultsOnSuccess = (Form as unknown as { props: { setDefaultsOnSuccess: {
             :attachments="['order.pdf']"
         />
         <EmailMessage id="limited" from="bo@example.test" :body="'word '.repeat(80)" :limit="40" />
+        </template>
         <div style="width: 480px">
             <CardHeader id="long-header" title="2014 Audi S5 Cabriolet 3.0 TFSI 2dr Conv Auto Technik">
                 <template #actions><button type="button" data-header-action>Edit</button><button type="button">Archive</button></template>
