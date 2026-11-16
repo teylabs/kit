@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## v0.29.1
+
+Features affected: none; `composer update tey/kit` is enough.
 
 ### Added
 
