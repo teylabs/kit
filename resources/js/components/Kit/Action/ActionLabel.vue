@@ -33,7 +33,7 @@ const newTab = computed(() => opensNewTab(props.action));
 <template>
     <span
         v-if="menu && action.description"
-        class="flex w-full min-w-0 flex-col align-top"
+        class="flex min-w-0 flex-1 flex-col align-top"
         data-action-captioned
         ><ActionLabel :action="{ ...action, description: null }" menu /><span
             :id="descriptionId"
@@ -47,7 +47,7 @@ const newTab = computed(() => opensNewTab(props.action));
         v-else
         :class="[
             'min-w-0 items-center gap-1.5 align-top leading-5',
-            menu ? 'flex w-full' : 'inline-flex',
+            menu ? 'flex flex-1' : 'inline-flex',
         ]"
         ><LoaderCircle
             v-if="pending"
