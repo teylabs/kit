@@ -40,7 +40,7 @@ final class Ticket extends Model
 
     protected $guarded = [];
 
-    protected $casts = ['workspace_id' => 'integer', 'lock_version' => 'integer'];
+    protected $casts = ['workspace_id' => 'integer', 'lock_version' => 'integer', 'secret' => 'encrypted', 'meta' => 'array', 'due_at' => 'datetime'];
 }
 
 /** A row its owner may move between workspaces they belong to: the model names its own, row-aware move ability. */
@@ -189,6 +189,9 @@ try {
         $table->foreignId('workspace_id')->constrained()->restrictOnDelete();
         $table->string('title');
         $table->unsignedInteger('lock_version')->default(1);
+        $table->text('secret')->nullable();
+        $table->text('meta')->nullable();
+        $table->timestamp('due_at')->nullable();
         $table->timestamps();
     });
     $in = fn (Workspace $workspace, callable $run) => Workspaces::run((int) $workspace->id, Closure::fromCallable($run));
@@ -207,8 +210,12 @@ try {
 
     $updated = $in($workspace, fn () => Ticket::findOrFail($mine->id)->updateIfCurrent(1, ['title' => 'Second', 'lock_version' => 99]));
     check($updated->title === 'Second' && $updated->lock_version === 2, 'a current write lands and bumps the version (a lock_version in the attributes is ignored)');
+    $cast = $in($workspace, fn () => Ticket::findOrFail($mine->id)->updateIfCurrent(2, ['secret' => 'hunter2', 'meta' => ['a' => 1], 'due_at' => Carbon\Carbon::parse('2026-12-01 09:30:00')]));
+    $raw = DB::table('tickets')->where('id', $mine->id)->first();
+    check($raw->secret !== 'hunter2' && Illuminate\Support\Facades\Crypt::decryptString($raw->secret) === 'hunter2' && $cast->secret === 'hunter2', 'a guarded write runs the casts like save(): an encrypted column is stored encrypted and reads back');
+    check($raw->meta === '{"a":1}' && $cast->meta === ['a' => 1] && $cast->due_at->format('Y-m-d H:i') === '2026-12-01 09:30' && $cast->lock_version === 3, 'array and datetime casts are stored as save() stores them');
     check(refused(fn () => $in($workspace, fn () => Ticket::findOrFail($mine->id)->updateIfCurrent(1, ['title' => 'Stale']))) === 'stale_write' && DB::table('tickets')->where('id', $mine->id)->value('title') === 'Second', 'a write from the old version is refused with stale_write and changes nothing');
-    check(refused(fn () => $in($other, fn () => (new Ticket)->setRawAttributes(['id' => $mine->id, 'workspace_id' => $workspace->id], true)->updateIfCurrent(2, ['title' => 'Cross']))) === 'stale_write' && DB::table('tickets')->where('id', $mine->id)->value('title') === 'Second', 'a guarded write from another workspace matches no row and changes nothing');
+    check(refused(fn () => $in($other, fn () => (new Ticket)->setRawAttributes(['id' => $mine->id, 'workspace_id' => $workspace->id], true)->updateIfCurrent(3, ['title' => 'Cross']))) === 'stale_write' && DB::table('tickets')->where('id', $mine->id)->value('title') === 'Second', 'a guarded write from another workspace matches no row and changes nothing');
     check(app(Registry::class)->status('stale_write') === 409 && in_array('stale_write', app(Registry::class)->registeredMcpRefusalCodes(), true), 'stale_write is a 409 and an MCP refusal code');
 
     // The stale-write contract the client reads (useSubmitForm, the Workbench's useForm + save): through the real kernel and exception handler, a stale guarded

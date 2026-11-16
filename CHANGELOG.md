@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **GuardsStaleWrites::updateIfCurrent()** now runs the model's casts and mutators, as `save()` does. Before, it wrote through the query builder: an `encrypted` column was stored as plain text (and its next read threw "The payload is invalid"), and enum, datetime and array casts were skipped. If you encrypted a value by hand before passing it, pass the plain value now, or it is encrypted twice.
+
 ## v0.27.0
 
 Features affected: none. No lineage needs kit:update; `composer update tey/kit` is enough.
