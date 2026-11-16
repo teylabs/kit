@@ -18,8 +18,9 @@ const props = withDefaults(
         inertia?: boolean;
         active?: boolean;
         onChosen?: () => void;
+        destructive?: boolean;
     }>(),
-    { href: '#', as: null, onChosen: undefined },
+    { href: '#', as: null, onChosen: undefined, destructive: false },
 );
 
 const menu = useMenuPanel();
@@ -36,7 +37,14 @@ const chosen = () =>
 // A ButtonGroup's `itemClass`, merged last onto the inner control (so its padding replaces the control's own, not adds to it); with the `wrapper` slot there is
 // no inner control, so it goes on the row.
 const itemClass = useMenuItemClass();
-const rowControlClass = () => cn(controlClass, itemClass());
+// `destructive`: red text (the kit's destructive text token) in place of the popover's, as every kit menu draws a destructive item.
+const rowControlClass = () =>
+    cn(
+        controlClass,
+        props.destructive &&
+            'text-destructive-text focus:text-destructive-text',
+        itemClass(),
+    );
 </script>
 <template>
     <DropdownMenuItem

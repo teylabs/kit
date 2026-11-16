@@ -33,7 +33,7 @@ test('every menu row adds it after its own classes; destructive and disabled sta
     assert.match(group, /provideMenuItemClass\(\(\) => props\.itemClass\);/);
     // DropdownItem / DropdownLink: merged last onto the inner control (not the padded-twice row); DropdownItem's wrapper slot has no control, so its row takes it.
     const item = read('Menu/DropdownItem.vue');
-    assert.match(item, /const rowControlClass = \(\) => cn\(controlClass, itemClass\(\)\);/);
+    assert.match(item, /const rowControlClass = \(\) => cn\(controlClass, props\.destructive && 'text-destructive-text focus:text-destructive-text', itemClass\(\)\);/, 'the host class last, after the destructive tone');
     assert.equal((item.match(/:class="rowControlClass\(\)"/g) ?? []).length, 3, 'button, anchor and Inertia link');
     assert.match(item, /:class="\$slots\.wrapper \? itemClass\(\) : undefined"/);
     const link = read('Menu/DropdownLink.vue');
