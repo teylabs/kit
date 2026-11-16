@@ -349,6 +349,9 @@ export interface AvatarProps {
 
 /** A file chooser (`v-model`: File or null); `accept` filters the picker. `current` is the record's file (name, size, link), shown in place of the picker inside a locked LockedForm. */
 export interface FileInputProps {
+    dropzone?: boolean;
+    maxBytes?: number;
+    label?: string;
     id: string;
     accept?: string;
     disabled?: boolean;
