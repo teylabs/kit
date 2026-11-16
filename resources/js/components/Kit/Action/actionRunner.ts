@@ -6,7 +6,7 @@ import { confirmationData } from '@/components/Kit/Overlay/confirmText';
 /*
  * How the kit runs a server action descriptor: ActionBar, HeaderActions, and any page (ActionDialogs hosts its dialogs). A host that listens to `action` runs it
  * itself; otherwise an action with a `confirm` or a `form` asks first (the confirmation, typed when it has `typed` and sent as `confirmation` for the server to
- * re-check, with its `prompt` text; or the host's form), then an Inertia visit. A GET with neither visits at once. A refused visit keeps the dialog open with the
+ * re-check, with its `prompt` text; or the host's form), then an Inertia visit posting the action's `payload` first, then those. A GET with neither visits at once. A refused visit keeps the dialog open with the
  * server's `errors`. Call it from setup; `emit` is the component's `action` emit, left out on a page that runs its own actions.
  */
 export type ActionRunner = ReturnType<typeof useActionRunner>;
@@ -33,7 +33,11 @@ export function useActionRunner(
         router.visit(action.url, {
             method: action.method as
                 'get' | 'post' | 'put' | 'patch' | 'delete',
-            data: { ...confirmationData(confirmation), ...data },
+            data: {
+                ...(action.payload ?? {}),
+                ...confirmationData(confirmation),
+                ...data,
+            },
             preserveScroll: true,
             onStart: () => {
                 running.value = action;
