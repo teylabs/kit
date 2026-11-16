@@ -12384,11 +12384,23 @@ test('ItemStack fanout add cell: one dashed drop zone after the last shot takes 
         const shape = await fanout.evaluate(root => {
             const cell = root.querySelector('[data-item-stack-add-cell]');
             const last = [...root.querySelectorAll('[data-item-stack-item]')].at(-1).getBoundingClientRect();
-            const tile = cell?.querySelector('[data-photo-tile]');
+            const tile = cell?.querySelector('[data-item-stack-add-row]');
             const after = root.querySelector('[data-fixture-after]');
             return { drops: root.querySelectorAll('[data-dropzone]').length, below: cell ? cell.getBoundingClientRect().top >= last.bottom : false, dashed: tile ? getComputedStyle(tile).borderStyle : null, afterFollows: Boolean(cell && after && (cell.compareDocumentPosition(after) & Node.DOCUMENT_POSITION_FOLLOWING)) };
         });
         assert.deepEqual(shape, { drops: 1, below: true, dashed: 'dashed', afterFollows: true });
+        const fit = await fanout.evaluate(root => {
+            const rows = [...root.querySelectorAll('[data-sortable-item]')].map(el => el.getBoundingClientRect());
+            const cell = root.querySelector('[data-item-stack-add-row]').getBoundingClientRect();
+            const icon = root.querySelector('[data-item-stack-add-icon]').getBoundingClientRect();
+            const thumb = root.querySelector('[data-item-stack-item] img').getBoundingClientRect();
+            const after = root.querySelector('[data-fixture-after]').getBoundingClientRect();
+            return { cellH: Math.round(cell.height), rowH: Math.round(rows[0].height), cellW: Math.round(cell.width), rowW: Math.round(rows[0].width), iconLeft: Math.round(icon.left - thumb.left), cellGap: Math.round(cell.top - rows.at(-1).bottom), rowGap: Math.round(rows[1].top - rows[0].bottom), afterGap: Math.round(after.top - cell.bottom) };
+        });
+        assert.ok(fit.cellH <= fit.rowH + 8, `the add cell is a row, not a tile: ${JSON.stringify(fit)}`);
+        assert.equal(fit.cellW, fit.rowW, `full width of the list: ${JSON.stringify(fit)}`);
+        assert.ok(Math.abs(fit.iconLeft) <= 2, `icon left-aligned with the thumbs: ${JSON.stringify(fit)}`);
+        assert.ok(fit.cellGap === fit.rowGap && fit.afterGap === fit.rowGap, `the list's gap rhythm: ${JSON.stringify(fit)}`);
         const drop = fanout.locator('[data-dropzone]');
         await drop.evaluate(el => {
             const data = new DataTransfer();
@@ -12401,7 +12413,7 @@ test('ItemStack fanout add cell: one dashed drop zone after the last shot takes 
         await tab.locator('[data-fixture="slotted-stack"] [data-item-stack-arrange]').click();
         const plain = tab.getByRole('dialog').locator('[data-item-stack-add-cell]');
         await plain.waitFor();
-        assert.equal(await plain.evaluate(el => getComputedStyle(el.querySelector('button')).borderStyle), 'dashed');
+        assert.equal(await plain.evaluate(el => getComputedStyle(el.querySelector('[data-item-stack-add-row]')).borderStyle), 'dashed');
         await plain.getByRole('button', { name: 'Add shot' }).click();
         assert.ok((await tab.evaluate(() => window.kitEvents)).includes('slotted-add'));
     }));

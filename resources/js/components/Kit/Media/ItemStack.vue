@@ -1,5 +1,12 @@
 <script setup lang="ts">
-import { ChevronDown, ChevronUp, Layers, Plus, Trash2 } from '@lucide/vue';
+import {
+    Camera,
+    ChevronDown,
+    ChevronUp,
+    Layers,
+    Plus,
+    Trash2,
+} from '@lucide/vue';
 import { computed, useSlots, watch } from 'vue';
 import SortableList from '@/components/Kit/Data/SortableList.vue';
 import type {
@@ -8,7 +15,7 @@ import type {
 } from '@/components/Kit/Data/sortable';
 import Button from '@/components/Kit/Form/Button.vue';
 import Modal from '@/components/Kit/Overlay/Modal.vue';
-import PhotoTile from '@/components/Kit/Media/PhotoTile.vue';
+import BulkDrop from '@/components/Kit/Form/BulkDrop.vue';
 
 export type StackItem = {
     id: string;
@@ -24,7 +31,7 @@ export type StackItem = {
  * and Previous/Next steps, and a footer with the count, Add and Arrange. Arrange opens the fanout: the whole stack in a column (or a grid) on SortableList,
  * with a grip, keys and Move buttons per item, each opened or removed from its row. The order is the server's: with `actions.reorder` a move sends
  * `{ order, version }` and a 409 rolls back and emits `conflict`. Add, open and remove are emitted for the host to run. `index` and `fanoutOpen` are models.
- * The fanout's header is `title` and `description` (or the #fanout-header slot); with `actions.add` it ends in one dashed add cell (a PhotoTile when `accept`
+ * The fanout's header is `title` and `description` (or the #fanout-header slot); with `actions.add` it ends in one dashed add cell (a BulkDrop row when `accept`
  * is given: drop or browse emits `files`; else a click emits `add`), then the #after slot. The footer's controls are the kit's ghost Button, one 32px row.
  */
 const props = withDefaults(
@@ -356,41 +363,69 @@ const itemLabel = (item: StackItem, at: number) =>
                             </button>
                         </div>
                     </template>
+                    <template v-if="actions.add || slots.after" #after>
+                        <div class="grid gap-1">
+                            <div v-if="actions.add" data-item-stack-add-cell>
+                                <BulkDrop
+                                    v-if="accept"
+                                    name="item-stack"
+                                    :label="`Add ${noun[1]}`"
+                                    :accept="accept"
+                                    :max-bytes="maxBytes"
+                                    :has-files="false"
+                                    multiple
+                                    :disabled="busy"
+                                    compact
+                                    handle-drops
+                                    @files="emit('files', $event)"
+                                >
+                                    <template #default="{ browse }">
+                                        <button
+                                            type="button"
+                                            class="border-border bg-muted/20 text-muted-foreground hover:bg-muted/40 focus-visible:outline-ring flex h-12 w-full items-center gap-2 rounded-md border-2 border-dashed pl-[2.375rem] text-left text-sm focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed"
+                                            :disabled="busy"
+                                            data-item-stack-add-row
+                                            @click="browse"
+                                        >
+                                            <span
+                                                class="flex size-12 shrink-0 items-center justify-center"
+                                                data-item-stack-add-icon
+                                                ><Camera
+                                                    class="size-5"
+                                                    aria-hidden="true"
+                                            /></span>
+                                            <span
+                                                class="text-foreground font-medium"
+                                                >Add {{ noun[1] }}</span
+                                            >
+                                        </button>
+                                    </template>
+                                </BulkDrop>
+                                <button
+                                    v-else
+                                    type="button"
+                                    class="border-border bg-muted/20 text-muted-foreground hover:bg-muted/40 focus-visible:outline-ring flex h-12 w-full items-center gap-2 rounded-md border-2 border-dashed pl-[2.375rem] text-left text-sm focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed"
+                                    :disabled="busy"
+                                    data-item-stack-add
+                                    data-item-stack-add-row
+                                    @click="emit('add')"
+                                >
+                                    <span
+                                        class="flex size-12 shrink-0 items-center justify-center"
+                                        data-item-stack-add-icon
+                                        ><Plus
+                                            class="size-5"
+                                            aria-hidden="true"
+                                    /></span>
+                                    <span class="text-foreground font-medium"
+                                        >Add {{ noun[0] }}</span
+                                    >
+                                </button>
+                            </div>
+                            <slot name="after" :count="count" />
+                        </div>
+                    </template>
                 </SortableList>
-                <div
-                    v-if="actions.add"
-                    :class="[
-                        'mt-3',
-                        orientation === 'grid' ? 'max-w-48' : 'max-w-64',
-                    ]"
-                    data-item-stack-add-cell
-                >
-                    <PhotoTile
-                        v-if="accept"
-                        name="item-stack"
-                        :label="`Add ${noun[1]}`"
-                        :accept="accept"
-                        :max-bytes="maxBytes"
-                        multiple
-                        aspect="4/3"
-                        :busy="busy"
-                        @files="emit('files', $event)"
-                    />
-                    <button
-                        v-else
-                        type="button"
-                        class="border-border bg-muted/20 text-muted-foreground hover:bg-muted/40 focus-visible:outline-ring flex aspect-4/3 w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed"
-                        :disabled="busy"
-                        data-item-stack-add
-                        @click="emit('add')"
-                    >
-                        <Plus class="size-6" aria-hidden="true" />
-                        <span class="text-foreground font-medium"
-                            >Add {{ noun[0] }}</span
-                        >
-                    </button>
-                </div>
-                <slot name="after" :count="count" />
             </div>
         </Modal>
     </section>
