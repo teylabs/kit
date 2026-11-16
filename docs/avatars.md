@@ -31,6 +31,6 @@ person. Comment and note authors (`CommentAuthor`) take `avatar_color`; SectionH
 
 ## An activity feed
 
-A feed that draws its own initials discs (Storyfeed) should get the same colour. Pass it on the actor entity: Storyfeed's `Avatar::color()` uses a declared
-`media.color` first, then `data.avatar_color`, and only then hashes the entity id into its own palette. Prefer `media.color`: Storyfeed then picks black or
-white initials by contrast, while a `data.avatar_color` disc always gets white initials (every kit colour is chosen for white, so either works).
+An activity feed that draws its own initials discs should get the same colour: pass `AvatarColor::of($user)` on the actor, as the feed's declared colour
+(for example `media.color`) or as `avatar_color`, so it does not hash its own. A declared colour lets a feed pick black or white initials by contrast; every
+kit colour is chosen for white initials, so either works.
