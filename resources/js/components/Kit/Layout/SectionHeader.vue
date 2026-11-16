@@ -15,6 +15,7 @@ type AvatarDescriptor = {
     initials: string;
     src?: string | null;
     src2x?: string | null;
+    color?: string | null;
 };
 const props = withDefaults(
     defineProps<{
@@ -62,6 +63,7 @@ const original = (action: ActionDescriptor) =>
                 :initials="avatar.initials"
                 :src="avatar.src"
                 :src2x="avatar.src2x"
+                :color="avatar.color"
             />
             <div class="grid min-w-0 gap-0.5">
                 <div class="flex min-w-0 items-baseline gap-2">
