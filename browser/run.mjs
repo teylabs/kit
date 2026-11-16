@@ -5599,6 +5599,8 @@ async function commentsPage(query, run, { width = 1280 } = {}) {
         await run({ tab, writes, fetched, refuseWith: (fn) => { refuse = fn; } });
         assert.deepEqual(errors, []);
     } finally {
+        // A route still in flight (an Inertia visit the test did not wait for) would evaluate on a closed page after the test ends.
+        await Promise.all(context.pages().map((p) => p.unrouteAll({ behavior: 'ignoreErrors' })));
         await context.close();
     }
 }
