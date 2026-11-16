@@ -16,7 +16,8 @@ withDefaults(
         maxBytes: number;
         multiple?: boolean;
         maxFiles?: number;
-        aspect?: 'square' | '4/3';
+        /** `fill`: no aspect ratio; the tile fills the height the host gives it (to match a sibling, as ItemStack `fill`). */
+        aspect?: 'square' | '4/3' | 'fill';
         disabled?: boolean;
         /** Shows progress on the tile (a string is its text) and blocks adding. */
         busy?: boolean | string;
@@ -48,6 +49,7 @@ const emit = defineEmits<{
         :direct="direct"
         compact
         handle-drops
+        :class="aspect === 'fill' && 'h-full'"
         @files="emit('files', $event)"
         @uploaded="emit('uploaded', $event)"
     >
@@ -55,7 +57,11 @@ const emit = defineEmits<{
             <button
                 type="button"
                 :class="[
-                    aspect === 'square' ? 'aspect-square' : 'aspect-4/3',
+                    aspect === 'fill'
+                        ? 'h-full'
+                        : aspect === 'square'
+                          ? 'aspect-square'
+                          : 'aspect-4/3',
                     'border-border bg-muted/20 text-muted-foreground hover:bg-muted/40 focus-visible:outline-ring flex w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed',
                 ]"
                 :disabled="disabled || !!busy"
