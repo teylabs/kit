@@ -12,7 +12,7 @@ const page = flat(read('../js/components/Kit/Layout/Page.vue'));
 const layout = read('shell/pages/Workspace/Layout.vue.stub');
 
 test('Page draws the trail in the shell, before its header and independent of the heading', () => {
-    assert.match(page, /<Breadcrumbs v-if="drawsTrail" \/> <div v-if="headingText \|\| \$slots\.actions[ |]/);
+    assert.match(page, /<Breadcrumbs v-if="drawsTrail" \/> <div v-if="headingText \|\| (\(!actionsOnTabs && \(?)?\$slots\.actions[ |]/);
     assert.match(page, /const drawsTrail = computed\(\(\) => inShell && !nested && shellTrail\?\.value !== 'bar' && !page\.props\.layout\?\.navigationHeader\);/, 'once: not under the shell\'s bar, not again in a nested <Page>, and not on a page whose "Back to <parent>" strip replaces it');
     assert.match(page, /const nested = inject\('kit\.page', false\); provide\('kit\.page', true\);/);
     assert.ok(page.indexOf('<Breadcrumbs') < page.indexOf('data-slot="page-header"'));
