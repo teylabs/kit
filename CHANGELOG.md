@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Changed
+
+- **Menu items show their description, wrapping, in every kit menu** (Jasper's request). An action descriptor's `description` now shows under its label in header More menus, ActionBar and ButtonGroup menus and split buttons, as RowActions already did; RowActions no longer truncates it to one line. A `DropdownItem` `#caption` and an action's description are hidden from the item's name and read as its description (aria-describedby), so the name stays the label. Menus whose actions already carry a description now show it. README, "Menu descriptions", says when to add one.
+
+## Unreleased
+
 ### Added
 
 - `DescriptionList` `layout` `grid` (the term over its value, in `columns` 1 to 3 from `sm` up) and `compact` (the pairs in one wrapping row), and `highlight` on an item (the success tint, a check and a spoken "(matches)"). The default `inline` layout is unchanged (#1044).

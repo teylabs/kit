@@ -3,7 +3,7 @@ import { Link } from '@inertiajs/vue3';
 import { DropdownMenuItem } from 'reka-ui';
 import { useMenuItemClass } from '@/components/Kit/Action/menuItemClass';
 import { cn } from '@/components/Kit/utils';
-import type { Component } from 'vue';
+import { useId, type Component } from 'vue';
 import { useMenuItem, useMenuPanel } from '@/components/Kit/Menu/useMenuPanel';
 
 // One entry in a kit menu (DropdownItem.md): a button, a plain link or an Inertia link, with an optional icon and caption, or the caller's own control in the `wrapper` slot. Must sit inside a kit menu. Caller attributes land on the inner control.
@@ -28,6 +28,8 @@ const controlClass =
     'block w-full px-4 py-2 text-left text-sm/5 text-popover-foreground outline-hidden';
 const contentClass = 'flex items-start gap-2';
 const captionClass = 'block text-xs text-pretty text-muted-foreground';
+// The `caption` is hidden from the item's name and read as its description (aria-describedby), so the name stays the label.
+const captionId = `dropdown-caption-${useId()}`;
 const close = () => menu?.close();
 const chosen = () =>
     menu ? menu.afterClose(() => props.onChosen?.()) : props.onChosen?.();
@@ -41,6 +43,7 @@ const rowControlClass = () => cn(controlClass, itemClass());
         as="div"
         class="data-highlighted:bg-accent data-highlighted:text-accent-foreground flex items-start outline-hidden transition-colors"
         :class="$slots.wrapper ? itemClass() : undefined"
+        :aria-describedby="$slots.caption ? captionId : undefined"
         @click.capture="item.onClickCapture"
         @select="item.onSelect"
     >
@@ -57,7 +60,11 @@ const rowControlClass = () => cn(controlClass, itemClass());
                     <span class="shrink-0"><slot name="icon" /></span>
                     <span class="min-w-0">
                         <span class="block"><slot /></span>
-                        <span v-if="$slots.caption" :class="captionClass"
+                        <span
+                            v-if="$slots.caption"
+                            :id="captionId"
+                            aria-hidden="true"
+                            :class="captionClass"
                             ><slot name="caption"
                         /></span>
                     </span>
@@ -74,7 +81,11 @@ const rowControlClass = () => cn(controlClass, itemClass());
                     <span class="shrink-0"><slot name="icon" /></span>
                     <span class="min-w-0">
                         <span class="block"><slot /></span>
-                        <span v-if="$slots.caption" :class="captionClass"
+                        <span
+                            v-if="$slots.caption"
+                            :id="captionId"
+                            aria-hidden="true"
+                            :class="captionClass"
                             ><slot name="caption"
                         /></span>
                     </span>
@@ -94,6 +105,8 @@ const rowControlClass = () => cn(controlClass, itemClass());
                         <span class="block"><slot /></span>
                         <span
                             v-if="$slots.caption"
+                            :id="captionId"
+                            aria-hidden="true"
                             :class="[captionClass, 'mt-1']"
                             ><slot name="caption"
                         /></span>
