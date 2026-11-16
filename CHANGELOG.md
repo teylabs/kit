@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+Features affected: none (kit components only).
+
+### Added
+
+- **ItemStack fanout**: `title` and `description` props (defaults keep "Arrange <label>" and the count) and a `#fanout-header` slot; one dashed add cell after the last item (a PhotoTile drop zone emitting `files` when `accept` is given, else a click emitting `add`) and an `#after` slot (docs/media.md).
+
+### Changed
+
+- **ItemStack footer**: the label, + and the ⋯ trigger share one centred 32px line with equal padding both sides, and the footer's controls are the kit's ghost Button, with a visible hover fill and focus-visible ring. The fanout's bare "Add <item>" link is replaced by the add cell.
+
 ## v0.31.1
 
 Features affected: none (kit components only).

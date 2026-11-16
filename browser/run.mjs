@@ -12357,6 +12357,93 @@ test('ItemStack on a 220px tile: the host footer label stays readable, the arrow
         assert.equal((await stack.locator('[data-item-stack-announce]').textContent()).trim(), 'shot 2 of 3');
         if (process.env.SHOT) await tab.locator('[data-fixture="narrow-stack"]').screenshot({ path: process.env.SHOT });
     }));
+test('ItemStack fanout header: title and description replace "Arrange <label>" and the count, and #fanout-header writes its own line', () =>
+    mediaTab(async (tab) => {
+        await tab.locator('[data-fixture="headed-stack"] [data-item-stack-arrange]').click();
+        const dialog = tab.getByRole('dialog');
+        await dialog.locator('[data-item-stack-fanout]').waitFor();
+        assert.equal((await dialog.getByRole('heading').first().innerText()).trim(), 'Listing shots');
+        assert.match(await dialog.innerText(), /Comparable 2 · 1996 Sample Tractor/);
+        assert.doesNotMatch(await dialog.innerText(), /Arrange Headed|3 shots/);
+        await tab.keyboard.press('Escape');
+        await dialog.waitFor({ state: 'detached' });
+        await tab.locator('[data-fixture="slotted-stack"] [data-item-stack-arrange]').click();
+        const slotted = tab.getByRole('dialog');
+        await slotted.locator('[data-fixture-header]').waitFor();
+        assert.equal((await slotted.getByRole('heading').first().innerText()).trim(), 'Arrange Slotted', 'no title: the default stays');
+        assert.equal(await slotted.locator('[data-item-stack-fanout-header]').innerText(), 'Listing shots · 3 on file');
+        assert.doesNotMatch(await slotted.innerText(), /3 shots/, 'the slot replaces the count');
+    }));
+
+test('ItemStack fanout add cell: one dashed drop zone after the last shot takes dropped files and emits files, #after follows it; without accept the cell emits add', () =>
+    mediaTab(async (tab) => {
+        await tab.locator('[data-fixture="headed-stack"] [data-item-stack-arrange]').click();
+        const dialog = tab.getByRole('dialog');
+        const fanout = dialog.locator('[data-item-stack-fanout]');
+        await fanout.waitFor();
+        const shape = await fanout.evaluate(root => {
+            const cell = root.querySelector('[data-item-stack-add-cell]');
+            const last = [...root.querySelectorAll('[data-item-stack-item]')].at(-1).getBoundingClientRect();
+            const tile = cell?.querySelector('[data-photo-tile]');
+            const after = root.querySelector('[data-fixture-after]');
+            return { drops: root.querySelectorAll('[data-dropzone]').length, below: cell ? cell.getBoundingClientRect().top >= last.bottom : false, dashed: tile ? getComputedStyle(tile).borderStyle : null, afterFollows: Boolean(cell && after && (cell.compareDocumentPosition(after) & Node.DOCUMENT_POSITION_FOLLOWING)) };
+        });
+        assert.deepEqual(shape, { drops: 1, below: true, dashed: 'dashed', afterFollows: true });
+        const drop = fanout.locator('[data-dropzone]');
+        await drop.evaluate(el => {
+            const data = new DataTransfer();
+            data.items.add(new File(['x'], 'kitchen.jpg', { type: 'image/jpeg' }));
+            for (const type of ['dragenter', 'dragover', 'drop']) el.dispatchEvent(new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: data }));
+        });
+        await tab.waitForFunction(() => window.kitEvents.includes('headed-files kitchen.jpg'));
+        await tab.keyboard.press('Escape');
+        await dialog.waitFor({ state: 'detached' });
+        await tab.locator('[data-fixture="slotted-stack"] [data-item-stack-arrange]').click();
+        const plain = tab.getByRole('dialog').locator('[data-item-stack-add-cell]');
+        await plain.waitFor();
+        assert.equal(await plain.evaluate(el => getComputedStyle(el.querySelector('button')).borderStyle), 'dashed');
+        await plain.getByRole('button', { name: 'Add shot' }).click();
+        assert.ok((await tab.evaluate(() => window.kitEvents)).includes('slotted-add'));
+    }));
+
+test('ItemStack footer balance: "1 of 1", + and ⋯ share one centred line at one height, with equal padding both sides', () =>
+    mediaTab(async (tab) => {
+        const footer = tab.locator('[data-fixture="single-stack"] [data-item-stack-footer]');
+        const box = await footer.evaluate(el => {
+            const r = el.getBoundingClientRect();
+            const style = getComputedStyle(el);
+            const parts = [el.querySelector('[data-item-stack-footer-label]'), el.querySelector('[data-item-stack-add]'), el.querySelector('[data-row-menu]')].map(n => n.getBoundingClientRect());
+            return { left: parseFloat(style.paddingLeft), right: parseFloat(style.paddingRight), heights: parts.map(p => Math.round(p.height)), centres: parts.map(p => Math.round(p.top + p.height / 2 - r.top)), endGap: Math.round(r.right - parts[2].right), startGap: Math.round(parts[0].left - r.left) };
+        });
+        assert.equal((await footer.locator('[data-item-stack-footer-label]').innerText()).trim(), '1 of 1');
+        assert.ok(box.left >= 8 && box.left === box.right, `padding ${JSON.stringify(box)}`);
+        assert.equal(box.startGap, box.endGap, `equal space both sides: ${JSON.stringify(box)}`);
+        assert.equal(new Set(box.heights).size, 1, `one height: ${JSON.stringify(box)}`);
+        assert.equal(new Set(box.centres).size, 1, `one centre line: ${JSON.stringify(box)}`);
+    }));
+
+test('ItemStack footer: + and ⋯ show a hover fill and a focus-visible ring (the kit ghost Button)', () =>
+    mediaTab(async (tab) => {
+        const footer = tab.locator('[data-fixture="single-stack"] [data-item-stack-footer]');
+        for (const selector of ['[data-item-stack-add]', '[data-row-menu]']) {
+            const control = footer.locator(selector);
+            const look = () => control.evaluate(el => { const s = getComputedStyle(el); return { bg: s.backgroundColor, ring: s.boxShadow, outline: s.outlineStyle !== 'none' && parseFloat(s.outlineWidth) > 0 }; });
+            await tab.mouse.move(0, 0);
+            const rest = await look();
+            await control.hover();
+            await tab.waitForTimeout(300);
+            const hovered = await look();
+            assert.notEqual(hovered.bg, rest.bg, `${selector} hover changes the fill`);
+            await tab.mouse.move(0, 0);
+            await tab.keyboard.press('Shift');
+            await control.focus();
+            const focused = await look();
+            assert.ok(await control.evaluate(el => el.matches(':focus-visible')), `${selector} focus is visible`);
+            assert.ok(focused.ring !== 'none' && focused.ring !== rest.ring, `${selector} focus draws the kit's ring, not only the browser outline: ${JSON.stringify(focused)}`);
+            if (process.env.SHOT_DIR) await tab.locator('[data-fixture="single-stack"]').screenshot({ path: `${process.env.SHOT_DIR}/footer-focus-${selector.replace(/\W/g, '')}.png` });
+        }
+    }));
+
 test('MediaCollection tiles share one baseline: no row above the picture; the grip sits in the footer beside the name and the menu; Move earlier/later are in the menu; tiles fit a narrow container', () =>
     mediaTab(async (tab) => {
         const strip = tab.locator('[data-media-collection="strip"]');
