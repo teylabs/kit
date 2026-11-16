@@ -39,6 +39,10 @@ You no longer pass `errors[name('amount')]` to the Field yourself. A Field in a 
 
 A compact bar is usually not sticky: pass `:sticky="false"` when it sits in a small box. It carries `data-density="compact"`.
 
+## InputSelect: select-only or searchable
+
+A short fixed list is never typeable. `searchable` left unset is off for up to 8 local options (`SEARCH_THRESHOLD` in `inputSelect.ts`) and on above that and for `filter="remote"`; pass it to override. A select that is not searchable is a select-only combobox that reads as a button: a pointer cursor, no text caret or selection, and no on-screen keyboard (`inputmode="none"`, `data-select-only`). Only a searchable select shows a text cursor. For a choice that changes what a page shows (a sort order, a view), use `InlineDropdown` (docs/inline-dropdown.md) rather than a bordered field. The browser job (`?inline-dropdown`) reads both kinds: the select-only field's cursor, caret and `inputmode`, typing into it changing nothing, and the searchable one's text cursor.
+
 ## Coverage
 
 - **Node:** `tests/js/number.test.mjs` covers `fieldError`: bracket, mixed and dot names against dot-keyed and bracket-keyed errors, another field of the same row, an index that is a prefix of another (`2` and `20`) and an exact key winning.

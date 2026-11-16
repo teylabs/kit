@@ -5,6 +5,7 @@ import MediaCollection from '@/components/Kit/Media/MediaCollection.vue';
 import MediaGallery from '@/components/Kit/Media/MediaGallery.vue';
 import PhotoField from '@/components/Kit/Media/PhotoField.vue';
 import PhotoTile from '@/components/Kit/Media/PhotoTile.vue';
+import RowActions from '@/components/Kit/Table/RowActions.vue';
 
 // The media family (?media): a read-only MediaGallery capped at three, MediaCollection as tiles (badge, selected, dim, pending, tile actions) and empty
 // as a photo tile, an ItemStack on a stand-in versioned reorder server (window.kitServer.stale() makes the next write stale), and PhotoField with and
@@ -42,6 +43,17 @@ const photos = {
         { id: 'p3', name: 'Garage', mime: 'image/jpeg', src: pixel, thumb: null, pending: true },
     ],
 };
+// Tiles labelled by the host (item.label, or the #tile-label slot), with long file names that the ⋯ menu's subject header cuts in the middle.
+const labelled = {
+    collection: 'labelled',
+    version: '1',
+    items: [
+        { id: 'l1', name: 'Screenshot-2026-11-16-at-10.36.11-AM.png', label: 'Feature', caption: 'Photo 1 · in report', mime: 'image/png', src: pixel, thumb: pixel },
+        { id: 'l2', name: 'listing-photo-from-the-dealer-website-2026.jpg', label: 'Photo 2', mime: 'image/jpeg', src: pixel, thumb: pixel },
+        { id: 'l3', name: 'IMG_20261116_103611_HDR_portrait_mode.jpg', mime: 'image/jpeg', src: pixel, thumb: pixel },
+    ],
+};
+const shotMenu = [{ key: 'remove', label: 'Remove', url: '#', method: 'delete', destructive: true, icon: 'trash', confirm: null }];
 const direct = { request: '/uploads', confirm: '/uploads/confirm' };
 const shots = ref(['One', 'Two', 'Three'].map((label, index) => ({ id: `s${index + 1}`, label, thumb: pixel, preview: pixel })));
 const shot = ref(0);
@@ -82,6 +94,18 @@ async function persist(order: string[], version: string | number | null) {
             @action="(key, item) => events.push(`action ${key} ${item.id}`)"
             @show="(item) => events.push(`show ${item.id}`)"
         />
+        <div data-fixture="labelled" class="bg-background text-foreground p-2" style="width: 420px">
+            <MediaCollection
+                :collection="labelled"
+                label="Labelled"
+                :accept="['image/jpeg']"
+                :max-bytes="10485760"
+                layout="tiles"
+                :tile-actions="[{ key: 'remove', label: 'Remove', destructive: true, icon: 'trash' }]"
+            >
+                <template #tile-label="{ item, index }"><template v-if="item.id === 'l3'">Slot {{ index + 1 }}</template><template v-else>{{ item.label }}</template></template>
+            </MediaCollection>
+        </div>
         <div data-fixture="viewer">
             <MediaGallery ref="viewer" :items="attachments" label="Viewer" :thumbnails="false" />
             <button type="button" data-open-viewer @click="viewer?.show('a4')">Open back</button>
@@ -158,6 +182,23 @@ async function persist(order: string[], version: string | number | null) {
         <div data-fixture="empty-photo">
             <PhotoField :photo="null" label="Workspace logo" :accept="['image/png']" :max-bytes="1048576" :actions="{ replace: { ticket: '/uploads', register: '/logo' } }" />
         </div>
+        <div data-fixture="emit-photo">
+            <PhotoField
+                :photo="{ thumb: pixel, card: pixel }"
+                label="Cover"
+                title="Swap the cover"
+                :accept="['image/png']"
+                :max-bytes="1048576"
+                :actions="{ replace: true, remove: { url: '/cover', method: 'delete', confirm: { title: 'Take the cover off?', description: 'Lists show a placeholder instead.', label: 'Take off' } } }"
+                @files="(files) => events.push(`files ${files.map((f) => f.name).join(',')}`)"
+            />
+        </div>
+        <div data-fixture="endpoint-photo">
+            <PhotoField :photo="null" label="Badge" :accept="['image/png']" :max-bytes="1048576" :actions="{ replace: { url: '/badge', method: 'post' } }" :version="7" />
+        </div>
+        <div data-fixture="fill-photo" style="height: 320px; width: 420px">
+            <PhotoField :photo="{ thumb: pixel, card: pixel }" label="Feature photo" :accept="['image/jpeg']" :max-bytes="10485760" :actions="{ replace: true }" size="fill" />
+        </div>
         <div data-fixture="fill" style="height: 260px; width: 240px">
             <ItemStack :items="shots" label="Filled" :noun="['shot', 'shots']" fill>
                 <template #footer-label="{ index, count }">Listing · {{ index + 1 }} of {{ count }}</template>
@@ -165,6 +206,21 @@ async function persist(order: string[], version: string | number | null) {
         </div>
         <div data-fixture="tile-fill" style="height: 300px; width: 240px">
             <PhotoTile name="fill" label="Add photos" :accept="['image/jpeg']" :max-bytes="10485760" aspect="fill" />
+        </div>
+        <div data-fixture="narrow-stack" class="bg-background text-foreground" style="width: 220px">
+            <ItemStack :items="shots" label="Narrow" :noun="['shot', 'shots']" :actions="{ add: true }" :arrange="false">
+                <template #footer-label="{ index, count }">Listing · {{ index + 1 }} of {{ count }}</template>
+                <template #menu="{ item, index }"
+                    ><RowActions
+                        :actions="shotMenu"
+                        :label="`Actions for shot ${index + 1}`"
+                        variant="menu"
+                        trigger="vertical"
+                        :intercept="['remove']"
+                        :subject="{ title: `Listing-${item.label}-screenshot-2026-11-16.png`, caption: `Listing · ${index + 1} of ${shots.length}`, kind: 'file' }"
+                        @act="events.push(`shot-remove ${item.id}`)"
+                /></template>
+            </ItemStack>
         </div>
     </main>
 </template>

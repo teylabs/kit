@@ -91,6 +91,7 @@ const header = computed(
                     :initials="author!.initials"
                     :src="author!.avatar_url"
                     :src2x="author!.avatar_url_2x"
+                    :color="author!.avatar_color"
                     size="xs"
                 />
                 <span

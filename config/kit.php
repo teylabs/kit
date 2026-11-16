@@ -223,6 +223,10 @@ return [
         'crop_to_ratio' => true,
     ],
 
+    // The touched_at pattern (docs/touched-at.md): `console` false turns touching off in artisan commands and queue workers (imports, backfills),
+    // where Touch::without(fn) is the per-block switch.
+    'touch' => ['console' => true],
+
     // The models the kit reads and writes. `user`: the host's user model; null uses the `users` auth provider's model. `workspace`: null follows
     // concierge.models.workspace and multitenancy.tenant_model (set there). The domain models (since 0.19) are the kit's own classes, on the kit_ tables, until
     // the app adopts their feature: `php artisan kit:scaffold <feature> --adopt` writes the app's model (it uses the kit's trait and implements its contract),

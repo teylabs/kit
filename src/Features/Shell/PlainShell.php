@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Spatie\LaravelData\Data;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Core\Users;
+use Tey\Kit\Features\Core\AvatarColor;
 use Tey\Kit\Features\Shell\Data\ShellData;
 use Tey\Kit\Features\Shell\Data\ShellKind;
 
@@ -32,6 +33,6 @@ final class PlainShell implements ShellSource
         $parts = preg_split('/\s+/', trim($name), -1, PREG_SPLIT_NO_EMPTY) ?: [];
         $initials = mb_strtoupper(count($parts) > 1 ? mb_substr($parts[0], 0, 1).mb_substr($parts[count($parts) - 1], 0, 1) : mb_substr($parts[0] ?? '?', 0, 2));
 
-        return new ShellData(['label' => 'Your account', 'url' => $home, 'current' => false], $product, null, null, [], ['name' => $name, 'email' => (string) $user->email, 'initials' => $initials, 'avatar_url' => null, 'avatar_url_2x' => null, 'items' => []], $links, $footer);
+        return new ShellData(['label' => 'Your account', 'url' => $home, 'current' => false], $product, null, null, [], ['name' => $name, 'email' => (string) $user->email, 'initials' => $initials, 'avatar_url' => null, 'avatar_url_2x' => null, 'avatar_color' => AvatarColor::of($user), 'items' => []], $links, $footer);
     }
 }

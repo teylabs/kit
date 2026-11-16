@@ -78873,7 +78873,7 @@
             "core": {
                 "database/migrations/kit/core/0001_01_02_000100_create_kit_core_tables.php": "6ebd68bba9944d628919b630ce018866e152a81e725b04a06b8d6e0b2838eebd",
                 "database/migrations/kit/core/0001_01_02_000101_create_kit_meta_table.php": "6bde147f20d309c08bbad0d703c13a4ed8fab2e17a3cf19c17eda8aadca54991",
-                "resources/css/kit.css": "0ad9b365d2bf5cbd541c6d424382b0e42bb64737d555362f3f2ca117cd4b9b50"
+                "resources/css/kit.css": "b457e69c714299ff7933443b41c0860f1ea8df603eddc2a97b47309b9c5bef7d"
             },
             "workspaces": {
                 "database/migrations/kit/workspaces/0001_01_02_000200_create_kit_workspaces_table.php": "ea545bc8318275e405cd9f8b94cccbb0fffdff19f244f39ad6b79d1077750717",
@@ -78912,14 +78912,14 @@
                 "resources/js/pages/Workspace/Partials/PrimaryNav.vue": "e875410d91343ff66b0e1268e33d52f08ccdef0f4801e95e02c34e85971d35d2",
                 "resources/js/pages/Workspace/Partials/PublicMeta.vue": "39b1498a977e0c661f25c0f3bb3329ceda2c10c639c736d671f6ab02dd810d14",
                 "resources/js/pages/Workspace/Partials/PublicShell.vue": "955d59e4344b0b5017d78c82fb05ea83dbaaf7483447473fe3f2677930157222",
-                "resources/js/pages/Workspace/Partials/ShellDrawer.vue": "0753d173d65779f9e2b49ae0dad00479d800c976df540ab746edde1b7bf9926e",
+                "resources/js/pages/Workspace/Partials/ShellDrawer.vue": "90417738833906eccfa273ee92df72ef0b7aa17ebd3f1e894381282d8d49add1",
                 "resources/js/pages/Workspace/Partials/SubNav.vue": "d684efd050635829e6872dc91626100e8f40a69bc05cd7762ac8816e9ad1851b",
-                "resources/js/pages/Workspace/Partials/UserAvatar.vue": "2c9919fbd336300f71a011f069d8a73f3295d84c1331938dac8f8facf2ad2b11",
-                "resources/js/pages/Workspace/Partials/UserMenu.vue": "3394bca327bae9f2cbb587850d1ba91f58818135d26e389a9dfe05c460cc8c59",
+                "resources/js/pages/Workspace/Partials/UserAvatar.vue": "76e2354eb3be23ae8047b030904ec3667f7bd0c5f885b902442fbe12e0554874",
+                "resources/js/pages/Workspace/Partials/UserMenu.vue": "5eeae5f630fab7b2c2e646dab9e3003f1dabc7a3368fefb91818524dea8921a5",
                 "resources/js/pages/Workspace/Partials/Wordmark.vue": "0f70b0decf2e484d6629ae55b72286ae0183aa2a530bc2e5758fffac33dae999",
                 "resources/js/pages/Workspace/Partials/WorkspaceSwitcher.vue": "2676e4b592af5719e66efc1960b1693763a1af30a3705aa263b2719a25120d50",
                 "resources/js/pages/Workspace/Partials/documentTitle.ts": "69f0520d41bce6d10d69afec05f71c1c6a124b367dac0ac18bdf1ef426d90480",
-                "resources/js/pages/Workspace/Partials/focusShell.ts": "922a46b5bcfd5f78c6115897da98499318a986396b4f06417e315467a96f44d0",
+                "resources/js/pages/Workspace/Partials/focusShell.ts": "4af9dae98666a043eed36e34a5fc2f3ce2a19602f8d80ed161e00bab5bc3b33b",
                 "resources/js/pages/Workspace/Partials/index.ts": "64a8d168472974c90866497ac50c34ec6f3099ed4beeb36accab6371941e9061",
                 "resources/js/pages/Workspace/Partials/workspaceLandings.ts": "63fa3d596cc58468d44c9816b24c4c542296f74abcc0b47a50c487314c39ee82",
                 "resources/js/types/kit-shell.d.ts": "fbd6937356d02d074cf2eaef33e4ab4f9e63d423f4241556896eff0ed5d534ab"
@@ -78938,7 +78938,7 @@
                 "resources/js/pages/Auth/ResetPassword/Page.vue": "8182dfbaa2d5c995df168fb7a99e38ae0266062e88fb17c74da8c373bf138d36",
                 "resources/js/pages/Auth/TwoFactor/Page.vue": "43a524ed6bfa6a135fc85856760e1811f2f2fc847ce36bef197ccb7602d78bd7",
                 "resources/js/pages/Auth/VerifyEmail/Page.vue": "f8f0cb86d9080082feb968a5e8c48da96d0649296e0a45385a8b963febca625c",
-                "resources/js/pages/Welcome/Photo/Page.vue": "e1bf84cc9df83024527c727f9bae54dee79f7782539c999601a95dc9c82ea19d",
+                "resources/js/pages/Welcome/Photo/Page.vue": "e3878780d60ef65749bf69b2911912c3b918ba1b428ea8c770aac1a0157fef22",
                 "resources/js/pages/Welcome/Timezone/Page.vue": "41cdac65187ba4478a8ae7b53af5651d5eb0613697844ebb944bbda61a0fc26f"
             },
             "workspace-ui": {
@@ -78948,7 +78948,7 @@
                 "resources/js/pages/Workspace/Account/Delete/Page.vue": "c4e24dd2701d1613e47c0a4427431d3d49bc4b5cbb2f0a05650c340bfcaf0f65",
                 "resources/js/pages/Workspace/Account/Layout.vue": "1e9c6e28d5244897a15e3e90bf668cd1e268d155e11da0a870c6f00fa1b50f28",
                 "resources/js/pages/Workspace/Account/Password/Page.vue": "ea15ea56ffeb840fa17304af09ac2b28638af410cbee9f23f85d769779afd452",
-                "resources/js/pages/Workspace/Account/Profile/Page.vue": "95482dafca5f97bdd7ba67e4531d17a4be48b71beef969fa724dfbd6446b635f",
+                "resources/js/pages/Workspace/Account/Profile/Page.vue": "8731b6a01213b29d1c0b95af05cf247e5abdec9acf564127b75800124297f6b0",
                 "resources/js/pages/Workspace/Account/Security/Page.vue": "9357d3712de10f98d98a22ac9c3b031341293c8e9f6c999b3b566c52a958551c",
                 "resources/js/pages/Workspace/Dashboard/Page.vue": "8c024460a6eb3a3383019c01416586a16d720ddcdd2aad8f7a26a4b9a0dd8c0a",
                 "resources/js/pages/Workspace/Dashboard/Partials/ActivityWidget.vue": "ec4d2490e7a38f86358d47728446e38c236002f870c61c74e7dc4ac1e6dbf7b8",
@@ -78956,7 +78956,7 @@
                 "resources/js/pages/Workspace/Dashboard/Partials/SetupWidget.vue": "f333e091db4197508d3d6c49e825394a0496590b43d42c497ef146443ce870ac",
                 "resources/js/pages/Workspace/Dashboard/Partials/WidgetCard.vue": "9310f15e276aca92a71ce92e343ae1dcbf8b10214b0818144a0a5986ecc45499",
                 "resources/js/pages/Workspace/Dashboard/Partials/WidgetGrid.vue": "d9b0e1f32e903c226c27608ae2a9df62dead7f10f94cc373512fe111bf3199b9",
-                "resources/js/pages/Workspace/Dashboard/Partials/YouWidget.vue": "7863783f3016096742dd1db65b0abd0bb1bab7d0081749a34d63be0fbbb0f886",
+                "resources/js/pages/Workspace/Dashboard/Partials/YouWidget.vue": "d8b46885857a4fb0e1f52c3e67ed69847ccb5c1e93efdb421b9145bc27895723",
                 "resources/js/pages/Workspace/Dashboard/Partials/types.ts": "abd0443e7d89d9b572e01b84edd4b6ef0a252860ee7afcf96b7a7abf9feb2487",
                 "resources/js/pages/Workspace/Error/Page.vue": "7cc70dbafdfcaeb0fe79d8b5b757b05e57a5ecbfd23b631c11c2d30acc4f8a7a",
                 "resources/js/pages/Workspace/Index/Page.vue": "6835cb51de15657d00a9c31bfb327defeabb32dba7c005123ce3cd5b4132fda8",
@@ -78967,7 +78967,7 @@
                 "resources/js/pages/Workspace/Settings/Layout.vue": "f093dac686319def0d25445a2bfc4dff7a5bd1d3c256d46284364c1fef5a43be",
                 "resources/js/pages/Workspace/Settings/People/ChangeRole/Page.vue": "77553cf6769c149ee8ba8d58456bb94ab16d033e9ff461a47e650d75ec3b7c44",
                 "resources/js/pages/Workspace/Settings/People/Invite/Page.vue": "4a5b579375d0edb4391c8f6037d465531442c1261053ae16cd166cab30e092f2",
-                "resources/js/pages/Workspace/Settings/People/Page.vue": "a877f79319aca75eb3ebe94a4536f3c22419bcdee3e3f781a9b5a5070768062e",
+                "resources/js/pages/Workspace/Settings/People/Page.vue": "a835a10fdf01a871abbf09ea88328ed4430679e74e414cdb3e0f71a22aee8512",
                 "resources/js/pages/Workspace/Settings/People/Transfer/Page.vue": "97c3e9bc139c966271902082f5f76b10b0f2b3f14aa683ca779d4b843fc6fb75",
                 "resources/js/pages/Workspace/Settings/Placeholder/Page.vue": "85fdc380059f7679cc9846564f7a98eeb9b907e44b93098654583d5f8573be4a"
             },

@@ -1,5 +1,38 @@
 # Changelog
 
+## v0.31.0
+
+Features affected: **shell** and **workspace-ui** (their avatar pages pass the person's colour). After `composer update tey/kit`, take each page you never edited:
+
+- `php artisan kit:scaffold shell --diff --only=resources/js/pages/Workspace/Partials` (UserAvatar, UserMenu, ShellDrawer, focusShell)
+- `php artisan kit:scaffold workspace-ui --diff --only=resources/js/pages/Workspace/Dashboard/Partials/YouWidget.vue`
+- `php artisan kit:scaffold workspace-ui --diff --only=resources/js/pages/Workspace/Settings/People/Page.vue`
+
+then `--force=<path>` for each. An edited page keeps its neutral avatar until you add `:color` yourself.
+
+### Added
+
+- MediaCollection tiles: the footer shows the host's `item.label` (or the `#tile-label="{ item, index }"` slot) in place of the file name; the default stays the name. The ⋯ menu opens with the file name as its subject header (cut in the middle, the extension kept) and `item.caption` under it.
+- docs/media.md shows ItemStack's `#menu` with the same file-name subject header as a MediaCollection tile.
+- **EmailMessage forwards**: forwarded-message blocks (Gmail, Apple Mail, Outlook; nested ones in order) fold into collapsed "Forwarded from <sender>, <date>" disclosures holding their header lines, while every message's text stays visible. On by default; a body with no forward is unchanged; `:forwarded="false"` opts out. `splitForwards()` in `Kit/Text/emailForwards.ts` (docs/text.md).
+- **One avatar colour per person** (docs/avatars.md): `AvatarColor::of($user)` derives a stable colour from the user's key (or uses a stored `avatar_color`), from a palette that carries white initials in both themes. Avatar takes `color` (or `identity`, derived in the browser by the matching `avatarColor()`) and draws it instead of the neutral disc. The shell user, People members, the You widget and comment authors carry `avatar_color`, so the header, notes, comments and an activity feed (pass it on the feed's actor as `media.color` or `avatar_color`) show one colour for one person.
+- **InlineDropdown**: a link-styled trigger (optional icon, the current choice in medium weight, a chevron) that opens a menu of `menuitemradio` choices, the current one checked, under an optional subject header and in labelled sections. Items with `href` are links; any other choice emits `select` and `update:modelValue` (docs/inline-dropdown.md). Built generic: sort orders first, breadcrumb sibling menus later.
+- **touched_at pattern** (docs/touched-at.md): the `Touches` concern (`protected array $touchesParents = ['assignment'];`), separate from Eloquent's `$touches`: a child's create, update or delete touches its parents' `touched_at`, and theirs, by a quiet update (no events, `updated_at` unchanged), only on tables with a `touched_at` column, once per request or job, cycle-safe. `Touch::without(fn)`, `kit.touch.console`, `$model->touchTree()`, an `alsoTouch()` hook, the `$table->touchedAt()` migration macro, and `TouchesAssertions` (`assertTouchesParent`, `assertCovered`/`uncovered`). UI convention: "Touched 3 days ago".
+- **PhotoField** fills four gaps (docs/media.md). (1) `actions.replace` takes a plain `{ url, method }`, which the kit posts as multipart with `version`, or `true`, where the host posts the emitted `files`. Without direct routes, the modal keeps its drop zone and an empty slot keeps its camera tile. (2) `size`: `sm`, `md`, `lg`, or `fill` for its container's width and height. (3) `title` for the modal. (4) `actions.remove.confirm` words the Remove confirmation. Fixed: the Remove confirmation now renders inside the Change modal's `<dialog>`. Before, it rendered under the modal, and the drop zone painted over it.
+
+### Changed
+
+- **MediaCollection `tiles` renders one drop zone**: the grid's add tile. 0.30.1 also left a hidden, empty BulkDrop after the list, whose grid gap added 12px under the tiles.
+- **A menu's trailing destructive rows get their divider** even with no labelled sections: Delete after Duplicate now sits below a separator in every action menu (ActionBar, ButtonGroup, RowActions).
+- **A disabled InertiaAction is dimmed** and described by its `reason` (a visually hidden element on aria-describedby, as RowActions does); the tooltip stays.
+- **InertiaAction keeps the host's class and data-\***: they land on its button or link instead of being dropped on a fragment.
+- **DataTable's sticky header is desktop-only**: at phone width (below `sm`) the row cards flow with the page instead of scrolling inside a 70svh box.
+- **ItemStack on a narrow tile**: with a host `#footer-label` (e.g. "Listing · 1 of 3"), the arrows join the footer and the separate "k / N" row goes (the position is still announced); the label keeps at least 6rem, and Add and Arrange go icon-only (names kept) when the footer is under 18rem. Without `#footer-label` the position row stays, now padded like the footer. New `:arrange="false"` hides the footer's Arrange… for a host that opens its own arrange view.
+- **FloatingToolbar phone layout**: below `sm` the pill is one full-width row instead of wrapping into a tall balloon. The status truncates, the primary page action stays, and one ⋯ "More actions" menu holds the other page actions and then the client `items`. Before, three page actions shrank to one letter each. Desktop is unchanged. A slotted button still can't move into the menu, so pass `actions` and `items`. HeaderActions gains a `menu` slot (rows after its overflow) and always splits on the pill at phone width.
+- **Menu rows line up across parts**: in the phone ⋯ menu the client items use the same row as the page actions (icon or icon-sized spacer, then label), and `ActionMenuItems` takes `iconSpacer` (HeaderActions `menuIcons`) so a page-action row keeps the spacer when only the items have icons.
+- **CollectionSection Sort by** (and CollectionCard's and dashboard widgets'): an InlineDropdown (sort icon, current order, chevron) in place of the bordered InputSelect. Its menu is headed by the descriptor's label over the section's title. Tests that drove it as a `combobox` now find a button named "Sort by: <order>" and `menuitemradio` items.
+- **InputSelect, not searchable**: the field reads as a button: a pointer cursor, no text caret, no text selection and no on-screen keyboard (`inputmode="none"`); only a searchable select shows a text cursor. Searchable stays off by default for up to 8 local options (`SEARCH_THRESHOLD`), on above it and for `filter="remote"`.
+
 ## v0.30.1
 
 Features affected: none; `composer update tey/kit` is enough.

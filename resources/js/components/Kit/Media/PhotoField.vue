@@ -16,8 +16,17 @@ import MediaThumbnail, {
 } from '@/components/Kit/Media/MediaThumbnail.vue';
 import PhotoTile from '@/components/Kit/Media/PhotoTile.vue';
 
-/** A server action: where to send it. */
-type Endpoint = { url: string; method: string; label?: string };
+/** A server action: where to send it. `confirm` (remove) words the confirmation, as an Action's does. */
+type Endpoint = {
+    url: string;
+    method: string;
+    label?: string;
+    confirm?: {
+        title?: string | null;
+        description?: string | null;
+        label?: string | null;
+    } | null;
+};
 export type PhotoSource = {
     id: string;
     name: string;
@@ -30,7 +39,16 @@ export type PhotoSource = {
  * and emits `replaced`; (3) the record's other photos (`sources`), where choosing one sends `{ media_id, version }` to `actions.choose` and emits `chosen`;
  * (4) Remove, destructive and confirmed, sent to `actions.remove` with the version, emitting `removed`. Each write carries `version`, so the server refuses a
  * stale one; choose and remove are Inertia visits, so the server's toast and fresh props come back and the modal closes on success. A missing action is absent.
+ * `replace` also takes a plain `{ url, method }` (the kit posts the file as multipart, field `photo`, with `version`, as an Inertia visit) or `true` (the kit
+ * only emits `files` and the host posts them). Every replace emits `files` first. `size` widens the slot (`fill` takes its container's width and height),
+ * `title` names the modal (default "Change main photo"), and `actions.remove.confirm` words the Remove confirmation.
  */
+/** "Main photo" inside a sentence: "main photo". An acronym ("PDF cover") keeps its case. */
+function inSentence(label: string): string {
+    return /^[A-Z][A-Z]/.test(label)
+        ? label
+        : label.charAt(0).toLowerCase() + label.slice(1);
+}
 const props = withDefaults(
     defineProps<{
         photo: MediaPicture | null;
@@ -38,22 +56,30 @@ const props = withDefaults(
         accept: string[];
         maxBytes: number;
         actions?: {
-            replace?: DirectRoutes | DirectTicketRoutes | null;
+            replace?:
+                DirectRoutes | DirectTicketRoutes | Endpoint | true | null;
             choose?: Endpoint | null;
             remove?: Endpoint | null;
         };
         sources?: PhotoSource[];
         version?: string | number | null;
         aspect?: 'square' | '4/3';
+        /** `sm` (12rem, the default), `md` (18rem), `lg` (24rem), or `fill`: its container's width and height (a feature photo over a grid). */
+        size?: 'sm' | 'md' | 'lg' | 'fill';
+        /** The modal's title. Default: "Change " and the label inside the sentence. */
+        title?: string | null;
     }>(),
     {
         actions: () => ({}),
         sources: () => [],
         version: null,
         aspect: 'square',
+        size: 'sm',
+        title: null,
     },
 );
 const emit = defineEmits<{
+    files: [files: File[]];
     replaced: [item: unknown];
     chosen: [id: string];
     removed: [];
@@ -73,16 +99,53 @@ const canChange = computed(
 );
 const replaceRoutes = computed(() => {
     const routes = props.actions.replace;
-    if (!routes) return null;
+    if (!routes || routes === true || 'url' in routes) return null;
     return 'ticket' in routes
         ? { ...routes, maxBytes: routes.maxBytes ?? props.maxBytes }
         : routes;
 });
+const replaceEndpoint = computed(() => {
+    const routes = props.actions.replace;
+    return routes && routes !== true && 'url' in routes ? routes : null;
+});
+const canReplace = computed(() => !!props.actions.replace);
+const modalTitle = computed(
+    () => props.title ?? `Change ${inSentence(props.label)}`,
+);
+const removeConfirm = computed(() => {
+    const confirm = props.actions.remove?.confirm;
+    return {
+        title: confirm?.title ?? `Remove ${props.label}?`,
+        description:
+            confirm?.description ?? 'The photo is taken off this slot.',
+        label: confirm?.label ?? 'Remove',
+    };
+});
+const sized = {
+    sm: 'max-w-48',
+    md: 'max-w-72',
+    lg: 'max-w-96',
+    fill: 'size-full grid-rows-[minmax(0,1fr)_auto]',
+} as const;
 async function replace(files: File[]) {
     const file = files[0];
-    if (!file || !replaceRoutes.value) return;
+    if (!file || !canReplace.value) return;
     error.value = tooLarge(file, props.maxBytes) ?? '';
     if (error.value) return;
+    emit('files', [file]);
+    if (replaceEndpoint.value) {
+        visit(
+            replaceEndpoint.value,
+            { photo: file },
+            () => emit('replaced', file),
+            true,
+        );
+        return;
+    }
+    if (!replaceRoutes.value) {
+        open.value = false;
+        return;
+    }
     working.value = true;
     progress.value = 0;
     try {
@@ -106,6 +169,7 @@ function visit(
     action: Endpoint,
     data: Record<string, unknown>,
     done: () => void,
+    multipart = false,
 ) {
     working.value = true;
     error.value = '';
@@ -114,6 +178,7 @@ function visit(
             'post' | 'put' | 'patch' | 'delete',
         data: { ...data, version: props.version },
         preserveScroll: true,
+        ...(multipart ? { forceFormData: true } : {}),
         onSuccess: () => {
             done();
             open.value = false;
@@ -138,7 +203,8 @@ function remove() {
 </script>
 <template>
     <div
-        class="grid max-w-48 gap-2"
+        :class="['grid gap-2', sized[size]]"
+        :data-size="size"
         data-photo-field
         :data-has-photo="!!photo || undefined"
     >
@@ -146,7 +212,11 @@ function remove() {
             <button
                 type="button"
                 :class="[
-                    aspect === 'square' ? 'aspect-square' : 'aspect-4/3',
+                    size === 'fill'
+                        ? 'h-full'
+                        : aspect === 'square'
+                          ? 'aspect-square'
+                          : 'aspect-4/3',
                     'border-border bg-muted focus-visible:outline-ring w-full overflow-hidden rounded-lg border focus-visible:outline-2 focus-visible:outline-offset-2',
                 ]"
                 :aria-label="`Change ${label}`"
@@ -162,7 +232,7 @@ function remove() {
                             ? `${photo.thumb} 400w, ${photo.card} 800w`
                             : undefined
                     "
-                    sizes="12rem"
+                    :sizes="size === 'sm' ? '12rem' : '24rem'"
                     :alt="label"
                     class="size-full object-cover"
                 />
@@ -182,11 +252,11 @@ function remove() {
             >
         </template>
         <PhotoTile
-            v-else-if="replaceRoutes"
+            v-else-if="canReplace"
             :label="label"
             :accept="accept"
             :max-bytes="maxBytes"
-            :aspect="aspect"
+            :aspect="size === 'fill' ? 'fill' : aspect"
             :disabled="working"
             @files="replace"
         />
@@ -198,8 +268,17 @@ function remove() {
         >
             {{ error }}
         </p>
-        <Modal v-model:open="open" :title="`Change ${label}`" size="md">
+        <Modal v-model:open="open" :title="modalTitle" size="md">
             <div class="grid gap-5" data-photo-field-modal>
+                <!-- Inside the Modal, so its overlay renders into the Modal's <dialog>, over it (layer.ts). -->
+                <Dialog
+                    v-model:open="confirming"
+                    :title="removeConfirm.title"
+                    :description="removeConfirm.description"
+                    :confirm-label="removeConfirm.label"
+                    variant="danger"
+                    @confirm="remove"
+                />
                 <img
                     v-if="photo?.card ?? photo?.thumb"
                     :src="(photo?.card ?? photo?.thumb)!"
@@ -208,7 +287,7 @@ function remove() {
                     data-photo-field-current
                 />
                 <BulkDrop
-                    v-if="replaceRoutes"
+                    v-if="canReplace"
                     name="photo"
                     :label="label"
                     :accept="accept"
@@ -279,13 +358,5 @@ function remove() {
                 >
             </template>
         </Modal>
-        <Dialog
-            v-model:open="confirming"
-            :title="`Remove ${label}?`"
-            description="The photo is taken off this slot."
-            confirm-label="Remove"
-            variant="danger"
-            @confirm="remove"
-        />
     </div>
 </template>

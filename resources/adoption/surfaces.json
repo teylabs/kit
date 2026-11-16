@@ -610,6 +610,7 @@
               "@/components/Kit#Dropdown",
               "@/components/Kit#DropdownMenu",
               "@/components/Kit#ButtonDropdown",
+              "@/components/Kit#InlineDropdown",
               "@/components/Kit#RowActions",
               "@headlessui/vue#Menu",
               "floating-vue",
@@ -1476,6 +1477,7 @@
       "uses": {
         "imports": [
           "@/components/Kit:Dropdown",
+          "@/components/Kit:InlineDropdown",
           "@/components/Kit:DropdownItem",
           "@/components/Kit:DropdownLink",
           "@/components/Kit:DropdownConfirm",
@@ -3700,6 +3702,14 @@
     {
       "ref": "@/components/Kit:MiddleTruncate",
       "reason": "Display primitive: a long file name, path or URL cut in the middle, rendered inside a host page or a kit component."
+    },
+    {
+      "ref": "@/components/Kit:avatarColor",
+      "reason": "Helper behind Avatar: a person's colour from their identity, matching the server's AvatarColor."
+    },
+    {
+      "ref": "@/components/Kit:avatarPalette",
+      "reason": "Helper behind Avatar: the colours avatarColor picks from."
     },
     {
       "ref": "@/components/Kit:middleTruncate",

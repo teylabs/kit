@@ -92,6 +92,7 @@ export {
 export { default as Toaster } from './Feedback/Toaster.vue';
 export { useStickyBars } from './Layout/stickyBars';
 export { default as Avatar } from './Layout/Avatar.vue';
+export { avatarColor, avatarPalette } from './Layout/avatarColor';
 // Vertical rhythm (Stack), titled page regions (PageSection) and page columns (PageGrid, PageGridItem): the page's spacing, with no outer margins on children.
 export { default as Stack } from './Layout/Stack.vue';
 // Deprecated: BlockStack renders a Stack and is removed in the next release.
@@ -589,3 +590,6 @@ export {
     type CommentGroup,
     type CommentTone,
 } from './Comment/comments';
+// A link-styled trigger opening a menu of choices, one current (docs/inline-dropdown.md): sort orders, and later a breadcrumb's siblings.
+export { default as InlineDropdown } from './Menu/InlineDropdown.vue';
+export type { InlineDropdownItem } from './Menu/inlineDropdown';

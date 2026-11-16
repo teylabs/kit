@@ -6252,12 +6252,12 @@ const sortServer = async (tab, server) => {
 };
 const newSortServer = () => ({ saved: {}, hidden: [], sent: [], answered: [] });
 const chooseOrder = async (tab, key, label) => {
-    await tab.locator(`[data-widget="${key}"]`).getByRole('combobox', { name: 'Sort by' }).click();
-    await tab.getByRole('option', { name: label }).click();
+    await tab.locator(`[data-widget="${key}"]`).getByRole('button', { name: /^Sort by/ }).click();
+    await tab.getByRole('menuitemradio', { name: label }).click();
 };
 const showsOrder = (tab, key, label) => tab.waitForFunction(([k, l]) => {
-    const input = document.querySelector(`[data-widget="${k}"] [data-collection-sort] input`);
-    return input && !input.disabled && input.value.trim() === l;
+    const button = document.querySelector(`[data-widget="${k}"] [data-collection-sort] button`);
+    return button && !button.disabled && button.querySelector('[data-inline-dropdown-label]').textContent.trim() === l;
 }, [key, label]);
 // The page's frames by identity (window.kitPage is the live Inertia page), to tell a kept frame from a reloaded one.
 const snapshotFrames = (tab) => tab.evaluate(() => { window.kitBefore = { widgets: [...window.kitPage.props.widgets], cases: window.kitPage.props.cases, people: window.kitPage.props.people }; });
@@ -6282,10 +6282,10 @@ test('a dashboard widget\'s Sort by control: labelled, top right of the header, 
                 await tab.goto(`${authUrl}dashboard.html?sorted${dark}`);
                 await tab.waitForSelector('[data-widget="app.ongoing"] [data-collection-sort]');
                 await tab.waitForSelector('[data-widget="kit.people"] [data-scroll-list="people"]');
-                const control = tab.getByRole('combobox', { name: 'Sort by' });
-                assert.equal(await control.count(), 1, 'one control, named "Sort by" by its visible label');
+                const control = tab.getByRole('button', { name: /^Sort by/ });
+                assert.equal(await control.count(), 1, 'one control, named "Sort by" and its current order');
                 assert.equal(await tab.locator('[data-widget="kit.activity"] [data-collection-sort], [data-widget="kit.people"] [data-collection-sort]').count(), 0, 'a widget that declares no orders has no control');
-                assert.equal((await control.inputValue()).trim(), 'Last touched', 'the default order shows');
+                assert.equal((await control.locator('[data-inline-dropdown-label]').innerText()).trim(), 'Last touched', 'the default order shows');
                 const geometry = await tab.evaluate(() => {
                     const card = document.querySelector('[data-widget="app.ongoing"]');
                     const header = card.querySelector('header').getBoundingClientRect();
@@ -6302,22 +6302,22 @@ test('a dashboard widget\'s Sort by control: labelled, top right of the header, 
                 // Keyboard only: focus the control, open it, move to "Due soonest" and pick it.
                 await control.focus();
                 await tab.keyboard.press('ArrowDown');
-                await tab.getByRole('listbox').waitFor();
-                assert.deepEqual(await tab.getByRole('option').allInnerTexts().then(o => o.map(t => t.trim())), ['Last touched', 'Newest', 'Due soonest'], 'the declared orders, in order');
-                // Open, axe's best-practice `region` rule flags the list's portal outside any landmark (InputSelect's own popper wrapper); every other rule holds.
-                assert.deepEqual((await notesAxe(tab)).filter(v => !(v.id === 'region' && v.targets.every(t => t.includes('data-reka-popper-content-wrapper')))), [], 'open');
+                await tab.getByRole('menu').waitFor();
+                assert.deepEqual(await tab.getByRole('menuitemradio').allInnerTexts().then(o => o.map(t => t.trim())), ['Last touched', 'Newest', 'Due soonest'], 'the declared orders, in order');
+                // Open, axe's best-practice `region` rule flags the menu's portalled content outside any landmark; every other rule holds.
+                assert.deepEqual((await notesAxe(tab)).filter(v => v.id !== 'region'), [], 'open');
                 await tab.keyboard.press('Escape');
-                assert.equal(await tab.getByRole('listbox').count(), 0, 'Escape closes it with nothing chosen');
+                assert.equal(await tab.getByRole('menu').count(), 0, 'Escape closes it with nothing chosen');
                 assert.equal(sent.length, 0);
                 await tab.keyboard.press('ArrowDown');
-                await tab.getByRole('listbox').waitFor();
-                for (let i = 0; i < 5 && (await tab.locator('[role="option"][data-highlighted]').innerText().catch(() => '')).trim() !== 'Due soonest'; i++) await tab.keyboard.press('ArrowDown');
+                await tab.getByRole('menu').waitFor();
+                for (let i = 0; i < 5 && (await tab.locator('[role="menuitemradio"][data-highlighted]').innerText().catch(() => '')).trim() !== 'Due soonest'; i++) await tab.keyboard.press('ArrowDown');
                 await tab.keyboard.press('Enter');
                 await tab.waitForFunction(() => document.querySelector('[data-widget="app.ongoing"] li, [data-widget="app.ongoing"] article')?.textContent.includes('Lease renewal'));
-                await tab.waitForFunction(() => !document.querySelector('[data-widget="app.ongoing"] [data-collection-sort] input')?.disabled);
+                await tab.waitForFunction(() => !document.querySelector('[data-widget="app.ongoing"] [data-collection-sort] button')?.disabled);
                 assert.deepEqual(sent, [{ method: 'PUT', sort: 'due', only: 'widgets' }], 'one PUT of the chosen order, a partial visit for the widget\'s props only');
                 assert.deepEqual(await sortedTitles(tab), ['Lease renewal', 'Boiler check', 'Roof survey'], 'the card shows the new order');
-                assert.equal((await control.inputValue()).trim(), 'Due soonest');
+                assert.equal((await control.locator('[data-inline-dropdown-label]').innerText()).trim(), 'Due soonest');
                 assert.deepEqual(await tab.evaluate(() => [...document.querySelectorAll('[data-widget]')].map(e => e.dataset.widget)), ['app.ongoing', 'kit.activity', 'kit.you', 'kit.people'], 'the other cards stay');
                 const overflow = await tab.evaluate(() => ({ page: document.documentElement.scrollWidth - document.documentElement.clientWidth, overflowing: [...document.querySelectorAll('[data-widget-grid] header, [data-widget-grid] header *')].filter(el => el.scrollWidth > el.clientWidth + 1 && getComputedStyle(el).overflowX === 'visible').map(el => el.tagName) }));
                 assert.deepEqual(overflow, { page: 0, overflowing: [] }, 'nothing overflows');
@@ -6355,11 +6355,11 @@ test('a dashboard widget\'s Sort by control: the choice reloads only that widget
             return cases.scrollTop;
         });
         assert.ok(scrolled > 0, 'the cases list scrolls inside its card');
-        const control = tab.getByRole('combobox', { name: 'Sort by' });
+        const control = tab.getByRole('button', { name: /^Sort by/ });
         await control.click();
-        await tab.getByRole('option', { name: 'Due soonest' }).click();
-        await tab.waitForFunction(() => !document.querySelector('[data-widget="app.ongoing"] [data-collection-sort] input')?.disabled);
-        await tab.waitForFunction(() => document.querySelector('[data-widget="app.ongoing"] [data-collection-sort] input')?.value.trim() === 'Due soonest');
+        await tab.getByRole('menuitemradio', { name: 'Due soonest' }).click();
+        await tab.waitForFunction(() => !document.querySelector('[data-widget="app.ongoing"] [data-collection-sort] button')?.disabled);
+        await tab.waitForFunction(() => document.querySelector('[data-widget="app.ongoing"] [data-collection-sort] [data-inline-dropdown-label]')?.textContent.trim() === 'Due soonest');
         assert.deepEqual(server.sent, [{ widget: 'app.ongoing', sort: 'due', kitSort: 'widget=app.ongoing&set=drawn&sort=due', only: ['widgets'], reset: [] }], 'one choice, naming itself in X-Kit-Sort (its token and the order), a partial reload of widgets that resets nothing');
         assert.deepEqual(server.answered, ['merge']);
         assert.deepEqual(await sortedTitles(tab), ['Lease renewal', 'Boiler check', 'Roof survey'], 'the sorted card shows its new order');
@@ -6409,7 +6409,7 @@ test('a dashboard widget\'s Sort by control: two tabs choosing on different widg
         const afterSecond = new Promise((resolve) => { secondDone = resolve; });
         server.hold = (widget) => (widget === 'app.ongoing' ? afterSecond : null);
         await chooseOrder(first, 'app.ongoing', 'Due soonest');
-        await first.waitForFunction(() => document.querySelector('[data-widget="app.ongoing"] [data-collection-sort] input')?.disabled);
+        await first.waitForFunction(() => document.querySelector('[data-widget="app.ongoing"] [data-collection-sort] button')?.disabled);
         await chooseOrder(second, 'app.followups', 'Newest');
         await showsOrder(second, 'app.followups', 'Newest');
         secondDone();
@@ -6470,11 +6470,11 @@ test('a dashboard widget\'s Sort by control: a choice the server refuses puts th
         });
         await tab.goto(`${authUrl}dashboard.html?sorted`);
         await tab.waitForSelector('[data-widget="app.ongoing"] [data-collection-sort]');
-        const control = tab.getByRole('combobox', { name: 'Sort by' });
+        const control = tab.getByRole('button', { name: /^Sort by/ });
         await control.click();
-        await tab.getByRole('option', { name: 'Newest' }).click();
-        await tab.waitForFunction(() => !document.querySelector('[data-widget="app.ongoing"] [data-collection-sort] input')?.disabled);
-        await tab.waitForFunction(() => document.querySelector('[data-widget="app.ongoing"] [data-collection-sort] input')?.value.trim() === 'Last touched');
+        await tab.getByRole('menuitemradio', { name: 'Newest' }).click();
+        await tab.waitForFunction(() => !document.querySelector('[data-widget="app.ongoing"] [data-collection-sort] button')?.disabled);
+        await tab.waitForFunction(() => document.querySelector('[data-widget="app.ongoing"] [data-collection-sort] [data-inline-dropdown-label]')?.textContent.trim() === 'Last touched');
         assert.deepEqual(await sortedTitles(tab), ['Roof survey', 'Lease renewal', 'Boiler check'], 'the rows keep the order they had');
     } finally {
         await context.close();
@@ -6877,19 +6877,19 @@ test('CollectionSection: segment tabs are links named by the card, the current o
             });
             assert.ok(tabs.below && tabs.distinct, `${mode}: between the header and the items, the current one drawn apart`);
             assert.equal(await card.getByRole('link', { name: 'New case', exact: true }).count(), 1, `${mode}: the header action`);
-            const control = card.getByRole('combobox', { name: 'Sort by' });
-            assert.equal((await control.inputValue()).trim(), 'Last touched', `${mode}: the current order shows`);
+            const control = card.getByRole('button', { name: /^Sort by/ });
+            assert.equal((await control.locator('[data-inline-dropdown-label]').innerText()).trim(), 'Last touched', `${mode}: the current order shows`);
             assert.equal(await tab.locator('[data-case="stat"] [data-collection-sort], [data-case="stat"] [data-collection-segments]').count(), 0, `${mode}: a card that sends neither has no menu and no tabs`);
             assert.deepEqual(await notesAxe(tab), [], mode);
             if (dark) return;
             await control.focus();
             await tab.keyboard.press('ArrowDown');
-            await tab.getByRole('listbox').waitFor();
-            for (let i = 0; i < 4 && (await tab.locator('[role="option"][data-highlighted]').innerText().catch(() => '')).trim() !== 'Due soonest'; i++) await tab.keyboard.press('ArrowDown');
+            await tab.getByRole('menu').waitFor();
+            for (let i = 0; i < 4 && (await tab.locator('[role="menuitemradio"][data-highlighted]').innerText().catch(() => '')).trim() !== 'Due soonest'; i++) await tab.keyboard.press('ArrowDown');
             await tab.keyboard.press('Enter');
             await tab.waitForFunction(() => (window.kitVisits ?? []).length > 0);
             assert.deepEqual(await tab.evaluate(() => window.kitVisits), [{ url: '/@acme', method: 'get', data: { sort: 'due' } }], 'one visit to the sort URL with the chosen order');
-            assert.equal((await control.inputValue()).trim(), 'Due soonest');
+            assert.equal((await control.locator('[data-inline-dropdown-label]').innerText()).trim(), 'Due soonest');
         });
     }
 });
@@ -11181,6 +11181,48 @@ async function dateTargets(scheme) {
 test('date and time inputs (light): every segment passes axe target-size, is at least 24×24, keeps h-9 and fits at 390px', () => dateTargets('light'));
 test('date and time inputs (dark): every segment passes axe target-size, is at least 24×24, keeps h-9 and fits at 390px', () => dateTargets('dark'));
 
+// ── Avatar colour (?avatar-color): one colour per person, the same on a note card, white initials with contrast in both themes ─────────────────────────
+test('Avatar: a person gets one derived colour at every size and on their note card, white initials pass contrast, the neutral disc stays; light and dark', async () => {
+    const shots = process.env.KIT_AVATAR_SCREENSHOT;
+    for (const query of ['avatar-color', 'avatar-color=dark']) {
+        for (const width of [1280, 390]) {
+            const context = await browser.newContext({ viewport: { width, height: 700 } });
+            try {
+                const tab = await context.newPage();
+                await tab.goto(`${url}?${query}`);
+                await tab.waitForSelector('[data-note] [data-slot="avatar"]');
+                const discs = await tab.evaluate(() => {
+                    const read = (el) => ({ color: el.dataset.avatarColor ?? null, background: getComputedStyle(el).backgroundColor, text: getComputedStyle(el).color });
+                    return {
+                        people: [...document.querySelectorAll('[data-person]')].map((li) => ({ person: li.dataset.person, ...read(li.querySelector('[data-slot="avatar"]')) })),
+                        sizes: [...document.querySelectorAll('[data-sizes] [data-slot="avatar"]')].map(read),
+                        note: read(document.querySelector('[data-note] [data-slot="avatar"]')),
+                    };
+                });
+                const rgb = (hex) => `rgb(${[1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(', ')})`;
+                const byId = Object.fromEntries(discs.people.map((d) => [d.person, d]));
+                for (const d of discs.people.filter((d) => /^\d+$/.test(d.person))) {
+                    assert.match(d.color ?? '', /^#[0-9a-f]{6}$/, `person ${d.person} has a colour`);
+                    assert.equal(d.background, rgb(d.color), `person ${d.person} paints it`);
+                    assert.equal(d.text, 'rgb(255, 255, 255)', `person ${d.person} has white initials`);
+                }
+                assert.equal(new Set(discs.people.filter((d) => /^\d+$/.test(d.person)).map((d) => d.color)).size, 8, 'eight people, eight colours');
+                assert.equal(byId.stored.color, '#0f766e', 'a stored colour wins');
+                assert.equal(byId.neutral.color, null, 'no colour and no identity: the neutral disc');
+                assert.notEqual(byId.neutral.text, 'rgb(255, 255, 255)');
+                for (const d of discs.sizes) assert.equal(d.color, byId['1'].color, 'the same person is one colour at every size');
+                assert.equal(discs.note.color, byId['1'].color, 'the note card author matches their disc');
+                await tab.addScriptTag({ path: axeSource });
+                const result = await tab.evaluate(() => window.axe.run(document, { runOnly: ['color-contrast'] }));
+                assert.deepEqual(result.violations.map((v) => v.nodes.map((n) => n.html)), [], 'initials pass contrast');
+                if (shots) await tab.screenshot({ path: `${shots}-${query.includes('dark') ? 'dark' : 'light'}-${width}.png`, fullPage: true });
+            } finally {
+                await context.close();
+            }
+        }
+    }
+});
+
 // ── MiddleTruncate (?middle-truncate): cut in the middle to the box's width, refit on resize; the whole value is the name, the title and the copy ─────────
 // Each row is a [data-box] of 320px (w-80); a test sets its width and waits for the ResizeObserver's refit. `shown` is what paints: the parts, the drawn
 // ellipsis for each cut, and none of the zero-size cut text.
@@ -11743,6 +11785,40 @@ test('Small pieces: EmailMessage leaves out empty rows and cuts with limit; Busy
     assert.deepEqual(errors, []);
 });
 
+test('Small pieces: EmailMessage folds Gmail and Apple Mail forward headers into collapsed "Forwarded from" disclosures, keeps every body visible, and :forwarded="false" leaves the text whole', async () => {
+    for (const scheme of ['light', 'dark']) {
+        const context = await browser.newContext({ viewport: { width: 1024, height: 700 }, colorScheme: scheme });
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        try {
+            await tab.goto(`${url}?small-pieces&forwards${scheme === 'dark' ? '&dark' : ''}`);
+            const mail = tab.locator('#forwarded');
+            await mail.waitFor();
+            const triggers = mail.locator('[data-email-forward] [data-collapsible-trigger]');
+            assert.deepEqual((await triggers.allTextContents()).map(t => t.trim()), ['Forwarded from Ana Lopez, Mon, Nov 9, 2026 at 3:14 PM', 'Forwarded from Bo Chen, November 8, 2026 at 9:00 AM AST']);
+            assert.deepEqual(await triggers.evaluateAll(els => els.map(el => el.getAttribute('aria-expanded'))), ['false', 'false'], 'collapsed');
+            assert.equal(await mail.locator('[data-email-forward-headers]').first().isVisible(), false, 'the header lines are folded away');
+            const body = await mail.locator('[data-email-body]').innerText();
+            for (const text of ['FYI, see below.', 'Hello, please see the order below.', 'Twelve crates, pickup Tuesday.']) assert.ok(body.includes(text), `${text} stays visible`);
+            assert.ok(!body.includes('---------- Forwarded message'), 'the marker is folded');
+            assert.ok(!body.includes('Begin forwarded message'), 'the nested marker is folded');
+            await triggers.first().click();
+            assert.equal(await triggers.first().getAttribute('aria-expanded'), 'true');
+            assert.match(await mail.locator('[data-email-forward="1"] [data-email-forward-headers]').innerText(), /Subject\s+Farm order/);
+            const plain = tab.locator('#plain-forward');
+            assert.equal(await plain.locator('[data-email-forward]').count(), 0, 'opt out');
+            assert.match(await plain.locator('[data-email-body]').innerText(), /Begin forwarded message:/);
+            await tab.waitForTimeout(400); // the disclosure's open transition (opacity) settles before contrast is read
+            assert.deepEqual(await axeWithContrast(tab), [], scheme);
+            if (process.env.KIT_EMAIL_SCREENSHOT) await mail.screenshot({ path: `${process.env.KIT_EMAIL_SCREENSHOT}-${scheme}.png` });
+        } finally {
+            await context.close();
+        }
+        assert.deepEqual(errors, []);
+    }
+});
+
 // ── The media family (?media): MediaGallery, MediaCollection tiles, ItemStack and PhotoField ─────────────────────────────────────────────────────────────
 async function mediaTab(check) {
     const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
@@ -11794,6 +11870,48 @@ test('MediaCollection tiles: badge, selected check, dimmed pending tile, tile ac
     });
 });
 
+test('MediaCollection tiles: the footer shows the host label (item.label, or the #tile-label slot over it), not the file name', async () => {
+    await mediaTab(async tab => {
+        const tiles = tab.locator('[data-fixture="labelled"]');
+        assert.deepEqual(await tiles.locator('[data-media-tile-label]').allInnerTexts(), ['Feature', 'Photo 2', 'Slot 3']);
+        assert.equal(await tiles.locator('[data-media-tile-label]:has-text(".png"), [data-media-tile-label]:has-text(".jpg")').count(), 0, 'no file name in a footer');
+        assert.deepEqual(await tab.locator('[data-media-collection="photos"] [data-media-tile-label]').allInnerTexts(), ['Front', 'Kitchen', 'Garage'], 'no label and no slot: the name, as before');
+    });
+});
+
+test('MediaCollection tiles: the ⋯ menu opens with the file name as its subject, cut in the middle with the extension kept, the full name in title, the caption under it, and nothing overflows', async () => {
+    await mediaTab(async tab => {
+        const tiles = tab.locator('[data-fixture="labelled"]');
+        await tiles.locator('[data-media-item="l1"] [data-media-menu]').click();
+        const menu = tab.getByRole('menu');
+        const title = menu.locator('[data-menu-subject-title]');
+        await title.waitFor();
+        const full = 'Screenshot-2026-11-16-at-10.36.11-AM.png';
+        assert.equal(await title.getAttribute('title'), full);
+        assert.equal(await title.textContent(), full, 'the whole name stays in the text for screen readers and copy');
+        assert.equal(await title.getAttribute('data-truncated'), '', 'a long name is cut');
+        const shown = await title.evaluate(el => [...el.childNodes].filter(n => !(n instanceof Element && n.hasAttribute('data-cut'))).map(n => n instanceof Element && n.hasAttribute('data-ellipsis') ? '…' : n.textContent).join(''));
+        assert.match(shown, /^Screenshot.*….*AM\.png$/, `start and extension kept, middle cut: ${shown}`);
+        assert.ok(await title.evaluate(el => el.scrollWidth <= el.clientWidth + 1), 'the title does not overflow');
+        assert.ok(await menu.evaluate(el => el.scrollWidth <= el.clientWidth + 1), 'the menu does not overflow');
+        assert.equal(await menu.locator('[data-menu-subject-caption]').innerText(), 'Photo 1 · in report');
+        assert.match(await menu.getAttribute('aria-describedby'), /caption/);
+    });
+});
+
+test('ItemStack #menu: a listing tile\'s menu opens with the same file-name subject header (RowActions subject kind file)', async () => {
+    await mediaTab(async tab => {
+        const stack = tab.locator('[data-fixture="narrow-stack"]');
+        await stack.getByRole('button', { name: /Actions for shot 1/ }).click();
+        const menu = tab.getByRole('menu');
+        const title = menu.locator('[data-menu-subject-title]');
+        await title.waitFor();
+        assert.equal(await title.getAttribute('title'), 'Listing-One-screenshot-2026-11-16.png');
+        assert.equal(await title.getAttribute('data-slot'), 'middle-truncate');
+        assert.equal(await menu.locator('[data-menu-subject-caption]').innerText(), 'Listing · 1 of 3');
+    });
+});
+
 test('ItemStack: steps through the stack, Arrange opens the fanout, a reorder sends the version, and a stale one rolls back and emits conflict', async () => {
     await mediaTab(async tab => {
         const stack = tab.locator('[data-item-stack]').first();
@@ -11818,7 +11936,7 @@ test('ItemStack: steps through the stack, Arrange opens the fanout, a reorder se
 
 test('PhotoField: Change opens the current photo, a drop zone, the other photos and a confirmed Remove; an empty slot is a camera tile', async () => {
     await mediaTab(async tab => {
-        await tab.locator('[data-photo-field-change]').click();
+        await tab.locator('[data-photo-field-change]').first().click();
         const modal = tab.locator('[data-photo-field-modal]');
         await modal.waitFor();
         assert.equal(await modal.locator('[data-photo-field-current]').count(), 1);
@@ -11828,6 +11946,68 @@ test('PhotoField: Change opens the current photo, a drop zone, the other photos 
         await tab.locator('[data-confirm-dialog]').waitFor();
         assert.match(await tab.locator('[data-confirm-dialog]').innerText(), /Remove Main photo\?/);
         assert.equal(await tab.locator('[data-fixture="empty-photo"] [data-photo-tile]').innerText(), 'Workspace logo');
+    });
+});
+
+const pngFile = name => ({ name, mimeType: 'image/png', buffer: Buffer.from('89504e470d0a1a0a', 'hex') });
+
+test('PhotoField replace without direct routes: `true` keeps the drop zone and emits files; a plain endpoint shows the camera tile and posts multipart with the version', async () => {
+    await mediaTab(async tab => {
+        await tab.locator('[data-fixture="emit-photo"] [data-photo-field-change]').click();
+        const modal = tab.locator('[data-photo-field-modal]');
+        await modal.waitFor();
+        assert.equal(await modal.locator('[data-dropzone]').count(), 1, 'the drop zone shows without direct routes');
+        await modal.locator('input[type=file]').setInputFiles(pngFile('new-cover.png'));
+        await tab.waitForFunction(() => window.kitEvents.includes('files new-cover.png'));
+        await modal.waitFor({ state: 'detached' });
+        const empty = tab.locator('[data-fixture="endpoint-photo"]');
+        assert.equal(await empty.locator('[data-photo-tile]').innerText(), 'Badge', 'an empty slot is the camera tile');
+        await empty.locator('input[type=file]').setInputFiles(pngFile('badge.png'));
+        await tab.waitForFunction(() => (window.kitVisits ?? []).some(v => v.url === '/badge'));
+        const sent = await tab.evaluate(() => { const v = window.kitVisits.find(v => v.url === '/badge'); return { method: v.method, photo: v.data.photo instanceof File ? v.data.photo.name : null, version: v.data.version }; });
+        assert.deepEqual(sent, { method: 'post', photo: 'badge.png', version: 7 });
+    });
+});
+
+test('PhotoField size fill: the slot takes its container\'s width and height', async () => {
+    await mediaTab(async tab => {
+        const field = tab.locator('[data-fixture="fill-photo"] [data-photo-field]');
+        const box = await field.boundingBox();
+        assert.ok(Math.abs(box.width - 420) < 1, `width ${box.width}`);
+        assert.ok(Math.abs(box.height - 320) < 1, `height ${box.height}`);
+        const tile = await field.locator('[data-photo-field-tile]').boundingBox();
+        assert.ok(tile.width > 400 && tile.height > 250, `tile ${tile.width}x${tile.height}`);
+    });
+});
+
+test('PhotoField title: the default puts the label inside the sentence ("Change main photo"); `title` overrides it', async () => {
+    await mediaTab(async tab => {
+        await tab.locator('[data-photo-field-change]').first().click();
+        await tab.locator('[data-photo-field-modal]').waitFor();
+        assert.equal(await tab.getByRole('dialog').getByRole('heading').first().innerText(), 'Change main photo');
+        await tab.keyboard.press('Escape');
+        await tab.locator('[data-photo-field-modal]').waitFor({ state: 'detached' });
+        await tab.locator('[data-fixture="emit-photo"] [data-photo-field-change]').click();
+        await tab.locator('[data-photo-field-modal]').waitFor();
+        assert.equal(await tab.getByRole('dialog').getByRole('heading').first().innerText(), 'Swap the cover');
+    });
+});
+
+test('PhotoField remove confirm: the title, description and label come from actions.remove.confirm', async () => {
+    await mediaTab(async tab => {
+        await tab.locator('[data-fixture="emit-photo"] [data-photo-field-change]').click();
+        await tab.locator('[data-photo-field-remove]').click();
+        const dialog = tab.locator('[data-confirm-dialog]');
+        await dialog.waitFor();
+        const text = await dialog.innerText();
+        assert.match(text, /Take the cover off\?/);
+        assert.match(text, /Lists show a placeholder instead\./);
+        assert.equal(await dialog.getByRole('button', { name: 'Take off' }).count(), 1);
+        const onTop = await dialog.evaluate(el => {
+            const r = el.getBoundingClientRect();
+            return el.contains(document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2));
+        });
+        assert.equal(onTop, true, 'the confirm paints over the modal behind it');
     });
 });
 
@@ -11982,6 +12162,156 @@ test('PhotoTile aspect="fill": the empty tile fills the height its host gives it
         assert.ok(Math.abs(h[0] - h[1]) <= 1, `tile ${h[1]}px in a ${h[0]}px container`);
     }));
 
+// ── FloatingToolbar's phone layout (?toolbar-phone): one full-width row with the primary action and a menu for the rest; desktop unchanged ─────────────────
+
+async function toolbarPhone(width, check, dark = false) {
+    const context = await browser.newContext({ viewport: { width, height: 800 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?toolbar-phone${dark ? '&dark' : ''}`);
+        await tab.waitForSelector('[data-phone-toolbar]');
+        await tab.waitForTimeout(250);
+        const shots = process.env.KIT_TOOLBAR_PHONE_SCREENSHOT;
+        if (shots) await tab.screenshot({ path: `${shots}-${width}-${dark ? 'dark' : 'light'}.png` });
+        await check(tab);
+    } finally {
+        await context.close();
+    }
+}
+
+test('FloatingToolbar at phone width: one full-width row (never a wrapping balloon) with the primary action and a menu holding the rest; at desktop width every action stays inline', async () => {
+    for (const dark of [false, true]) {
+        await toolbarPhone(390, async tab => {
+            const pill = tab.locator('[data-phone-toolbar]');
+            const box = await pill.boundingBox();
+            assert.ok(box.height <= 56, `one row, not a balloon: ${box.height}px tall`);
+            assert.ok(box.width >= 390 - 32 - 1, `full width less the 16px gutters: ${box.width}px`);
+            const rows = await pill.evaluate(el => new Set([...el.querySelectorAll('button, [role="status"], [data-header-status]')].filter(b => b.checkVisibility({ visibilityProperty: true }) && b.getBoundingClientRect().width > 0).map(b => Math.round(b.getBoundingClientRect().top + b.getBoundingClientRect().height / 2))).size);
+            assert.equal(rows, 1, 'every visible control on one line');
+            assert.equal(await pill.evaluate(el => el.scrollWidth <= el.clientWidth + 1), true, 'nothing runs past the pill');
+            assert.equal(await tab.locator('[data-phone-toolbar] [data-header-action="primary"]', { hasText: 'Preview report' }).isVisible(), true, 'the primary page action stays');
+            await tab.getByRole('button', { name: 'More actions', exact: true }).first().click();
+            await tab.waitForTimeout(150);
+            if (process.env.KIT_TOOLBAR_PHONE_SCREENSHOT) await tab.screenshot({ path: `${process.env.KIT_TOOLBAR_PHONE_SCREENSHOT}-390-${dark ? 'dark' : 'light'}-menu.png` });
+            const menuRows = await tab.locator('[role="menu"] [role="menuitem"]').evaluateAll(items => items.map(row => {
+                const glyph = row.querySelector('svg, [data-menu-icon-spacer]');
+                const range = document.createRange();
+                const text = [...row.querySelectorAll('*'), row].flatMap(el => [...el.childNodes]).find(node => node.nodeType === 3 && node.textContent.trim());
+                range.selectNodeContents(text);
+                const label = range.getBoundingClientRect();
+                return { name: row.textContent.trim(), icon: glyph?.getBoundingClientRect().top ?? null, iconBottom: glyph?.getBoundingClientRect().bottom ?? null, top: label.top, bottom: label.bottom, left: Math.round(label.left) };
+            }));
+            assert.deepEqual(menuRows.map(row => row.name), ['Finalize', 'Re-open', 'Add comparable', 'Appraiser notes'], 'page actions, then the client items');
+            for (const row of menuRows) {
+                assert.notEqual(row.icon, null, `${row.name}: an icon or the icon spacer`);
+                assert.ok(Math.abs((row.icon + row.iconBottom) / 2 - (row.top + row.bottom) / 2) < 6, `${row.name}: icon and label share a line`);
+            }
+            assert.equal(new Set(menuRows.map(row => row.left)).size, 1, `labels share one left edge: ${menuRows.map(row => `${row.name} ${row.left}`).join(', ')}`);
+            await tab.getByRole('menuitem', { name: 'Appraiser notes' }).click();
+            await tab.waitForTimeout(50);
+            assert.equal(await tab.textContent('[data-used]'), 'notes', 'a client item reached from the menu still reaches the host');
+        }, dark);
+        await toolbarPhone(1280, async tab => {
+            const pill = tab.locator('[data-phone-toolbar]');
+            const box = await pill.boundingBox();
+            assert.ok(box.width < 1000, `desktop keeps the centred, content-width pill: ${box.width}px`);
+            assert.ok(box.height <= 56, 'one row');
+            for (const name of ['Add comparable', 'Appraiser notes', 'Preview report', 'Finalize'])
+                assert.equal(await tab.locator('[data-phone-toolbar]').getByText(name, { exact: true }).isVisible(), true, `${name} inline`);
+            assert.equal(await tab.locator('[data-toolbar-menu]').count(), 0, 'no item overflow menu on desktop');
+        }, dark);
+    }
+});
+
+// ── InlineDropdown (?inline-dropdown, `&dark`, docs/inline-dropdown.md): a link-styled trigger naming the current choice, a menu headed by its subject with
+// menuitemradio rows, the current one checked; state-driven choices emit, link items are anchors, sections are labelled groups. KIT_INLINE_DROPDOWN_SHOTS=<dir>
+// saves each scheme at 1280 and 390px with the sort menu open.
+test('InlineDropdown: the trigger names the current choice; its menu has the subject header and radio rows; a new choice emits once, links are anchors in labelled groups', async () => {
+    const shots = process.env.KIT_INLINE_DROPDOWN_SHOTS;
+    for (const [mode, dark] of [['light', ''], ['dark', '&dark']]) {
+        for (const width of [1280, 390]) {
+            await onPage(`inline-dropdown${dark}`, async (tab) => {
+                const trigger = tab.locator('[data-case="sort"]').getByRole('button', { name: 'Sort by: Last touched' });
+                assert.equal(await trigger.count(), 1, `${mode}: named by its label and the current choice`);
+                assert.equal(await trigger.evaluate(el => el.tagName), 'BUTTON');
+                await trigger.focus();
+                await tab.keyboard.press('ArrowDown');
+                const menu = tab.getByRole('menu');
+                await menu.waitFor();
+                assert.equal((await menu.locator('[data-menu-subject-title]').innerText()).trim(), 'Sort by', 'the subject header');
+                const rows = await menu.getByRole('menuitemradio').evaluateAll(els => els.map(el => [el.textContent.trim(), el.getAttribute('aria-checked')]));
+                assert.deepEqual(rows, [['Last touched', 'true'], ['Newest', 'false'], ['Due soonest', 'false']], 'the choices, the current one checked');
+                // axe's best-practice `region` rule flags the portalled menu outside any landmark; every other rule holds, contrast included.
+                assert.deepEqual((await axeWithContrast(tab)).filter(v => v.id !== 'region'), [], `${mode} ${width}: open`);
+                if (shots) await tab.screenshot({ path: `${shots}/inline-dropdown-${width}-${mode}.png`, fullPage: true });
+                if (dark || width !== 1280) return;
+                await tab.keyboard.press('Enter');
+                await tab.waitForFunction(() => !document.querySelector('[role="menu"]'));
+                assert.deepEqual(await tab.evaluate(() => window.kitPicked), [], 'choosing the current order emits nothing');
+                await trigger.click();
+                await menu.getByRole('menuitemradio', { name: 'Due soonest' }).click();
+                await tab.locator('[data-case="sort"]').getByRole('button', { name: 'Sort by: Due soonest' }).waitFor();
+                assert.deepEqual(await tab.evaluate(() => window.kitPicked), ['due'], 'one emit with the chosen key');
+                await tab.locator('[data-case="links"]').getByRole('button', { name: 'Go to: Overview' }).click();
+                const links = await tab.getByRole('menu').evaluate(el => ({
+                    groups: [...el.querySelectorAll('[data-menu-group-label]')].map(g => g.textContent.trim()),
+                    rows: [...el.querySelectorAll('[role="menuitemradio"]')].map(r => [r.tagName, r.getAttribute('href'), r.getAttribute('aria-checked')]),
+                }));
+                assert.deepEqual(links, {
+                    groups: ['This case', 'Recent cases'],
+                    rows: [['A', '/@acme/cases/7', 'true'], ['A', '/@acme/cases/7/details', 'false'], ['A', '/@acme/cases/8', 'false']],
+                }, 'link items are anchors, in labelled groups, the current one checked');
+            }, { width, height: 800 });
+        }
+    }
+});
+
+// ── InputSelect select-only (?inline-dropdown): a select that is not searchable reads as a button: pointer cursor, no caret, no on-screen keyboard, and typing
+// changes nothing; a searchable one keeps the text cursor.
+test('InputSelect: a non-searchable select shows no text caret or I-beam and opens no keyboard; a searchable one keeps the text cursor', async () => {
+    await onPage('inline-dropdown', async (tab) => {
+        const read = (id) => tab.$eval(`#${id}`, el => ({ inputmode: el.getAttribute('inputmode'), cursor: getComputedStyle(el).cursor, caret: getComputedStyle(el).caretColor, field: getComputedStyle(el.parentElement).cursor, selectOnly: el.hasAttribute('data-select-only') }));
+        const only = await read('status');
+        assert.deepEqual([only.inputmode, only.cursor, only.field, only.selectOnly], ['none', 'pointer', 'pointer', true], 'five fixed options: a select-only field');
+        assert.match(only.caret, /rgba\(0, 0, 0, 0\)|transparent/, 'no visible caret');
+        const typeable = await read('who');
+        assert.deepEqual([typeable.inputmode, typeable.cursor, typeable.selectOnly], [null, 'text', false], 'searchable: a text field');
+        await tab.focus('#status');
+        await tab.keyboard.type('zz');
+        assert.equal(await tab.inputValue('#status'), 'Actual', 'typing into the select-only field changes nothing');
+    });
+});
+
+test('Row gaps: an unsectioned menu draws a divider before its trailing destructive rows; a disabled InertiaAction is dimmed, described by its reason, and keeps the host class and data-*', async () => {
+    await onPage('small-pieces', async (tab) => {
+        const action = tab.locator('#row-gaps [data-inertia-action]');
+        assert.equal(await action.getAttribute('data-host'), 'yes', 'data-* reaches the button');
+        assert.ok((await action.getAttribute('class')).includes('host-class'), 'class reaches the button');
+        assert.ok(Number(await action.evaluate(el => getComputedStyle(el).opacity)) < 0.8, 'dimmed');
+        const described = await action.evaluate(el => document.getElementById(el.getAttribute('aria-describedby') ?? '')?.textContent);
+        assert.equal(described, 'No valuation yet');
+        await tab.locator('#row-gaps [aria-haspopup="menu"]').first().click();
+        const menu = tab.getByRole('menu');
+        await menu.waitFor();
+        const order = await menu.evaluate(el => [...el.querySelectorAll('[role="menuitem"], [data-menu-group-separator]')].map(n => n.hasAttribute('data-menu-group-separator') ? '|' : n.textContent.trim()));
+        assert.deepEqual(order, ['Duplicate', '|', 'Delete']);
+    });
+});
+
+test('DataTable sticky header is desktop-only: at phone width the row cards flow with the page (no inner scroll box); at desktop the header still sticks in a capped box', async () => {
+    for (const [width, inner] of [[390, false], [1280, true]]) {
+        const context = await browser.newContext({ viewport: { width, height: 700 } });
+        try {
+            const tab = await context.newPage();
+            await tab.goto(`${url}?datatable=phone`);
+            await tab.waitForSelector('[data-table]');
+            const box = await tab.$eval('[data-table]', el => { const s = getComputedStyle(el.parentElement); return { y: s.overflowY, max: s.maxHeight }; });
+            assert.equal(box.y === 'auto' && box.max !== 'none', inner, `${width}px: ${JSON.stringify(box)}`);
+        } finally {
+            await context.close();
+        }
+    }
+});
 test('Menus: at least 14rem wide whatever the trigger, and a new-tab row keeps its arrow at the trailing edge, out of the label', async () => {
     await onPage('small-pieces', async (tab) => {
         await tab.locator('#narrow-menu [data-action-menu], #narrow-menu [aria-haspopup]').last().click();
@@ -12010,6 +12340,23 @@ test('ItemStack footer: padded like the tile, and #footer-label lets the host wr
         assert.ok(pad >= 8, `footer padding ${pad}px`);
     }));
 
+test('ItemStack on a 220px tile: the host footer label stays readable, the arrows join the footer with no separate k / N row, :arrange="false" hides Arrange, and the position is still announced', () =>
+    mediaTab(async (tab) => {
+        const stack = tab.locator('[data-fixture="narrow-stack"] [data-item-stack]');
+        const label = stack.locator('[data-item-stack-footer-label]');
+        const fits = await label.evaluate(el => ({ width: el.getBoundingClientRect().width, clipped: el.scrollWidth > el.clientWidth }));
+        assert.ok(fits.width >= 90 && !fits.clipped, `footer label ${JSON.stringify(fits)}`);
+        assert.equal(await stack.locator('[data-item-stack-position]').count(), 0, 'no separate position row');
+        assert.equal(await stack.locator('[data-item-stack-arrange]').count(), 0, 'Arrange hidden');
+        assert.equal(await stack.locator('[data-item-stack-footer] [data-item-stack-next]').count(), 1, 'arrows in the footer');
+        assert.equal(await stack.getByRole('button', { name: 'Add' }).count(), 1, 'Add keeps its name');
+        const footer = await stack.locator('[data-item-stack-footer]').evaluate(el => ({ h: el.getBoundingClientRect().height, w: el.scrollWidth - el.clientWidth }));
+        assert.ok(footer.h < 40 && footer.w <= 0, JSON.stringify(footer));
+        await stack.locator('[data-item-stack-next]').click();
+        assert.equal((await label.textContent()).trim(), 'Listing · 2 of 3');
+        assert.equal((await stack.locator('[data-item-stack-announce]').textContent()).trim(), 'shot 2 of 3');
+        if (process.env.SHOT) await tab.locator('[data-fixture="narrow-stack"]').screenshot({ path: process.env.SHOT });
+    }));
 test('MediaCollection tiles share one baseline: no row above the picture; the grip sits in the footer beside the name and the menu; Move earlier/later are in the menu; tiles fit a narrow container', () =>
     mediaTab(async (tab) => {
         const strip = tab.locator('[data-media-collection="strip"]');
@@ -12061,3 +12408,15 @@ test('Page header (?page-title): from sm up a long title wraps in its own column
         }
     }
 });
+
+test('MediaCollection tiles: the add tile in the grid is the only drop zone, and the collection ends at its tiles (no empty child adding a gap below)', () =>
+    mediaTab(async (tab) => {
+        const strip = tab.locator('[data-media-collection="strip"]');
+        const shape = await strip.evaluate(root => {
+            const last = [...root.children].at(-1);
+            const list = root.querySelector('[data-sortable-list]').getBoundingClientRect();
+            return { drops: root.querySelectorAll('[data-dropzone]').length, outside: [...root.children].filter(el => !el.contains(root.querySelector('[data-sortable-list]')) && el.getBoundingClientRect().height === 0).length, gap: Math.round(root.getBoundingClientRect().bottom - list.bottom), lastIsList: last.contains(root.querySelector('[data-sortable-list]')) };
+        });
+        assert.equal(shape.outside, 0, `no empty child after the list: ${JSON.stringify(shape)}`);
+        assert.ok(shape.gap <= 0, `the collection ends at its tiles: ${JSON.stringify(shape)}`);
+    }));
