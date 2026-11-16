@@ -5,11 +5,15 @@
 ### Added
 
 - **Row actions, declared shapes.** `rowActions: { primary: 'edit' }` (DataTable prop or `TableQuery::rowActions(primary: 'edit')`, or `primary: true` on an action) makes every row the same shape: the primary as its icon (named and titled by its label), joined to a chevron menu of the rest; a row without that action shows its menu alone. `variant: 'menu'` puts every action in the "…" menu, a lone Delete included. `trigger: 'vertical'` draws ⋮ for compact places. Tables that declare nothing keep the earlier inferred layout.
-- **ActionDialogs and `useActionRunner`**, exported: a page runs descriptors from its own buttons, rows or menus (`runner.run(action)`) with their dialogs hosted once. A confirm can carry a `prompt` (a labelled textarea posted as `reason` or its `name`; `required` keeps Confirm disabled until it has text), with the server's error under it and other errors listed. An action's `form` names a `form-<name>` slot drawn in a Modal with `submit(data)`, `errors`, `busy` and `close`. A refused visit keeps the dialog open. `ActionMenuItems` is exported too.
+- **ActionDialogs and `useActionRunner`**, exported: a page runs descriptors from its own buttons, rows or menus (`runner.run(action)`) with their dialogs hosted once. A confirm can carry a `prompt` (a labelled textarea posted as `reason` or its `name`; `required` keeps Confirm disabled until it has text), with the server's error under it and other errors listed. An action's `form` names a `form-<name>` slot drawn in a Modal with `submit(data)`, `errors`, `busy` and `close`. An action's `payload` posts with its visit, under the dialog's fields. A refused visit keeps the dialog open. `ActionMenuItems` is exported too.
 - **Dialog `confirmDisabled`.**
 - **The media family** (kit#1043). `MediaGallery`: a read-only row of mixed files with a lightbox (Previous/Next, arrow keys), a placeholder until the generated thumbnail exists, `maxThumbnails` with "+N", `small|medium` and `filenames`. `MediaThumbnail`: a square `{thumb, card}` picture, `sm|md|lg`, a muted tile when there is none. `PhotoTile`: the dashed camera tile for an empty photo slot (drop, paste or click). `ItemStack`: a stack with "k / N", Previous/Next and an Arrange fanout on SortableList, whose reorder sends the version and rolls back on a 409. `PhotoField`: one photo slot whose Change modal shows the current photo, replaces it by drop or paste (directUpload), picks from `sources`, and removes it after a confirmation, each write carrying `version`; it emits `replaced`, `chosen` and `removed`.
 - **MediaCollection `layout="tiles"`**: square or 4/3 tiles with `badges`, `selected-ids`, `dim-ids`, per-tile `tile-actions` (emitted as `action`), `show`, a placeholder until `thumb` exists, and a camera add tile; `empty="photo-tile"` in any layout. `MediaItem`'s `size`, `width`, `height` and `srcset` are now optional, and it takes `thumb` and `pending`.
 - **`directUpload(file, { ticket, register, maxBytes })`**, exported with `tooLarge`, `DirectUploadError` and `UploadTooLargeError`: a file over the cap is refused before any request with "<name> is larger than N MB".
+
+### Fixed
+
+- **FileInput `dropzone`** keeps `autofocus`: the generated Welcome photo step focuses its field on load again.
 
 ## v0.28.1
 
