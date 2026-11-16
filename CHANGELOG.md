@@ -5,7 +5,7 @@
 ### Added
 
 - **Row actions, declared shapes.** `rowActions: { primary: 'edit' }` (DataTable prop or `TableQuery::rowActions(primary: 'edit')`, or `primary: true` on an action) makes every row the same shape: the primary as its icon (named and titled by its label), joined to a chevron menu of the rest; a row without that action shows its menu alone. `variant: 'menu'` puts every action in the "…" menu, a lone Delete included. `trigger: 'vertical'` draws ⋮ for compact places. Tables that declare nothing keep the earlier inferred layout.
-- **ActionDialogs and `useActionRunner`**, exported: a page runs descriptors from its own buttons, rows or menus (`runner.run(action)`) with their dialogs hosted once. A confirm can carry a `prompt` (a labelled textarea posted as `reason` or its `name`; `required` keeps Confirm disabled until it has text), with the server's error under it and other errors listed. An action's `form` names a `form-<name>` slot drawn in a Modal with `submit(data)`, `errors`, `busy` and `close`. A refused visit keeps the dialog open. `ActionMenuItems` is exported too.
+- **ActionDialogs and `useActionRunner`**, exported: a page runs descriptors from its own buttons, rows or menus (`runner.run(action)`) with their dialogs hosted once. A confirm can carry a `prompt` (a labelled textarea posted as `reason` or its `name`; `required` keeps Confirm disabled until it has text), with the server's error under it and other errors listed. An action's `form` names a `form-<name>` slot drawn in a Modal with `submit(data)`, `errors`, `busy` and `close`. An action's `payload` posts with its visit, under the dialog's fields. A refused visit keeps the dialog open. `ActionMenuItems` is exported too.
 - **Dialog `confirmDisabled`.**
 
 ## v0.28.1

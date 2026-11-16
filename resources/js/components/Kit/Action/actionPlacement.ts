@@ -25,6 +25,8 @@ export type ActionDescriptor = {
             placeholder?: string | null;
         } | null;
     } | null;
+    /** Fields posted with the visit (a stage, a lock version), under any confirmation, prompt or form data. */
+    payload?: Record<string, unknown> | null;
     /** A form the host draws for this action (ActionDialogs' `form-<name>` slot, such as a date to record), its fields posted with the visit. */
     form?: string | null;
     intent?: string | null;
