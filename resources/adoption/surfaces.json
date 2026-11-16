@@ -3724,6 +3724,10 @@
       "reason": "Display primitive: the card a comment or note sits on, with its colour accent, author and time, rendered inside a host page or a kit component."
     },
     {
+      "ref": "@/components/Kit:QuickAction",
+      "reason": "Display primitive: a comment's quick action button (icon plus label, icon only on a narrow card), rendered in a host's CommentItem quick slot or NoteCard actions."
+    },
+    {
       "ref": "@/components/Kit:CommentItem",
       "reason": "Display primitive: one comment or note with its replies and the actions the server sent, rendered inside a host page."
     },
