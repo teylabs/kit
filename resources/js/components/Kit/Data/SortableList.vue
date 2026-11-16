@@ -83,6 +83,9 @@ watch(
 );
 const off = computed(() => props.disabled || busy.value);
 const announcement = ref('');
+// A failed save is shown, not only announced: the visible error stays until the next save succeeds, which shows a quiet "Saved".
+const saveError = ref('');
+const savedShown = ref(false);
 const flow = computed(() => props.layout !== 'list');
 const cutAt = computed(() =>
     props.cutAfter !== null &&
@@ -144,6 +147,8 @@ const reorderer = createReorder({
     },
     saved: (version) => {
         token = version;
+        saveError.value = '';
+        savedShown.value = true;
         emit('saved', version, lastBody);
     },
     rolledBack: (reason) => {
@@ -151,6 +156,8 @@ const reorderer = createReorder({
             reason === 'conflict'
                 ? 'The order changed elsewhere, so the move was not saved.'
                 : 'The move could not be saved.';
+        savedShown.value = false;
+        saveError.value = announcement.value;
         if (reason === 'conflict') {
             if (props.onConflict) props.onConflict(ids.value);
             else emit('conflict', ids.value);
@@ -166,6 +173,7 @@ async function move(from: number, to: number): Promise<void> {
     const item = shown.value[from];
     const next = moveItem(ids.value, from, to);
     announcement.value = '';
+    savedShown.value = false;
     if (props.reorder || props.persist) {
         void reorderer.apply(next);
     } else {
@@ -309,6 +317,22 @@ async function moveBy(
                 </li>
             </template>
         </ul>
+        <p
+            v-if="saveError"
+            role="alert"
+            class="text-destructive-text text-sm"
+            data-sortable-error
+        >
+            {{ saveError }}
+        </p>
+        <p
+            v-else-if="savedShown"
+            class="text-muted-foreground text-xs"
+            aria-hidden="true"
+            data-sortable-saved
+        >
+            Saved
+        </p>
         <p
             class="sr-only"
             role="status"

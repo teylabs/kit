@@ -11866,12 +11866,20 @@ test('ItemStack persist: the host save replaces the built-in request; ok keeps t
         await tab.waitForFunction(() => window.kitEvents.includes('persist-saved 6'));
         assert.deepEqual(await tab.evaluate(() => window.kitPersist.calls), [{ order: ['c2', 'c1', 'c3'], version: 5 }]);
         assert.deepEqual(await tab.evaluate(() => window.kitServer.log), [], 'no built-in request');
+        await fanout.locator('[data-sortable-saved]').waitFor();
         const before = await order();
         await tab.evaluate(() => { window.kitPersist.conflict = true; });
         await fanout.getByRole('button', { name: /Move Colour 3 \(Blue\) up/ }).click();
         await tab.waitForFunction(() => window.kitEvents.some(e => e.startsWith('persist-conflict')));
         assert.equal((await tab.evaluate(() => window.kitPersist.calls))[1].version, 6, 'the next save carries the version the last one returned');
         assert.deepEqual(await order(), before, 'a conflict rolls the order back');
+        const error = fanout.locator('[data-sortable-error][role="alert"]');
+        assert.match(await error.textContent(), /not saved/, 'the failure is shown, not only announced');
+        assert.equal(await fanout.locator('[data-sortable-saved]').count(), 0);
+        await tab.evaluate(() => { window.kitPersist.conflict = false; });
+        await fanout.getByRole('button', { name: /Move Colour 3 \(Blue\) up/ }).click();
+        await fanout.locator('[data-sortable-saved]').waitFor();
+        assert.equal(await error.count(), 0, 'the next successful save clears it');
     });
 });
 

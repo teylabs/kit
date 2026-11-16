@@ -19,6 +19,7 @@
 - **SegmentLinks** (docs/widgets.md): in-place filter segments that are links (`{key, label, href, count?, tone?}`), the `current` one marked `aria-current`, `appearance` link or neutral, and a `navigate` emit that lets a page take over the visit (a partial reload).
 
 - **MediaCollection tiles**: a dimmed tile dims only its picture (its name keeps full contrast), and each tile's ⋯ trigger carries `data-media-menu`.
+- **SortableList** shows a failed or stale save inline (`role="alert"`, `data-sortable-error`) until the next save succeeds, which shows a quiet "Saved" (`data-sortable-saved`); before, it was only announced.
 - **MediaCollection `hostUpload`**: the add tile or drop shows without `direct` and only emits `files`, for a host that runs its own uploads.
 
 ### Fixed
