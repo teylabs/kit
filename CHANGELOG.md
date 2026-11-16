@@ -2,12 +2,6 @@
 
 ## Unreleased
 
-### Changed
-
-- **Menu items show their description, wrapping, in every kit menu** (Jasper's request). An action descriptor's `description` now shows under its label in header More menus, ActionBar and ButtonGroup menus and split buttons, as RowActions already did; RowActions no longer truncates it to one line. A `DropdownItem` `#caption` and an action's description are hidden from the item's name and read as its description (aria-describedby), so the name stays the label. Menus whose actions already carry a description now show it. README, "Menu descriptions", says when to add one.
-
-## Unreleased
-
 ### Added
 
 - `FileInput` `dropzone`: the kit's dropzone in place of the native picker, taking one file by drop, paste or browse, with `maxBytes` (10 MB by default) checked in the browser and `label` naming the field (#1044).
@@ -19,6 +13,10 @@
 ### Fixed
 
 - **A file dropped just outside a dropzone no longer opens in the browser and leaves the app** (#1044). While any dropzone (BulkDrop) is mounted, a page-wide guard keeps a file released outside every zone from the browser, and every zone shows its ring while files are dragged over the page.
+
+### Changed
+
+- **Menu items show their description, wrapping, in every kit menu** (Jasper's request). An action descriptor's `description` now shows under its label in header More menus, ActionBar and ButtonGroup menus and split buttons, as RowActions already did; RowActions no longer truncates it to one line. A `DropdownItem` `#caption` and an action's description are hidden from the item's name and read as its description (aria-describedby), so the name stays the label. Menus whose actions already carry a description now show it. README, "Menu descriptions", says when to add one.
 
 ## v0.26.0
 
