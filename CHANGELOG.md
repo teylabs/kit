@@ -1,12 +1,14 @@
 # Changelog
 
-## v0.27.2
-
-Features affected: none. No lineage needs kit:update; `composer update tey/kit` is enough.
+## Unreleased
 
 ### Fixed
 
 - **RowActions split menu** opens 4px below its trigger, like the ⋯ menu. It used ButtonGroup's page-level 10px gap, which put a table row's menu over the next row.
+
+## v0.27.2
+
+Features affected: none. No lineage needs kit:update; `composer update tey/kit` is enough.
 
 ### Added
 
