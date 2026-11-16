@@ -2343,7 +2343,9 @@
       "applies": "has-badges",
       "uses": {
         "imports": [
-          "@/components/Kit:Badge"
+          "@/components/Kit:Badge",
+          "@/components/Kit:ColourDot",
+          "@/components/Kit:ToneLabel"
         ]
       },
       "handRolled": [
@@ -3338,6 +3340,14 @@
     }
   ],
   "nonSurfaces": [
+    {
+      "ref": "@/components/Kit:TONES",
+      "reason": "The named tones' list, a helper behind Badge, ColourDot and ToneLabel."
+    },
+    {
+      "ref": "@/components/Kit:toneOf",
+      "reason": "Maps a tone name to a named tone (unknown names fall back to neutral), a helper behind Badge, ColourDot and ToneLabel."
+    },
     {
       "ref": "@/components/Kit:fromLine",
       "reason": "Label helper behind Settings › Email sending (the From line)."

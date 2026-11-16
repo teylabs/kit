@@ -66,10 +66,22 @@ export interface StageNoticeProps {
 }
 
 /** A page that is not built yet: `description` says what it will do, `milestone` (words only) renders "Planned for {milestone}", `links` are descriptors. A plain region, no live role. */
-/** A short status label on the kit's tone tokens (AA in light and dark): `tone` neutral, info, success, warning or danger; `size` sm or md. The text carries the meaning, never the colour alone. */
+/** A short status label on the kit's tone tokens (AA in light and dark): `tone` one of the named tones (Feedback/tones.ts); `dot` puts the tone's dot first; `size` sm or md. The text carries the meaning, never the colour alone. */
 export interface BadgeProps {
-    tone?: 'neutral' | 'info' | 'success' | 'warning' | 'danger';
+    tone?: import('./Feedback/tones').Tone;
     size?: 'sm' | 'md';
+    dot?: boolean;
+}
+/** A small round dot in one of the kit's named tones; decorative unless `label` names it. */
+export interface ColourDotProps {
+    tone?: string | null;
+    label?: string;
+}
+/** Muted text with a tone's dot before it, a quieter status than a Badge. */
+export interface ToneLabelProps {
+    label: string;
+    tone?: string | null;
+    dot?: boolean;
 }
 /** A button that copies `value`: success is spoken only after the clipboard write resolves; a refusal shows the value read-only to copy by hand. `label` names it; `icon` is a small icon button named by `label`; `copiedLabel` replaces the label while copied. */
 export interface CopyButtonProps {
@@ -1185,6 +1197,6 @@ export interface TextChipsProps {
 export interface TextTagsProps {
     items: readonly string[] | null | undefined;
     label?: string;
-    tone?: 'neutral' | 'info' | 'success' | 'warning' | 'danger';
+    tone?: import('./Feedback/tones').Tone;
     size?: 'sm' | 'md';
 }

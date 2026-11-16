@@ -6,6 +6,18 @@
 
 - `EmptyState` `align` (`center`, the default, or `start` for a widget's body), `variant` `first-use` (a dashed border, for a place that has never had anything in it), and `icon` as a name from a server descriptor (the empty states' own icons, then the action icons; an unknown name draws no icon). Existing empty states render as before (#1044).
 
+## v0.26.0
+
+Features affected: core. Run `php artisan kit:update core` for the new tone tokens in kit.css.
+
+A minor: the kit has one fixed set of ten named tones. Badge takes the five new ones and a `dot`, and ColourDot and ToneLabel are new. Existing badges look the same. The new tone tokens live in `kit.css`, so run `php artisan kit:update core` to use them (#1042).
+
+### Added
+
+- Five category tones, `purple`, `teal`, `pink`, `orange` and `slate`, beside neutral, info, success, warning and danger, as `--kit-tone-*` tokens with a background, foreground, border and dot, AA in light and dark. `TONES`, `toneOf()` and the `Tone` type are exported (#1042).
+- `Badge` `dot`: the tone's dot before the text (#1042).
+- `ColourDot`: a tone's dot, decorative unless `label` names it, and `ToneLabel`: muted text after a tone's dot (#1042).
+
 ## v0.25.8
 
 Features affected: none.
