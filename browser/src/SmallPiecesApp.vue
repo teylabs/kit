@@ -5,6 +5,7 @@ import { applyFormDefaults } from '@/components/Kit/Form/formDefaults';
 import { reveal } from '@/components/Kit/Layout/reveal';
 import EmailMessage from '@/components/Kit/Text/EmailMessage.vue';
 import CardHeader from '@/components/Kit/Card/CardHeader.vue';
+import ActionBar from '@/components/Kit/Action/ActionBar.vue';
 
 // Small pieces (?small-pieces): EmailMessage, BusyIndicator, reveal() and applyFormDefaults(). window.revealTarget(duration) reveals the far row.
 const applied = applyFormDefaults();
@@ -31,6 +32,15 @@ const defaultsOnSuccess = (Form as unknown as { props: { setDefaultsOnSuccess: {
             <CardHeader id="long-header" title="2014 Audi S5 Cabriolet 3.0 TFSI 2dr Conv Auto Technik">
                 <template #actions><button type="button" data-header-action>Edit</button><button type="button">Archive</button></template>
             </CardHeader>
+        </div>
+        <div id="narrow-menu" style="width: 120px">
+            <ActionBar
+                :actions="[
+                    { key: 'edit', label: 'Edit', url: '/l/1/edit', method: 'get', group: 'g' },
+                    { key: 'pdf', label: 'Saved listing (PDF)', url: '/l/1.pdf', method: 'get', icon: 'file-text', newTab: true, group: 'g', menu: true, description: 'The listing as saved on 12 Nov' },
+                    { key: 'copy', label: 'Copy link', url: '/l/1/copy', method: 'post', group: 'g', menu: true },
+                ]"
+            />
         </div>
         <div style="height: 2000px" />
         <p id="far">Far row</p>

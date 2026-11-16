@@ -36,7 +36,7 @@ const GENERATED = ['database/migrations/kit/', 'resources/js/pages/', 'resources
 /** Migration prefix block per feature, in requires order: core, workspaces, access, settings, session-ui, mcp. Shell and workspace-ui migrate nothing and have no block. */
 const MIGRATION_BLOCK = ['core' => 1, 'workspaces' => 2, 'access' => 3, 'settings' => 4, 'session-ui' => 5, 'mcp' => 6, 'notes' => 7, 'finalize' => 8, 'deliver' => 9];
 /** Tailwind-style utilities only: a class token needs a dash or a variant, or is one of the bare utilities. */
-const BARE_UTILITIES = ['flex', 'grid', 'block', 'inline', 'hidden', 'contents', 'table', 'border', 'rounded', 'shadow', 'underline', 'italic', 'truncate', 'container', 'sr-only', 'relative', 'absolute', 'fixed', 'sticky', 'static', 'grow', 'shrink', 'uppercase', 'lowercase', 'capitalize', 'antialiased', 'peer', 'group'];
+const BARE_UTILITIES = ['flex', 'grid', 'block', 'inline', 'hidden', 'contents', 'table', 'border', 'rounded', 'shadow', 'underline', 'italic', 'truncate', 'container', 'sr-only', 'relative', 'absolute', 'fixed', 'sticky', 'static', 'grow', 'shrink', 'uppercase', 'lowercase', 'capitalize', 'antialiased', 'peer', 'group', '@container'];
 
 /** Kit stub source read regardless of formatting: whitespace collapsed, padded attribute values trimmed, a trailing comma before a closer dropped. */
 function kitFlat(string $source): string
@@ -169,7 +169,7 @@ try {
         starterCheck($component || ! preg_match('/from\s*[\'"]@\/(components|lib|composables)\//', $bytes), $path.' imports UI only from @kit/ui');
         starterCheck(! preg_match('/<style\b/i', $bytes), $path.' has no style block');
         preg_match_all('/\sclass="([^"]*)"/', $bytes, $classes);
-        $authored = array_values(array_filter(preg_split('/\s+/', implode(' ', $classes[1]), -1, PREG_SPLIT_NO_EMPTY), fn (string $token): bool => ! in_array(preg_replace('/\A(?:(?:[a-z0-9*-]+(?:\[[^\]]+\])?|\[[^\]]+\]):)+/', '', $token), BARE_UTILITIES, true) && ! preg_match('/\A(?:(?:[a-z0-9*-]+(?:\[[^\]]+\])?|\[[^\]]+\]):)*(?:-?[a-z]+(?:-[a-z0-9.\/\[\]#%()=,:_-]+)+|\[--[a-z0-9-]+:[^\]\s]+\])!?\z/', $token)));
+        $authored = array_values(array_filter(preg_split('/\s+/', implode(' ', $classes[1]), -1, PREG_SPLIT_NO_EMPTY), fn (string $token): bool => ! in_array(preg_replace('/\A(?:(?:@?[a-z0-9*-]+(?:\[[^\]]+\])?|@?\[[^\]]+\]):)+/', '', $token), BARE_UTILITIES, true) && ! preg_match('/\A(?:(?:@?[a-z0-9*-]+(?:\[[^\]]+\])?|@?\[[^\]]+\]):)*(?:-?[a-z]+(?:-[a-z0-9.\/\[\]#%()=,:_-]+)+|\[--[a-z0-9-]+:[^\]\s]+\])!?\z/', $token)));
         starterCheck($authored === [], $path.' uses no authored class names'.($authored === [] ? '' : ': '.implode(', ', $authored)));
         starterCheck(! preg_match('/import\s+\w*Layout\b|Layout\.vue[\'"]/', $bytes) || $file === 'Layout.vue', $path.' declares no layout');
         starterCheck(substr_count($bytes, '<template>') >= 1 && substr_count($bytes, '</template>') >= 1 && preg_match_all('/<script setup lang="ts"(?: generic="[^"]*")?>/', $bytes) === 1 && substr_count($bytes, '</script>') === 1, $path.' has one template and one script setup block');
