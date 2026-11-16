@@ -69,7 +69,10 @@ test('HeaderActions splits with headerSplit, keeps ActionBar for the default pat
     const source = flat(strip(read('Action/HeaderActions.vue')));
     assert.match(source, /import \{ ?headerSplit, keepsActionBar ?\} from '@\/components\/Kit\/Action\/headerSplit'/);
     assert.match(source, /<ActionBar v-if="legacy" :actions="actions" :busy="busy" :dialog-open="dialogOpen" :primary="primary" v-bind="barListeners" \/>/);
-    assert.match(source, /<ActionMenuItems :actions="split\.overflow" :busy="blocked" :on-action="run" \/>/);
+    assert.match(source, /<ActionMenuItems v-if="split\.overflow\.length" :actions="split\.overflow" :busy="blocked" :on-action="run" :icon-spacer="menuIcons" \/>/);
+    assert.match(source, /<DropdownMenuSeparator v-if="split\.overflow\.length && slots\.menu" \/> <slot name="menu" \/>/, 'the menu slot follows the overflow, behind a separator');
+    assert.match(source, /keepsActionBar\(props\.actions\) && !compactPill\.value && !slots\.menu/, 'the pill on a phone never takes ActionBar\'s path');
+    assert.match(source, /v-if="compactPill"[^>]*aria-label="More actions"[^>]*>\s*<Ellipsis/, 'the pill\'s phone More is an icon-only ⋯');
     assert.match(source, /:confirm-text="pending\.confirm\.typed \?\? null"/);
     assert.match(source, /withoutEditActions\(props\.actions, lock\.locked\)/);
     assert.match(source, /matchMedia\('\(max-width: 39\.99rem\)'\)/, 'phone is a media query below sm, not the container width');

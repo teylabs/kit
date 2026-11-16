@@ -9,7 +9,11 @@ export const Input = defineComponent({ inheritAttrs: false, props: ['modelValue'
 export const Spinner = pass('span');
 export const DropdownMenu = DropdownMenuRoot;
 export const DropdownMenuTrigger = RekaTrigger;
-export const DropdownMenuItem = RekaItem;
+// shadcn-vue's DropdownMenuItem: reka's item with the host's row classes (a flex row, icon then label, padding, the highlight), so a kit menu row reads as in an app.
+export const DropdownMenuItem = defineComponent({
+    inheritAttrs: false,
+    setup: (_, { slots, attrs }) => () => h(RekaItem, { ...attrs, class: ['relative flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none data-highlighted:bg-accent data-highlighted:text-accent-foreground data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:shrink-0', attrs.class] }, slots),
+});
 export const DropdownMenuSeparator = RekaSeparator;
 // shadcn-vue's DropdownMenuCheckboxItem: reka's checkbox item (role="menuitemcheckbox", aria-checked) with the check indicator in a left gutter. `select` passes through.
 export const DropdownMenuCheckboxItem = defineComponent({
