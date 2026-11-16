@@ -4,8 +4,6 @@
 
 Features affected: none (kit components only).
 
-Features affected: none (kit components only).
-
 ### Added
 
 - **ItemStack fanout**: `title` and `description` props (defaults keep "Arrange <label>" and the count) and a `#fanout-header` slot; one dashed full-width add row after the last item (a drop zone emitting `files` when `accept` is given, else a click emitting `add`) and an `#after` slot (docs/media.md).
