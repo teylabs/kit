@@ -1,6 +1,13 @@
 # Changelog
 
-## Unreleased
+## v0.28.0
+
+Features affected: session-ui and workspace-ui (the photo pages). After `composer update tey/kit`, take them with:
+
+- `php artisan kit:scaffold session-ui --diff --only=resources/js/pages/Welcome/Photo`
+- `php artisan kit:scaffold workspace-ui --diff --only=resources/js/pages/Workspace/Account/Profile`
+
+A minor: row menu items now show icons, and the generated photo pages use FileInput's dropzone. Menus gain labelled sections and subject actions (opt-in).
 
 ### Changed
 
