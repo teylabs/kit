@@ -8,10 +8,29 @@ export type MenuSection<A> = {
     items: { action: A; index: number }[];
 };
 
-export function menuSections<A extends { section?: string | null }>(
-    actions: A[],
-): { grouped: boolean; sections: MenuSection<A>[] } {
+export function menuSections<
+    A extends { section?: string | null; destructive?: boolean | null },
+>(actions: A[]): { grouped: boolean; sections: MenuSection<A>[] } {
     const grouped = actions.some((action) => Boolean(action.section));
+    // No sections: a trailing run of destructive rows after other rows still gets its divider (an unlabelled last section), so Delete never sits flush.
+    if (!grouped) {
+        let split = actions.length;
+        while (split > 0 && actions[split - 1].destructive) split--;
+        if (split > 0 && split < actions.length) {
+            const items = actions.map((action, index) => ({ action, index }));
+            return {
+                grouped: true,
+                sections: [
+                    { key: 'all', label: null, items: items.slice(0, split) },
+                    {
+                        key: 'destructive',
+                        label: null,
+                        items: items.slice(split),
+                    },
+                ],
+            };
+        }
+    }
     const sections: MenuSection<A>[] = [];
     actions.forEach((action, index) => {
         const label = action.section || null;
