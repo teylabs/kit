@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## v0.30.0
+
+Features affected: none; `composer update tey/kit` is enough. Menus look wider, and new-tab arrows in menu rows move to the trailing edge.
 
 ### Changed
 
