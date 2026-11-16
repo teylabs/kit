@@ -2168,6 +2168,63 @@ test('SegmentedToggle and PaneTabs have no axe violations, colour contrast inclu
     }
 });
 
+// ── Named tones (?tones): every tone as a Badge (plain and with a dot), a ToneLabel and a ColourDot; each tone's dot differs, a labelled dot is an image; axe, light and dark ──
+
+async function tones(query, check) {
+    const context = await browser.newContext({ viewport: { width: 1024, height: 900 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?${query}`);
+        await tab.waitForSelector('[data-row="slate"]');
+        await check(tab);
+    } finally {
+        await context.close();
+    }
+}
+
+test('Named tones: ten distinct badge and dot colours, light and dark; a dot is decorative unless labelled; an unknown tone renders neutral', async () => {
+    for (const query of ['tones', 'tones=dark']) {
+        await tones(query, async tab => {
+            const read = await tab.evaluate(() => [...document.querySelectorAll('[data-row]')].map(row => ({
+                tone: row.dataset.row,
+                badge: getComputedStyle(row.querySelector('[data-badge]')).backgroundColor,
+                text: getComputedStyle(row.querySelector('[data-badge]')).color,
+                dot: getComputedStyle(row.querySelector(':scope > [data-colour-dot]')).backgroundColor,
+                inBadge: getComputedStyle(row.querySelectorAll('[data-badge]')[1].querySelector('[data-colour-dot]')).backgroundColor,
+                hidden: row.querySelector(':scope > [data-colour-dot]').getAttribute('aria-hidden'),
+            })));
+            if (process.env.SHOTS) await tab.screenshot({ path: `${process.env.SHOTS}/tones-${query.includes('dark') ? 'dark' : 'light'}.png`, fullPage: true });
+            assert.equal(read.length, 10, `${query}: ten tones`);
+            assert.equal(new Set(read.map(r => r.dot)).size, 10, `${query}: every tone's dot is its own colour`);
+            assert.equal(new Set(read.filter(r => r.tone !== 'neutral').map(r => r.badge)).size, 9, `${query}: every non-neutral badge has its own background`);
+            for (const r of read) {
+                assert.notEqual(r.dot, 'rgba(0, 0, 0, 0)', `${query} ${r.tone}: the dot's token resolves`);
+                assert.equal(r.inBadge, r.dot, `${query} ${r.tone}: a Badge's dot is the tone's dot`);
+                assert.equal(r.hidden, 'true', `${query} ${r.tone}: an unlabelled dot is hidden from assistive technology`);
+            }
+            assert.equal(await tab.getAttribute('[data-labelled]', 'role'), 'img');
+            assert.equal(await tab.getAttribute('[data-labelled]', 'aria-label'), 'Archived');
+            assert.equal(await tab.getAttribute('[data-unknown]', 'data-tone'), 'neutral', 'an unknown tone falls back to neutral');
+        });
+    }
+});
+
+test('Named tones have no axe violations, colour contrast included, light and dark', async () => {
+    for (const query of ['tones', 'tones=dark']) {
+        await tones(query, async tab => {
+            await tab.addScriptTag({ path: axeSource });
+            const result = await tab.evaluate(async () => {
+                const run = await window.axe.run(document, { elementRef: true });
+                const checkedHere = run.passes.filter(p => p.id === 'color-contrast').flatMap(p => p.nodes).filter(n => n.element.closest('[data-badge], [data-tone-label]'));
+                return { violations: run.violations.map(v => ({ id: v.id, targets: v.nodes.map(n => n.target.join(' ')) })), contrast: checkedHere.length };
+            });
+            if (result.violations.length) console.log(query, JSON.stringify(result.violations, null, 1));
+            assert.deepEqual(result.violations, []);
+            assert.ok(result.contrast >= 30, `${query}: axe checked the badges' and labels' contrast (${result.contrast} nodes)`);
+        });
+    }
+});
+
 // ── SwatchPicker (?swatch): suggested swatches and a palette in one radiogroup, the arrows, Home and End; the default swatch is an empty value; axe ──────
 
 const swatches = (tab) => tab.evaluate(() => [...document.querySelectorAll('[data-swatch-picker] [role="radio"]')].map(el => `${el.dataset.swatch}:${el.getAttribute('aria-checked')}:${el.tabIndex}`).join(' '));

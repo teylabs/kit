@@ -240,6 +240,10 @@
 }
 
 :where(:root) {
+    /* Neutral follows the theme's muted surface, so it matches the theme in light and dark. */
+    --kit-tone-neutral-bg: var(--muted);
+    --kit-tone-neutral-border: var(--border);
+    --kit-tone-neutral-fg: var(--muted-foreground);
     --kit-tone-success-bg: #f0fdf4;
     --kit-tone-success-border: #bbf7d0;
     --kit-tone-success-fg: #166534;
@@ -252,6 +256,32 @@
     --kit-tone-error-bg: #fef2f2;
     --kit-tone-error-border: #fecaca;
     --kit-tone-error-fg: #991b1b;
+    --kit-tone-purple-bg: #faf5ff;
+    --kit-tone-purple-border: #e9d5ff;
+    --kit-tone-purple-fg: #6b21a8;
+    --kit-tone-teal-bg: #f0fdfa;
+    --kit-tone-teal-border: #99f6e4;
+    --kit-tone-teal-fg: #115e59;
+    --kit-tone-pink-bg: #fdf2f8;
+    --kit-tone-pink-border: #fbcfe8;
+    --kit-tone-pink-fg: #9d174d;
+    --kit-tone-orange-bg: #fff7ed;
+    --kit-tone-orange-border: #fed7aa;
+    --kit-tone-orange-fg: #9a3412;
+    --kit-tone-slate-bg: #f8fafc;
+    --kit-tone-slate-border: #e2e8f0;
+    --kit-tone-slate-fg: #334155;
+    /* A tone's dot (ColourDot, Badge `dot`, ToneLabel): the 600 shade, at least 3:1 on a white or near-white surface. */
+    --kit-tone-neutral-dot: #737373;
+    --kit-tone-info-dot: #2563eb;
+    --kit-tone-success-dot: #16a34a;
+    --kit-tone-warning-dot: #d97706;
+    --kit-tone-error-dot: #dc2626;
+    --kit-tone-purple-dot: #9333ea;
+    --kit-tone-teal-dot: #0d9488;
+    --kit-tone-pink-dot: #db2777;
+    --kit-tone-orange-dot: #ea580c;
+    --kit-tone-slate-dot: #475569;
 }
 
 :where(.dark) {
@@ -267,4 +297,30 @@
     --kit-tone-error-bg: #450a0a;
     --kit-tone-error-border: #991b1b;
     --kit-tone-error-fg: #fecaca;
+    --kit-tone-purple-bg: #3b0764;
+    --kit-tone-purple-border: #6b21a8;
+    --kit-tone-purple-fg: #e9d5ff;
+    --kit-tone-teal-bg: #042f2e;
+    --kit-tone-teal-border: #115e59;
+    --kit-tone-teal-fg: #99f6e4;
+    --kit-tone-pink-bg: #500724;
+    --kit-tone-pink-border: #9d174d;
+    --kit-tone-pink-fg: #fbcfe8;
+    --kit-tone-orange-bg: #431407;
+    --kit-tone-orange-border: #9a3412;
+    --kit-tone-orange-fg: #fed7aa;
+    --kit-tone-slate-bg: #0f172a;
+    --kit-tone-slate-border: #334155;
+    --kit-tone-slate-fg: #e2e8f0;
+    /* The 400 shade in dark, at least 3:1 on a dark surface. */
+    --kit-tone-neutral-dot: #a3a3a3;
+    --kit-tone-info-dot: #60a5fa;
+    --kit-tone-success-dot: #4ade80;
+    --kit-tone-warning-dot: #fbbf24;
+    --kit-tone-error-dot: #f87171;
+    --kit-tone-purple-dot: #c084fc;
+    --kit-tone-teal-dot: #2dd4bf;
+    --kit-tone-pink-dot: #f472b6;
+    --kit-tone-orange-dot: #fb923c;
+    --kit-tone-slate-dot: #94a3b8;
 }

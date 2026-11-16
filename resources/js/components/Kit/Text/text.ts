@@ -157,7 +157,7 @@ export function longTextCut(
     };
 }
 
-export type BadgeTone = 'neutral' | 'info' | 'success' | 'warning' | 'danger';
+export type BadgeTone = import('../Feedback/tones').Tone;
 export type TextChip =
     | string
     | { label: string; value?: string | number | null; tone?: BadgeTone };
