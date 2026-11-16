@@ -18,7 +18,7 @@ const php = fileURLToPath(new URL('../../src/Features/Core/AvatarColor.php', imp
 const identities = [1, 2, 3, 7, 42, 1096, 2147483647, '9f0c2a1e-77b3-4c1d-9e2f-0a1b2c3d4e5f', 'user:17', 'Zoë', '名前', '🙂'];
 
 test('the server and the client derive the same colour for an identity', () => {
-    const script = `require ${JSON.stringify(php)}; echo json_encode(array_map(fn ($i) => Tey\\Kit\\Features\\SessionUi\\AvatarColor::for($i), json_decode($argv[1], true)));`;
+    const script = `require ${JSON.stringify(php)}; echo json_encode(array_map(fn ($i) => Tey\\Kit\\Features\\Core\\AvatarColor::for($i), json_decode($argv[1], true)));`;
     const server = JSON.parse(execFileSync('php', ['-r', script, JSON.stringify(identities)], { encoding: 'utf8' }));
     assert.deepEqual(
         identities.map(identity => avatarColor(identity)),
