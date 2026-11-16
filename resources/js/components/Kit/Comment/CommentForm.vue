@@ -1,7 +1,14 @@
 <script setup lang="ts">
 import { Form } from '@inertiajs/vue3';
 import { Paperclip, X } from '@lucide/vue';
-import { computed, nextTick, onBeforeUnmount, ref, useId } from 'vue';
+import {
+    computed,
+    nextTick,
+    onBeforeUnmount,
+    onMounted,
+    ref,
+    useId,
+} from 'vue';
 import BulkDrop from '@/components/Kit/Form/BulkDrop.vue';
 import Button from '@/components/Kit/Form/Button.vue';
 import FormActions from '@/components/Kit/Form/FormActions.vue';
@@ -88,7 +95,30 @@ async function focus() {
 function collapse() {
     if (!editing.value && empty() && !busy.value) open.value = false;
 }
+// Focus leaving on a press elsewhere (Done, Show more) collapses only after that press's click: collapsing at once moves what is under the pointer, and
+// the click lands on something else or on nothing.
+let pressing = false;
+const pressed = () => (pressing = true);
+function released() {
+    if (!pressing) return;
+    pressing = false;
+    // After the click the release starts (a task later), so the click lands where it was aimed.
+    setTimeout(() => {
+        if (!root.value?.contains(document.activeElement)) collapse();
+    });
+}
+onMounted(() => {
+    document.addEventListener('pointerdown', pressed, true);
+    document.addEventListener('pointerup', released, true);
+    document.addEventListener('pointercancel', released, true);
+});
+onBeforeUnmount(() => {
+    document.removeEventListener('pointerdown', pressed, true);
+    document.removeEventListener('pointerup', released, true);
+    document.removeEventListener('pointercancel', released, true);
+});
 function blurred(event: FocusEvent) {
+    if (pressing) return;
     if (!root.value?.contains(event.relatedTarget as Node | null)) collapse();
 }
 // Empties BulkDrop's native file input. BulkDrop ignores removals while it is disabled, as it is during a save, so a save's reset runs this again once the
@@ -172,6 +202,8 @@ async function finished() {
 const transform = <T extends Record<string, unknown>>(data: T) => {
     const rest: Record<string, unknown> = { ...data };
     delete rest.files;
+    // The colour radios share a per-form name so the arrows move between them; the chosen key posts once, as `colour`.
+    delete rest[`${id}-colour`];
     const method = props.composer.submit.method.toLowerCase();
     return {
         ...rest,

@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **CommentForm** posts the colour once, as `colour`; the radios' own per-form field no longer posts beside it, which a strict FormRequest refused.
+- **CommentForm** collapses after a press elsewhere has clicked, not on the blur before it: a press on Done or Show more below an open, empty composer used to miss as the composer shrank.
+- **CommentItem's Delete** is destructive (red text) and named for what it deletes ("Delete comment by Ana Lopez"), as in the kit's row menus. DropdownItem has a `destructive` prop for this, and DropdownConfirm `variant="danger"` uses it.
+
+### Added
+
+- **CommentItem / CommentThread `onViewImage(image, images)`**: a gallery tile opens in the host's own viewer instead of a new tab (a modified click still opens the tab).
+
 ## v0.28.0
 
 Features affected: session-ui and workspace-ui (the photo pages). After `composer update tey/kit`, take them with:

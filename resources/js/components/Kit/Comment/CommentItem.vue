@@ -20,7 +20,7 @@ import { intentKey, type CommentData } from './comments';
  * arrives as an error) shows inline. The `quick` slot puts the host's own buttons before the menu. `interactive` false shows no actions (a read-only feed).
  * `timeFormat` absolute shows the date and time in place of the relative time. `attachmentLayout` gallery shows image files as a grid of thumbnails (other
  * files stay a FileList); the `attachments` slot, scoped by `files` and `comment`, replaces both. The `meta` slot, scoped by `comment`, adds to the header line
- * after the time (a case link, its icon). `menuIcons` puts an icon on each menu row (Edit, Reply, Delete). All four are off by default.
+ * after the time (a case link, its icon). `onViewImage(image, images)` opens a gallery tile in the host's own viewer instead of a new tab. `menuIcons` puts an icon on each menu row (Edit, Reply, Delete). All four are off by default.
  * `variant` compact is one line: no actions, files or replies. `density`, `accentEdge` and `accentWidth` are NoteCard's; `only` limits each visit's props.
  */
 const props = withDefaults(
@@ -36,6 +36,12 @@ const props = withDefaults(
         timeFormat?: 'relative' | 'absolute';
         attachmentLayout?: 'list' | 'gallery';
         menuIcons?: boolean;
+        onViewImage?:
+            | ((
+                  image: import('./comments').CommentAttachment,
+                  images: import('./comments').CommentAttachment[],
+              ) => void)
+            | null;
     }>(),
     {
         variant: 'full',
@@ -48,6 +54,7 @@ const props = withDefaults(
         timeFormat: 'relative',
         attachmentLayout: 'list',
         menuIcons: false,
+        onViewImage: null,
     },
 );
 const emit = defineEmits<{ deleted: [] }>();
@@ -68,6 +75,11 @@ const menu = computed(
         ),
 );
 // A typed confirmation can't be asked from a menu (as DropdownAction): such a delete, or a disabled one, shows disabled with its reason and never runs.
+// The delete's accessible name names what it deletes, as in the kit's row menus: "Delete comment by Ana Lopez".
+const deleteName = computed(
+    () =>
+        `${props.comment.delete?.label ?? 'Delete'} ${noun.value} by ${props.comment.author?.name ?? 'an unknown author'}`,
+);
 const deleteBlocked = computed(() =>
     props.comment.delete?.confirm?.typed
         ? 'Needs a typed confirmation, which this menu cannot ask for.'
@@ -98,6 +110,17 @@ const listed = computed(() =>
         ? files.value.filter((file) => !isImage(file))
         : files.value,
 );
+
+// A gallery tile opens the host's in-page viewer when it gives one (`onViewImage`, with every image of the comment), else the file in a new tab.
+function viewImage(
+    image: import('./comments').CommentAttachment,
+    event: MouseEvent,
+) {
+    if (!props.onViewImage || event.metaKey || event.ctrlKey || event.shiftKey)
+        return;
+    event.preventDefault();
+    props.onViewImage(image, images.value);
+}
 
 async function edit() {
     editing.value = true;
@@ -209,6 +232,8 @@ const remove = () =>
                             disabled
                             aria-disabled="true"
                             :title="deleteBlocked"
+                            :aria-label="deleteName"
+                            destructive
                             data-comment-delete
                             ><template v-if="menuIcons" #icon
                                 ><Trash2
@@ -223,6 +248,7 @@ const remove = () =>
                             v-else-if="comment.delete"
                             :on-confirmed="remove"
                             variant="danger"
+                            :item-label="deleteName"
                             :confirm-label="
                                 comment.delete.confirm?.label ??
                                 `Delete ${noun}`
@@ -279,6 +305,7 @@ const remove = () =>
                                 rel="noopener"
                                 class="bg-muted focus-visible:outline-ring block aspect-square overflow-hidden rounded-md focus-visible:outline-2 focus-visible:outline-offset-2"
                                 data-comment-gallery-item
+                                @click="viewImage(image, $event)"
                             >
                                 <img
                                     v-if="
@@ -345,6 +372,7 @@ const remove = () =>
                     :time-format="timeFormat"
                     :attachment-layout="attachmentLayout"
                     :menu-icons="menuIcons"
+                    :on-view-image="onViewImage"
                 >
                     <template v-if="$slots.meta" #meta
                         ><slot name="meta" :comment="child"

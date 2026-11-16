@@ -30,6 +30,12 @@ const props = withDefaults(
         timeFormat?: 'relative' | 'absolute';
         attachmentLayout?: 'list' | 'gallery';
         menuIcons?: boolean;
+        onViewImage?:
+            | ((
+                  image: import('./comments').CommentAttachment,
+                  images: import('./comments').CommentAttachment[],
+              ) => void)
+            | null;
     }>(),
     {
         comments: () => [],
@@ -42,6 +48,7 @@ const props = withDefaults(
         timeFormat: 'relative',
         attachmentLayout: 'list',
         menuIcons: false,
+        onViewImage: null,
     },
 );
 // Only groups with comments are drawn: a list of empty groups shows the empty line, not a blank region.
@@ -74,6 +81,7 @@ const shown = computed(() =>
                             :time-format="timeFormat"
                             :attachment-layout="attachmentLayout"
                             :menu-icons="menuIcons"
+                            :on-view-image="onViewImage"
                         >
                             <template v-if="$slots.meta" #meta="slotProps"
                                 ><slot name="meta" v-bind="slotProps"
@@ -97,6 +105,7 @@ const shown = computed(() =>
                     :time-format="timeFormat"
                     :attachment-layout="attachmentLayout"
                     :menu-icons="menuIcons"
+                    :on-view-image="onViewImage"
                 >
                     <template v-if="$slots.meta" #meta="slotProps"
                         ><slot name="meta" v-bind="slotProps"

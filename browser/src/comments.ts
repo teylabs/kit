@@ -78,13 +78,15 @@ const Page = {
         const adopted = adopt
             ? [
                   h('section', { 'aria-label': 'Adopted', 'data-adopted': '' }, [
-                      h(CommentItem, { comment: gallery, timeFormat: 'absolute', attachmentLayout: 'gallery', menuIcons: true }, {
+                      h(CommentItem, { comment: gallery, timeFormat: 'absolute', attachmentLayout: 'gallery', menuIcons: true, onViewImage: (image: { name: string }, images: unknown[]) => { (window as unknown as { viewed: string }).viewed = `${image.name}/${images.length}`; } }, {
                           meta: ({ comment }: { comment: CommentData }) => h('a', { href: '/@acme/cases/7', class: 'text-foreground underline', 'data-case-link': '' }, `Case 7 · ${comment.noun ?? 'comment'}`),
                       }),
                       h(CommentForm, { composer }, {
                           before: () => h('label', { class: 'text-sm', 'data-composer-before': '' }, ['Case ', h('input', { name: 'case_id', value: '7', class: 'border-border rounded border px-1' })]),
                           after: () => h('label', { class: 'text-sm', 'data-composer-after': '' }, [h('input', { type: 'checkbox', name: 'notify', value: '1' }), ' Notify the team']),
                       }),
+                      // Below the composer, so it moves up when the open composer collapses: a press on it must still click it.
+                      h('button', { type: 'button', 'data-below-composer': '', onClick: () => { const w = window as unknown as { belowClicks: number }; w.belowClicks = (w.belowClicks ?? 0) + 1; } }, 'Show more'),
                   ]),
               ]
             : [];

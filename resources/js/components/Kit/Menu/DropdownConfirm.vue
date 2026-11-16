@@ -12,7 +12,8 @@ import { useMenuPanel } from '@/components/Kit/Menu/useMenuPanel';
 import Dialog from '@/components/Kit/Overlay/Dialog.vue';
 
 // A guarded menu entry (DropdownConfirm.md): choosing it opens a confirmation dialog while the menu stays open behind it; confirming runs `onConfirmed` or an Inertia visit, then closes both. The dialog is the kit's Dialog.
-// `noun` is declared and does nothing (an owner question in the spec).
+// `noun` is declared and does nothing (an owner question in the spec). `variant` danger tones the menu item as destructive (red text), as every kit menu does;
+// `itemLabel` is the item's accessible name when its visible label alone is too short ("Delete comment by Ana Lopez").
 const props = withDefaults(
     defineProps<{
         href?: string;
@@ -21,6 +22,7 @@ const props = withDefaults(
         confirmLabel?: string;
         variant?: string;
         noun?: string;
+        itemLabel?: string;
     }>(),
     {
         href: undefined,
@@ -29,6 +31,7 @@ const props = withDefaults(
         confirmLabel: undefined,
         variant: 'primary',
         noun: '',
+        itemLabel: undefined,
     },
 );
 
@@ -84,7 +87,12 @@ async function confirm() {
 </script>
 <template>
     <div>
-        <DropdownItem as="button" @click="ask">
+        <DropdownItem
+            as="button"
+            :destructive="variant === 'danger'"
+            :aria-label="itemLabel"
+            @click="ask"
+        >
             <template v-if="$slots.icon" #icon><slot name="icon" /></template>
             <slot />
             <template v-if="$slots.caption" #caption
