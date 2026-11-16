@@ -5,6 +5,7 @@
 ### Added
 
 - `EmptyState` `align` (`center`, the default, or `start` for a widget's body), `variant` `first-use` (a dashed border, for a place that has never had anything in it), and `icon` as a name from a server descriptor (the empty states' own icons, then the action icons; an unknown name draws no icon). Existing empty states render as before (#1044).
+- `Textarea` `defaultValue` (the starting text without a v-model), `hasFocus` (focus on mount), `autosize` (grows with its content from 4rem up to 20rem, then scrolls) and an exposed `focus()`. Existing textareas render as before (#1044).
 
 ## v0.26.0
 
