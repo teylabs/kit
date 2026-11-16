@@ -115,3 +115,21 @@ Each old name is still exported, for one release, and is marked `@deprecated` in
 Props changed on the way in: `LongText`'s `max-chars` is `limit`; `ClickToCopy`'s `mime` is gone (it copies text); `TextNumeric`'s `format` pattern string (`0,0.00`) is `decimals`, `notation` and `negative`; `ProseCode`'s and `RawOutputCard`'s `content` keep their name.
 
 Tests: `tests/js/text.test.mjs` (`composer test:js`) covers `copyText` with and without the Clipboard API and on a refusal, `useCopy`'s states, number formats and negatives, address lines, the long-text cut on graphemes, badge items, and each component's markup contract. The browser job (`?text`) copies by pointer and keyboard and through the fallback, reads a refused copy, truncates, clamps and resizes, expands long text, scrolls and unwraps a code card and copies all of it, reads number and address formats, runs axe in light and dark, and renders the family under Vue's server renderer.
+
+## EmailMessage
+
+`<EmailMessage>` shows one email as a mail client does: the From, To, Cc, Reply-To, Date and Subject rows (a row with no value is left out), then the body, then the attachments by name. The body is a TextCode card ("Message", with Copy and Wrap, scrolling inside itself); with `limit` it is a TextLong cut with Show more instead. `title` adds a heading of `level` (2) above the rows. More goes in the default slot, in its own band.
+
+```vue
+<EmailMessage title="What came in" :from="mail.from" :to="mail.to" :date="mail.date" :subject="mail.subject" :body="mail.text" :attachments="mail.files" />
+```
+
+Hooks: `data-email-message`, `data-email-row="from|to|cc|reply-to|date|subject"`, `data-email-body`, `data-email-attachments`.
+
+## BusyIndicator (Spinner)
+
+`<BusyIndicator>Saving…</BusyIndicator>` is an inline spinning circle followed by its label slot. The circle stays still under reduced motion and is `aria-hidden`; the label is what a screen reader hears. Attributes go on the svg (`class="size-3 text-primary"`). It is also exported as `Spinner`. Hook: `data-busy-indicator`.
+
+## reveal()
+
+`reveal(target, { duration, block })` brings an item the person just added or changed into view and marks it: it scrolls the element (or the first match of a selector) to `block` (`center`), smoothly unless they prefer reduced motion, and adds a ring and `data-highlighted` that clear after `duration` ms (2000). It returns the element, or null when there is none. Use it instead of an ad hoc `scrollIntoView`. It is unrelated to the `reveal` prop of FormCard and Workbench, which names the element whose scrolling away shows the header actions.

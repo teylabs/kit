@@ -3342,6 +3342,89 @@
           "TextTimeAgo"
         ]
       }
+    },
+    {
+      "id": "text.email-message",
+      "layer": "ui",
+      "group": "content",
+      "label": "An email read as a mail client shows it (header rows, body, attachments)",
+      "feature": "core",
+      "applies": true,
+      "uses": {
+        "imports": [
+          "@/components/Kit:EmailMessage"
+        ]
+      },
+      "handRolled": [],
+      "docs": "docs/text.md",
+      "status": "new",
+      "since": "0.29.0",
+      "replaces": {
+        "components": [
+          "EmailMessage",
+          "MailMessage",
+          "EmailPreview"
+        ]
+      }
+    },
+    {
+      "id": "feedback.busy-indicator",
+      "layer": "ui",
+      "group": "feedback",
+      "label": "Inline busy indicator with a label",
+      "feature": "core",
+      "applies": true,
+      "uses": {
+        "imports": [
+          "@/components/Kit:BusyIndicator",
+          "@/components/Kit:Spinner"
+        ]
+      },
+      "handRolled": [],
+      "docs": "docs/text.md",
+      "status": "new",
+      "since": "0.29.0",
+      "replaces": {
+        "components": [
+          "Spinner",
+          "LoadingSpinner",
+          "BusyIndicator"
+        ]
+      }
+    },
+    {
+      "id": "layout.reveal",
+      "layer": "ui",
+      "group": "layout",
+      "label": "Reveal a just-changed item: scroll to it and flash a ring",
+      "feature": "core",
+      "applies": true,
+      "uses": {
+        "imports": [
+          "@/components/Kit:reveal"
+        ]
+      },
+      "handRolled": [],
+      "docs": "docs/text.md",
+      "status": "new",
+      "since": "0.29.0"
+    },
+    {
+      "id": "form.defaults",
+      "layer": "ui",
+      "group": "form",
+      "label": "Inertia <Form> keeps its submitted values as defaults on success",
+      "feature": "core",
+      "applies": "has-forms",
+      "uses": {
+        "imports": [
+          "@/components/Kit:applyFormDefaults"
+        ]
+      },
+      "handRolled": [],
+      "docs": "docs/submit-form.md",
+      "status": "new",
+      "since": "0.29.0"
     }
   ],
   "nonSurfaces": [
