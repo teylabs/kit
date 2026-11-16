@@ -18,7 +18,10 @@ import DropdownMenuContent from '@/components/Kit/Menu/MenuContent.vue';
 import { actionIcons } from '@/components/Kit/Action/actionIcons';
 import HeaderActions from '@/components/Kit/Action/HeaderActions.vue';
 import HeaderStatus from '@/components/Kit/Action/HeaderStatus.vue';
-import type { ActionDescriptor } from '@/components/Kit/Action/actionPlacement';
+import {
+    actionIconName,
+    type ActionDescriptor,
+} from '@/components/Kit/Action/actionPlacement';
 import type { HeaderStatus as HeaderStatusValue } from '@/components/Kit/Action/headerSplit';
 import {
     inverseControl,
@@ -122,6 +125,15 @@ const itemClass = (item: ToolbarAction) => [
     'inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring aria-disabled:cursor-not-allowed aria-disabled:opacity-50',
     item.iconOnly ? 'w-9 justify-center' : 'px-3.5',
 ];
+// A menu row without an icon keeps an icon-sized spacer when another row in the menu has one (page actions included), so labels share one left edge (as ActionMenuItems).
+const menuHasIcon = computed(
+    () =>
+        props.items.some((item) => icon(item)) ||
+        (itemsInMenu.value &&
+            props.actions.some(
+                (action) => actionIcons[actionIconName(action, true) ?? ''],
+            )),
+);
 const chooseFromMenu = (item: ToolbarAction) =>
     deferToolbarAction(props.onAction, item);
 const tip = (item: ToolbarAction) =>
@@ -365,6 +377,7 @@ onBeforeUnmount(() => {
                     v-if="actions.length"
                     :actions="actions"
                     class="ml-auto"
+                    :menu-icons="itemsInMenu && menuHasIcon"
                     v-bind="pageListeners"
                 >
                     <template v-if="itemsInMenu" #menu>
@@ -386,6 +399,11 @@ onBeforeUnmount(() => {
                                     v-if="icon(item)"
                                     class="size-4"
                                     aria-hidden="true"
+                                /><span
+                                    v-else-if="menuHasIcon"
+                                    class="inline-block size-4 shrink-0"
+                                    aria-hidden="true"
+                                    data-menu-icon-spacer
                                 />{{ item.label }}
                             </DropdownMenuItem>
                         </template>
@@ -525,6 +543,11 @@ onBeforeUnmount(() => {
                                             v-if="icon(item)"
                                             class="size-4"
                                             aria-hidden="true"
+                                        /><span
+                                            v-else-if="menuHasIcon"
+                                            class="inline-block size-4 shrink-0"
+                                            aria-hidden="true"
+                                            data-menu-icon-spacer
                                         />{{ item.label }}
                                     </DropdownMenuItem>
                                 </template>

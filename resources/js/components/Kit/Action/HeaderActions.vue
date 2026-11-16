@@ -34,7 +34,7 @@ import { useLocked } from '@/components/Kit/Form/useLocked';
  * FloatingToolbar's inverse pill the buttons take the pill's tokens and radius. Nothing here checks a permission.
  * On the pill below `sm` the split path is always taken (never ActionBar's, whose buttons would truncate to a letter on a shared row) and More is an icon-only
  * ⋯ named "More actions". The `menu` slot adds rows after the overflow actions, behind a separator, and shows More for them alone: FloatingToolbar puts its
- * client items there on a phone, so the pill keeps one menu.
+ * client items there on a phone, so the pill keeps one menu; `menuIcons` says those rows have icons, so icon-less overflow rows keep the icon spacer.
  */
 const props = withDefaults(
     defineProps<{
@@ -42,8 +42,9 @@ const props = withDefaults(
         busy?: boolean;
         dialogOpen?: boolean;
         primary?: boolean;
+        menuIcons?: boolean;
     }>(),
-    { busy: false, dialogOpen: false, primary: false },
+    { busy: false, dialogOpen: false, primary: false, menuIcons: false },
 );
 const emit = defineEmits<{ action: [action: ActionDescriptor] }>();
 const { hostRuns, pending, asking, run, visit, running, isRunning } =
@@ -167,6 +168,7 @@ const holdFocus = (event: Event) => {
                     :actions="split.overflow"
                     :busy="blocked"
                     :on-action="run"
+                    :icon-spacer="menuIcons"
                 />
                 <DropdownMenuSeparator
                     v-if="split.overflow.length && slots.menu"

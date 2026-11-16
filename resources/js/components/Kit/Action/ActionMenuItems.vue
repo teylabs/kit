@@ -32,6 +32,8 @@ const props = defineProps<{
     busy?: boolean;
     onAction?: (action: ActionDescriptor) => void;
     itemClass?: string;
+    /** Another part of the same menu has icons (FloatingToolbar's client items): keep the spacer on icon-less rows. */
+    iconSpacer?: boolean;
 }>();
 // The host's own row classes (ActionBar's itemClass, or a ButtonGroup's around this menu), added after the row's own; destructive and disabled still apply.
 const groupItemClass = useMenuItemClass();
@@ -39,8 +41,8 @@ const rowClass = computed(() => props.itemClass ?? groupItemClass());
 const menuIcon = (action: ActionDescriptor) =>
     actionIcons[actionIconName(action, true) ?? ''];
 // A row without an icon, in a menu where another row has one, keeps an icon-sized spacer so its label aligns with theirs. Dev builds warn once when a menu mixes.
-const anyIcon = computed(() =>
-    props.actions.some((action) => menuIcon(action)),
+const anyIcon = computed(
+    () => props.iconSpacer || props.actions.some((action) => menuIcon(action)),
 );
 const warnMixed = mixedIconsWarning('ActionBar menu');
 watchEffect(() =>
