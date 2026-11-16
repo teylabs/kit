@@ -66,6 +66,15 @@ const baseId = useId();
 const reasonId = (index: number) => `${baseId}-reason-${index}`;
 const describes = (action: ActionDescriptor) =>
     Boolean(action.disabled && action.reason);
+// A row's accessible description: its `description` (shown under the label by ActionLabel) and a disabled row's `reason`.
+const descriptionId = (index: number) => `${baseId}-description-${index}`;
+const describedBy = (action: ActionDescriptor, index: number) =>
+    [
+        action.description ? descriptionId(index) : null,
+        describes(action) ? reasonId(index) : null,
+    ]
+        .filter(Boolean)
+        .join(' ') || undefined;
 </script>
 <template>
     <template
@@ -84,7 +93,7 @@ const describes = (action: ActionDescriptor) =>
                 rowClass,
             ]"
             :title="(describes(action) && action.reason) || undefined"
-            :aria-describedby="describes(action) ? reasonId(index) : undefined"
+            :aria-describedby="describedBy(action, index)"
             :aria-label="action.ariaLabel || undefined"
             :data-action="action.key"
             @select="choose(action, $event)"
@@ -99,7 +108,11 @@ const describes = (action: ActionDescriptor) =>
                 class="inline-block size-4 shrink-0"
                 aria-hidden="true"
                 data-menu-icon-spacer
-            /><ActionLabel :action="action" menu /><span
+            /><ActionLabel
+                :action="action"
+                menu
+                :description-id="descriptionId(index)"
+            /><span
                 v-if="describes(action)"
                 :id="reasonId(index)"
                 class="sr-only"
@@ -114,6 +127,7 @@ const describes = (action: ActionDescriptor) =>
             :disabled="busy"
             :class="rowClass"
             :aria-label="action.ariaLabel || undefined"
+            :aria-describedby="describedBy(action, index)"
             :data-action="action.key"
         >
             <ModalLink
@@ -131,7 +145,10 @@ const describes = (action: ActionDescriptor) =>
                     v-else-if="anyIcon"
                     class="inline-block size-4 shrink-0"
                     aria-hidden="true"
-                    data-menu-icon-spacer /><ActionLabel :action="action" menu
+                    data-menu-icon-spacer /><ActionLabel
+                    :action="action"
+                    menu
+                    :description-id="descriptionId(index)"
             /></ModalLink>
         </DropdownMenuItem>
         <DropdownMenuItem
@@ -140,6 +157,7 @@ const describes = (action: ActionDescriptor) =>
             :disabled="busy"
             :class="rowClass"
             :aria-label="action.ariaLabel || undefined"
+            :aria-describedby="describedBy(action, index)"
             :data-action="action.key"
         >
             <a :href="action.url" target="_blank" rel="noopener noreferrer"
@@ -151,7 +169,10 @@ const describes = (action: ActionDescriptor) =>
                     v-else-if="anyIcon"
                     class="inline-block size-4 shrink-0"
                     aria-hidden="true"
-                    data-menu-icon-spacer /><ActionLabel :action="action" menu
+                    data-menu-icon-spacer /><ActionLabel
+                    :action="action"
+                    menu
+                    :description-id="descriptionId(index)"
             /></a>
         </DropdownMenuItem>
         <DropdownMenuItem
@@ -160,6 +181,7 @@ const describes = (action: ActionDescriptor) =>
             :disabled="busy"
             :class="rowClass"
             :aria-label="action.ariaLabel || undefined"
+            :aria-describedby="describedBy(action, index)"
             :data-action="action.key"
         >
             <a
@@ -175,7 +197,10 @@ const describes = (action: ActionDescriptor) =>
                     v-else-if="anyIcon"
                     class="inline-block size-4 shrink-0"
                     aria-hidden="true"
-                    data-menu-icon-spacer /><ActionLabel :action="action" menu
+                    data-menu-icon-spacer /><ActionLabel
+                    :action="action"
+                    menu
+                    :description-id="descriptionId(index)"
             /></a>
             <Link v-else :href="action.url"
                 ><component
@@ -186,7 +211,10 @@ const describes = (action: ActionDescriptor) =>
                     v-else-if="anyIcon"
                     class="inline-block size-4 shrink-0"
                     aria-hidden="true"
-                    data-menu-icon-spacer /><ActionLabel :action="action" menu
+                    data-menu-icon-spacer /><ActionLabel
+                    :action="action"
+                    menu
+                    :description-id="descriptionId(index)"
             /></Link>
         </DropdownMenuItem>
         <DropdownMenuItem
@@ -200,7 +228,7 @@ const describes = (action: ActionDescriptor) =>
                 rowClass,
             ]"
             :title="(describes(action) && action.reason) || undefined"
-            :aria-describedby="describes(action) ? reasonId(index) : undefined"
+            :aria-describedby="describedBy(action, index)"
             :aria-label="action.ariaLabel || undefined"
             :data-action="action.key"
             @select="choose(action, $event)"
@@ -215,7 +243,11 @@ const describes = (action: ActionDescriptor) =>
                 class="inline-block size-4 shrink-0"
                 aria-hidden="true"
                 data-menu-icon-spacer
-            /><ActionLabel :action="action" menu /><span
+            /><ActionLabel
+                :action="action"
+                menu
+                :description-id="descriptionId(index)"
+            /><span
                 v-if="describes(action)"
                 :id="reasonId(index)"
                 class="sr-only"
