@@ -8,6 +8,10 @@
 - **ActionDialogs and `useActionRunner`**, exported: a page runs descriptors from its own buttons, rows or menus (`runner.run(action)`) with their dialogs hosted once. A confirm can carry a `prompt` (a labelled textarea posted as `reason` or its `name`; `required` keeps Confirm disabled until it has text), with the server's error under it and other errors listed. An action's `form` names a `form-<name>` slot drawn in a Modal with `submit(data)`, `errors`, `busy` and `close`. An action's `payload` posts with its visit, under the dialog's fields. A refused visit keeps the dialog open. `ActionMenuItems` is exported too.
 - **Dialog `confirmDisabled`.**
 
+### Fixed
+
+- **FileInput `dropzone`** keeps `autofocus`: the generated Welcome photo step focuses its field on load again.
+
 ## v0.28.1
 
 Features affected: none; `composer update tey/kit` is enough.

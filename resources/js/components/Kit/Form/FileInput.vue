@@ -52,7 +52,18 @@ const shown = computed(() =>
         ? { name: model.value.name, size: model.value.size, url: null }
         : (props.current ?? null),
 );
-onMounted(() => props.autofocus && input.value?.focus());
+// With `dropzone` the input sits inside BulkDrop, so it is found by its id.
+onMounted(() => {
+    if (!props.autofocus) return;
+    (
+        input.value ??
+        (attrs.id
+            ? (document.getElementById(
+                  String(attrs.id),
+              ) as HTMLInputElement | null)
+            : null)
+    )?.focus();
+});
 function chosen(event: Event) {
     model.value = (event.target as HTMLInputElement).files?.[0] ?? null;
 }
