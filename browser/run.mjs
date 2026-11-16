@@ -10864,6 +10864,36 @@ test('Menu descriptions: an action\'s description and a DropdownItem caption sho
     }
 });
 
+test('Menu subject actions: icon menu items in the header row, first in the arrow order, named by their label (outside the subject description); a disabled one is skipped when chosen; axe passes', async () => {
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?item-class`);
+        await tab.locator('[data-file-menu] [data-button-group-menu]').click();
+        const menu = tab.getByRole('menu');
+        await menu.waitFor();
+        const header = await tab.$$eval('[role="menu"] [data-menu-subject-actions] [role="menuitem"]', els => els.map(el => el.getAttribute('aria-label')));
+        assert.deepEqual(header, ['Download', 'Copy link', 'Preview']);
+        const described = await menu.evaluate(el => document.getElementById(el.getAttribute('aria-describedby'))?.textContent ?? '');
+        assert.doesNotMatch(described, /Download|Copy link/, 'the description is the subject text alone');
+        await tab.keyboard.press('ArrowDown');
+        assert.equal(await tab.evaluate(() => document.activeElement?.getAttribute('aria-label')), 'Download', 'the header actions come first');
+        await tab.keyboard.press('ArrowDown');
+        await tab.keyboard.press('Enter');
+        assert.equal(await tab.locator('[data-copied]').textContent(), '1', 'Copy link ran');
+        await tab.locator('[data-file-menu] [data-button-group-menu]').click();
+        await menu.waitFor();
+        await tab.locator('[role="menu"] [aria-label="Preview"]').click();
+        assert.equal(await tab.locator('[role="menu"]').count(), 1, 'a disabled header action keeps the menu open and runs nothing');
+        assert.equal(await tab.locator('[role="menu"] [aria-label="Preview"]').getAttribute('title'), 'Still processing');
+        await tab.addScriptTag({ path: axeSource });
+        const violations = await tab.evaluate(async () => (await window.axe.run(document.querySelector('[role="menu"]'))).violations.map(v => v.id));
+        assert.deepEqual(violations, []);
+    } finally {
+        await context.close();
+    }
+});
+
 test('ActionBar item-class: every menu row takes the host class; destructive and disabled rows keep their look', async () => {
     const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
     try {

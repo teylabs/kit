@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ref } from 'vue';
 import ActionBar from '@/components/Kit/Action/ActionBar.vue';
 import ButtonGroup from '@/components/Kit/Action/ButtonGroup.vue';
 import DropdownItem from '@/components/Kit/Menu/DropdownItem.vue';
@@ -15,6 +16,18 @@ const actions = [
     post('archive', 'Archive order', { disabled: true, reason: 'Already archived' }),
     post('cancel', 'Cancel order', { destructive: true }),
 ];
+// The file tile's menu subject, with two header actions: a Download link and a Copy link that runs on the page.
+const copied = ref(0);
+const fileSubject = {
+    title: 'Screenshot-2026-11-16-at-10.36.11-AM.png',
+    caption: '2.4 MB · PNG',
+    kind: 'file' as const,
+    actions: [
+        { key: 'download', label: 'Download', icon: 'download', url: '/files/1/download', newTab: true },
+        { key: 'copy', label: 'Copy link', icon: 'copy', onSelect: () => { copied.value++; } },
+        { key: 'preview', label: 'Preview', icon: 'eye', disabled: true, reason: 'Still processing' },
+    ],
+};
 </script>
 <template>
     <main class="flex min-h-screen flex-col items-start gap-6 bg-background p-4 text-foreground">
@@ -35,9 +48,12 @@ const actions = [
             </ButtonGroup>
         </section>
         <section data-file-menu class="w-40">
-            <ButtonGroup menu-label="Actions for the photo" :menu-subject="{ title: 'Screenshot-2026-11-16-at-10.36.11-AM.png', caption: '2.4 MB · PNG', kind: 'file' }">
+            <ButtonGroup menu-label="Actions for the photo" :menu-subject="fileSubject">
                 <Button variant="outline">Photo</Button>
                 <template #menu><DropdownItem as="button">Set as cover</DropdownItem></template>
+            </ButtonGroup>
+            <output data-copied>{{ copied }}</output>
+            <ButtonGroup v-if="false">
             </ButtonGroup>
         </section>
     </main>
