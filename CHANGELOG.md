@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- MediaCollection tiles: the footer shows the host's `item.label` (or the `#tile-label="{ item, index }"` slot) in place of the file name; the default stays the name. The ⋯ menu opens with the file name as its subject header (cut in the middle, the extension kept) and `item.caption` under it.
+- docs/media.md shows ItemStack's `#menu` with the same file-name subject header as a MediaCollection tile.
+
+Features affected: shell, workspace-ui (re-pinned: their avatar stubs pass the person's colour). Run `php artisan kit:update shell workspace-ui` to take them.
 Features affected: **shell** and **workspace-ui** (their avatar pages pass the person's colour). After `composer update tey/kit`, take each page you never edited:
 
 - `php artisan kit:scaffold shell --diff --only=resources/js/pages/Workspace/Partials` (UserAvatar, UserMenu, ShellDrawer, focusShell)

@@ -11870,6 +11870,48 @@ test('MediaCollection tiles: badge, selected check, dimmed pending tile, tile ac
     });
 });
 
+test('MediaCollection tiles: the footer shows the host label (item.label, or the #tile-label slot over it), not the file name', async () => {
+    await mediaTab(async tab => {
+        const tiles = tab.locator('[data-fixture="labelled"]');
+        assert.deepEqual(await tiles.locator('[data-media-tile-label]').allInnerTexts(), ['Feature', 'Photo 2', 'Slot 3']);
+        assert.equal(await tiles.locator('[data-media-tile-label]:has-text(".png"), [data-media-tile-label]:has-text(".jpg")').count(), 0, 'no file name in a footer');
+        assert.deepEqual(await tab.locator('[data-media-collection="photos"] [data-media-tile-label]').allInnerTexts(), ['Front', 'Kitchen', 'Garage'], 'no label and no slot: the name, as before');
+    });
+});
+
+test('MediaCollection tiles: the ⋯ menu opens with the file name as its subject, cut in the middle with the extension kept, the full name in title, the caption under it, and nothing overflows', async () => {
+    await mediaTab(async tab => {
+        const tiles = tab.locator('[data-fixture="labelled"]');
+        await tiles.locator('[data-media-item="l1"] [data-media-menu]').click();
+        const menu = tab.getByRole('menu');
+        const title = menu.locator('[data-menu-subject-title]');
+        await title.waitFor();
+        const full = 'Screenshot-2026-11-16-at-10.36.11-AM.png';
+        assert.equal(await title.getAttribute('title'), full);
+        assert.equal(await title.textContent(), full, 'the whole name stays in the text for screen readers and copy');
+        assert.equal(await title.getAttribute('data-truncated'), '', 'a long name is cut');
+        const shown = await title.evaluate(el => [...el.childNodes].filter(n => !(n instanceof Element && n.hasAttribute('data-cut'))).map(n => n instanceof Element && n.hasAttribute('data-ellipsis') ? '…' : n.textContent).join(''));
+        assert.match(shown, /^Screenshot.*….*AM\.png$/, `start and extension kept, middle cut: ${shown}`);
+        assert.ok(await title.evaluate(el => el.scrollWidth <= el.clientWidth + 1), 'the title does not overflow');
+        assert.ok(await menu.evaluate(el => el.scrollWidth <= el.clientWidth + 1), 'the menu does not overflow');
+        assert.equal(await menu.locator('[data-menu-subject-caption]').innerText(), 'Photo 1 · in report');
+        assert.match(await menu.getAttribute('aria-describedby'), /caption/);
+    });
+});
+
+test('ItemStack #menu: a listing tile\'s menu opens with the same file-name subject header (RowActions subject kind file)', async () => {
+    await mediaTab(async tab => {
+        const stack = tab.locator('[data-fixture="narrow-stack"]');
+        await stack.getByRole('button', { name: /Actions for shot 1/ }).click();
+        const menu = tab.getByRole('menu');
+        const title = menu.locator('[data-menu-subject-title]');
+        await title.waitFor();
+        assert.equal(await title.getAttribute('title'), 'Listing-One-screenshot-2026-11-16.png');
+        assert.equal(await title.getAttribute('data-slot'), 'middle-truncate');
+        assert.equal(await menu.locator('[data-menu-subject-caption]').innerText(), 'Listing · 1 of 3');
+    });
+});
+
 test('ItemStack: steps through the stack, Arrange opens the fanout, a reorder sends the version, and a stale one rolls back and emits conflict', async () => {
     await mediaTab(async tab => {
         const stack = tab.locator('[data-item-stack]').first();
