@@ -12012,6 +12012,20 @@ test('FloatingToolbar at phone width: one full-width row (never a wrapping ballo
             await tab.getByRole('button', { name: 'More actions', exact: true }).first().click();
             await tab.waitForTimeout(150);
             if (process.env.KIT_TOOLBAR_PHONE_SCREENSHOT) await tab.screenshot({ path: `${process.env.KIT_TOOLBAR_PHONE_SCREENSHOT}-390-${dark ? 'dark' : 'light'}-menu.png` });
+            const rows = await tab.locator('[role="menu"] [role="menuitem"]').evaluateAll(items => items.map(row => {
+                const glyph = row.querySelector('svg, [data-menu-icon-spacer]');
+                const range = document.createRange();
+                const text = [...row.querySelectorAll('*'), row].flatMap(el => [...el.childNodes]).find(node => node.nodeType === 3 && node.textContent.trim());
+                range.selectNodeContents(text);
+                const label = range.getBoundingClientRect();
+                return { name: row.textContent.trim(), icon: glyph?.getBoundingClientRect().top ?? null, iconBottom: glyph?.getBoundingClientRect().bottom ?? null, top: label.top, bottom: label.bottom, left: Math.round(label.left) };
+            }));
+            assert.deepEqual(rows.map(row => row.name), ['Finalize', 'Re-open', 'Add comparable', 'Appraiser notes'], 'page actions, then the client items');
+            for (const row of rows) {
+                assert.notEqual(row.icon, null, `${row.name}: an icon or the icon spacer`);
+                assert.ok(Math.abs((row.icon + row.iconBottom) / 2 - (row.top + row.bottom) / 2) < 6, `${row.name}: icon and label share a line`);
+            }
+            assert.equal(new Set(rows.map(row => row.left)).size, 1, `labels share one left edge: ${rows.map(row => `${row.name} ${row.left}`).join(', ')}`);
             await tab.getByRole('menuitem', { name: 'Appraiser notes' }).click();
             await tab.waitForTimeout(50);
             assert.equal(await tab.textContent('[data-used]'), 'notes', 'a client item reached from the menu still reaches the host');
