@@ -27,7 +27,8 @@ const menu = useMenuPanel();
 const item = useMenuItem();
 const controlClass =
     'block w-full px-4 py-2 text-left text-sm/5 text-popover-foreground outline-hidden';
-const contentClass = 'flex items-start gap-2';
+// Icons keep their size; the label takes the rest and wraps only as words, never pushing an icon onto its own line.
+const contentClass = 'flex items-start gap-2 [&>svg]:shrink-0';
 const captionClass = 'block text-xs text-pretty text-muted-foreground';
 // The `caption` is hidden from the item's name and read as its description (aria-describedby), so the name stays the label.
 const captionId = `dropdown-caption-${useId()}`;
