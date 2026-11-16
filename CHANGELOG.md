@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **PhotoField `variant="tile"`** (docs/media.md): the standard photo tile, the same Card as a MediaCollection `tiles` tile and sized by its photo, with `badge` drawn on the photo and a footer holding the label, Change and a ⋯ menu (the host's `tile-actions`, emitted as `action(key)`, and a confirmed Remove). Clicking the photo still opens Change; an empty slot stays the dashed camera tile. The default look is unchanged.
+
+### Fixed
+
+- **PhotoField** no longer stretches in a taller grid row: the root is `content-start self-start`, so Change sits right under the photo.
+
 ## v0.31.3
 
 Features affected: none (kit components only).

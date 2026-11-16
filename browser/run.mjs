@@ -11980,6 +11980,50 @@ test('PhotoField size fill: the slot takes its container\'s width and height', a
     });
 });
 
+test('PhotoField variant tile: the standard photo tile, a badge on the photo, the label, Change and a ⋯ menu with the host\'s rows and a confirmed Remove; the picture opens Change too', async () => {
+    await mediaTab(async tab => {
+        const field = tab.locator('[data-fixture="tile-photo"] [data-photo-field]');
+        const card = field.locator('[data-photo-field-card][data-card]');
+        assert.equal(await card.count(), 1, 'a kit Card');
+        assert.equal(await field.locator('[data-photo-field-badge]').innerText(), 'Main photo');
+        assert.equal(await field.locator('[data-photo-field-label]').innerText(), 'Front');
+        const tile = await field.locator('[data-photo-field-tile]').boundingBox();
+        assert.ok(Math.abs(tile.width - tile.height) < 1, `a square photo: ${tile.width}x${tile.height}`);
+        const box = await card.boundingBox();
+        assert.ok(box.height < tile.height + 48, `sized by its photo, not the row: ${box.height}`);
+        await field.locator('[data-photo-field-tile]').click();
+        await tab.locator('[data-photo-field-modal]').waitFor();
+        await tab.keyboard.press('Escape');
+        await tab.locator('[data-photo-field-modal]').waitFor({ state: 'detached' });
+        await field.locator('[data-photo-field-footer] [data-photo-field-change]').click();
+        await tab.locator('[data-photo-field-modal]').waitFor();
+        await tab.keyboard.press('Escape');
+        await tab.locator('[data-photo-field-modal]').waitFor({ state: 'detached' });
+        await field.getByRole('button', { name: 'Actions for Front' }).click();
+        await tab.getByRole('menuitem', { name: 'Download' }).click();
+        await tab.waitForFunction(() => window.kitEvents.includes('photo-action download'));
+        await field.getByRole('button', { name: 'Actions for Front' }).click();
+        await tab.getByRole('menuitem', { name: 'Remove' }).click();
+        const dialog = tab.locator('[data-confirm-dialog]');
+        await dialog.waitFor();
+        assert.match(await dialog.innerText(), /Remove Front\?/);
+        const empty = tab.locator('[data-fixture="tile-empty"]');
+        assert.equal(await empty.locator('[data-photo-tile]').innerText(), 'Front', 'an empty tile slot is the dashed camera tile');
+        assert.equal(await empty.locator('[data-photo-field-card]').count(), 0);
+    });
+});
+
+test('PhotoField in a tall grid row: the root keeps to its content, so Change sits under the photo, not at the row\'s foot', async () => {
+    await mediaTab(async tab => {
+        const field = tab.locator('[data-fixture="tall-row"] [data-photo-field]');
+        const root = await field.boundingBox();
+        const tile = await field.locator('[data-photo-field-tile]').boundingBox();
+        const change = await field.locator('[data-photo-field-change]').boundingBox();
+        assert.ok(root.height < 300, `the root does not stretch to the 480px row: ${root.height}`);
+        assert.ok(change.y - (tile.y + tile.height) < 16, `Change right under the photo: ${change.y - (tile.y + tile.height)}px`);
+    });
+});
+
 test('PhotoField title: the default puts the label inside the sentence ("Change main photo"); `title` overrides it', async () => {
     await mediaTab(async tab => {
         await tab.locator('[data-photo-field-change]').first().click();
