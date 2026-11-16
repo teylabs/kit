@@ -4,7 +4,7 @@
 
 ### Changed
 
-- **Profile and Welcome photo pages** (session-ui, workspace-ui) use FileInput's dropzone: a photo can be dropped, pasted or browsed, and one over the server's `max_kb` is refused in the browser before upload. Run `kit:update` for session-ui and workspace-ui to take it.
+- **Profile and Welcome photo pages** (session-ui, workspace-ui) use FileInput's dropzone: a photo can be dropped, pasted or browsed, and one over the server's `max_kb` is refused in the browser before upload. Generated pages are the app's, so take it with `php artisan kit:scaffold session-ui --diff --only=resources/js/pages/Welcome/Photo` and `php artisan kit:scaffold workspace-ui --diff --only=resources/js/pages/Workspace/Account/Profile`.
 
 ## v0.27.3
 
