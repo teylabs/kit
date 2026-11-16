@@ -34,6 +34,8 @@ const checklist = [
         <Field id="agree" label="Agree" error="Accept to continue."><InputCheckbox id="agree" v-model="agree" description="Read the terms first." /></Field>
         <section data-details><DescriptionList :items="[{ term: 'Client ID', description: 'abc-123', copy: true }, { term: 'Secret', description: null, copy: true }]" /></section>
         <EmptyState data-empty :level="2" title="No invoices yet" body="Invoices you send show here." />
+        <section data-dl-grid><DescriptionList layout="grid" :columns="3" :items="[{ term: 'Client', description: 'Acme' }, { term: 'Email', description: 'ops@acme.test', highlight: true }, { term: 'Phone', description: null }]" /></section>
+        <section data-dl-compact><DescriptionList layout="compact" :items="[{ term: 'Rooms', description: 4 }, { term: 'Floors', description: 2 }]" /></section>
         <EmptyState data-empty-start align="start" variant="first-use" icon="calendar" :level="2" title="No visits booked" body="Book the first site visit." />
         <EmptyState data-empty-unknown icon="not-an-icon" :level="2" title="Nothing to show" />
         <section data-checklist><Checklist :items="checklist" label="Setup" @action="item => steps.push(item.key)" /></section>

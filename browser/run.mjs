@@ -4300,6 +4300,20 @@ test('EmptyState: align start sits at the start edge, first-use draws a dashed b
     });
 });
 
+test('DescriptionList: grid lays out three columns, compact runs pairs in one row, a highlighted item is tinted with a check and a spoken "(matches)"', async () => {
+    await a11yPage(async tab => {
+        const columns = await tab.locator('[data-dl-grid] dl').evaluate(el => getComputedStyle(el).gridTemplateColumns.split(' ').length);
+        assert.equal(columns, 3, 'grid with columns 3 at 1024px');
+        const tops = await tab.locator('[data-dl-compact] [data-description-item]').evaluateAll(els => els.map(el => Math.round(el.getBoundingClientRect().top)));
+        assert.equal(new Set(tops).size, 1, 'compact pairs share one row');
+        const match = tab.locator('[data-dl-grid] [data-highlight]');
+        assert.equal(await match.count(), 1);
+        assert.match(await match.textContent(), /\(matches\)/);
+        assert.notEqual(await match.evaluate(el => getComputedStyle(el).backgroundColor), 'rgba(0, 0, 0, 0)', 'the match is tinted');
+        assert.match(await tab.locator('[data-dl-grid] [data-description-item]').nth(2).textContent(), /—/, 'an empty value shows the em dash');
+    });
+});
+
 test('EmptyState is a region named by its heading, never a live region, with a decorative icon; HeaderStatus is a polite status, not a button', async () => {
     await a11yPage(async tab => {
         const region = tab.getByRole('region', { name: 'No invoices yet' });
