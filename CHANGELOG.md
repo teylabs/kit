@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **CardHeader**: a long title truncates and leaves `#status` and `#actions` on its row; before, it took the row's full width and pushed the actions onto a second line.
+
 ## v0.29.0
 
 Features affected: none; `composer update tey/kit` is enough. New parts are opt-in; tables that declare no row primary keep their layout.

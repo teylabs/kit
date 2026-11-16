@@ -4,6 +4,7 @@ import BusyIndicator from '@/components/Kit/Feedback/BusyIndicator.vue';
 import { applyFormDefaults } from '@/components/Kit/Form/formDefaults';
 import { reveal } from '@/components/Kit/Layout/reveal';
 import EmailMessage from '@/components/Kit/Text/EmailMessage.vue';
+import CardHeader from '@/components/Kit/Card/CardHeader.vue';
 
 // Small pieces (?small-pieces): EmailMessage, BusyIndicator, reveal() and applyFormDefaults(). window.revealTarget(duration) reveals the far row.
 const applied = applyFormDefaults();
@@ -26,6 +27,11 @@ const defaultsOnSuccess = (Form as unknown as { props: { setDefaultsOnSuccess: {
             :attachments="['order.pdf']"
         />
         <EmailMessage id="limited" from="bo@example.test" :body="'word '.repeat(80)" :limit="40" />
+        <div style="width: 480px">
+            <CardHeader id="long-header" title="2014 Audi S5 Cabriolet 3.0 TFSI 2dr Conv Auto Technik">
+                <template #actions><button type="button" data-header-action>Edit</button><button type="button">Archive</button></template>
+            </CardHeader>
+        </div>
         <div style="height: 2000px" />
         <p id="far">Far row</p>
     </main>
