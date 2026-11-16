@@ -532,7 +532,7 @@ const itemLabel = (item: MediaItem, index: number) =>
             @uploaded="emit('uploaded', $event)"
         />
         <BulkDrop
-            v-else-if="canAdd"
+            v-else-if="canAdd && !inGrid"
             :name="collection.collection"
             :label="label"
             :accept="accept"

@@ -12408,3 +12408,15 @@ test('Page header (?page-title): from sm up a long title wraps in its own column
         }
     }
 });
+
+test('MediaCollection tiles: the add tile in the grid is the only drop zone, and the collection ends at its tiles (no empty child adding a gap below)', () =>
+    mediaTab(async (tab) => {
+        const strip = tab.locator('[data-media-collection="strip"]');
+        const shape = await strip.evaluate(root => {
+            const last = [...root.children].at(-1);
+            const list = root.querySelector('[data-sortable-list]').getBoundingClientRect();
+            return { drops: root.querySelectorAll('[data-dropzone]').length, outside: [...root.children].filter(el => !el.contains(root.querySelector('[data-sortable-list]')) && el.getBoundingClientRect().height === 0).length, gap: Math.round(root.getBoundingClientRect().bottom - list.bottom), lastIsList: last.contains(root.querySelector('[data-sortable-list]')) };
+        });
+        assert.equal(shape.outside, 0, `no empty child after the list: ${JSON.stringify(shape)}`);
+        assert.ok(shape.gap <= 0, `the collection ends at its tiles: ${JSON.stringify(shape)}`);
+    }));

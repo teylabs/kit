@@ -25,6 +25,7 @@ then `--force=<path>` for each. An edited page keeps its neutral avatar until yo
 
 ### Changed
 
+- **MediaCollection `tiles` renders one drop zone**: the grid's add tile. 0.30.1 also left a hidden, empty BulkDrop after the list, whose grid gap added 12px under the tiles.
 - **A menu's trailing destructive rows get their divider** even with no labelled sections: Delete after Duplicate now sits below a separator in every action menu (ActionBar, ButtonGroup, RowActions).
 - **A disabled InertiaAction is dimmed** and described by its `reason` (a visually hidden element on aria-describedby, as RowActions does); the tooltip stays.
 - **InertiaAction keeps the host's class and data-\***: they land on its button or link instead of being dropped on a fragment.
