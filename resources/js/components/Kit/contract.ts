@@ -827,8 +827,10 @@ export interface DescriptionListProps {
         description: string | number | null;
         key?: string;
         copy?: boolean;
+        highlight?: boolean;
     }[];
-    layout?: 'inline' | 'stacked';
+    layout?: 'inline' | 'stacked' | 'grid' | 'compact';
+    columns?: 1 | 2 | 3;
     copyable?: boolean;
     empty?: string;
 }
