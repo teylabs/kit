@@ -66,6 +66,8 @@ const props = defineProps<{
     variant?: RowActionVariant | null;
     record?: string | null;
     noun?: string | null;
+    subject?:
+        import('@/components/Kit/Menu/menuSubject').MenuSubject | true | null;
 }>();
 const emit = defineEmits<{ act: [action: RowAction] }>();
 const laid = computed(() => layOut(props.actions, props.variant));
@@ -81,6 +83,14 @@ const recordName = computed(
             ? props.label.slice('Actions for '.length)
             : props.label) ??
         null,
+);
+// The menu's subject header: `subject`, or with `true` the row's name.
+const menuSubject = computed(() =>
+    props.subject === true
+        ? recordName.value
+            ? { title: recordName.value }
+            : null
+        : (props.subject ?? null),
 );
 const named = (action: RowAction) => actionName(action, recordName.value);
 const shownLabel = (action: RowAction) => {
@@ -379,7 +389,7 @@ function confirmed(confirmation?: string) {
                     data-row-menu
                     ><Ellipsis class="size-4" aria-hidden="true" /></Button
             ></DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+            <DropdownMenuContent align="end" :subject="menuSubject">
                 <template
                     v-for="action in menu"
                     :key="action.key ?? action.label"

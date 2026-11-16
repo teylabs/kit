@@ -391,6 +391,7 @@ export type {
 } from './Layout/collectionSection';
 export { default as ActionCard } from './Card/ActionCard.vue';
 export { CARD_TONES, type CardTone } from './Card/cardTone';
+export type { MenuSubject } from './Menu/menuSubject';
 export {
     normalAction,
     type SingleAction,

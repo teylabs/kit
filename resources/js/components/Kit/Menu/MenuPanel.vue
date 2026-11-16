@@ -20,6 +20,7 @@ const props = withDefaults(
         skid?: number;
         contentClass?: HTMLAttributes['class'];
         animated?: boolean;
+        subject?: import('./menuSubject').MenuSubject | null;
     }>(),
     {
         align: 'start',
@@ -28,6 +29,7 @@ const props = withDefaults(
         skid: 0,
         contentClass: undefined,
         animated: false,
+        subject: null,
     },
 );
 const open = ref(false);
@@ -175,6 +177,7 @@ function returnFocus(event: Event) {
                     : '',
             ]"
             :align="fitted"
+            :subject="subject"
             :side-offset="sideOffset"
             :align-offset="fitted === 'end' ? -skid : skid"
             @escape-key-down="keep"

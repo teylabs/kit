@@ -14,7 +14,11 @@ import MenuPanel from '@/components/Kit/Menu/MenuPanel.vue';
 import MenuTrigger from '@/components/Kit/Menu/MenuTrigger.vue';
 
 // An animated icon-trigger menu that turns each top-level element in its default slot into a menu item (DropdownMenu.md). Not the shadcn `DropdownMenu` primitive. As specced, the item rows are not wired to the menu context, so Enter or Space on a highlighted row does not activate the link or button inside it.
-defineProps<{ alignLeft?: boolean; horizontal?: boolean }>();
+defineProps<{
+    alignLeft?: boolean;
+    horizontal?: boolean;
+    subject?: import('@/components/Kit/Menu/menuSubject').MenuSubject | null;
+}>();
 const slots = useSlots();
 
 // The default slot's top-level nodes: fragments (v-for, v-if groups) opened up, comments and blank text dropped.
@@ -56,6 +60,7 @@ function MenuItems() {
             :align="alignLeft ? 'start' : 'end'"
             content-class="z-50 w-56 divide-y divide-border rounded-md bg-popover text-popover-foreground shadow-lg ring-1 ring-border"
             :side-offset="8"
+            :subject="subject"
         >
             <template #trigger>
                 <MenuTrigger>

@@ -116,6 +116,14 @@ const props = withDefaults(
         toolbar?: boolean;
         rowLabel?: RowLabel<Row>;
         rowActions?: { variant?: RowActionVariant | null } | null;
+        rowSubject?:
+            | boolean
+            | ((
+                  row: Row,
+              ) =>
+                  | import('@/components/Kit/Menu/menuSubject').MenuSubject
+                  | null)
+            | null;
     }>(),
     {
         itemKey: 'id',
@@ -125,8 +133,16 @@ const props = withDefaults(
         toolbar: true,
         rowLabel: null,
         rowActions: null,
+        rowSubject: null,
     },
 );
+// `rowSubject` heads each row's action menu with the row (README, "Menu subject"): `true` uses its name (`rowLabel`), a function returns a title and caption.
+const subjectFor = (row: Row) =>
+    typeof props.rowSubject === 'function'
+        ? props.rowSubject(row)
+        : props.rowSubject
+          ? true
+          : null;
 const rowActionVariant = computed(
     () => props.rowActions?.variant ?? props.table.rowActions?.variant ?? null,
 );
@@ -556,6 +572,7 @@ const showToolbar = computed(
                                 <template v-if="meta(cell.column).srOnlyLabel">
                                     <slot name="row-actions" :row="row.original"
                                         ><RowActions
+                                            :subject="subjectFor(row.original)"
                                             :actions="
                                                 row.original.actions ?? []
                                             "

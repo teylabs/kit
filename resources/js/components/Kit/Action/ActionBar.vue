@@ -52,6 +52,8 @@ const props = withDefaults(
         menuTriggerLabel?: string | null;
         wrap?: boolean;
         itemClass?: string;
+        menuSubject?:
+            import('@/components/Kit/Menu/menuSubject').MenuSubject | null;
     }>(),
     {
         busy: false,
@@ -64,6 +66,7 @@ const props = withDefaults(
         menuTriggerLabel: undefined,
         wrap: false,
         itemClass: undefined,
+        menuSubject: null,
     },
 );
 const emit = defineEmits<{ action: [action: ActionDescriptor] }>();
@@ -295,6 +298,7 @@ const holdFocus = (event: Event) => {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent
                             align="end"
+                            :subject="menuSubject"
                             @close-auto-focus="holdFocus"
                         >
                             <ActionMenuItems
@@ -382,6 +386,7 @@ const holdFocus = (event: Event) => {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent
                         align="end"
+                        :subject="menuSubject"
                         @close-auto-focus="holdFocus"
                     >
                         <ActionMenuItems

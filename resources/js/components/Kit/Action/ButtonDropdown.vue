@@ -9,6 +9,12 @@ import MenuTrigger from '@/components/Kit/Menu/MenuTrigger.vue';
 defineOptions({ inheritAttrs: false });
 defineProps({
     label: { type: String, default: null },
+    subject: {
+        type: Object as PropType<
+            import('@/components/Kit/Menu/menuSubject').MenuSubject | null
+        >,
+        default: null,
+    },
     offset: {
         type: Array as unknown as PropType<[number, number]>,
         default: () => [0, 10],
@@ -19,6 +25,7 @@ defineProps({
     <div class="inline-flex">
         <div v-if="$slots.default || label" class="relative -ml-px block">
             <MenuPanel
+                :subject="subject"
                 content-class="z-50 w-64 divide-y rounded-md border-0 bg-popover p-0 text-popover-foreground shadow-lg dark:shadow-none dark:outline-1 dark:-outline-offset-1 dark:outline-white/10"
                 flip-align
                 :side-offset="offset[1]"

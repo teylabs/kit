@@ -23,6 +23,8 @@ const props = withDefaults(
         weight?: 'medium' | 'semibold';
         itemClass?: string;
         triggerClass?: string;
+        menuSubject?:
+            import('@/components/Kit/Menu/menuSubject').MenuSubject | null;
     }>(),
     {
         label: null,
@@ -32,6 +34,7 @@ const props = withDefaults(
         weight: 'medium',
         itemClass: undefined,
         triggerClass: undefined,
+        menuSubject: null,
     },
 );
 // `itemClass`: the host's own classes for each row in #menu (its row height, say), added after the row's own; destructive and disabled still apply.
@@ -106,6 +109,7 @@ function checkIcons(el: unknown): void {
         </div>
         <div v-if="$slots.menu" class="relative block">
             <MenuPanel
+                :subject="menuSubject"
                 flip-align
                 :side-offset="offset[1]"
                 :skid="offset[0]"
