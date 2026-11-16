@@ -202,6 +202,7 @@ const itemLabel = (item: StackItem, at: number) =>
                     :label="label"
                     :reorder="actions.reorder ?? null"
                     :persist="persist"
+                    :settle="400"
                     :version="version"
                     :disabled="busy || !(actions.reorder || persist)"
                     :layout="orientation === 'grid' ? 'grid' : 'list'"

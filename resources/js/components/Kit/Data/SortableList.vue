@@ -1,6 +1,6 @@
 <script setup lang="ts" generic="T extends { id: string | number }">
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp } from '@lucide/vue';
-import { computed, nextTick, ref, watch, type Ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, ref, watch, type Ref } from 'vue';
 import SortableHandle from './SortableHandle.vue';
 import {
     createReorder,
@@ -35,6 +35,8 @@ const props = withDefaults(
         reorder?: ReorderAction | null;
         /** The host's own save, used in place of `reorder` (same version and rollback rules). */
         persist?: ReorderPersist | null;
+        /** With `reorder` or `persist`: wait this many ms after the last move and send one request with the final order (0: each move sends). */
+        settle?: number;
         version?: string | number | null;
         onConflict?: ((order: string[]) => void) | null;
         layout?: 'list' | 'grid' | 'row';
@@ -49,6 +51,7 @@ const props = withDefaults(
         disabled: false,
         reorder: null,
         persist: null,
+        settle: 0,
         version: null,
         onConflict: null,
     },
@@ -168,13 +171,44 @@ const reorderer = createReorder({
     },
 });
 
+// Settling: moves show at once, and one request goes once they stop, from the order before the first of them (so a refusal rolls them all back).
+let settleFrom: string[] | null = null;
+let settleTimer: ReturnType<typeof setTimeout> | null = null;
+function showOrder(order: string[]) {
+    shown.value = order.map(
+        (id) => shown.value.find((row) => String(row.id) === id) as T,
+    );
+}
+function sendSettled() {
+    settleTimer = null;
+    if (reorderer.busy) return armSettle();
+    const final = ids.value;
+    if (settleFrom) showOrder(settleFrom);
+    settleFrom = null;
+    void reorderer.apply(final);
+}
+function armSettle() {
+    if (settleTimer) clearTimeout(settleTimer);
+    settleTimer = setTimeout(sendSettled, props.settle);
+}
+// Closing the list (a fanout) before the moves settle sends them at once rather than dropping them.
+onBeforeUnmount(() => {
+    if (!settleTimer) return;
+    clearTimeout(settleTimer);
+    sendSettled();
+});
+
 async function move(from: number, to: number): Promise<void> {
     if (off.value || from === to || to < 0 || to >= shown.value.length) return;
     const item = shown.value[from];
     const next = moveItem(ids.value, from, to);
     announcement.value = '';
     savedShown.value = false;
-    if (props.reorder || props.persist) {
+    if ((props.reorder || props.persist) && props.settle > 0) {
+        settleFrom ??= ids.value;
+        showOrder(next);
+        armSettle();
+    } else if (props.reorder || props.persist) {
         void reorderer.apply(next);
     } else {
         shown.value = next.map(

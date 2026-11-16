@@ -11932,3 +11932,18 @@ test('MediaCollection host-upload: the add tile shows without direct routes and 
         await tab.waitForTimeout(200);
         assert.deepEqual(requests, [], 'no kit upload');
     }));
+
+test('ItemStack persist: rapid moves in the fanout settle into one request with the final order', async () => {
+    await mediaTab(async tab => {
+        const stack = tab.locator('[data-fixture="persist"] [data-item-stack]');
+        await stack.locator('[data-item-stack-arrange]').click();
+        const fanout = tab.locator('[data-item-stack-fanout]');
+        await fanout.waitFor();
+        await fanout.getByRole('button', { name: /Move Colour \d \(Blue\) up/ }).click();
+        await fanout.getByRole('button', { name: /Move Colour \d \(Blue\) up/ }).click();
+        await fanout.locator('[data-sortable-saved]').waitFor();
+        const calls = await tab.evaluate(() => window.kitPersist.calls);
+        assert.equal(calls.length, 1, JSON.stringify(calls));
+        assert.deepEqual(calls[0].order, ['c3', 'c1', 'c2']);
+    });
+});

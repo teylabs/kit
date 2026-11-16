@@ -20,6 +20,7 @@
 
 - **MediaCollection tiles**: a dimmed tile dims only its picture (its name keeps full contrast), and each tile's ⋯ trigger carries `data-media-menu`.
 - **SortableList** shows a failed or stale save inline (`role="alert"`, `data-sortable-error`) until the next save succeeds, which shows a quiet "Saved" (`data-sortable-saved`); before, it was only announced.
+- **SortableList `settle`** (ms): moves show at once and one request goes once they stop, with the final order; ItemStack's fanout settles for 400ms. Closing the list sends pending moves at once.
 - **MediaCollection `hostUpload`**: the add tile or drop shows without `direct` and only emits `files`, for a host that runs its own uploads.
 
 ### Fixed
