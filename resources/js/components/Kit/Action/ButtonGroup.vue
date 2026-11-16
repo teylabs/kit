@@ -21,6 +21,8 @@ const props = withDefaults(
         appearance?: 'default' | 'text';
         offset?: [number, number];
         weight?: 'medium' | 'semibold';
+        menuSubject?:
+            import('@/components/Kit/Menu/menuSubject').MenuSubject | null;
         itemClass?: string;
         triggerClass?: string;
     }>(),
@@ -30,6 +32,7 @@ const props = withDefaults(
         appearance: 'default',
         offset: () => [0, 10],
         weight: 'medium',
+        menuSubject: null,
         itemClass: undefined,
         triggerClass: undefined,
     },
@@ -106,6 +109,7 @@ function checkIcons(el: unknown): void {
         </div>
         <div v-if="$slots.menu" class="relative block">
             <MenuPanel
+                :subject="menuSubject"
                 flip-align
                 :side-offset="offset[1]"
                 :skid="offset[0]"

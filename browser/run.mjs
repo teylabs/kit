@@ -2881,6 +2881,36 @@ test('White ground (?tinted=white, 1280px): the default draws no ground card and
     }
 });
 
+// ── Menu subject (?datatable&subject): DataTable rowSubject heads each row's menu with the row; not an item, describes the menu; axe light and dark ──
+
+test('Menu subject: rowSubject heads the row menu with its title and a wrapping caption, describes the menu, the arrows skip it; axe light and dark', async () => {
+    for (const scheme of ['light', 'dark']) {
+        const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+        try {
+            const tab = await context.newPage();
+            await tab.goto(`${url}?datatable${scheme === 'dark' ? '=dark' : ''}&subject`);
+            await tab.locator('button[aria-label="Actions for Acme Assistant"]:visible').click();
+            const menu = tab.getByRole('menu');
+            await menu.waitFor();
+            const head = menu.locator('[data-menu-subject]');
+            assert.equal(await head.locator('[data-menu-subject-title]').textContent(), 'Acme Assistant');
+            assert.match(await head.locator('[data-menu-subject-caption]').textContent(), /^Connected by Northwind Farms admin/);
+            const capLines = await head.locator('[data-menu-subject-caption]').evaluate(el => Math.round(el.getBoundingClientRect().height / parseFloat(getComputedStyle(el).lineHeight)));
+            assert.ok(capLines >= 2, `${scheme}: the caption wraps (${capLines})`);
+            const described = await menu.evaluate(el => (el.getAttribute('aria-describedby') ?? '').split(' ').map(id => document.getElementById(id)?.textContent.replace(/\s+/g, ' ').trim()).join(' '));
+            assert.match(described, /^Acme Assistant\s*Connected by/, `${scheme}: the subject describes the menu`);
+            assert.equal(await head.evaluate(el => el.closest('[role="menuitem"]') === null && !el.hasAttribute('tabindex')), true, 'not an item, not focusable');
+            await tab.keyboard.press('ArrowDown');
+            assert.equal(await tab.evaluate(() => document.activeElement?.getAttribute('role')), 'menuitem', 'the arrows land on items, never the header');
+            await tab.addScriptTag({ path: axeSource });
+            const violations = await tab.evaluate(async () => (await window.axe.run(document.querySelector('[role="menu"]'))).violations.map(v => `${v.id}: ${v.nodes.map(n => n.target.join(' ')).join(', ')}`));
+            assert.deepEqual(violations, [], scheme);
+        } finally {
+            await context.close();
+        }
+    }
+});
+
 // ── Row actions (?datatable, ?datatable=people): quiet inline actions, an icon menu trigger with a name, the danger tone on destructive actions only ──────
 
 const rowActionsCheck = async (query, expectations) => {
@@ -10701,6 +10731,25 @@ test('ActionCard panel (dark): the same under the dark tokens', () => cardNames(
 
 // ── ActionBar `item-class` (?item-class): each row of its More menu takes the host's classes (min-h-12, 48px), and Cancel keeps the destructive colour and the
 // disabled row its dimming ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+test('Menu subject kind file: a long file name is cut in the middle, keeping its start and its extension, and stays whole for assistive technology', async () => {
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?item-class`);
+        await tab.locator('[data-file-menu] [data-button-group-menu]').click();
+        const title = tab.locator('[role="menu"] [data-menu-subject-title]');
+        await title.waitFor();
+        await tab.waitForTimeout(100);
+        const cut = await title.evaluate(el => ({ truncated: el.hasAttribute('data-truncated'), kept: [...el.querySelectorAll('span:not([data-cut])')].map(s => s.textContent).join(''), width: el.getBoundingClientRect().width }));
+        assert.equal(cut.truncated, true, 'cut to fit');
+        assert.match(cut.kept, /^Screenshot.*\.png$/, `the start and the extension are kept: ${cut.kept}`);
+        assert.ok(cut.width <= 256, `the header is at most 16rem (${cut.width})`);
+        assert.equal((await title.textContent()).replace(/\s+/g, ''), 'Screenshot-2026-11-16-at-10.36.11-AM.png'.replace(/\s+/g, '') , 'the whole name stays in the text');
+    } finally {
+        await context.close();
+    }
+});
+
 test('Menu descriptions: an action\'s description and a DropdownItem caption show under the label, muted and wrapping, outside the name and read as the description; axe with contrast', async () => {
     const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
     try {

@@ -34,5 +34,11 @@ const actions = [
                 </template>
             </ButtonGroup>
         </section>
+        <section data-file-menu class="w-40">
+            <ButtonGroup menu-label="Actions for the photo" :menu-subject="{ title: 'Screenshot-2026-11-16-at-10.36.11-AM.png', caption: '2.4 MB · PNG', kind: 'file' }">
+                <Button variant="outline">Photo</Button>
+                <template #menu><DropdownItem as="button">Set as cover</DropdownItem></template>
+            </ButtonGroup>
+        </section>
     </main>
 </template>

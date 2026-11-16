@@ -4,6 +4,7 @@
 
 ### Added
 
+- **Menu subject** (opt-in): a header row naming what a menu acts on, a one-line title (cut in the middle for `kind` `file`, `path` or `url`) and a muted, wrapping caption, above the items. `subject` on DropdownMenu and ButtonDropdown, `menuSubject` on ButtonGroup and ActionBar, `subject` on RowActions (`true` uses the row's name) and `rowSubject` on DataTable. It is not an item and describes the menu (aria-describedby). README, "Menu subject".
 - `FileInput` `dropzone`: the kit's dropzone in place of the native picker, taking one file by drop, paste or browse, with `maxBytes` (10 MB by default) checked in the browser and `label` naming the field (#1044).
 - `DescriptionList` `layout` `grid` (the term over its value, in `columns` 1 to 3 from `sm` up) and `compact` (the pairs in one wrapping row), and `highlight` on an item (the success tint, a check and a spoken "(matches)"). The default `inline` layout is unchanged (#1044).
 - `SearchBox` controlled mode: pass `results` (with `busy`, `failed` and `partial`) and bind `v-model:query`, and the box never fetches; choosing a result emits `select` (and still visits its `url` when it has one), and Enter with none active emits `submit`. `url` is now optional. The fetching mode is unchanged (#1044).
