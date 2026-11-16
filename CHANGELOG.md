@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## v0.27.2
+
+Features affected: none. No lineage needs kit:update; `composer update tey/kit` is enough.
 
 ### Added
 
