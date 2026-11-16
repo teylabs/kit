@@ -5179,6 +5179,35 @@ test('Row variants: one primary plus menu items defaults to split, two plain act
         assert.deepEqual(violations, [], JSON.stringify(violations));
     }));
 
+test('Row variants (0.29): a declared primary is its icon joined to the menu on every row, a row without it shows its menu alone, and menu puts a lone Delete behind ⋮', () =>
+    rowVariants(async (tab) => {
+        const declared = await tab.$eval('[data-declared] [data-row-actions]', el => ({ variant: el.dataset.rowActions, icon: Boolean(el.querySelector('[data-action="edit"] [data-action-icon]')), text: el.querySelector('[data-action="edit"]').textContent.trim(), title: el.querySelector('[data-action="edit"]').getAttribute('title'), name: el.querySelector('[data-action="edit"]').getAttribute('aria-label') }));
+        assert.deepEqual({ ...declared, name: Boolean(declared.name) }, { variant: 'split', icon: true, text: '', title: 'Edit', name: true }, 'the icon-only primary is titled by its label and keeps an accessible name');
+        assert.equal(await tab.$eval('[data-declared-missing] [data-row-actions]', el => el.dataset.rowActions), 'menu');
+        assert.equal(await tab.locator('[data-declared-missing] [data-row-actions] > [data-action]').count(), 0, 'no inline buttons on a row without the primary');
+        const lone = await tab.$eval('[data-menu-only] [data-row-actions]', el => ({ variant: el.dataset.rowActions, inline: el.querySelectorAll(':scope > [data-action]').length, vertical: Boolean(el.querySelector('svg.lucide-ellipsis-vertical')) }));
+        assert.deepEqual(lone, { variant: 'menu', inline: 0, vertical: true });
+        await tab.click('[data-menu-only] button[aria-label="Actions for Ana Lopez"]');
+        await tab.waitForSelector('[role="menu"]');
+        assert.deepEqual(await menuKeys(tab), ['delete']);
+        await tab.keyboard.press('Escape');
+    }));
+
+test('ActionDialogs: a required prompt keeps Confirm disabled until it has text, is labelled, and the dialog passes axe', () =>
+    rowVariants(async (tab) => {
+        await tab.click('[data-run-reopen]');
+        const dialog = await tab.waitForSelector('[role="alertdialog"]');
+        const confirm = tab.locator('[role="alertdialog"] button', { hasText: 'Reopen' });
+        assert.equal(await confirm.isDisabled(), true, 'Confirm waits for a reason');
+        await tab.getByLabel('Reason').fill('Client sent new documents');
+        assert.equal(await confirm.isDisabled(), false);
+        if (!(await tab.evaluate(() => Boolean(window.axe)))) await tab.addScriptTag({ path: axeSource });
+        const violations = await tab.evaluate(async () => (await window.axe.run('[role="alertdialog"]')).violations.map(v => v.id));
+        assert.deepEqual(violations, []);
+        await tab.keyboard.press('Escape');
+        await dialog.waitForElementState('hidden');
+    }));
+
 test('Row variants: the split and overflow row menus open the same small gap below their trigger, so a table row\'s menu never lands over the next row', () =>
     rowVariants(async (tab) => {
         const gap = async (trigger) => {

@@ -2,6 +2,8 @@
 import ActionBar from '@/components/Kit/Action/ActionBar.vue';
 import BulkBar from '@/components/Kit/Table/BulkBar.vue';
 import RowActions from '@/components/Kit/Table/RowActions.vue';
+import ActionDialogs from '@/components/Kit/Action/ActionDialogs.vue';
+import { useActionRunner } from '@/components/Kit/Action/actionRunner';
 
 // Row action variants and names, for run.mjs (?row-variants), invented names: the default rule (one primary plus menu items is split, two inline actions are
 // overflow), each variant chosen explicitly over the default, an `ariaLabel` on RowActions, ActionBar and BulkBar, a label too long for a row (clamped), and a
@@ -17,6 +19,22 @@ const sectionedRow = [
     { key: 'listing', label: 'View listing', url: '/r/1/listing', method: 'get', destructive: false, confirm: null, section: 'Go to' },
     { key: 'delete', label: 'Delete', url: '/r/1', method: 'delete', destructive: true, confirm: { description: 'Gone for good.', label: 'Delete' }, section: 'Danger' },
 ];
+// A page's own runner: a reopen that asks for a required reason, in the dialogs hosted once (ActionDialogs).
+const runner = useActionRunner();
+const reopen = {
+    key: 'reopen',
+    label: 'Reopen',
+    url: '/r/1/reopen',
+    method: 'post',
+    destructive: false,
+    confirm: {
+        title: 'Reopen this case?',
+        description: 'It goes back to the queue.',
+        label: 'Reopen',
+        prompt: { label: 'Reason', required: true },
+    },
+};
+const loneDelete = [sectionedRow[4]];
 const splitRow = [
     {
         key: 'open',
@@ -183,6 +201,34 @@ const bulk = [
                 label="Actions for Ana Lopez"
                 variant="overflow"
             />
+        </section>
+        <section data-declared>
+            <RowActions
+                :actions="sectionedRow"
+                label="Actions for Ana Lopez"
+                primary-key="edit"
+            />
+        </section>
+        <section data-declared-missing>
+            <RowActions
+                :actions="overflowRow"
+                label="Actions for Ana Lopez"
+                primary-key="edit"
+            />
+        </section>
+        <section data-menu-only>
+            <RowActions
+                :actions="loneDelete"
+                label="Actions for Ana Lopez"
+                variant="menu"
+                trigger="vertical"
+            />
+        </section>
+        <section data-runner>
+            <button type="button" data-run-reopen @click="runner.run(reopen)">
+                Reopen
+            </button>
+            <ActionDialogs :runner="runner" />
         </section>
         <section data-explicit-split>
             <RowActions

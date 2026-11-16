@@ -126,6 +126,26 @@ test('split with no plain action keeps the lone destructive button', () => {
     });
 });
 
+test('a declared primary (primary: true, or the table primaryKey) makes the split shape on every row', () => {
+    assert.deepEqual(shape(layOut([plain('a'), { ...plain('edit'), primary: true }, danger('d')])), {
+        variant: 'split', primary: 'edit', inline: [], lone: [], menu: ['a', 'd'],
+    });
+    assert.deepEqual(shape(layOut([plain('edit'), plain('b'), plain('c'), danger('d')], null, 'edit')), {
+        variant: 'split', primary: 'edit', inline: [], lone: [], menu: ['b', 'c', 'd'],
+    });
+    assert.deepEqual(shape(layOut([plain('open'), danger('d')], null, 'edit')), {
+        variant: 'menu', primary: null, inline: [], lone: [], menu: ['open', 'd'],
+    }, 'a row without the table primary shows its menu alone, never inline buttons');
+});
+
+test('menu puts every action in the "…" menu, a lone destructive one included', () => {
+    assert.deepEqual(shape(layOut([plain('a'), plain('b')], 'menu')), {
+        variant: 'menu', primary: null, inline: [], lone: [], menu: ['a', 'b'],
+    });
+    assert.deepEqual(shape(layOut([danger('d')], 'menu')).menu, ['d']);
+    assert.deepEqual(shape(layOut([{ ...plain('edit'), primary: true }], 'menu')).primary, null);
+});
+
 test('labels over 24 characters or 3 words are clamped with an ellipsis', () => {
     assert.equal(tooLong('Remove'), false);
     assert.equal(tooLong('Resend the invitation'), false);

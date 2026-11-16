@@ -101,10 +101,14 @@ type Table = {
         options: { value: string; label: string }[];
     }[];
     bulkActions?: ActionDescriptor[];
-    rowActions?: { variant: RowActionVariant } | null;
+    rowActions?: {
+        variant?: RowActionVariant | null;
+        primary?: string | null;
+        trigger?: 'horizontal' | 'vertical' | null;
+    } | null;
     noun?: string | null;
 };
-// `rowActions` picks the row actions' layout (`{ variant: 'split' | 'overflow' }`, RowActions); it wins over the server's `table.rowActions`, and without either
+// `rowActions` picks the row actions' layout (`{ variant: 'split' | 'overflow' | 'menu', primary: '<action key>', trigger: 'horizontal' | 'vertical' }`, RowActions); it wins over the server's `table.rowActions`, and without either
 // each row takes RowActions' default. The server's `table.noun` (TableQuery::noun()) names the record in an untitled confirmation ("Remove this member?"). `rowLabel` names each row for its controls ("Actions for Ana Lopez", "Select Ana Lopez"): a column key or a function of the row; without it, the row's number.
 const props = withDefaults(
     defineProps<{
@@ -115,7 +119,11 @@ const props = withDefaults(
         intercept?: string[];
         toolbar?: boolean;
         rowLabel?: RowLabel<Row>;
-        rowActions?: { variant?: RowActionVariant | null } | null;
+        rowActions?: {
+            variant?: RowActionVariant | null;
+            primary?: string | null;
+            trigger?: 'horizontal' | 'vertical' | null;
+        } | null;
         rowSubject?:
             | boolean
             | ((
@@ -145,6 +153,13 @@ const subjectFor = (row: Row) =>
           : null;
 const rowActionVariant = computed(
     () => props.rowActions?.variant ?? props.table.rowActions?.variant ?? null,
+);
+// The row's declared primary action key (`rowActions.primary`) and the menu trigger (`rowActions.trigger`, ⋯ or ⋮); the page's wins over the server's.
+const rowPrimary = computed(
+    () => props.rowActions?.primary ?? props.table.rowActions?.primary ?? null,
+);
+const rowTrigger = computed(
+    () => props.rowActions?.trigger ?? props.table.rowActions?.trigger ?? null,
 );
 const emit = defineEmits<{
     act: [row: Row, action: Action];
@@ -585,6 +600,8 @@ const showToolbar = computed(
                                                 )
                                             "
                                             :variant="rowActionVariant"
+                                            :primary-key="rowPrimary"
+                                            :trigger="rowTrigger"
                                             :noun="table.noun ?? null"
                                             :intercept="intercept"
                                             @act="

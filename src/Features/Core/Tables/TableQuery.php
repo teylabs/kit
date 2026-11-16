@@ -142,19 +142,28 @@ final class TableQuery
     }
 
     /**
-     * How every row's actions are laid out: `split` (the primary action joined to a chevron menu) or `overflow` (quiet inline actions plus a "…" menu). Without it
-     * a row of exactly one primary action plus menu items is split, any other overflow. A page's `<DataTable :row-actions="{ variant }">` wins over this.
+     * How every row's actions are laid out. `primary` names the action key that is each row's primary, shown as its icon and joined to a chevron menu of the
+     * rest (the split shape): every row takes the same shape, so the column lines up; a row without that action shows its menu alone. `variant` `menu` puts every
+     * action in the "…" menu; `split` or `overflow` force the earlier shapes, and without any of these RowActions infers one as before. `trigger` `vertical` draws the menu trigger as ⋮ (compact places) in place of ⋯.
+     * A page's `<DataTable :row-actions>` wins over this.
      *
-     * @param  'split'|'overflow'  $variant
+     * @param  'split'|'overflow'|'menu'|null  $variant
+     * @param  'horizontal'|'vertical'|null  $trigger
      *
      * @return $this
      */
-    public function rowActions(string $variant): self
+    public function rowActions(?string $variant = null, ?string $primary = null, ?string $trigger = null): self
     {
-        if (! in_array($variant, ['split', 'overflow'], true)) {
-            throw new \InvalidArgumentException("Row actions variant must be 'split' or 'overflow', not '{$variant}'.");
+        if ($variant !== null && ! in_array($variant, ['split', 'overflow', 'menu'], true)) {
+            throw new \InvalidArgumentException("Row actions variant must be 'split', 'overflow' or 'menu', not '{$variant}'.");
         }
-        $this->rowActions = ['variant' => $variant];
+        if ($trigger !== null && ! in_array($trigger, ['horizontal', 'vertical'], true)) {
+            throw new \InvalidArgumentException("Row actions trigger must be 'horizontal' or 'vertical', not '{$trigger}'.");
+        }
+        if ($primary !== null && trim($primary) === '') {
+            throw new \InvalidArgumentException('Row actions primary must name an action key.');
+        }
+        $this->rowActions = array_filter(['variant' => $variant, 'primary' => $primary, 'trigger' => $trigger], fn ($value) => $value !== null);
 
         return $this;
     }

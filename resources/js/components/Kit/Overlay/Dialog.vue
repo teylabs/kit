@@ -24,6 +24,7 @@ import { confirmationData, typedMatches } from './confirmText';
 // The kit's Dialog: a confirmation or a prompt (a title, a message, actions, and optionally a prompt control in the `body` slot), on Reka's AlertDialog. It is static: Escape and the backdrop do nothing but cancel, and it never holds a form (that is <Modal>). `variant="danger"` draws an icon circle and a destructive action (`:icon="false"` drops the circle and its gutter, on any variant, and keeps the action's style); the default, neutral, does not. `action` (a server action: url and method) is performed by the dialog, which closes when it succeeds; without it `@confirm` is for local handling. Declared in the template, opened with `v-model:open` or by its trigger (the default slot, the button that asks); there is no programmatic confirm(). On a phone it is bottom-aligned.
 // Behaviour: the trigger is the default slot (the button that asks), Cancel is
 // focused first, and the action runs only on `confirm`. Without a trigger slot it is opened with `v-model:open`. Slots: `icon`, `title`, `body` (content above the buttons, such as a password to confirm with) and `footer`. A destructive confirm (the default) has an icon circle; on a phone it is bottom-aligned.
+// `confirmDisabled` keeps Confirm disabled (a required prompt in the `body` slot that is still empty).
 // Typed confirmation: with `confirmText`, a labelled input asks for that exact text (case-sensitive unless `caseSensitive` is false; pasting is fine) and Confirm stays
 // disabled until it matches; the change is announced politely. The typed text is emitted with `confirm` and sent as `confirmation` with the `action` visit, so
 // the server re-checks it (TypedConfirmation): the disabled button alone is never the guard.
@@ -39,6 +40,7 @@ const props = withDefaults(
         caseSensitive?: boolean;
         confirmTextLabel?: string;
         icon?: boolean;
+        confirmDisabled?: boolean;
     }>(),
     {
         description: undefined,
@@ -49,6 +51,7 @@ const props = withDefaults(
         caseSensitive: true,
         confirmTextLabel: undefined,
         icon: true,
+        confirmDisabled: false,
     },
 );
 const open = defineModel<boolean>('open', { default: false });
@@ -191,7 +194,7 @@ provideCard();
                                             : 'primary'
                                     "
                                     type="button"
-                                    :disabled="!matches"
+                                    :disabled="!matches || confirmDisabled"
                                     :aria-describedby="
                                         asksTyped
                                             ? `${inputId}-hint`

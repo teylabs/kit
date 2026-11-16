@@ -473,7 +473,11 @@ export interface DataTableProps {
         | string
         | ((row: Record<string, unknown>) => string | null | undefined)
         | null;
-    rowActions?: { variant?: 'split' | 'overflow' | null } | null;
+    rowActions?: {
+        variant?: 'split' | 'overflow' | 'menu' | null;
+        primary?: string | null;
+        trigger?: 'horizontal' | 'vertical' | null;
+    } | null;
 }
 
 /** The index toolbar: search (300ms after typing, Enter at once) and one choice per server filter `choice`. It emits `search` and `filter` (name, value or null); the host visits. Slots: default (after the filters), `end`. */

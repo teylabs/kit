@@ -119,6 +119,9 @@ try {
     tableCheck(true, 'a blank noun is refused');
 }
 tableCheck(in_array('noun', array_filter(['noun'], fn (string $method) => str_contains((string) (new ReflectionMethod(TableQuery::class, $method))->getDocComment(), '@return $this')), true), 'noun() is fluent ($this)');
+tableCheck($plain()->rowActions(primary: 'edit', trigger: 'vertical')->build(fn (TablePerson $person) => ['id' => $person->id])->rowActions === ['primary' => 'edit', 'trigger' => 'vertical'], 'rowActions() carries a declared primary and the trigger, and leaves out what was not given');
+tableCheck($plain()->rowActions('menu')->build(fn (TablePerson $person) => ['id' => $person->id])->rowActions === ['variant' => 'menu'], 'rowActions() takes the menu variant');
+tableCheck((function () use ($plain) { try { $plain()->rowActions(trigger: 'diagonal'); return false; } catch (InvalidArgumentException) { return true; } })(), 'an unknown trigger is refused');
 tableCheck($plain()->rowActions(variant: 'split')->build(fn (TablePerson $person) => ['id' => $person->id])->rowActions === ['variant' => 'split'] && $plain()->rowActions('overflow')->build(fn (TablePerson $person) => ['id' => $person->id])->rowActions === ['variant' => 'overflow'], 'rowActions() carries the chosen variant to the TableData');
 try {
     $plain()->rowActions('menu');
