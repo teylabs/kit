@@ -18,6 +18,7 @@
 - **Widget and WidgetHeader** (docs/widgets.md): a dashboard widget frame on its own card (`bg-card`, drawn on a tinted ground too) with a header of title, avatar, meta, count badge and actions; `loading` (a busy skeleton), an `empty` state drawn by EmptyState, a `planned` dashed frame, `action-placement` header or footer, and `bare`. Slots `title`, `avatar`, `meta`, `badge`, `actions` and default.
 - **SegmentLinks** (docs/widgets.md): in-place filter segments that are links (`{key, label, href, count?, tone?}`), the `current` one marked `aria-current`, `appearance` link or neutral, and a `navigate` emit that lets a page take over the visit (a partial reload).
 
+- **MediaCollection tiles**: a dimmed tile dims only its picture (its name keeps full contrast), and each tile's ⋯ trigger carries `data-media-menu`.
 - **MediaCollection `hostUpload`**: the add tile or drop shows without `direct` and only emits `files`, for a host that runs its own uploads.
 
 ### Fixed

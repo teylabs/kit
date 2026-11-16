@@ -196,10 +196,7 @@ const itemLabel = (item: MediaItem, index: number) =>
             <template #default="{ item, index }">
                 <div
                     v-if="tiles"
-                    :class="[
-                        'grid min-w-0 gap-2',
-                        dimIds.includes(item.id) && 'opacity-50',
-                    ]"
+                    class="grid min-w-0 gap-2"
                     :data-media-item="item.id"
                     data-media-tile
                     :data-selected="selectedIds.includes(item.id) || undefined"
@@ -214,6 +211,7 @@ const itemLabel = (item: MediaItem, index: number) =>
                             'border-border bg-muted focus-visible:outline-ring relative w-full overflow-hidden rounded-md border focus-visible:outline-2 focus-visible:outline-offset-2',
                             selectedIds.includes(item.id) &&
                                 'ring-primary ring-2',
+                            dimIds.includes(item.id) && 'opacity-50',
                         ]"
                         :aria-label="`View ${itemLabel(item, index)}`"
                         :aria-pressed="
@@ -258,6 +256,7 @@ const itemLabel = (item: MediaItem, index: number) =>
                             <DropdownMenuTrigger as-child
                                 ><button
                                     type="button"
+                                    data-media-menu
                                     class="hover:bg-accent focus-visible:outline-ring inline-flex size-8 items-center justify-center rounded-md focus-visible:outline-2"
                                     :aria-label="`${text.actions} ${itemLabel(item, index)}`"
                                 >
