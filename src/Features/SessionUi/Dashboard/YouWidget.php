@@ -6,6 +6,7 @@ use Spatie\TypeScriptTransformer\Attributes\TypeScript;
 use Tey\Kit\Features\Core\Data\Action;
 use Tey\Kit\Features\Core\Data\ChecklistItem;
 use Tey\Kit\Features\Core\RequestMemo;
+use Tey\Kit\Features\Core\AvatarColor;
 use Tey\Kit\Features\SessionUi\Avatars;
 use Tey\Kit\Features\SessionUi\ClientTimezone;
 use Tey\Kit\Features\SessionUi\PageShell;
@@ -47,6 +48,7 @@ final class YouWidget extends Widget
             'email' => (string) $user->email,
             'initials' => app(PageShell::class)->initials((string) $user->name),
             'avatar' => Avatars::urls((int) $user->getKey()),
+            'avatar_color' => AvatarColor::of($user),
             'role' => $role === null ? null : (string) (config('concierge.roles.'.$role.'.label') ?? $role),
             'workspace' => (string) Workspaces::required()->name,
             'timezone' => ClientTimezone::forViewer($this->context->request),

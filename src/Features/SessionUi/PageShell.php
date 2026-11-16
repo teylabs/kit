@@ -9,6 +9,7 @@ use Illuminate\Support\Str;
 use RuntimeException;
 use Tey\Concierge\Contracts\Workspace;
 use Tey\Kit\Features\Access\Access;
+use Tey\Kit\Features\Core\AvatarColor;
 use Tey\Kit\Features\Core\Data\Action;
 use Tey\Kit\Features\Core\Data\NavigationHeader;
 use Tey\Kit\Features\Core\Principal;
@@ -127,7 +128,7 @@ final class PageShell implements ShellSource
         if (! app(Registry::class)->adopts('workspaces')) {
             $slots = $this->rootNavigation($request, $user) + $slots;
         }
-        $identity = ['name' => $user->name, 'email' => $user->email, 'initials' => $this->initials((string) $user->name), 'avatar_url' => ($avatar = Avatars::urls((int) $user->getKey()))['url'] ?? null, 'avatar_url_2x' => $avatar['url_2x'] ?? null, 'items' => [...(app(Registry::class)->adopts('workspaces') ? [] : $slots['user-menu']), ...$this->accountItems($user, $request)]];
+        $identity = ['name' => $user->name, 'email' => $user->email, 'initials' => $this->initials((string) $user->name), 'avatar_url' => ($avatar = Avatars::urls((int) $user->getKey()))['url'] ?? null, 'avatar_url_2x' => $avatar['url_2x'] ?? null, 'avatar_color' => AvatarColor::of($user), 'items' => [...(app(Registry::class)->adopts('workspaces') ? [] : $slots['user-menu']), ...$this->accountItems($user, $request)]];
 
         $account = self::isAccount($request);
 
@@ -277,7 +278,7 @@ final class PageShell implements ShellSource
     {
         $avatar = Avatars::urls((int) $user->getKey());
 
-        return new FocusShellData($product, ['name' => (string) $user->name, 'email' => (string) $user->email, 'initials' => $this->initials((string) $user->name), 'avatar_url' => $avatar['url'] ?? null, 'avatar_url_2x' => $avatar['url_2x'] ?? null], ['sign_out' => '/logout', 'switch_account' => '/switch-account'], FocusStep::of($request));
+        return new FocusShellData($product, ['name' => (string) $user->name, 'email' => (string) $user->email, 'initials' => $this->initials((string) $user->name), 'avatar_url' => $avatar['url'] ?? null, 'avatar_url_2x' => $avatar['url_2x'] ?? null, 'avatar_color' => AvatarColor::of($user)], ['sign_out' => '/logout', 'switch_account' => '/switch-account'], FocusStep::of($request));
     }
 
     /**
