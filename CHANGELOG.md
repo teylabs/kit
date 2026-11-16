@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **Profile and Welcome photo pages** (session-ui, workspace-ui) use FileInput's dropzone: a photo can be dropped, pasted or browsed, and one over the server's `max_kb` is refused in the browser before upload. Run `kit:update` for session-ui and workspace-ui to take it.
+
 ## v0.27.3
 
 Features affected: none. No lineage needs kit:update; `composer update tey/kit` is enough.
