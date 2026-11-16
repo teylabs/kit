@@ -12544,3 +12544,32 @@ test('Page with no visible heading: its header actions sit at the end of the mod
         }
     }
 });
+
+test('Dialog size lg with #footer-start: the secondary actions sit at the start and Cancel + the action at the end, on one line on desktop, wrapping inside the panel on a phone', async () => {
+    for (const width of [1280, 390]) {
+        const context = await browser.newContext({ viewport: { width, height: 800 } });
+        try {
+            const tab = await context.newPage();
+            await tab.goto(`${url}?confirm`);
+            await tab.click('[data-open-stage]');
+            await tab.waitForSelector('[data-confirm-dialog][data-size="lg"] [data-stage-junk]');
+            await tab.waitForTimeout(300);
+            const shape = await tab.evaluate(() => {
+                const panel = document.querySelector('[data-confirm-dialog]').getBoundingClientRect();
+                const box = (s) => document.querySelector(s).getBoundingClientRect();
+                const parts = ['[data-stage-decline]', '[data-stage-junk]', '[data-cancel-action]', '[data-confirm-action]'].map(box);
+                return { panelW: Math.round(panel.width), inside: parts.every((b) => b.left >= panel.left - 0.5 && b.right <= panel.right + 0.5), tops: parts.map((b) => Math.round(b.top)), startLeft: Math.round(parts[0].left - panel.left), endRight: Math.round(panel.right - parts[3].right), overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth };
+            });
+            assert.ok(shape.inside, `${width}px: every action inside the panel: ${JSON.stringify(shape)}`);
+            assert.ok(shape.overflow <= 0, `${width}px: no sideways scroll`);
+            assert.equal(shape.startLeft, shape.endRight, `${width}px: secondary at the start, the action at the end, same inset: ${JSON.stringify(shape)}`);
+            if (width === 1280) {
+                assert.ok(shape.panelW > 448 && shape.panelW <= 576, `lg is wider than md: ${shape.panelW}`);
+                assert.equal(new Set(shape.tops).size, 1, `one line on desktop: ${JSON.stringify(shape)}`);
+            }
+            if (process.env.SHOT_DIR) await tab.screenshot({ path: `${process.env.SHOT_DIR}/dialog-footer-${width}.png` });
+        } finally {
+            await context.close();
+        }
+    }
+});
