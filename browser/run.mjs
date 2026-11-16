@@ -2255,6 +2255,33 @@ test('Textarea: defaultValue starts an uncontrolled one, hasFocus focuses it, au
     }
 });
 
+// ── SearchBox, controlled (?search-controlled): the host's results, no fetch; select and submit ──
+
+test('SearchBox controlled: shows the host\'s results without fetching, a pick emits select, Enter with none active emits submit', async () => {
+    const context = await browser.newContext({ viewport: { width: 1024, height: 700 } });
+    try {
+        const tab = await context.newPage();
+        const fetched = [];
+        tab.on('request', request => { if (['fetch', 'xhr'].includes(request.resourceType())) fetched.push(request.url()); });
+        await tab.goto(`${url}?search-controlled`);
+        await tab.waitForSelector('[data-search-input]');
+        await tab.fill('[data-search-input]', 'bir');
+        await tab.waitForTimeout(400);
+        assert.deepEqual(await tab.locator('[data-search-option]').allTextContents().then(t => t.map(x => x.replace(/\s+/g, ' ').trim())), ['Birch LaneCase 2']);
+        assert.equal(await tab.locator('[data-search-all]').count(), 0, 'no url, no All results link');
+        await tab.keyboard.press('ArrowDown');
+        await tab.keyboard.press('Enter');
+        await tab.fill('[data-search-input]', 'zzz');
+        await tab.waitForTimeout(50);
+        assert.equal(await tab.locator('[data-search-empty]').count(), 1, 'No results from the host');
+        await tab.keyboard.press('Enter');
+        assert.equal(await tab.textContent('[data-events]'), 'select:Birch Lane,submit:zzz');
+        assert.deepEqual(fetched, [], 'the box never fetched');
+    } finally {
+        await context.close();
+    }
+});
+
 // ── SwatchPicker (?swatch): suggested swatches and a palette in one radiogroup, the arrows, Home and End; the default swatch is an empty value; axe ──────
 
 const swatches = (tab) => tab.evaluate(() => [...document.querySelectorAll('[data-swatch-picker] [role="radio"]')].map(el => `${el.dataset.swatch}:${el.getAttribute('aria-checked')}:${el.tabIndex}`).join(' '));
