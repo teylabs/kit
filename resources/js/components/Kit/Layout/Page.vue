@@ -141,6 +141,10 @@ const tabsLabel = computed(
         page.props.layout?.navigation?.find((group) => group.label)?.label ??
         'Sections',
 );
+// No visible heading but the page draws its tabs: the header's actions and status sit at the tab row's end instead of on a row of their own.
+const actionsOnTabs = computed(
+    () => tabs.value.length > 0 && !headingText.value,
+);
 const headingText = computed(() =>
     inShell && props.heading
         ? (props.title ?? page.props.layout?.title ?? page.props.title ?? '')
@@ -170,15 +174,34 @@ const size = computed(
     >
         <OwnTabs v-if="tabs.length"
             ><PageTabs :tabs="tabs" :label="tabsLabel" data-page-module-tabs
-        /></OwnTabs>
+                ><template
+                    v-if="
+                        actionsOnTabs &&
+                        ($slots.actions ||
+                            $slots.status ||
+                            status ||
+                            actions.length)
+                    "
+                    #actions
+                    ><HeaderStatus v-if="$slots.status"
+                        ><slot name="status" /></HeaderStatus
+                    ><HeaderStatus
+                        v-else-if="status"
+                        :status="status" /><HeaderActions
+                        v-if="actions.length"
+                        :actions="actions"
+                        v-bind="listeners" /><slot
+                        name="actions" /></template></PageTabs
+        ></OwnTabs>
         <div
             v-if="
                 drawsTrail ||
                 headingText ||
-                $slots.actions ||
-                $slots.status ||
-                status ||
-                actions.length
+                (!actionsOnTabs &&
+                    ($slots.actions ||
+                        $slots.status ||
+                        status ||
+                        actions.length))
             "
             class="flex flex-col gap-2"
             data-slot="page-head"
@@ -187,10 +210,11 @@ const size = computed(
             <div
                 v-if="
                     headingText ||
-                    $slots.actions ||
-                    $slots.status ||
-                    status ||
-                    actions.length
+                    (!actionsOnTabs &&
+                        ($slots.actions ||
+                            $slots.status ||
+                            status ||
+                            actions.length))
                 "
                 class="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 sm:flex-nowrap"
                 data-slot="page-header"

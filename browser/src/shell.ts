@@ -13,6 +13,7 @@ import inter600 from '../../resources/fonts/files/inter-latin-600-normal.woff2?u
 // top-level pages, global search, the appearance toggle in `actions` and the account menu, so run.mjs checks that the pages give way before the controls do.
 // `?current=N` marks page N current (default the first); `?pages=four` gives the bar four pages instead, which fit at 1024 beside search. Invented names only.
 // `?module=N`: a module's page N (0 is its top page) in a <Page>, with the trail and `layout.navigation` the server would send (the module's sibling pages);
+// `&no-heading`: the page hides its heading (`:heading="false"`) and has a header action, which joins the tab row; `&with-actions`: the same with its heading.
 // `&record`: a record page whose frame draws its own PageTabs from `layout.navigation`; `&strip`: the Layout's `subNav="strip"`.
 // window.kitRecordTabs(false) unmounts the record's PageTabs (a `v-if` turned off) and (true) brings it back.
 const query = new URLSearchParams(window.location.search);
@@ -64,7 +65,13 @@ const body = module === null
     ? () => h('h1', { class: 'p-8 text-xl font-semibold' }, 'Overview')
     : record
       ? () => h(Page, { full: true, title }, { default: () => [recordTabs.value && h(PageTabs, { tabs: items.map((item) => ({ href: item.url, label: item.label, current: item.current })), label: 'Project sections', 'data-record-tabs': '' }), content()] })
-      : () => h(Page, { full: true, title }, { default: content });
+      : query.has('no-heading') || query.has('with-actions')
+        ? () =>
+              h(Page, { full: true, title, heading: !query.has('no-heading') }, {
+                  default: content,
+                  actions: () => h('button', { type: 'button', class: 'rounded-md border px-3 py-1.5 text-sm', 'data-new-booking': '' }, 'New booking'),
+              })
+        : () => h(Page, { full: true, title }, { default: content });
 // `?bar`: the app's own search in the `bar` slot (a 13rem field) and a second icon button among the actions, in place of the kit's search.
 // `?app` (with `pages=four`): an app's real bar, rebuilt: a square tile in the `mark` slot, the field three boxes deep in the slot (a min-w-0 wrapper, the
 // 13rem box, a min-w-0 box, the input), the appearance toggle and a bell among the actions, all in Inter (the kit's own font files, so every runner measures

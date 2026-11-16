@@ -12420,3 +12420,28 @@ test('MediaCollection tiles: the add tile in the grid is the only drop zone, and
         assert.equal(shape.outside, 0, `no empty child after the list: ${JSON.stringify(shape)}`);
         assert.ok(shape.gap <= 0, `the collection ends at its tiles: ${JSON.stringify(shape)}`);
     }));
+
+test('Page with no visible heading: its header actions sit at the end of the module tab row (no header row of their own); with a heading they stay on the heading row', async () => {
+    for (const width of [1280, 390]) {
+        const context = await browser.newContext({ viewport: { width, height: 800 } });
+        try {
+            const tab = await context.newPage();
+            await tab.goto(`${authUrl}shell.html?module=0&no-heading`);
+            await tab.waitForSelector('[data-page-module-tabs] [data-new-booking], [data-page-tabs-row] [data-new-booking]');
+            const shape = await tab.evaluate(() => {
+                const row = document.querySelector('[data-page-tabs-row]').getBoundingClientRect();
+                const button = document.querySelector('[data-new-booking]').getBoundingClientRect();
+                return { header: document.querySelectorAll('[data-slot="page-header"]').length, inRow: button.top >= row.top - 1 && button.bottom <= row.bottom + 1, right: Math.round(row.right - button.right), overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth };
+            });
+            assert.equal(shape.header, 0, `${width}px: no header row`);
+            assert.ok(shape.inRow && shape.right <= 1, `${width}px: the action ends the tab row: ${JSON.stringify(shape)}`);
+            assert.ok(shape.overflow <= 0, `${width}px: no sideways scroll`);
+            if (process.env.SHOT_DIR) await tab.screenshot({ path: `${process.env.SHOT_DIR}/tabs-actions-${width}.png`, clip: { x: 0, y: 0, width, height: 260 } });
+            await tab.goto(`${authUrl}shell.html?module=0&with-actions`);
+            await tab.waitForSelector('[data-slot="page-header"] [data-new-booking]');
+            assert.equal(await tab.locator('[data-page-tabs-actions]').count(), 0, `${width}px: with a heading the tab row has no actions`);
+        } finally {
+            await context.close();
+        }
+    }
+});
