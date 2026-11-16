@@ -824,10 +824,12 @@ export interface DescriptionListProps {
 export interface EmptyStateProps {
     title: string;
     body?: string | null;
-    icon?: import('vue').Component | null;
+    icon?: import('vue').Component | string | null;
     actions?: import('./Action/actionPlacement').ActionDescriptor[];
     compact?: boolean;
     level?: 2 | 3 | 4 | 5 | 6;
+    align?: 'center' | 'start';
+    variant?: 'default' | 'first-use';
 }
 
 /**
