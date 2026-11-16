@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **PhotoTile `aspect="fill"`**: no aspect ratio; the empty tile fills the height its host gives it, to match a sibling tile (as ItemStack `fill`).
+
 ## v0.29.1
 
 Features affected: none; `composer update tey/kit` is enough.

@@ -4,6 +4,7 @@ import ItemStack from '@/components/Kit/Media/ItemStack.vue';
 import MediaCollection from '@/components/Kit/Media/MediaCollection.vue';
 import MediaGallery from '@/components/Kit/Media/MediaGallery.vue';
 import PhotoField from '@/components/Kit/Media/PhotoField.vue';
+import PhotoTile from '@/components/Kit/Media/PhotoTile.vue';
 
 // The media family (?media): a read-only MediaGallery capped at three, MediaCollection as tiles (badge, selected, dim, pending, tile actions) and empty
 // as a photo tile, an ItemStack on a stand-in versioned reorder server (window.kitServer.stale() makes the next write stale), and PhotoField with and
@@ -159,6 +160,9 @@ async function persist(order: string[], version: string | number | null) {
         </div>
         <div data-fixture="fill" style="height: 260px; width: 240px">
             <ItemStack :items="shots" label="Filled" :noun="['shot', 'shots']" fill />
+        </div>
+        <div data-fixture="tile-fill" style="height: 300px; width: 240px">
+            <PhotoTile name="fill" label="Add photos" :accept="['image/jpeg']" :max-bytes="10485760" aspect="fill" />
         </div>
     </main>
 </template>

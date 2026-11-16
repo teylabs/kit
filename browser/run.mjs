@@ -11974,3 +11974,9 @@ test('ItemStack fill: the stack takes its container\'s height and the picture sh
         assert.ok(Math.abs(box.stack - box.container) <= 1, `stack ${box.stack}px in a ${box.container}px container`);
         assert.equal(box.fit, 'contain');
     }));
+
+test('PhotoTile aspect="fill": the empty tile fills the height its host gives it', () =>
+    mediaTab(async (tab) => {
+        const h = await tab.$eval('[data-fixture="tile-fill"]', el => [el.getBoundingClientRect().height, el.querySelector('button').getBoundingClientRect().height]);
+        assert.ok(Math.abs(h[0] - h[1]) <= 1, `tile ${h[1]}px in a ${h[0]}px container`);
+    }));
