@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.36.0
 
 Features affected: workspace-ui (code only; no stub or pin changes).
 
