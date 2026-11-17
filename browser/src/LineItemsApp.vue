@@ -44,6 +44,9 @@ const statementRows = [
             <template #footer><p class="text-muted-foreground text-xs">Due on receipt.</p></template>
         </LineItems>
         <LineItems :columns="statementColumns" :rows="statementRows" caption="Member statement, September to October 2026" caption-hidden row-header="date" :totals="[{ label: 'Balance owing', value: '$0.00', emphasis: true }]" data-test-statement />
+        <LineItems :columns="invoiceColumns" :rows="invoiceRows" caption="Formatted totals" caption-hidden :totals="[{ label: 'Total', value: 45200, emphasis: true }]" data-test-total-slot>
+            <template #total-value="{ total }"><span data-formatted-total>{{ (Number(total.value) / 100).toFixed(2) }} CAD</span></template>
+        </LineItems>
         <LineItems :columns="statementColumns" :rows="[]" caption="Empty statement" caption-hidden empty="No entries this period." data-test-empty />
     </main>
 </template>

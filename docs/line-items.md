@@ -41,3 +41,14 @@ Slots: `#cell-<key>="{ row, value }"` for any column, and `#footer`, a full-widt
 It is a real `<table>`: `<caption>`, `<th scope="col">` headers, row headers with `rowHeader`, totals in `<tfoot>`. On a page narrower than the table it scrolls sideways inside its own box, a focusable region named by the caption so a keyboard can scroll it, and the page itself never scrolls sideways. The first column is sticky, so a line stays identifiable while the amounts scroll into view; its cells paint `bg-background`, so on a card or another ground set that ground with a wrapper class (`[&_td:first-child]:bg-card`). Text columns keep a minimum width rather than wrapping a word per line. Colours are the theme's tokens, so light and dark follow the app.
 
 Browser checks: `browser/run.mjs` (`?line-items`).
+
+## Formatting totals
+
+`totals` values show as given. To format them like the cells (e.g. money in minor units through `Amount`), fill `#total-value="{ total, index }"`:
+
+```vue
+<LineItems :columns="columns" :rows="rows" :totals="totals">
+    <template #cell-amount="{ value }"><Amount :minor="value" /></template>
+    <template #total-value="{ total }"><Amount :minor="total.value" /></template>
+</LineItems>
+```
