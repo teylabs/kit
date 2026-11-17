@@ -109,6 +109,7 @@
         "test:build-miss": "@php tests/BuildMissCheck.php vendor/autoload.php",
         "test:fonts": "@php tests/FontsCheck.php vendor/autoload.php",
         "test:tables": "@php tests/TableQueryCheck.php vendor/autoload.php",
+        "test:report-table": "@php tests/ReportTableCheck.php vendor/autoload.php",
         "test:lists": "@php tests/ScrollListCheck.php vendor/autoload.php",
         "test:shell": "@php tests/ShellCheck.php vendor/autoload.php",
         "test:module-tabs": "@php tests/ModuleTabsCheck.php vendor/autoload.php",

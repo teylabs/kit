@@ -14,6 +14,7 @@ import {
 import {
     actionIconName,
     menuItemRole,
+    downloads,
     opensNewTab,
     rendersAsLink,
     type ActionDescriptor,
@@ -24,7 +25,7 @@ import MenuGroup from '@/components/Kit/Menu/MenuGroup.vue';
 import { menuSections } from '@/components/Kit/Menu/menuGroups';
 
 // The menu rows for a list of actions, inside a DropdownMenuContent: dialog → route modal, document → new tab, a GET without a confirmation → the row itself is the
-// link (role="menuitem" on an Inertia Link, or on an <a> in a new tab with `newTab`), everything else handed to `onAction` after the menu closes. `onAction` is a prop, not an emit: the rows unmount with the menu before the deferred call, and an unmounted component's emit is dropped (an
+// link (role="menuitem" on an Inertia Link, or on an <a> in a new tab with `newTab`, or on a plain <a download> with `download`), everything else handed to `onAction` after the menu closes. `onAction` is a prop, not an emit: the rows unmount with the menu before the deferred call, and an unmounted component's emit is dropped (an
 // `@action` listener still works, as Vue passes it as this prop). An action with a boolean `checked` is a checkbox row (the host's DropdownMenuCheckboxItem: role
 // "menuitemcheckbox", aria-checked and its check indicator), always handed to `onAction` like an operation; the row shows `checked` and never flips it itself.
 const props = defineProps<{
@@ -163,6 +164,26 @@ const describedBy = (action: ActionDescriptor, index: number) =>
                         menu
                         :description-id="descriptionId(index)"
                 /></ModalLink>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+                v-else-if="downloads(action)"
+                as-child
+                :disabled="busy"
+                :class="rowClass"
+                :aria-label="action.ariaLabel || undefined"
+                :aria-describedby="describedBy(action, index)"
+                :data-action="action.key"
+            >
+                <a :href="action.url" download data-action-download
+                    ><component
+                        :is="menuIcon(action)"
+                        v-if="menuIcon(action)"
+                        class="size-4"
+                        aria-hidden="true" /><ActionLabel
+                        :action="action"
+                        menu
+                        :description-id="descriptionId(index)"
+                /></a>
             </DropdownMenuItem>
             <DropdownMenuItem
                 v-else-if="action.intent === 'document' && !action.disabled"

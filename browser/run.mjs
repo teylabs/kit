@@ -1000,6 +1000,136 @@ test('LineItems at 390px scrolls inside its own box, keeps the first column in v
     }
 });
 
+// ── LineItems as a report: percent, empty cells, per-row currency, the empty slot, client-side sort (aria-sort, numeric, empty last, keyboard) ───────────
+const reportPage = async (run) => {
+    const tab = await browser.newPage({ locale: 'en-CA', viewport: { width: 1280, height: 900 } });
+    try {
+        await tab.goto(`${url}?line-items`);
+        await run(tab, tab.locator('[data-test-report] table'));
+    } finally {
+        await tab.close();
+    }
+};
+const column = (table, key) => table.locator(`tbody [data-column="${key}"]`).evaluateAll(els => els.map(el => el.textContent.trim()));
+const rooms = (table) => column(table, 'room');
+
+test('LineItems formats a percent cell, end-aligned in tabular figures, and shows an empty cell as an em dash read as "none"', () =>
+    reportPage(async (tab, table) => {
+        assert.deepEqual(await column(table, 'occupancy'), ['81.25%', '—none', '9.5%', '100%']);
+        const styles = await table.locator('[data-column="occupancy"]').evaluateAll(els => els.map(el => [getComputedStyle(el).textAlign, getComputedStyle(el).fontVariantNumeric]));
+        assert.deepEqual(styles, Array(5).fill(['end', 'tabular-nums']), 'percent is end-aligned and tabular, header included');
+        const none = table.locator('tbody tr').nth(1).locator('[data-column="note"]');
+        assert.equal(await none.locator('[data-line-items-none]').getAttribute('aria-hidden'), 'true', 'the dash is hidden from assistive technology');
+        assert.equal(await none.locator('.sr-only').innerText(), 'none', 'and read as "none"');
+        assert.equal(await tab.locator('[data-test-statement] tbody tr').first().locator('[data-column="charge"]').innerText(), '', 'an empty string still renders as given');
+    }));
+
+test('LineItems formats a money cell in its row currency (currencyKey), else the column currency', () =>
+    reportPage(async (tab, table) => {
+        assert.deepEqual(await column(table, 'revenue'), ['$1,840.50', 'US$420.00', '-$35.50', '—none']);
+        assert.deepEqual(await tab.locator('[data-test-invoice] tbody [data-column="price"]').evaluateAll(els => els.map(el => el.textContent.trim())), ['$240.00', '$35.00', '$90.00'], 'a preformatted money string still renders as given');
+    }));
+
+test('LineItems shows the #empty slot as the empty line', () =>
+    reportPage(async (tab) => {
+        const empty = tab.locator('[data-test-empty-slot] [data-line-items-empty]');
+        assert.equal(await empty.locator('[data-test-empty-text]').innerText(), 'No stays in this period.');
+        assert.equal(await empty.getAttribute('colspan'), '5');
+    }));
+
+test('LineItems sorts a sortable column by its header button: aria-sort, numeric order, empty cells last, totals in place', () =>
+    reportPage(async (tab, table) => {
+        assert.deepEqual(await rooms(table), ['Harbour', 'Garden', 'Loft', 'Annex'], 'the server order first');
+        assert.equal(await table.locator('thead th[aria-sort]').count(), 0, 'no column is sorted yet');
+        assert.equal(await table.locator('thead [data-column="room"] button').count(), 0, 'a column that is not sortable has no button');
+        const header = (key) => table.locator(`thead th[data-column="${key}"]`);
+        const totals = async () => table.locator('tfoot').evaluate(el => el.textContent.replace(/\s+/g, ' ').trim());
+        const before = await totals();
+
+        await header('nights').getByRole('button', { name: 'Nights' }).click();
+        assert.equal(await header('nights').getAttribute('aria-sort'), 'ascending');
+        assert.deepEqual(await rooms(table), ['Garden', 'Harbour', 'Loft', 'Annex'], 'nights ascending, the empty one last');
+        await header('nights').getByRole('button').click();
+        assert.equal(await header('nights').getAttribute('aria-sort'), 'descending');
+        assert.deepEqual(await rooms(table), ['Loft', 'Harbour', 'Garden', 'Annex'], 'nights descending, the empty one still last');
+
+        await header('revenue').getByRole('button').click();
+        assert.equal(await header('nights').getAttribute('aria-sort'), null, 'only the sorted column carries aria-sort');
+        assert.equal(await header('revenue').getAttribute('aria-sort'), 'ascending');
+        assert.deepEqual(await rooms(table), ['Loft', 'Garden', 'Harbour', 'Annex'], 'money sorts numerically (-35.5 < 420 < "1840.50"), not as text');
+
+        await header('note').getByRole('button').click();
+        assert.deepEqual(await rooms(table), ['Loft', 'Harbour', 'Annex', 'Garden'], 'text sorts as text, the empty note last');
+        assert.equal(await totals(), before, 'the totals stay put');
+        assert.equal(await table.locator('tfoot tr').count(), 1);
+    }));
+
+test('LineItems sorts from the keyboard: Enter and Space on the header button, percent numerically', () =>
+    reportPage(async (tab, table) => {
+        const header = table.locator('thead th[data-column="occupancy"]');
+        await header.getByRole('button', { name: 'Occupancy' }).focus();
+        await tab.keyboard.press('Enter');
+        assert.equal(await header.getAttribute('aria-sort'), 'ascending');
+        assert.deepEqual(await rooms(table), ['Loft', 'Harbour', 'Annex', 'Garden'], 'percent ascending (9.5 < 81.25 < 100), the empty one last');
+        await tab.keyboard.press('Space');
+        assert.equal(await header.getAttribute('aria-sort'), 'descending');
+        assert.deepEqual(await rooms(table), ['Annex', 'Harbour', 'Loft', 'Garden'], 'percent descending, the empty one still last');
+        assert.equal(await tab.evaluate(() => document.activeElement?.closest('th')?.dataset.column), 'occupancy', 'focus stays on the header button');
+    }));
+
+// ── Action `download`: a plain <a href download> with the Download icon in a header, a section, a row and a menu; no target, no arrow, no Inertia visit ───
+const downloadPage = async (run) => {
+    const tab = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    try {
+        await tab.goto(`${url}?download`);
+        await tab.waitForSelector('[data-action="header"]');
+        // A click on a download is recorded and its default prevented here (after every component's handler), so no file is fetched; an Inertia Link would
+        // have prevented it itself and logged a visit.
+        await tab.evaluate(() => {
+            window.kitVisits = [];
+            window.kitClicks = [];
+            window.addEventListener('click', (event) => {
+                const link = event.target.closest('a');
+                window.kitClicks.push({ href: link?.getAttribute('href') ?? null, prevented: event.defaultPrevented });
+                event.preventDefault();
+            });
+        });
+        await run(tab);
+    } finally {
+        await tab.close();
+    }
+};
+const plainDownload = async (tab, link, href, { icon = true } = {}) => {
+    const shape = await link.evaluate(el => ({
+        tag: el.tagName,
+        href: el.getAttribute('href'),
+        download: el.hasAttribute('download'),
+        target: el.getAttribute('target'),
+        rel: el.getAttribute('rel'),
+        inertia: el.hasAttribute('data-stub-link'),
+        arrow: Boolean(el.querySelector('[data-new-tab-arrow]')),
+        icon: Boolean(el.querySelector('svg')),
+    }));
+    assert.deepEqual(shape, { tag: 'A', href, download: true, target: null, rel: null, inertia: false, arrow: false, icon }, `${href} is a plain <a download>`);
+    await link.click();
+    assert.deepEqual(await tab.evaluate(() => window.kitVisits), [], `${href}: no Inertia visit`);
+    assert.deepEqual(await tab.evaluate(() => window.kitClicks.at(-1)), { href, prevented: false }, `${href}: the browser's own download, nothing intercepted it`);
+};
+
+test('A download action is a plain <a download> with the Download icon in a page header and a section header, with no target, arrow or Inertia visit', () =>
+    downloadPage(async (tab) => {
+        assert.equal(await tab.locator('[data-action="edit"]').evaluate(el => el.hasAttribute('data-stub-link')), true, 'an ordinary GET beside it is still an Inertia Link');
+        await plainDownload(tab, tab.locator('[data-action="header"]:visible'), '/reports/header.csv');
+        await plainDownload(tab, tab.locator('[data-action="section"]:visible'), '/reports/section.csv');
+        await plainDownload(tab, tab.locator('[data-test-inertia-action] a'), '/reports/single.csv');
+    }));
+
+test('A download row action is a plain <a download> inline and, with the Download icon, in the row menu, with no target, arrow or Inertia visit', () =>
+    downloadPage(async (tab) => {
+        await plainDownload(tab, tab.locator('[data-test-row-lone] [data-action="row"]'), '/reports/row.csv', { icon: false });
+        await tab.getByRole('button', { name: 'Actions for Garden' }).click();
+        await plainDownload(tab, tab.locator('[role="menu"] a[data-action="row-menu"], [role="menu"] [data-action="row-menu"] a').first(), '/reports/row-menu.csv');
+    }));
 // ── FilterPopover: the badge count, a hidden one-option select, search, one visit on close, selects at once, Reset, the pin and sticky headings, keys, axe ──
 // A fresh page on ?filter-popover with `extra` params (an unrelated view and date are always there); `openFilters` opens it and waits for the panel.
 const filterPage = async (extra = '', viewport = { width: 1280, height: 800 }, scheme = '') => {

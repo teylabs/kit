@@ -2,6 +2,7 @@
 // `intent` is `dialog`, `panel` (opened by the host, like a dialog: always a button that emits, never a link), `document` or `edit` (an action that changes the record; ActionBar hides it inside a locked LockedForm). `checked` (true or false) makes a menu
 // row a checkbox item (role="menuitemcheckbox" with aria-checked); choosing it emits the action as any other, and the host flips `checked`. Null or absent: a plain row.
 // `ariaLabel` is the accessible name when the visible label, a verb, needs its record ("Remove Billing").
+// `download` makes a GET a file download: a plain <a href download> with the Download icon, never an Inertia visit or a new tab.
 export type ActionDescriptor = {
     label: string;
     url: string;
@@ -36,6 +37,7 @@ export type ActionDescriptor = {
     /** In a menu, the labelled section this action sits in (MenuGroup): consecutive actions with the same `section` share one, separated from the next. Not `group`, which joins a button group. */
     section?: string | null;
     newTab?: boolean | null;
+    download?: boolean | null;
     priority?: 'primary' | 'secondary' | 'overflow' | null;
     checked?: boolean | null;
 };
@@ -170,7 +172,8 @@ export function menuItemRole(action: {
 
 /**
  * The icon name an action shows: its own, else `plus` for a label starting Add, New or Create, else, in a menu, the common intents by key, then by label:
- * `edit` pencil, `payment` credit-card, `reopen`/`re-open` lock-open, `cancel`/`decline` x, `merge` merge, `delete`/`remove` trash, `download` download. An explicit `icon` always wins.
+ * `edit` pencil, `payment` credit-card, `reopen`/`re-open` lock-open, `cancel`/`decline` x, `merge` merge, `delete`/`remove` trash, `download` download. An explicit `icon` always wins;
+ * a `download` action shows the download icon inline as well as in a menu.
  */
 const menuKeyIcons = new Map<string, string>(
     Object.entries({
@@ -195,10 +198,16 @@ const menuLabelIcons: [RegExp, string][] = [
     [/^Download\b/i, 'download'],
 ];
 export function actionIconName(
-    action: { label: string; icon?: string | null; key?: string | null },
+    action: {
+        label: string;
+        icon?: string | null;
+        key?: string | null;
+        download?: boolean | null;
+    },
     menu = false,
 ): string | null {
     if (action.icon) return action.icon;
+    if (action.download) return 'download';
     if (/^(Add|New|Create)\b/.test(action.label)) return 'plus';
     if (!menu) return null;
     const key = (action.key ?? '').toLowerCase();
@@ -209,10 +218,20 @@ export function actionIconName(
     );
 }
 
-/** Whether the label shows the new-tab arrow: an explicit `newTab`, else document intent. It describes the link; it does not change navigation. */
+/** Whether the label shows the new-tab arrow: an explicit `newTab`, else document intent; never a download. It describes the link; it does not change navigation. */
 export function opensNewTab(action: {
     newTab?: boolean | null;
     intent?: string | null;
+    download?: boolean | null;
 }): boolean {
+    if (action.download) return false;
     return action.newTab ?? action.intent === 'document';
+}
+
+/** Whether the action is a file download drawn as a plain <a href download>: `download` on a GET that renders as a link (no confirmation, not disabled). */
+export function downloads(
+    action: Parameters<typeof rendersAsLink>[0] & { download?: boolean | null },
+    intercept: string[] = [],
+): boolean {
+    return Boolean(action.download) && rendersAsLink(action, intercept);
 }

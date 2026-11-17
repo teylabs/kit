@@ -262,7 +262,7 @@ test('RowActions shows a menu item description under its label, wrapping, hidden
     assert.match(rows, /inMenu && action\.description \? descriptionId\(action\)/);
     assert.equal((rows.match(/v-bind="state\(action, true\)"/g) ?? []).length, 2);
     assert.match(rows, /#body/);
-    assert.match(read('src/Features/Core/Data/Action.php'), /public \?string \$description = null\)/);
+    assert.match(read('src/Features/Core/Data/Action.php'), /public \?string \$description = null[,)]/);
     assert.match(read('types/kit.d.ts'), /ariaLabel: string \| null,\ndescription: string \| null,/);
 });
 

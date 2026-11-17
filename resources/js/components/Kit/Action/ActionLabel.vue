@@ -17,6 +17,7 @@ const props = defineProps<{
         label: string;
         icon?: string | null;
         newTab?: boolean | null;
+        download?: boolean | null;
         intent?: string | null;
         key?: string | null;
         description?: string | null;

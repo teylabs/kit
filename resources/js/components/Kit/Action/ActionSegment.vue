@@ -4,13 +4,14 @@ import { ModalLink } from '@inertiaui/modal-vue';
 import { useId } from 'vue';
 import ActionLabel from '@/components/Kit/Action/ActionLabel.vue';
 import {
+    downloads,
     opensNewTab,
     rendersAsLink,
     type ActionDescriptor,
 } from '@/components/Kit/Action/actionPlacement';
 
 // One visible action as a raw element (ButtonGroup styles its children; the pill path passes classes): dialog → route modal, document → new tab, a GET without a
-// confirmation → a link (an Inertia Link, or an <a> in a new tab with `newTab`), anything else a button that emits. `busy` blocks all but a document link.
+// confirmation → a link (an Inertia Link, or an <a> in a new tab with `newTab`, or a plain <a download> with `download`), anything else a button that emits. `busy` blocks all but a document link.
 // A `disabled` action stays focusable and hoverable (aria-disabled, not the disabled attribute) so its `reason` shows as a tooltip and is read as its description.
 const props = defineProps<{
     action: ActionDescriptor;
@@ -40,6 +41,15 @@ const emit = defineEmits<{ action: [action: ActionDescriptor] }>();
         ><span class="contents" :aria-busy="loading || undefined"
             ><ActionLabel :action="action" :pending="loading" /></span
     ></ModalLink>
+    <a
+        v-else-if="downloads(action) && !busy"
+        :href="action.url"
+        download
+        :aria-label="action.ariaLabel || undefined"
+        :data-action="action.key"
+        data-action-download
+        ><ActionLabel :action="action"
+    /></a>
     <a
         v-else-if="action.intent === 'document' && !action.disabled"
         :href="action.url"

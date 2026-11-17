@@ -67,7 +67,7 @@ final class SeeAll extends Data
         $action = $action instanceof Action ? $action->toArray() : $action;
         $label = trim((string) ($action['label'] ?? ''));
         $url = (string) ($action['url'] ?? '');
-        if (strtolower((string) ($action['method'] ?? 'get')) !== 'get' || ($action['disabled'] ?? false) || ($action['confirm'] ?? null) !== null || ($action['menu'] ?? false) || ($action['destructive'] ?? false) || ($action['intent'] ?? null) !== null || ($action['newTab'] ?? false) || $url === '') {
+        if (strtolower((string) ($action['method'] ?? 'get')) !== 'get' || ($action['disabled'] ?? false) || ($action['confirm'] ?? null) !== null || ($action['menu'] ?? false) || ($action['destructive'] ?? false) || ($action['intent'] ?? null) !== null || ($action['newTab'] ?? false) || ($action['download'] ?? false) || $url === '') {
             return null;
         }
         if (preg_match(self::LEGACY, $label, $noun) === 1) {

@@ -18,3 +18,13 @@ When a page places its actions by name instead of handing a list to `ActionBar`,
 - **`ActionBar`** is still there for a list of actions that should fit and overflow on its own.
 
 Tests: `browser/` renders neither yet; they're typechecked with the other components.
+
+## Downloads
+
+A GET that answers with a file (a CSV export, a PDF) is a download, not navigation: declare it with `->download()` (or `download: true`).
+
+```php
+'export' => (new Action('Export CSV', route('reports.rooms.csv'), 'get'))->download(),
+```
+
+Every place that renders actions (InertiaAction, DropdownAction, a Page or PageSection header's ActionBar and its More menu, RowActions inline, split and in its menu, CollectionSection) draws it as a plain `<a href download>` with the Download icon (RowActions' inline text buttons show no icon): no `target`, no new-tab arrow, and never an Inertia visit, so the browser saves the file and the page stays. `download` wins over `newTab`. A confirmed or disabled download stays a button, as any other action. Browser checks: `browser/run.mjs` (`?download`).

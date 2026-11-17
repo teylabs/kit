@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.33.10
+
+Features affected: none (kit components and the `Action` and `ReportTable` classes; no stub changed).
+
+### Added
+
+- **LineItems as a report table** (docs/line-items.md): a `percent` kind (end-aligned, tabular, formatted in percentage points in the kit's locale); a numeric `money` cell formatted in its row's currency (`currencyKey`), else the column's `currency`, else the kit's default (a preformatted string still renders as given); a `null` or missing cell shows an em dash read as "none"; an `#empty` slot beside the `empty` prop; and `sortable` columns, sorted in the browser from a header button with `aria-sort` on the `<th>`: number, money and percent numerically, empty cells last in either direction, totals in place.
+- **`ReportTable`** (`Tey\Kit\Features\Core\Tables\ReportTable`): declares a report's columns, computed rows and totals in the controller and serialises them as LineItems' props (`<LineItems v-bind="report" />`). Rows keep only the declared columns and their currency fields; an unknown kind, a duplicate key or a currency on a non-money column is refused.
+- **Action `download`** (`->download()`, or `download: true`): every place that renders actions (InertiaAction, DropdownAction, a page or section header's ActionBar and its More menu, RowActions inline, split and menu, CollectionSection) draws a plain `<a href download>` with the Download icon: no `target`, no new-tab arrow, no Inertia visit. A download action is never folded into a see-all link. `Button` takes `download` too.
+
 ## v0.33.9
 
 Features affected: none (kit components and TableQuery).
