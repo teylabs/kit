@@ -222,7 +222,8 @@ const size = computed(
                 <h1
                     v-if="headingText"
                     data-slot="page-heading"
-                    class="font-display min-w-0 text-3xl font-(weight:--font-display-weight) tracking-tight text-pretty break-words sm:flex-1"
+                    :title="headingText"
+                    class="font-display line-clamp-1 min-w-0 text-3xl font-(weight:--font-display-weight) tracking-tight break-words sm:flex-1"
                 >
                     {{ headingText }}
                 </h1>

@@ -13377,3 +13377,18 @@ test('SettingsFrame with no section navigation: the page takes the whole width, 
         assert.ok(shape.page > 400 && shape.page >= Math.min(shape.frame, 600), `the page is not squeezed into 13rem: ${JSON.stringify(shape)}`);
     });
 });
+
+test('Page heading: a long title stays on one line, ellipsised, with the whole title as its tooltip and in the DOM', async () => {
+    const long = '2006 VINTAGE Trailer 844GNLQ12-D Outlaw Enclosed Camper / Hauler, Goose neck Outlaw with a much longer description than any header row can hold';
+    const password = passwordAccount();
+    const named = () => { const shown = password.pages.Password(); return { ...shown, props: { ...shown.props, ...titled(long) } }; };
+    await accountPage({ start: 'Password', routes: [], pages: { Password: named } }, async ({ tab }) => {
+        const h1 = tab.locator('[data-slot=page-heading]');
+        await h1.waitFor();
+        const shape = await h1.evaluate(el => ({ text: el.textContent.trim(), title: el.getAttribute('title'), lines: Math.round(el.getBoundingClientRect().height / parseFloat(getComputedStyle(el).lineHeight)), clipped: el.scrollHeight > el.clientHeight }));
+        assert.equal(shape.text, long, 'the whole title stays in the DOM');
+        assert.equal(shape.title, long, 'the whole title is the tooltip');
+        assert.equal(shape.lines, 1, `one line: ${JSON.stringify(shape)}`);
+        assert.equal(shape.clipped, true, 'the rest is clipped');
+    });
+});
