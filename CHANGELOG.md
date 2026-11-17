@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.33.10
 
 Features affected: none (kit components and the `Action` and `ReportTable` classes; no stub changed).
 
