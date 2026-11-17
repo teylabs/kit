@@ -1,3 +1,9 @@
+<script lang="ts">
+// Shared by every Modal: each open (and each close's return) starts a new generation, so a return still watching from an earlier close stops,
+// even one from a Modal since unmounted. Reopening from another opener within that watch never sends focus back to the previous opener.
+const focusReturns = { generation: 0 };
+</script>
+
 <script setup lang="ts">
 import { Form } from '@inertiajs/vue3';
 import { Modal as PackageModal, visitModal } from '@inertiaui/modal-vue';
@@ -117,23 +123,31 @@ const panelClasses = computed(() =>
 // element focused when it opened gets it back. It keeps watching until the panel has left: a pointer press on Close in WebKit drops focus to the page while
 // the panel is still there, and the package's focus trap (its role=dialog panel) pulls an early return back into it.
 let opener: HTMLElement | null = null;
-const remember = () =>
-    (opener =
+const remember = () => {
+    focusReturns.generation++;
+    opener =
         document.activeElement instanceof HTMLElement &&
         document.activeElement !== document.body
             ? document.activeElement
-            : null);
+            : null;
+};
 const layers =
     'dialog, [role="dialog"], .im-dialog, .im-modal-dialog, .im-modal-wrapper, .im-modal-container, .im-modal-positioner, .im-modal-content, .im-slideover-dialog, .im-slideover-wrapper, .im-slideover-container, .im-slideover-positioner, .im-slideover-content';
 function returnFocus() {
     const target = opener;
     opener = null;
+    const mine = ++focusReturns.generation;
     const leaving: Element | null = panel.value?.$el ?? null;
     const started = Date.now();
     // Only once the leaving modal is gone: while any of its layers is mounted with focus inside, the package's focus trap takes focus straight back
     // from anything outside it. Then focus returns, and is checked again in case a trap still held it, until the cap.
     const settle = () => {
-        if (!target?.isConnected || Date.now() - started > 5000) return;
+        if (
+            mine !== focusReturns.generation ||
+            !target?.isConnected ||
+            Date.now() - started > 5000
+        )
+            return;
         const active = document.activeElement;
         const held = Boolean(
             active &&

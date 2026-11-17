@@ -16,11 +16,16 @@ async function view() {
     await nextTick();
     gallery.value?.show('a');
 }
+// A second attachment link on the same gallery, opening it again without emptying it (one viewer for every tile).
+function viewAgain() {
+    gallery.value?.show('a');
+}
 const open = ref(false);
 </script>
 <template>
     <div class="flex flex-col gap-4">
         <a id="return-link" href="#plan" @click.prevent="view">Floor plan</a>
+        <a id="return-link-2" href="#plan-2" @click.prevent="viewAgain">Floor plan again</a>
         <MediaGallery ref="gallery" label="Attachments" :items="items" :thumbnails="false" />
         <button id="return-button" type="button" @click="open = true">Details</button>
         <button id="return-elsewhere" type="button">Elsewhere</button>
