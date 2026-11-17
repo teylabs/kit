@@ -2,6 +2,8 @@
 
 `<DataTable>` (`Kit/Table/DataTable.vue`) renders a `TableData` the server builds: the rows (already filtered, sorted and paginated), the columns, the URL state and the empty state. A page that owns its query builds it with `TableQuery`; the client decides nothing about permissions.
 
+For a frozen document's lines (an invoice, a statement) rather than an index, use [LineItems](line-items.md).
+
 ## The server: TableQuery
 
 ```php

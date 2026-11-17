@@ -75,3 +75,5 @@ export { default as NoteCard } from '@/components/Kit/Comment/NoteCard.vue';
 export { default as QuickAction } from '@/components/Kit/Comment/QuickAction.vue';
 export { COMMENT_TONES } from '@/components/Kit/Comment/comments';
 export type { CommentComposerData, CommentData } from '@/components/Kit/Comment/comments';
+// LineItems (?line-items).
+export { default as LineItems } from '@/components/Kit/Table/LineItems.vue';

@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.33.3
+
+Features affected: none (kit components only).
+
+### Added
+
+- **LineItems, a table for frozen documents** (`Kit/Table/LineItems.vue`, docs/line-items.md): an invoice's lines, the same lines on a public share page, a statement with a running balance. `columns` (`kind` money and number end-aligned in tabular figures), `rows`, a `caption` (or `captionHidden`), `rowHeader` for `<th scope=row>`, `totals` in a `<tfoot>` under the last end-aligned column, `#cell-<key>` and `#footer` slots and `empty`. On a phone it scrolls inside its own box with the first column kept in view.
+
 ## v0.33.2
 
 Features affected: none (kit components only).
