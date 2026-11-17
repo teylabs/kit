@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import Card from '@/components/Kit/Card/Card.vue';
 import LineItems from '@/components/Kit/Table/LineItems.vue';
 
 if (new URLSearchParams(window.location.search).get('line-items') === 'dark') document.documentElement.classList.add('dark');
@@ -44,6 +45,15 @@ const statementRows = [
             <template #footer><p class="text-muted-foreground text-xs">Due on receipt.</p></template>
         </LineItems>
         <LineItems :columns="statementColumns" :rows="statementRows" caption="Member statement, September to October 2026" caption-hidden row-header="date" :totals="[{ label: 'Balance owing', value: '$0.00', emphasis: true }]" data-test-statement />
+        <Card class="w-full max-w-96 p-4" data-test-narrow-card>
+            <LineItems
+                :columns="[{ key: 'item', label: 'Description' }, { key: 'qty', label: 'Qty', kind: 'number' }, { key: 'tax', label: 'Tax', align: 'end' }, { key: 'amount', label: 'Amount', kind: 'money' }]"
+                :rows="[{ item: 'Annual membership', qty: 1, tax: 'HST (13 %)', amount: '$240.00' }, { item: 'Locker rental', qty: 2, tax: 'HST (13 %)', amount: '$70.00' }]"
+                caption="Narrow invoice"
+                caption-hidden
+                :totals="[{ label: 'Total', value: '$350.30', emphasis: true }]"
+            />
+        </Card>
         <LineItems :columns="invoiceColumns" :rows="invoiceRows" caption="Formatted totals" caption-hidden :totals="[{ label: 'Total', value: 45200, emphasis: true }]" data-test-total-slot>
             <template #total-value="{ total }"><span data-formatted-total>{{ (Number(total.value) / 100).toFixed(2) }} CAD</span></template>
         </LineItems>

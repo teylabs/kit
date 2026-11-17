@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.33.5
+
+Features affected: none (kit components only).
+
+### Fixed
+
+- **LineItems fits a narrow card**: only the first text column (the sticky one that names the row) keeps a minimum width; other text columns, such as a short tax label, shrink to their content. In 0.33.3 every text column held 10rem, so a 24rem card pushed the amount and totals behind the side-scroll.
+- **LineItems' sticky first column takes its surface's colour** (a card, a popover, a dialog), so a card host no longer needs `[&_td:first-child]:bg-card`.
+
 ## v0.33.4
 
 Features affected: none (kit components only).

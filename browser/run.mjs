@@ -12901,3 +12901,22 @@ test('LineItems #total-value: a host formats each total like its cells (the slot
         await context.close();
     }
 });
+
+test('LineItems in a 24rem card: a short text column shrinks to its content so every column and total fits without scrolling, and the sticky first column takes the card\'s colour', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?line-items`);
+        await tab.waitForSelector('[data-test-narrow-card] table');
+        const shape = await tab.evaluate(() => {
+            const card = document.querySelector('[data-test-narrow-card]');
+            const scroller = card.querySelector('table').parentElement;
+            const cell = card.querySelector('tbody tr > :first-child');
+            return { overflow: scroller.scrollWidth - scroller.clientWidth, cellBg: getComputedStyle(cell).backgroundColor, cardBg: getComputedStyle(card).backgroundColor };
+        });
+        assert.ok(shape.overflow <= 0, `every column fits: ${JSON.stringify(shape)}`);
+        assert.equal(shape.cellBg, shape.cardBg, `the sticky cell is the card's colour: ${JSON.stringify(shape)}`);
+    } finally {
+        await context.close();
+    }
+});

@@ -5,7 +5,7 @@ import { computed, useId } from 'vue';
  * A frozen document's table (docs/line-items.md): an invoice's lines, the same lines on a public share page, a statement with a running balance. Not an
  * index: no sorting, selection or pagination (DataTable does those). Real <table> semantics: a <caption> (visible, or sr-only with `captionHidden`),
  * <th scope=col> headers, and with `rowHeader` that column's cells are <th scope=row>. money and number columns are end-aligned with tabular figures; values
- * render as given (format them on the server, or fill `#cell-<key>="{ row, value }"`). `totals` sit in a <tfoot> (`#total-value="{ total, index }"` renders a value, e.g. through Amount, like the cells above it), each value under the last end-aligned
+ * render as given (format them on the server, or fill `#cell-<key>="{ row, value }"`). Only the first text column (the one that names the row, sticky on a phone) keeps a minimum width; other text columns shrink to their content. `totals` sit in a <tfoot> (`#total-value="{ total, index }"` renders a value, e.g. through Amount, like the cells above it), each value under the last end-aligned
  * column. On a narrow page the table scrolls sideways inside its own box (a focusable region named by the caption), with the first column kept in view.
  */
 export type LineItemsColumn = {
@@ -55,8 +55,11 @@ const cellClass = (column: LineItemsColumn, index: number) => [
     column.kind === 'number' ||
     column.kind === 'date'
         ? 'tabular-nums whitespace-nowrap'
-        : 'min-w-40',
-    index === 0 ? 'sticky start-0 bg-background' : '',
+        : index === 0
+          ? 'min-w-40'
+          : '',
+    // The sticky first column is painted in its surface's colour: --avatar-ring is the colour each surface (a card, a popover, a dialog) sets for what sits on it.
+    index === 0 ? 'sticky start-0 bg-(--avatar-ring,var(--background))' : '',
 ];
 
 // The totals' value column: the last end-aligned one (the amount), else the last column. The label spans the columns before it.
