@@ -44,11 +44,11 @@ Browser checks: `browser/run.mjs` (`?line-items`).
 
 ## Formatting totals
 
-`totals` values show as given. To format them like the cells (e.g. money in minor units through `Amount`), fill `#total-value="{ total, index }"`:
+`totals` values show as given. To format them like the cells (e.g. money through `Amount`, in the viewer's locale), fill `#total-value="{ total, index }"`:
 
 ```vue
 <LineItems :columns="columns" :rows="rows" :totals="totals">
-    <template #cell-amount="{ value }"><Amount :minor="value" /></template>
-    <template #total-value="{ total }"><Amount :minor="total.value" /></template>
+    <template #cell-amount="{ value }"><Amount :value="String(value)" kind="money" currency="CAD" /></template>
+    <template #total-value="{ total }"><Amount :value="String(total.value)" kind="money" currency="CAD" /></template>
 </LineItems>
 ```
