@@ -3,6 +3,8 @@
 A person's avatar is their photo, or their initials on **their colour**. The colour is one per person and the same everywhere they appear: the shell's user
 menu and drawer, notes and comments, the People table, the You widget, and an activity feed.
 
+`ring` draws a white ring around an avatar. The shell's account avatar (the bar, the account menu, the drawer) uses it, so every colour and a photo read on a dark bar as well as a light page.
+
 ## The colour
 
 `Tey\Kit\Features\Core\AvatarColor` gives it:
