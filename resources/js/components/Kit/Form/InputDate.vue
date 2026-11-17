@@ -161,7 +161,7 @@ const segment =
                             <DatePickerInput
                                 v-if="item.part === 'literal'"
                                 :part="item.part"
-                                class="text-muted-foreground -mx-0.5"
+                                class="text-muted-foreground"
                                 >{{ item.value }}</DatePickerInput
                             >
                             <DatePickerInput

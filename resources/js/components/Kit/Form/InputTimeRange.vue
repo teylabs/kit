@@ -174,7 +174,7 @@ const segment =
                         v-if="item.part === 'literal'"
                         :part="item.part"
                         type="start"
-                        class="text-muted-foreground -mx-0.5"
+                        class="text-muted-foreground"
                         >{{ item.value }}</TimeRangeFieldInput
                     >
                     <TimeRangeFieldInput
@@ -196,7 +196,7 @@ const segment =
                         v-if="item.part === 'literal'"
                         :part="item.part"
                         type="end"
-                        class="text-muted-foreground -mx-0.5"
+                        class="text-muted-foreground"
                         >{{ item.value }}</TimeRangeFieldInput
                     >
                     <TimeRangeFieldInput

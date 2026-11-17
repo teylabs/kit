@@ -31,7 +31,7 @@ Every control takes `name`, `label`, `id`, `defaultValue`, `min`, `max`, `descri
 
 - **Clear** submits an empty string (the hidden input's value is `''`), emits `update:modelValue` and `canonical` with `''`, fires an `input` event on the form so it turns dirty, and moves focus to the field's first segment.
 - **Props.** `id` and `label` are required; `name` defaults to `id`. `modelValue` (`v-model`, the date or `''`) or `defaultValue` (a `YYYY-MM-DD`, `''` or null) starts it; a longer ISO value is cut to its date. `span` is a FormCard's columns, as on `Field`. `min`, `max`, `description`, `error`, `disabled` and `required` are InputDate's.
-- **Spacing.** In every segmented date and time input, each literal ("/", "-", ":") sits the same distance from the glyphs either side of it, in every locale: segments pad their text evenly (`px-2`) and literals tuck in by the same amount, so a one-digit month is not wider-spaced than a four-digit year.
+- **Spacing.** In every segmented date and time input, each literal ("/", "-", ":") sits the same distance from the glyphs either side of it, in every locale: segments pad their text evenly (`px-2`), so a one-digit month is not wider-spaced than a four-digit year.
 - **A form reset** puts the starting value back: `defaultValue`, or with `v-model` the value it mounted with, emitted through `update:modelValue`.
 - Other attributes land on the field's segment group, as on `InputDate`.
 
