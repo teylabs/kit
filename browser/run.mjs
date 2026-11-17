@@ -12857,3 +12857,33 @@ test('the overflow menu trigger is centred on its siblings: ⋮ after a Button i
             await tab.locator('[data-header-menu]').screenshot({ path: `${process.env.SHOT_DIR}/header-menu.png` });
         }
     }));
+
+test('Button chevron: a trailing, decorative down chevron after the label, centred on it, at default and sm sizes; a link never draws one', async () => {
+    const context = await browser.newContext({ viewport: { width: 1024, height: 700 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?small-pieces`);
+        await tab.waitForSelector('[data-chevron-row]');
+        const shape = await tab.evaluate(() => [...document.querySelectorAll('[data-chevron-button], [data-chevron-small]')].map((button) => {
+            const chevron = button.querySelector('[data-button-chevron]');
+            if (!chevron) return null;
+            const range = document.createRange();
+            range.selectNodeContents([...button.childNodes].find((n) => n.nodeType === 3 && n.textContent.trim()));
+            const text = range.getBoundingClientRect();
+            const c = chevron.getBoundingClientRect();
+            const b = button.getBoundingClientRect();
+            return { hidden: chevron.getAttribute('aria-hidden'), after: c.left >= text.right - 0.5, inside: c.right <= b.right, centre: Math.abs((c.top + c.height / 2) - (text.top + text.height / 2)), name: button.textContent.trim() };
+        }));
+        for (const s of shape) {
+            assert.ok(s, 'the chevron is drawn');
+            assert.equal(s.hidden, 'true', 'decorative');
+            assert.ok(s.after && s.inside, `trailing, inside the button: ${JSON.stringify(s)}`);
+            assert.ok(s.centre <= 1, `centred on the label: ${JSON.stringify(s)}`);
+        }
+        assert.deepEqual(shape.map((s) => s.name), ['Filters', 'Sort'], 'the accessible name is the label alone');
+        assert.equal(await tab.locator('[data-chevron-link] [data-button-chevron]').count(), 0, 'a link has none');
+        if (process.env.SHOT_DIR) await tab.locator('[data-chevron-row]').screenshot({ path: `${process.env.SHOT_DIR}/chevron.png` });
+    } finally {
+        await context.close();
+    }
+});

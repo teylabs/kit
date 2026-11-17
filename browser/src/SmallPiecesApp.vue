@@ -7,6 +7,7 @@ import EmailMessage from '@/components/Kit/Text/EmailMessage.vue';
 import CardHeader from '@/components/Kit/Card/CardHeader.vue';
 import ActionBar from '@/components/Kit/Action/ActionBar.vue';
 import InertiaAction from '@/components/Kit/Action/InertiaAction.vue';
+import Button from '@/components/Kit/Form/Button.vue';
 
 // Small pieces (?small-pieces): EmailMessage, BusyIndicator, reveal() and applyFormDefaults(). window.revealTarget(duration) reveals the far row.
 const applied = applyFormDefaults();
@@ -40,6 +41,11 @@ const defaultsOnSuccess = (Form as unknown as { props: { setDefaultsOnSuccess: {
 </script>
 <template>
     <main class="grid max-w-xl gap-4 p-4">
+        <div class="flex items-center gap-2" data-chevron-row>
+            <Button variant="secondary" chevron data-chevron-button>Filters</Button>
+            <Button variant="secondary" size="sm" chevron data-chevron-small>Sort</Button>
+            <Button variant="secondary" href="/elsewhere" chevron data-chevron-link>A link</Button>
+        </div>
         <h1>Small pieces</h1>
         <p data-case="defaults">{{ applied }} {{ defaultsOnSuccess }}</p>
         <BusyIndicator class="text-primary">Saving…</BusyIndicator>
