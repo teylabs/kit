@@ -6387,6 +6387,8 @@ test('a dashboard widget\'s Sort by control: labelled, top right of the header, 
                 await tab.keyboard.press('Escape');
                 assert.equal(await tab.getByRole('menu').count(), 0, 'Escape closes it with nothing chosen');
                 assert.equal(sent.length, 0);
+                // Escape hands focus back to the trigger after the menu closes; on a slow runner the next key otherwise lands before it (the flake).
+                await tab.waitForFunction(() => document.activeElement?.closest('[data-collection-sort]'));
                 await tab.keyboard.press('ArrowDown');
                 await tab.getByRole('menu').waitFor();
                 for (let i = 0; i < 5 && (await tab.locator('[role="menuitemradio"][data-highlighted]').innerText().catch(() => '')).trim() !== 'Due soonest'; i++) await tab.keyboard.press('ArrowDown');
