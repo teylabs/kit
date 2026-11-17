@@ -107,7 +107,7 @@ provideCard();
                     class="bg-scrim fixed inset-0 z-(--z-dialog)"
                 />
                 <AlertDialogContent
-                    class="border-border bg-background text-foreground fixed top-1/2 left-1/2 z-(--z-dialog) grid w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-lg border p-6 shadow-lg max-sm:top-auto max-sm:bottom-0 max-sm:left-0 max-sm:w-full max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-b-none"
+                    class="border-border bg-background text-foreground fixed top-1/2 left-1/2 z-(--z-dialog) grid w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-lg border p-6 shadow-lg [--avatar-ring:var(--background)] max-sm:top-auto max-sm:bottom-0 max-sm:left-0 max-sm:w-full max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-b-none"
                     :class="size === 'lg' ? 'max-w-xl' : 'max-w-md'"
                     :data-size="size"
                     data-confirm-dialog

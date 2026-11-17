@@ -2,6 +2,10 @@
 @import '../.kit/kit.css';
 /* The host's dark variant, as shadcn-vue's app.css declares it: `dark:` follows the .dark class kit.css's dark tokens use, not the OS colour scheme. */
 @custom-variant dark (&:is(.dark *));
+/* The shell bar's colour, as the starter's app.css maps it: `?bar=<colour>` on shell.html sets --shell-bar (unset, the bar stays transparent). */
+@theme inline {
+    --color-shell-bar: var(--shell-bar);
+}
 @source '../.kit';
 @source './';
 /* The modal package's own classes (people.html), as a host's app.css sources them. */

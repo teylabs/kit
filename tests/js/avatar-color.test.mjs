@@ -12,7 +12,7 @@ const kit = new URL('../../resources/js/components/Kit/', import.meta.url);
 const read = path => readFileSync(new URL(path, kit), 'utf8');
 const dir = mkdtempSync(join(tmpdir(), 'kit-avatar-color-'));
 writeFileSync(join(dir, 'avatarColor.ts'), read('Layout/avatarColor.ts'));
-const { avatarColor, avatarPalette } = await import(pathToFileURL(join(dir, 'avatarColor.ts')).href);
+const { avatarColor, avatarInk, avatarInkDark, avatarPalette } = await import(pathToFileURL(join(dir, 'avatarColor.ts')).href);
 const php = fileURLToPath(new URL('../../src/Features/Core/AvatarColor.php', import.meta.url));
 
 const identities = [1, 2, 3, 7, 42, 1096, 2147483647, '9f0c2a1e-77b3-4c1d-9e2f-0a1b2c3d4e5f', 'user:17', 'Zoë', '名前', '🙂'];
@@ -57,12 +57,35 @@ test('every palette colour carries white initials (4.5:1) and stands out on ligh
     }
 });
 
-test('Avatar draws the person colour with white initials, and the neutral disc without one', () => {
+// Initials are small bold text: WCAG AA wants 4.5:1. Every palette colour, and a sweep of stored colours (light ones take the dark ink), must reach it.
+const sweep = [...avatarPalette, '#f59e0b', '#fde047', '#7dd3fc', '#a3e635', '#ffffff', '#000000', '#808080', '#767676', '#777777', '#ff0000', '#00ff00', '#0000ff'];
+const contrastTable = avatarPalette.map(color => ({ color, ink: avatarInk(color), ratio: Math.round(ratio(luminance(color), luminance(avatarInk(color))) * 100) / 100 }));
+
+test('every palette colour has initials at 4.5:1 or better (and any stored colour gets the better ink)', () => {
+    for (const { color, ink, ratio: r } of contrastTable) assert.ok(r >= 4.5, `${color} with ${ink}: ${r}:1`);
+    for (const color of sweep) {
+        const ink = avatarInk(color);
+        assert.ok([avatarInkDark, '#ffffff'].includes(ink), color);
+        const chosen = ratio(luminance(color), luminance(ink));
+        const other = ratio(luminance(color), luminance(ink === '#ffffff' ? avatarInkDark : '#ffffff'));
+        assert.ok(chosen >= other && chosen >= 4.5, `${color}: ${ink} at ${chosen.toFixed(2)}:1`);
+    }
+    if (process.env.KIT_AVATAR_CONTRAST) console.log(JSON.stringify(contrastTable));
+});
+
+test('the server picks the same ink as the client', () => {
+    const script = `require ${JSON.stringify(php)}; echo json_encode(array_map(fn ($c) => Tey\\Kit\\Features\\Core\\AvatarColor::ink($c), json_decode($argv[1], true)));`;
+    assert.deepEqual(JSON.parse(execFileSync('php', ['-r', script, JSON.stringify(sweep)], { encoding: 'utf8' })), sweep.map(avatarInk));
+});
+
+test('Avatar draws the person colour with its ink, a gap ring by default, and the neutral disc without one', () => {
     const source = read('Layout/Avatar.vue');
     assert.match(source, /color\?: string \| null;/);
     assert.match(source, /identity\?: string \| number \| null;/);
-    assert.match(source, /disc\s*\?\s*'bg-\(--avatar-color\) text-white'\s*:\s*'bg-accent text-accent-foreground'/);
-    assert.match(source, /'--avatar-color': disc/);
+    assert.match(source, /disc\s*\?\s*'bg-\(--avatar-color\) text-\(--avatar-ink\)'\s*:\s*'bg-accent text-accent-foreground'/);
+    assert.match(source, /'--avatar-color': disc, '--avatar-ink': avatarInk\(disc\)/);
+    assert.match(source, /\{ ring: true \}/);
+    assert.match(source, /ring && 'ring-2 ring-\[var\(--avatar-ring,var\(--background\)\)\]'/);
     for (const file of ['Comment/NoteCard.vue', 'Comment/CommentForm.vue']) {
         assert.match(read(file), /:color="author!?\.avatar_color"/, file);
     }

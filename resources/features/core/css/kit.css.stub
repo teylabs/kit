@@ -17,6 +17,27 @@
         }
     }
 
+    /*
+     * Avatar's gap ring takes the colour of the surface it sits on (docs/avatars.md): the host's shadcn-vue surfaces set `--avatar-ring` to their own background,
+     * a menu or popover to the popover, a card to the card, a dialog or sheet to the page background. The kit's own surfaces set it on their markup; a surface
+     * of the host's sets it with `[--avatar-ring:…]`. Unset, the ring is the page background.
+     */
+    [data-slot='dropdown-menu-content'],
+    [data-slot='dropdown-menu-sub-content'],
+    [data-slot='popover-content'],
+    [data-slot='select-content'] {
+        --avatar-ring: var(--popover);
+    }
+
+    [data-slot='card'] {
+        --avatar-ring: var(--card);
+    }
+
+    [data-slot='dialog-content'],
+    [data-slot='sheet-content'] {
+        --avatar-ring: var(--background);
+    }
+
     /* PageTabs' row scrolls sideways when its tabs don't fit, by touch, trackpad or keyboard, without drawing a scrollbar under the tabs. */
     [data-page-tabs] > ul {
         scrollbar-width: none;

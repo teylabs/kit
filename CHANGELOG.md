@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+Features affected: **core** (kit.css sets the ring on the host's shadcn-vue surfaces) and **shell** (the bar sets the ring's colour; UserAvatar drops `ring`). After `composer update tey/kit`:
+
+- `php artisan kit:scaffold core --diff --only=resources/css`
+- `php artisan kit:scaffold shell --diff --only=resources/js/pages/Workspace`
+
+then `--force=<path>` for each file you never edited. Without them, the kit's own surfaces (cards, notes, comments, its menus, popovers, dialogs and modals) already set the ring; the shell's bar and the host's shadcn-vue menus fall back to the page background.
+
+core re-pinned: `sha256:0833d8d5…72eb` → `sha256:1f8dee2d…c37d`. shell re-pinned: `sha256:bb110778…8c56` → `sha256:4d65d619…44db`.
+
+### Changed
+
+- **Every Avatar has a gap ring in the colour of the surface it sits on**, replacing 0.32.0's white ring: `--avatar-ring`, set by the shell's bar, cards, notes and comments, menus, popovers, dialogs and modals, falling back to the page background (docs/avatars.md). On by default; `:ring="false"` leaves it off. A box-shadow, so no layout moves.
+- **Avatar initials are white or black, whichever contrasts more** with the colour (`avatarInk()`, `AvatarColor::ink()`), so a light stored colour such as amber passes WCAG AA (4.5:1). Every palette colour keeps white.
+
 ## v0.32.0
 
 Features affected: **shell** (its UserAvatar stub draws the ring). After `composer update tey/kit`:

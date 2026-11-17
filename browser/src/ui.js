@@ -25,7 +25,7 @@ export const DropdownMenuCheckboxItem = defineComponent({
     ]),
 });
 // The shell's (shell.html): the menus' content in a portal, and the drawer's sheet as reka's dialog.
-export const DropdownMenuContent = defineComponent({ inheritAttrs: false, setup: (_, { slots, attrs }) => () => h(DropdownMenuPortal, null, () => h(RekaContent, { sideOffset: 6, ...attrs, class: ['z-50 rounded-md border bg-popover p-1 text-popover-foreground shadow-md', attrs.class] }, slots.default)) });
+export const DropdownMenuContent = defineComponent({ inheritAttrs: false, setup: (_, { slots, attrs }) => () => h(DropdownMenuPortal, null, () => h(RekaContent, { sideOffset: 6, 'data-slot': 'dropdown-menu-content', ...attrs, class: ['z-50 rounded-md border bg-popover p-1 text-popover-foreground shadow-md', attrs.class] }, slots.default)) });
 export const DropdownMenuLabel = defineComponent({ inheritAttrs: false, setup: (_, { slots, attrs }) => () => h(RekaLabel, { ...attrs, class: ['px-2 py-1.5 text-sm', attrs.class] }, slots.default) });
 export const Sheet = DialogRoot;
 export const SheetTrigger = DialogTrigger;
