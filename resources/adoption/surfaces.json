@@ -2271,7 +2271,12 @@
             "vue",
             "blade"
           ],
-          "min": 1
+          "min": 1,
+          "except": {
+            "scope": [
+              "row"
+            ]
+          }
         },
         {
           "kind": "file-name",

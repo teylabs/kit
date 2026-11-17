@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.33.6
+
+Features affected: none (kit components and the adoption inventory).
+
+### Added
+
+- **LineItems column `nowrap`**: a short text column (a tax label such as "HST (13 %)") stays on one line.
+
+### Changed
+
+- **LineItems' first text column keeps a 7rem minimum** (was 10rem), so a 24rem card fits four columns with a one-line tax label.
+- **Adoption: a slot grid is not a hand-rolled data table.** data.table's tag signal now skips `<th scope="row">`: a `<table>` whose only headers are row labels (a pigeonhole grid, with no `<thead>` or column headers) no longer reads as a hand-rolled table. Any `<thead>` or column header still counts.
+
 ## v0.33.5
 
 Features affected: none (kit components only).

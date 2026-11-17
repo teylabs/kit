@@ -12914,9 +12914,12 @@ test('LineItems in a 24rem card: a short text column shrinks to its content so e
             const card = document.querySelector('[data-test-narrow-card]');
             const scroller = card.querySelector('table').parentElement;
             const cell = card.querySelector('tbody tr > :first-child');
-            return { overflow: scroller.scrollWidth - scroller.clientWidth, cellBg: getComputedStyle(cell).backgroundColor, cardBg: getComputedStyle(card).backgroundColor };
+            const tax = card.querySelector('tbody [data-column="tax"], tbody tr > :nth-child(3)');
+            const line = parseFloat(getComputedStyle(tax).lineHeight) || 20;
+            return { taxLines: (() => { const r = document.createRange(); r.selectNodeContents(tax); return r.getClientRects().length; })(), overflow: scroller.scrollWidth - scroller.clientWidth, cellBg: getComputedStyle(cell).backgroundColor, cardBg: getComputedStyle(card).backgroundColor };
         });
         assert.ok(shape.overflow <= 0, `every column fits: ${JSON.stringify(shape)}`);
+        assert.equal(shape.taxLines, 1, `a nowrap column stays on one line: ${JSON.stringify(shape)}`);
         assert.equal(shape.cellBg, shape.cardBg, `the sticky cell is the card's colour: ${JSON.stringify(shape)}`);
     } finally {
         await context.close();
