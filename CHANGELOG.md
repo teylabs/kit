@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.33.0
 
 Features affected: **core** (kit.css sets the ring on the host's shadcn-vue surfaces) and **shell** (the bar sets the ring's colour; UserAvatar drops `ring`). After `composer update tey/kit`:
 
