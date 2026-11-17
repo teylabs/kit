@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+Features affected: workspace-ui (code only; no stub or pin changes).
+
+### Changed
+
+- **Sign-in goes straight to the workspace, in one redirect.** Signing in used to land on `kit.home` ("/"), which redirected to the last-used workspace or to `/me/workspaces`, which could redirect again to the one workspace the person can reach. One rule, `HomeDestination`, now decides the destination for sign-in, `kit.home` and the workspace list alike: one workspace is `kit.home` (its dashboard); else the last-used workspace while the person is an active member and may open its dashboard (verified email, admission, `dashboard.read`); else the one workspace they can reach; else the list. With workspace-ui, the kit's `LoginResponse` and `TwoFactorLoginResponse` redirect there directly; an intended URL still wins. Anything uncertain (no workspaces, several without a pick, a failed check or an exception) is the list, never a workspace the person may not open. `kit.home` likewise goes straight to that destination rather than through the list. What each page finally shows is unchanged.
+
+### Upgrading
+
+- Nothing to do for most apps. The kit replaces only Fortify's own `LoginResponse` and `TwoFactorLoginResponse`: an app that binds its own keeps it.
+- An app whose `config/fortify.php` sets `home` (or `redirects.login`) to `kit.home` or `/me/workspaces` gets the single hop; keep that setting, or drop the published key to use the kit's default (`kit.home`). An app that sets another `fortify.home` keeps landing there, unchanged; point it at `kit.home` to get the single hop.
+
 ## v0.35.1
 
 Features affected: none (kit components only).

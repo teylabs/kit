@@ -4,11 +4,10 @@ namespace Tey\Kit\Features\SessionUi\Http;
 
 use Illuminate\Contracts\Support\Responsable;
 use Illuminate\Http\Request;
-use Tey\Kit\Features\Access\Access;
-use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Core\Routing\PublicRoute;
 use Tey\Kit\Features\Workspaces\Workspaces;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
+use Tey\Kit\Features\WorkspaceUi\HomeDestination;
 
 /**
  * The kit's home (`kit.home`, "/" by default): where sign-in, the home crumb and the kit's own links land. For a user with one workspace (the short form)
@@ -35,25 +34,9 @@ class HomeController
                 return $response instanceof Responsable ? $response->toResponse($request) : $response;
             });
         }
-        // currentMemberId only names a workspace the person is an active member of; the dashboard's own check decides the rest (account, verified email,
-        // admission, the dashboard ability), so the redirect never lands on a refusal.
-        if ($user !== null && ($workspace = WorkspaceUrl::currentMemberId($request)) !== null && $this->opens($user, $workspace)) {
-            return redirect(WorkspaceUrl::to($workspace, '', null, $request));
-        }
 
-        return redirect('/me/workspaces');
-    }
-
-    /** Whether the person may open the workspace's dashboard: the same check DashboardController makes. Any refusal is a no, except the dashboard turned off: then its root opens another page. */
-    private function opens(object $user, int $workspace): bool
-    {
-        try {
-            return Workspaces::run($workspace, function () use ($user): bool {
-                return (bool) app(Access::class)->authorize(new Principal((int) $user->getKey()), 'dashboard.read');
-            });
-        } catch (\RuntimeException $refused) {
-            // The dashboard turned off is not a refusal of the workspace: its root opens the first page the person may open (DashboardController).
-            return $refused->getMessage() === 'capability_unavailable';
-        }
+        // Else straight to the person's home (HomeDestination: the last-used workspace they may open, else the list's one reachable workspace), never
+        // through the list first; anything uncertain is the list.
+        return redirect($user !== null ? HomeDestination::resolve($request) ?? '/me/workspaces' : '/me/workspaces');
     }
 }
