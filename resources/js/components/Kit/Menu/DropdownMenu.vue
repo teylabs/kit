@@ -54,7 +54,7 @@ function MenuItems() {
 }
 </script>
 <template>
-    <div class="relative inline-block text-left">
+    <div class="relative inline-flex items-center text-left">
         <MenuPanel
             animated
             :align="alignLeft ? 'start' : 'end'"

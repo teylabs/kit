@@ -12758,3 +12758,26 @@ test('Avatar: the gap ring is on by default and off with :ring="false"; every pa
         }
     }
 });
+
+test('the overflow menu trigger is centred on its siblings: ⋮ after a Button in a row of actions, ⋯ after a QuickAction in a NoteCard header', () =>
+    commentsPage('', async ({ tab }) => {
+        await tab.waitForSelector('[aria-label="Actions for case 7"]');
+        const centres = await tab.evaluate(() => {
+            const mid = (el) => { const r = el.getBoundingClientRect(); return r.top + r.height / 2; };
+            const icon = (trigger) => trigger.querySelector('svg');
+            const row = document.querySelector('[data-row-actions]');
+            const header = document.querySelector('[data-header-menu]');
+            return {
+                row: { sibling: mid(row.querySelector('button')), trigger: mid(row.querySelector('[aria-label="Actions for case 7"]')), icon: mid(icon(row.querySelector('[aria-label="Actions for case 7"]'))) },
+                header: { sibling: mid(header.querySelector('[data-quick-action]')), trigger: mid(header.querySelector('[aria-label="Note actions"]')), icon: mid(icon(header.querySelector('[aria-label="Note actions"]'))) },
+            };
+        });
+        for (const [where, c] of Object.entries(centres)) {
+            assert.ok(Math.abs(c.trigger - c.sibling) <= 0.5, `${where}: the trigger's centre is its sibling's: ${JSON.stringify(c)}`);
+            assert.ok(Math.abs(c.icon - c.sibling) <= 0.5, `${where}: the icon's centre is its sibling's: ${JSON.stringify(c)}`);
+        }
+        if (process.env.SHOT_DIR) {
+            await tab.locator('[data-row-actions]').screenshot({ path: `${process.env.SHOT_DIR}/row-actions.png` });
+            await tab.locator('[data-header-menu]').screenshot({ path: `${process.env.SHOT_DIR}/header-menu.png` });
+        }
+    }));
