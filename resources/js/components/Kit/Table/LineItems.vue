@@ -5,7 +5,7 @@ import { computed, useId } from 'vue';
  * A frozen document's table (docs/line-items.md): an invoice's lines, the same lines on a public share page, a statement with a running balance. Not an
  * index: no sorting, selection or pagination (DataTable does those). Real <table> semantics: a <caption> (visible, or sr-only with `captionHidden`),
  * <th scope=col> headers, and with `rowHeader` that column's cells are <th scope=row>. money and number columns are end-aligned with tabular figures; values
- * render as given (format them on the server, or fill `#cell-<key>="{ row, value }"`). `totals` sit in a <tfoot>, each value under the last end-aligned
+ * render as given (format them on the server, or fill `#cell-<key>="{ row, value }"`). `totals` sit in a <tfoot> (`#total-value="{ total, index }"` renders a value, e.g. through Amount, like the cells above it), each value under the last end-aligned
  * column. On a narrow page the table scrolls sideways inside its own box (a focusable region named by the caption), with the first column kept in view.
  */
 export type LineItemsColumn = {
@@ -139,7 +139,7 @@ const display = (value: unknown) =>
             </tbody>
             <tfoot v-if="totals.length || $slots.footer">
                 <tr
-                    v-for="total in totals"
+                    v-for="(total, index) in totals"
                     :key="total.label"
                     :data-total="total.label"
                     :class="
@@ -163,7 +163,12 @@ const display = (value: unknown) =>
                         :class="total.emphasis ? 'border-border border-t' : ''"
                         data-total-value
                     >
-                        {{ display(total.value) }}
+                        <slot
+                            name="total-value"
+                            :total="total"
+                            :index="index"
+                            >{{ display(total.value) }}</slot
+                        >
                     </td>
                     <td
                         v-if="totalsIndex < columns.length - 1"

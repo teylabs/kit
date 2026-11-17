@@ -12887,3 +12887,17 @@ test('Button chevron: a trailing, decorative down chevron after the label, centr
         await context.close();
     }
 });
+
+test('LineItems #total-value: a host formats each total like its cells (the slot gets the total), and without the slot the value shows as given', async () => {
+    const context = await browser.newContext({ viewport: { width: 1024, height: 800 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?line-items`);
+        await tab.waitForSelector('[data-test-total-slot] [data-total-value]');
+        assert.equal((await tab.locator('[data-test-total-slot] [data-total-value]').textContent()).trim(), '452.00 CAD', 'the slot renders the total');
+        assert.equal(await tab.locator('[data-test-total-slot] [data-formatted-total]').count(), 1);
+        assert.equal((await tab.locator('[data-test-statement] [data-total-value]').textContent()).trim(), '$0.00', 'the fallback shows the value');
+    } finally {
+        await context.close();
+    }
+});

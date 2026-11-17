@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.33.4
+
+Features affected: none (kit components only).
+
+### Added
+
+- **LineItems `#total-value="{ total, index }"`**: a host renders each total like the cells above it (e.g. integer minor units through Amount, in the viewer's locale); without the slot the value shows as given.
+
 ## v0.33.3
 
 Features affected: none (kit components only).
