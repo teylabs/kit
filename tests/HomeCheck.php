@@ -84,7 +84,7 @@ function httpCheck(bool $ok, string $message): void
 
 class HttpUser extends Authenticatable implements Member, MustVerifyEmail
 {
-    use HasApiTokens, HasWorkspaces, Illuminate\Auth\MustVerifyEmail, Illuminate\Notifications\Notifiable;
+    use HasApiTokens, HasWorkspaces, Illuminate\Auth\MustVerifyEmail, Illuminate\Notifications\Notifiable, Laravel\Fortify\TwoFactorAuthenticatable;
 
     protected $table = 'users';
 
@@ -279,12 +279,54 @@ try {
     // Sign-in lands on kit.home, which sends the person to the workspace they last used.
     httpCheck(Fortify::redirects('login') === '/' && config('fortify.home') === config('kit.home'), 'with workspace-ui, Fortify\'s home is kit.home');
     [$status, $location, , $session] = $send(null, 'POST', '/login', ['kit' => ['workspace' => $acme->id]], ['email' => 'many@example.test', 'password' => 'a long passphrase']);
-    httpCheck($status === 302 && $location === 'https://kit.test' && Auth::guard('web')->id() === $many->id, 'signing in redirects to kit.home ('.$status.' '.$location.')');
+    httpCheck($status === 302 && $location === 'https://kit.test/@acme' && Auth::guard('web')->id() === $many->id, 'signing in with Acme Travel last used redirects straight to /@acme, in one hop ('.$status.' '.$location.')');
     $after = unserialize($handler->read($session));
     // Replayed under a new session id, after this harness's logout() between requests ended that device (its row): without its device key it is a
     // session from before signed-in devices, which gets a new row, rather than a copy of an ended one, which is signed out.
     unset($after['kit']['device']);
     httpCheck($home($many, $after) === [302, 'https://kit.test/@acme', null], 'and kit.home, with the signed-in session, redirects to the last-used workspace, /@acme');
+    // Sign-in decides the destination once (HomeDestination), as "/" and the list would: one redirect, never through either.
+    $signIn = function (string $email, array $session = []) use ($send): array {
+        [$status, $location] = $send(null, 'POST', '/login', $session, ['email' => $email, 'password' => 'a long passphrase']);
+
+        return [$status, $location];
+    };
+    $solo->forceFill(['password' => Hash::make('a long passphrase')])->save();
+    httpCheck($signIn('solo@example.test') === [302, 'https://kit.test'], 'one workspace: sign-in lands on kit.home, which is its dashboard ('.json_encode($signIn('solo@example.test')).')');
+    httpCheck($signIn('many@example.test', ['url' => ['intended' => 'https://kit.test/me/profile']]) === [302, 'https://kit.test/me/profile'], 'an intended URL still wins over the workspace');
+    httpCheck($signIn('many@example.test') === [302, 'https://kit.test/me/workspaces'], 'several workspaces, none last used: sign-in lands on the list');
+    $none = HttpUser::create(['name' => 'No Workspace', 'email' => 'none@example.test', 'email_verified_at' => now(), 'password' => Hash::make('a long passphrase')]);
+    httpCheck($signIn('none@example.test') === [302, 'https://kit.test/me/workspaces'], 'no workspaces: sign-in lands on the list');
+    // Fail closed: a last-used workspace the person may no longer open is never the destination.
+    $acme->forceFill(['admitted' => false])->save();
+    $lost = $signIn('many@example.test', ['kit' => ['workspace' => $acme->id]]);
+    httpCheck($lost === [302, 'https://kit.test/@northwind'], 'a last-used workspace that lost admission is not chosen: the one workspace still reachable, as the list would pick ('.json_encode($lost).')');
+    $acme->forceFill(['admitted' => true])->save();
+    $membership()->update(['status' => MembershipStatus::Suspended]);
+    $suspended = $signIn('many@example.test', ['kit' => ['workspace' => $acme->id]]);
+    httpCheck($suspended === [302, 'https://kit.test'], 'a last-used workspace with a suspended membership is not chosen: the one active workspace, at kit.home ('.json_encode($suspended).')');
+    $membership()->update(['status' => MembershipStatus::Active]);
+    $many->forceFill(['email_verified_at' => null])->save();
+    $unverified = $signIn('many@example.test', ['kit' => ['workspace' => $acme->id]]);
+    httpCheck($unverified === [302, 'https://kit.test/me/workspaces'], 'no dashboard access (email unverified): the last-used workspace is not chosen ('.json_encode($unverified).')');
+    $many->forceFill(['email_verified_at' => now()])->save();
+    // The two-factor challenge after the password lands as the password path does.
+    Schema::table('users', function (Blueprint $table) {
+        $table->text('two_factor_secret')->nullable();
+        $table->text('two_factor_recovery_codes')->nullable();
+        $table->timestamp('two_factor_confirmed_at')->nullable();
+    });
+    $many->forceFill(['two_factor_secret' => encrypt('SECRET'), 'two_factor_recovery_codes' => encrypt(json_encode(['recovery-one', 'recovery-two'])), 'two_factor_confirmed_at' => now()])->save();
+    [$status, $location] = $send(null, 'POST', '/two-factor-challenge', ['kit' => ['workspace' => $acme->id], 'login' => ['id' => $many->id, 'remember' => false]], ['recovery_code' => 'recovery-one']);
+    httpCheck($status === 302 && $location === 'https://kit.test/@acme' && Auth::guard('web')->id() === $many->id, 'the two-factor challenge redirects straight to /@acme too ('.$status.' '.$location.')');
+    $many->forceFill(['two_factor_secret' => null, 'two_factor_recovery_codes' => null, 'two_factor_confirmed_at' => null])->save();
+    // An app that sends sign-in to its own page keeps it.
+    $config->set('fortify.home', '/dashboard');
+    httpCheck($signIn('many@example.test', ['kit' => ['workspace' => $acme->id]]) === [302, 'https://kit.test/dashboard'], 'an app\'s own fortify.home is kept');
+    // An app whose fortify.home is the list gets the same single hop.
+    $config->set('fortify.home', '/me/workspaces');
+    httpCheck($signIn('many@example.test', ['kit' => ['workspace' => $acme->id]]) === [302, 'https://kit.test/@acme'], 'fortify.home at /me/workspaces: sign-in also goes straight to /@acme');
+    $config->set('fortify.home', '/');
     // The logo (shell.product.url) and links.home: kit.home for a signed-in person, whose resolver picks the workspace; a guest's shell is as before.
     $shellFor = function (?object $user) use ($app): array {
         Auth::guard('web')->logout();

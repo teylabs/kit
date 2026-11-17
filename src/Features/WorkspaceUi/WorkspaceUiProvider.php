@@ -6,6 +6,10 @@ use Illuminate\Http\Request;
 use Illuminate\Notifications\Events\NotificationSending;
 use Illuminate\Support\ServiceProvider;
 use Inertia\Inertia;
+use Laravel\Fortify\Contracts\LoginResponse;
+use Laravel\Fortify\Contracts\TwoFactorLoginResponse;
+use Laravel\Fortify\Http\Responses\LoginResponse as FortifyLoginResponse;
+use Laravel\Fortify\Http\Responses\TwoFactorLoginResponse as FortifyTwoFactorLoginResponse;
 use Tey\Concierge\Concierge;
 use Tey\Kit\Features\Core\Contributes;
 use Tey\Kit\Features\Core\Registry;
@@ -22,6 +26,7 @@ use Tey\Kit\Features\SessionUi\PlaceholderRoutes;
 use Tey\Kit\Features\SessionUi\Search\PeopleSearch;
 use Tey\Kit\Features\SessionUi\Search\Searches;
 use Tey\Kit\Features\SessionUi\ViewModels\ErrorViewModel;
+use Tey\Kit\Features\WorkspaceUi\Fortify\SignedInResponse;
 
 /**
  * The workspace pages session-ui owned before the split: the kit's home and the dashboard, search, the settings and account landing pages, People,
@@ -92,6 +97,9 @@ final class WorkspaceUiProvider extends ServiceProvider implements Contributes
     {
         // What has been declared as placeholder routes is remembered per application, never per PHP process.
         $this->app->singleton(PlaceholderRoutes::class);
+        // Sign-in goes straight to the person's home (SignedInResponse), in place of Fortify's own responses only: an app's own binding wins.
+        $this->app->extend(LoginResponse::class, fn (object $response): object => get_class($response) === FortifyLoginResponse::class ? new SignedInResponse : $response);
+        $this->app->extend(TwoFactorLoginResponse::class, fn (object $response): object => get_class($response) === FortifyTwoFactorLoginResponse::class ? new SignedInResponse(twoFactor: true) : $response);
     }
 
     public function boot(): void
