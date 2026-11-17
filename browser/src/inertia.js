@@ -15,7 +15,9 @@ export const InfiniteScroll = defineComponent({ setup: (_, { slots }) => () => h
 export const router = {
     // A DELETE (a dismissal) is logged to window.kitVisits like a visit.
     delete(url, options = {}) { (window.kitVisits ??= []).push({ url, method: 'delete', data: options.data ?? null }); },
-    get() {}, post() {}, reload() {},
+    // A GET is logged to window.kitGets (FilterPopover's visits) and starts like a visit (the `start` listeners run), without answering.
+    get(url, data = {}, options = {}) { (window.kitGets ??= []).push({ url, data, options }); fire('start', { visit: { url, method: 'get', ...options } }); },
+    post() {}, reload() {},
     // An Inertia GET visit about to start, as a Link click would begin one: runs the `before` listeners and says whether one cancelled it (a leave guard).
     // window.kitBefore(url) calls it from a test; window.kitBeforeListeners() counts the listeners (one leave guard, never two).
     attempt(url) {

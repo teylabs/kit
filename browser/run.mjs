@@ -29,6 +29,9 @@
 // disabled with its text at full contrast, link its description and a Field's error, and pass axe with contrast.
 // TextMarkdown (?markdown, light and dark) must style GFM as prose (table, task list, strikethrough), start headings at h3, give links rel, run none of
 // its payloads (window.pwned stays undefined), pass axe with contrast, and not overflow a 390px page.
+// FilterPopover (?filter-popover) must count the filters off their default in its badge, hide a one-option select, narrow rooms by search, send one visit
+// when it closes (never per tick) keeping other params, apply a select at once, reset, keep its pin and floor headings in view while it scrolls, work by
+// keyboard (Escape applies the draft), pass axe in light and dark and fit 390px.
 // LineItems (?line-items) must pass axe, carry a caption and col/row header scopes, end-align money in tabular figures, put totals under the amount
 // column, render its cell slot, and scroll inside its own box at 390px with the first column in view and no page overflow.
 // Money and percent inputs and amounts (?money) must pass axe, name their unit in the label, keep the symbol out of the accessible text, submit percentage
@@ -1127,6 +1130,169 @@ test('A download row action is a plain <a download> inline and, with the Downloa
         await tab.getByRole('button', { name: 'Actions for Garden' }).click();
         await plainDownload(tab, tab.locator('[role="menu"] a[data-action="row-menu"], [role="menu"] [data-action="row-menu"] a').first(), '/reports/row-menu.csv');
     }));
+// ── FilterPopover: the badge count, a hidden one-option select, search, one visit on close, selects at once, Reset, the pin and sticky headings, keys, axe ──
+// A fresh page on ?filter-popover with `extra` params (an unrelated view and date are always there); `openFilters` opens it and waits for the panel.
+const filterPage = async (extra = '', viewport = { width: 1280, height: 800 }, scheme = '') => {
+    const tab = await browser.newPage({ viewport });
+    await tab.goto(`${url}?filter-popover${scheme}&view=week&date=2026-11-17${extra}`);
+    return tab;
+};
+const openFilters = async tab => {
+    await tab.locator('[data-filter-popover]').click();
+    await tab.locator('[data-filter-popover-panel]').waitFor();
+};
+const gets = tab => tab.evaluate(() => (window.kitGets ?? []).map(g => ({ url: g.url, data: g.data, options: g.options })));
+
+test('FilterPopover counts the filters off their default in an info badge, hidden at 0, and names the button with the count', async () => {
+    const tab = await filterPage('&location=north&status=open&rooms=lobby,atrium');
+    try {
+        const trigger = tab.locator('[data-filter-popover]');
+        assert.equal(await tab.locator('[data-filter-count]').innerText(), '2', 'location and rooms differ; status=open is its default');
+        assert.equal(await tab.locator('[data-filter-count]').getAttribute('data-tone'), 'info');
+        assert.equal(await tab.getByRole('button', { name: 'Filters, 2 active' }).count(), 1);
+        await tab.goto(`${url}?filter-popover&view=week`);
+        assert.equal(await tab.locator('[data-filter-count]').count(), 0, 'no badge at 0');
+        assert.equal(await trigger.getAttribute('aria-label'), 'Filters');
+        assert.equal(await trigger.locator('svg').count() >= 2, true, 'the sliders icon and the chevron');
+    } finally {
+        await tab.close();
+    }
+});
+
+test('FilterPopover hides a select with one option, and its search narrows the rooms with their floor headings', async () => {
+    const tab = await filterPage();
+    try {
+        await openFilters(tab);
+        assert.equal(await tab.locator('[data-filter="site"]').count(), 0, 'a one-option select is hidden');
+        assert.equal(await tab.locator('[data-filter="location"]').count(), 1);
+        assert.equal(await tab.locator('[data-filter-option]').count(), 14);
+        await tab.getByRole('searchbox', { name: 'Search rooms' }).fill('room 10');
+        assert.deepEqual(await tab.locator('[data-filter-option]').evaluateAll(els => els.map(el => el.dataset.filterOption)), ['room-101', 'room-102', 'room-103']);
+        assert.deepEqual(await tab.locator('[data-filter-heading]').allInnerTexts(), ['First floor']);
+        assert.deepEqual(await gets(tab), [], 'searching sends nothing');
+    } finally {
+        await tab.close();
+    }
+});
+
+test('FilterPopover ticks send nothing until it closes, then one visit with rooms=a,b and every other param kept', async () => {
+    const tab = await filterPage('&location=south&page=3');
+    try {
+        await openFilters(tab);
+        await tab.getByRole('checkbox', { name: 'Lobby' }).click();
+        await tab.getByRole('checkbox', { name: 'Atrium' }).click();
+        await tab.getByRole('checkbox', { name: 'Library' }).click();
+        await tab.getByRole('checkbox', { name: 'Library' }).click();
+        assert.equal(await tab.getByRole('checkbox', { name: 'All rooms' }).getAttribute('aria-checked'), 'false');
+        assert.deepEqual(await gets(tab), [], 'no visit per tick');
+        await tab.locator('[data-test-after]').click();
+        await tab.locator('[data-filter-popover-panel]').waitFor({ state: 'detached' });
+        const sent = await gets(tab);
+        assert.equal(sent.length, 1, 'exactly one visit on close');
+        assert.deepEqual(sent[0].data, { 'filter-popover': '', view: 'week', date: '2026-11-17', location: 'south', rooms: 'lobby,atrium' }, 'rooms comma-joined in option order; view, date and location kept; page dropped');
+        assert.deepEqual(sent[0].options, { preserveScroll: true, preserveState: true, replace: true });
+        assert.equal(await tab.locator('[data-filter-count]').innerText(), '2');
+        await openFilters(tab);
+        await tab.locator('[data-test-after]').click();
+        await tab.locator('[data-filter-popover-panel]').waitFor({ state: 'detached' });
+        assert.equal((await gets(tab)).length, 1, 'closing an unchanged draft sends nothing');
+    } finally {
+        await tab.close();
+    }
+});
+
+test('FilterPopover applies a select at once and stays open, and Reset returns every filter to its default', async () => {
+    const tab = await filterPage('&status=held&rooms=lobby');
+    try {
+        await openFilters(tab);
+        await tab.locator('[data-filter="location"] [role="combobox"]').click();
+        await tab.getByRole('option', { name: 'North campus' }).click();
+        let sent = await gets(tab);
+        assert.equal(sent.length, 1, 'the select visits at once');
+        assert.deepEqual(sent[0].data, { 'filter-popover': '', view: 'week', date: '2026-11-17', status: 'held', rooms: 'lobby', location: 'north' });
+        assert.equal(await tab.locator('[data-filter-popover-panel]').isVisible(), true, 'the visit does not close the popover');
+        await tab.locator('[data-filter-reset]').click();
+        sent = await gets(tab);
+        assert.equal(sent.length, 2);
+        assert.deepEqual(sent[1].data, { 'filter-popover': '', view: 'week', date: '2026-11-17' }, 'every filter back to its default (status=open is dropped as its default)');
+        assert.equal(await tab.locator('[data-filter-count]').count(), 0);
+        assert.equal(await tab.getByRole('checkbox', { name: 'All rooms' }).getAttribute('aria-checked'), 'true');
+    } finally {
+        await tab.close();
+    }
+});
+
+test('FilterPopover is the only scroller: the pin and the current floor heading stay in view while the rooms scroll', async () => {
+    const tab = await filterPage('', { width: 1280, height: 480 });
+    try {
+        await openFilters(tab);
+        const panel = tab.locator('[data-filter-popover-panel]');
+        const box = await panel.evaluate(el => ({ scroll: el.scrollHeight > el.clientHeight, bottom: el.getBoundingClientRect().bottom }));
+        assert.equal(box.scroll, true, 'the rooms overflow the panel, so it scrolls');
+        assert.ok(box.bottom <= 480, 'the panel caps at the viewport height');
+        assert.equal(await tab.evaluate(() => document.documentElement.scrollHeight <= window.innerHeight), true, 'the page does not scroll');
+        // Scroll First floor's third room up to the pin's foot: that group's heading is past its own place, so only sticking keeps it in view.
+        await panel.evaluate(el => { const pin = el.querySelector('[data-filter-pin]').getBoundingClientRect().bottom; el.scrollTop += el.querySelector('[data-filter-option="room-101"]').getBoundingClientRect().top - pin; });
+        await tab.waitForTimeout(50);
+        const [panelTop, pinTop, pinBottom] = await tab.evaluate(() => [document.querySelector('[data-filter-popover-panel]'), document.querySelector('[data-filter-pin]')].flatMap((el, i) => i === 0 ? [el.getBoundingClientRect().top + el.clientTop] : [el.getBoundingClientRect().top, el.getBoundingClientRect().bottom]).map(Math.round));
+        assert.equal(pinTop, panelTop, 'the pin stays at the top of the scrolled panel');
+        const first = tab.locator('[data-filter-heading]', { hasText: 'First floor' });
+        assert.ok(pinTop > -1 && await panel.evaluate(el => el.scrollTop > 0), 'the panel has scrolled');
+        assert.equal(await first.evaluate(el => Math.round(el.getBoundingClientRect().top)), pinBottom, 'First floor\'s heading sticks under the pin');
+        const hit = await tab.evaluate(([x, y]) => document.elementFromPoint(x, y)?.closest('[data-filter-pin], [data-filter-heading]')?.hasAttribute('data-filter-heading'), await first.evaluate(el => { const r = el.getBoundingClientRect(); return [r.left + 24, r.top + r.height / 2]; }));
+        assert.equal(hit, true, 'the sticky heading is on top, not covered by a room');
+    } finally {
+        await tab.close();
+    }
+});
+
+test('FilterPopover by keyboard: opens on Enter, tabs through its controls, and Escape closes it, applies the draft and returns focus', async () => {
+    const tab = await filterPage();
+    try {
+        await tab.locator('[data-filter-popover]').focus();
+        await tab.keyboard.press('Enter');
+        await tab.locator('[data-filter-popover-panel]').waitFor();
+        const seen = [];
+        for (let i = 0; i < 6; i++) {
+            await tab.keyboard.press('Tab');
+            seen.push(await tab.evaluate(() => document.activeElement?.getAttribute('aria-label') || document.activeElement?.closest('label, [data-filter-reset]')?.textContent?.trim() || document.activeElement?.id || document.activeElement?.tagName));
+        }
+        assert.ok(seen.includes('Search rooms'), `tab reaches the search (${seen.join(' | ')})`);
+        await tab.getByRole('checkbox', { name: 'Lounge' }).focus();
+        await tab.keyboard.press('Space');
+        assert.equal(await tab.getByRole('checkbox', { name: 'Lounge' }).getAttribute('aria-checked'), 'true');
+        assert.deepEqual(await gets(tab), []);
+        await tab.keyboard.press('Escape');
+        await tab.locator('[data-filter-popover-panel]').waitFor({ state: 'detached' });
+        const sent = await gets(tab);
+        assert.equal(sent.length, 1, 'Escape applies the draft');
+        assert.equal(sent[0].data.rooms, 'lounge');
+        assert.equal(await tab.evaluate(() => document.activeElement?.hasAttribute('data-filter-popover')), true, 'focus returns to the button');
+    } finally {
+        await tab.close();
+    }
+});
+
+test('FilterPopover open passes axe in light and dark, and fits a 390px phone with no page overflow', async () => {
+    const shots = process.env.KIT_FILTER_POPOVER_SCREENSHOT;
+    for (const scheme of ['', '=dark']) {
+        for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 }]) {
+            const tab = await filterPage('&location=north&rooms=lobby,room-101', viewport, scheme);
+            try {
+                await openFilters(tab);
+                await tab.addScriptTag({ path: axeSource });
+                const violations = await tab.evaluate(async () => (await window.axe.run(document)).violations.map(v => ({ id: v.id, targets: v.nodes.map(n => n.target.join(' ')) })));
+                assert.deepEqual(violations, [], `axe ${scheme || 'light'} at ${viewport.width}px`);
+                const [left, right] = await tab.locator('[data-filter-popover-panel]').evaluate(el => [el.getBoundingClientRect().left, el.getBoundingClientRect().right]);
+                assert.ok(left >= 0 && right <= viewport.width, `the panel fits at ${viewport.width}px`);
+                assert.equal(await tab.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, 'no page overflow');
+                if (shots) await tab.screenshot({ path: `${shots}${scheme ? 'dark' : 'light'}-${viewport.width === 390 ? 'phone' : 'desktop'}.png` });
+            } finally {
+                await tab.close();
+            }
+        }
+    }
+});
 
 // ── FormStatus mounted before the visit: shown after it, hidden only while a visit is in flight ────────────────────────────────────────────────────────────
 

@@ -106,24 +106,29 @@ final class TableQuery
     /**
      * @param  Closure(Builder<TModel>, string): mixed  $apply
      * @param  array<string, string>  $options  value => label; with a label the toolbar shows the filter as a choice of these
+     * @param  bool  $multiple  the filter takes several of its options, comma-joined (`filter[rooms]=a,b`); `$apply` receives the comma-joined string, and every
+     *                          part must be an option. The IndexToolbar shows only single choices; FilterPopover ticks a multiple one.
+     * @param  array<string, string>  $groups  option value => the group heading FilterPopover shows it under
      *
      * @return $this
      */
-    public function filter(string $name, Closure $apply, ?string $label = null, array $options = []): self
+    public function filter(string $name, Closure $apply, ?string $label = null, array $options = [], bool $multiple = false, array $groups = [], ?string $default = null): self
     {
         if ($options === []) {
             $this->filters[$name] = $apply;
         } else {
-            $this->filters[$name] = function ($query, string $value) use ($name, $apply, $options) {
-                if (! array_key_exists($value, $options)) {
-                    throw InvalidFilterValue::make($name, $value);
+            $this->filters[$name] = function ($query, string $value) use ($name, $apply, $options, $multiple) {
+                foreach ($multiple ? explode(',', $value) : [$value] as $part) {
+                    if (! array_key_exists($part, $options)) {
+                        throw InvalidFilterValue::make($name, $value);
+                    }
                 }
 
                 return $apply($query, $value);
             };
         }
         if ($label !== null) {
-            $this->choices[] = new TableFilter($name, $label, array_map(fn ($value, $text) => ['value' => (string) $value, 'label' => $text], array_keys($options), $options));
+            $this->choices[] = new TableFilter($name, $label, array_map(fn ($value, $text) => ['value' => (string) $value, 'label' => $text] + (isset($groups[$value]) ? ['group' => $groups[$value]] : []), array_keys($options), $options), $multiple ? 'multi' : 'select', $default);
         }
 
         return $this;

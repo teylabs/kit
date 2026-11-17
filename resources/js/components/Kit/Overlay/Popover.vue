@@ -42,6 +42,7 @@ const props = withDefaults(
         collisionBoundary?: Element | Element[] | null;
         sheet?: boolean;
         messages?: Partial<PopoverMessages>;
+        stayOnVisit?: boolean;
     }>(),
     {
         title: undefined,
@@ -55,6 +56,7 @@ const props = withDefaults(
         collisionBoundary: null,
         sheet: true,
         messages: () => ({}),
+        stayOnVisit: false,
     },
 );
 const open = defineModel<boolean>('open', { default: false });
@@ -244,9 +246,10 @@ function leave(event: KeyboardEvent) {
         });
     }
 }
-// A navigation closes every open Popover without taking focus; the anchor leaving the boundary closes it.
+// A navigation closes every open Popover without taking focus, unless `stayOnVisit` (a panel whose own controls visit this page, FilterPopover's selects); the
+// anchor leaving the boundary closes it.
 const stopNavigation = router.on('start', () => {
-    if (open.value) dismiss('navigate');
+    if (open.value && !props.stayOnVisit) dismiss('navigate');
 });
 function detached() {
     const el = anchor.value?.$el ?? triggerEl();

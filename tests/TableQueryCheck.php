@@ -107,6 +107,26 @@ try {
     tableCheck($redirect->getResponse()->getStatusCode() === 302 && $kept['page'] === '1' && $kept['filter']['role'] === 'viewer', 'an empty table at a high page redirects to page 1, keeping the other query state');
 }
 tableCheck(TableQuery::for(TablePerson::query()->where('name', 'Nobody'), Request::create('/people', 'GET', ['page' => '1']))->column('name', 'Name', 'name')->build(fn (TablePerson $person) => [])->pagination->total === 0, 'an empty table on page 1 renders without a redirect');
+// A multiple filter (FilterPopover's multi kind): comma-joined options, each validated; its choice says `multi`, carries each option's group and the default.
+$multi = function (string $roles) use ($app): Tey\Kit\Features\Core\Data\TableData {
+    $request = Request::create('/people', 'GET', ['filter' => ['roles' => $roles]]);
+    $app->instance('request', $request);
+
+    return TableQuery::for(TablePerson::query(), $request)->column('name', 'Name', 'name')->defaultSort('name')
+        ->filter('roles', fn ($q, string $value) => $q->whereIn('role', explode(',', $value)), 'Roles', ['admin' => 'Admin', 'viewer' => 'Viewer'], multiple: true, groups: ['admin' => 'Staff', 'viewer' => 'Guests'])
+        ->filter('state', fn ($q) => $q, 'State', ['live' => 'Live', 'gone' => 'Gone'], default: 'live')
+        ->build(fn (TablePerson $person) => ['id' => $person->id, 'name' => $person->name]);
+};
+tableCheck(array_column($multi('admin,viewer')->rows, 'name') === ['Ana', 'Ben', 'Cleo', 'Dara', 'Eli'] && array_column($multi('admin')->rows, 'name') === ['Ana', 'Eli'], 'a multiple filter takes comma-joined options as one value');
+try {
+    $multi('admin,owner');
+    tableCheck(false, 'a multiple filter refuses a part outside its options');
+} catch (InvalidFilterValue) {
+    tableCheck(true, 'a multiple filter refuses a part outside its options');
+}
+[$rolesChoice, $stateChoice] = $multi('admin')->choices;
+tableCheck($rolesChoice->kind === 'multi' && $rolesChoice->options[0] === ['value' => 'admin', 'label' => 'Admin', 'group' => 'Staff'] && $stateChoice->kind === 'select' && $stateChoice->default === 'live' && ! isset($stateChoice->options[0]['group']), 'its choice is kind multi with each option\'s group; a single filter stays a select, with its default');
+
 $plain = fn () => TableQuery::for(TablePerson::query(), Request::create('/people', 'GET'))->column('name', 'Name', 'name');
 $described = new Action('Remove', '/c/1/grants/files', 'delete', ariaLabel: 'Remove Files', description: 'Files');
 tableCheck($described->description === 'Files' && $described->ariaLabel === 'Remove Files' && $described->label === 'Remove' && (new Action('Remove', '/c/1'))->description === null, 'a row action carries an optional description (shown under its label in the menu), null by default');

@@ -10,6 +10,14 @@ Features affected: none (kit components and the `Action` and `ReportTable` class
 - **`ReportTable`** (`Tey\Kit\Features\Core\Tables\ReportTable`): declares a report's columns, computed rows and totals in the controller and serialises them as LineItems' props (`<LineItems v-bind="report" />`). Rows keep only the declared columns and their currency fields; an unknown kind, a duplicate key or a currency on a non-money column is refused.
 - **Action `download`** (`->download()`, or `download: true`): every place that renders actions (InertiaAction, DropdownAction, a page or section header's ActionBar and its More menu, RowActions inline, split and menu, CollectionSection) draws a plain `<a href download>` with the Download icon: no `target`, no new-tab arrow, no Inertia visit. A download action is never folded into a see-all link. `Button` takes `download` too.
 
+## v0.33.9
+
+Features affected: none (kit components and TableQuery).
+
+### Added
+
+- **FilterPopover, a page toolbar's filters as one control** (`Kit/Table/FilterPopover.vue`, docs/filter-popover.md): a "Filters" button with an info badge counting the filters off their default; selects apply at once, a multi filter's ticks (grouped, sticky headings, "All …") apply in one visit when the popover closes (Escape included), a search narrows a multi's options in the browser, and an optional Reset. The URL is the state; other params are kept. **TableFilter gains optional `kind`, `default` and `narrows`, and options an optional `group`**; `TableQuery::filter()` takes `multiple`, `groups` and `default`. DataTable's toolbar shows only single-value choices, as before. The kit Popover takes `stayOnVisit`.
+
 ## v0.33.8
 
 Features affected: core (re-pinned `sha256:bdc1717e…f276` → `sha256:50d7c9a7…a9c`: kit.css scroll margin), shell (re-pinned `sha256:4d65d619…44db` → `sha256:a21554be…c47a`: the Workspace Layout publishes `--shell-top`).
