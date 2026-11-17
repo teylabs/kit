@@ -26,6 +26,7 @@ import BulkBar from './BulkBar.vue';
 import IndexToolbar from './IndexToolbar.vue';
 import RowActions from './RowActions.vue';
 import { rowName, type RowLabel } from './rowLabel';
+import { filterKind, type FilterDescriptor } from './filters';
 import type { RowActionVariant } from './rowActionLayout';
 import {
     emptySelection,
@@ -95,11 +96,8 @@ type Table = {
         lastPage: number;
     };
     emptyState: 'first-use' | 'no-results' | null;
-    choices?: {
-        key: string;
-        label: string;
-        options: { value: string; label: string }[];
-    }[];
+    // The server's filter declarations (TableFilter); FilterPopover reads the same list. The toolbar shows the single-value ones.
+    choices?: FilterDescriptor[];
     bulkActions?: ActionDescriptor[];
     rowActions?: {
         variant?: RowActionVariant | null;
@@ -309,6 +307,11 @@ const tanstack = useVueTable({
 });
 const meta = (column: unknown) =>
     (column as { columnDef: { meta: Column } }).columnDef.meta;
+const singleChoices = computed(() =>
+    (props.table.choices ?? []).filter(
+        (choice) => filterKind(choice) === 'select',
+    ),
+);
 const hideable = computed(() =>
     props.table.columns.filter((column) => column.hideable),
 );
@@ -370,7 +373,7 @@ const showToolbar = computed(
             <IndexToolbar
                 :search="table.search"
                 :filters="table.filters"
-                :choices="table.choices ?? []"
+                :choices="singleChoices"
                 :search-label="searchLabel"
                 class="flex-1"
                 @search="(value) => visit({ search: value }, true)"
