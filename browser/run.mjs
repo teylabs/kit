@@ -13654,6 +13654,22 @@ const closeWays = {
         await modal.locator('button[aria-label="Close"]').click();
     },
     enter: async (tab, modal) => { await modal.locator('button[aria-label="Close"]').focus(); await tab.keyboard.press('Enter'); },
+    // A slow leave under a focus trap that holds until the panel goes (an app's longer close): any refocus while the panel is mounted is taken straight back.
+    'click (held trap, slow leave)': async (tab, modal) => {
+        await tab.evaluate(() => {
+            const style = document.createElement('style');
+            style.dataset.slowLeave = '';
+            style.textContent = '.im-dialog, .im-dialog * { transition-duration: 1800ms !important; animation-duration: 1800ms !important; }';
+            document.head.append(style);
+            const hold = (event) => {
+                const panel = document.querySelector('.im-modal-content, .im-slideover-content');
+                if (!panel) return document.removeEventListener('focusin', hold, true);
+                if (!panel.contains(event.target)) panel.querySelector('button[aria-label="Close"]')?.focus();
+            };
+            document.addEventListener('focusin', hold, true);
+        });
+        await modal.locator('button[aria-label="Close"]').click();
+    },
 };
 async function returnFocusCheck(panel) {
         await returnFocusPage({ panel }, async (tab) => {
@@ -13661,8 +13677,9 @@ async function returnFocusCheck(panel) {
                 for (const [way, close] of Object.entries(closeWays)) {
                     const modal = await openFrom(tab, opener, title);
                     await close(tab, modal);
-                    await modal.waitFor({ state: 'detached' });
+                    await modal.waitFor({ state: 'detached', timeout: 8000 });
                     await tab.waitForTimeout(1600);
+                    await tab.evaluate(() => document.querySelector('style[data-slow-leave]')?.remove());
                     const active = await tab.evaluate(() => document.activeElement?.id || document.activeElement?.tagName);
                     assert.equal(active, opener.slice(1), `${opener} by ${way}: focus is back on the opener`);
                 }
