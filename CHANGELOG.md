@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.34.0
+
+Features affected: none (kit components only).
+
+### Changed
+
+- **A Page heading stays on one line.** The `<h1>` is clamped to one line with an ellipsis, and its whole text is its `title` tooltip, so a long record title no longer pushes the page down over two or three lines. The text stays whole in the DOM, so screen readers and the document title read all of it.
+
+### Upgrading
+
+- A page that relied on its heading wrapping now shows one line and a tooltip. To keep a long heading readable on its own, put the detail in the page's description or status.
+
 ## v0.33.12
 
 Features affected: none (kit components only).
