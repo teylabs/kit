@@ -2,6 +2,7 @@
 import { reactive } from 'vue';
 import Alert from '@/components/Kit/Feedback/Alert.vue';
 import FormCard from '@/components/Kit/Form/FormCard.vue';
+import InputNumber from '@/components/Kit/Form/InputNumber.vue';
 
 // A FormCard whose form was just saved (recentlySuccessful), so FormActions shows "Saved" in text-success-text, and the four pale Alerts (foreground text on a
 // tint, a *-text icon), for run.mjs: ?form-saved in light, ?form-saved=dark under .dark. Non-modal and not sticky, so axe checks the status text's contrast.
@@ -14,6 +15,8 @@ const form = reactive({ processing: false, isDirty: false, hasErrors: false, rec
         <form @submit.prevent>
             <FormCard title="Details" description="Shown on your invoices." :form="form" :sticky="false" :warn-on-leave="false">
                 <label class="grid gap-2 text-sm">Name <input name="name" value="Northwind Farms" class="rounded-md border border-input bg-background px-3 py-2" /></label>
+                <InputNumber name="adults" label="Adults" :span="2" data-test-span-number />
+                <InputNumber name="children" label="Children" :span="2" data-test-span-number />
             </FormCard>
         </form>
         <Alert variant="info" title="Info">The import runs overnight.</Alert>

@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.33.11
+
+Features affected: none (kit components only).
+
+### Added
+
+- **InputNumber takes `span`**, a FormCard's columns as on Field and InputCalendarDate, so a row of counts or amounts can sit side by side instead of one per row.
+
 ## v0.33.10
 
 Features affected: none (kit components and the `Action` and `ReportTable` classes; no stub changed).
