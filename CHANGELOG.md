@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.37.0
 
 Features affected: none (kit components only; no stub or pin changes).
 
