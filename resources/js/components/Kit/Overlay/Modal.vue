@@ -128,11 +128,14 @@ function returnFocus() {
     const settle = () => {
         if (!target?.isConnected) return;
         const active = document.activeElement;
-        if (!active || active === document.body)
+        if (!active || active === document.body || !active.isConnected)
             return target.focus({ preventScroll: true });
-        // Still inside the leaving panel: wait for it to go; anywhere else, the viewer moved focus on purpose.
+        // Still anywhere in the leaving modal (its panel, or the package's own dialog, wrapper or container, which take focus while it closes): wait for it
+        // to go; anywhere else, the viewer moved focus on purpose.
         if (
-            active.closest('.im-modal-content, [role="dialog"]') &&
+            active.closest(
+                '.im-dialog, .im-modal-wrapper, .im-modal-container, .im-modal-positioner, .im-modal-content, .im-slideover-wrapper, .im-slideover-container, .im-slideover-positioner, .im-slideover-content, [role="dialog"]',
+            ) &&
             Date.now() - started < 1500
         )
             setTimeout(settle, 50);
