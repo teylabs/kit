@@ -2,6 +2,7 @@
 // `intent` is `dialog`, `panel` (opened by the host, like a dialog: always a button that emits, never a link), `document` or `edit` (an action that changes the record; ActionBar hides it inside a locked LockedForm). `checked` (true or false) makes a menu
 // row a checkbox item (role="menuitemcheckbox" with aria-checked); choosing it emits the action as any other, and the host flips `checked`. Null or absent: a plain row.
 // `ariaLabel` is the accessible name when the visible label, a verb, needs its record ("Remove Billing").
+// `download` makes a GET a file download: a plain <a href download> with the Download icon, never an Inertia visit or a new tab.
 export type ActionDescriptor = {
     label: string;
     url: string;
@@ -36,7 +37,6 @@ export type ActionDescriptor = {
     /** In a menu, the labelled section this action sits in (MenuGroup): consecutive actions with the same `section` share one, separated from the next. Not `group`, which joins a button group. */
     section?: string | null;
     newTab?: boolean | null;
-    /** A file download: a plain <a href download> with the Download icon, never an Inertia visit or a new tab. */
     download?: boolean | null;
     priority?: 'primary' | 'secondary' | 'overflow' | null;
     checked?: boolean | null;
