@@ -202,3 +202,8 @@ test('the component: the whole value in title, the cut parts kept in the text at
     assert.doesNotMatch(setup, /new ResizeObserver|document\.|window\.|setTimeout|setInterval/, 'no observer, timer or DOM access outside onMounted');
     assert.match(source, /onBeforeUnmount\([\s\S]*observer\?\.disconnect\(\)/);
 });
+
+test('the PHP twin\'s parity corpus is what middleTruncate.ts returns now', async () => {
+    const { execFileSync } = await import('node:child_process');
+    execFileSync(process.execPath, [new URL('middle-truncate-parity.mjs', import.meta.url).pathname, '--check'], { stdio: 'pipe' });
+});

@@ -39,4 +39,24 @@ The cut text stays in the element at zero size, and the drawn ellipsis is `aria-
 
 `middleTruncate(value, width, measure, { kind, minTail })` returns `{ head, middle, tail, end, truncated }`, where `measure(text)` is the width of a string in the same unit as `width`. `head + middle + tail + end` is always the whole value; show `head`, an ellipsis when `middle` is cut, `tail`, and an ellipsis when `end` is. `truncationKind(value)` is how `auto` reads a value.
 
+## On the server
+
+For a label the server builds itself, `Tey\Kit\Support\MiddleTruncate` cuts to a character count instead of a width: each grapheme counts one (an emoji sequence, a flag or an accented letter is never split), and so does the ellipsis. It is opt-in: nothing in the kit calls it for you. A model calls it in its own label:
+
+```php
+use Illuminate\Support\Str;
+
+public function label(): string
+{
+    return Str::middleTruncate("{$this->code} · {$this->title}", 30);
+    // "A-8377 · 2009 Chevrolet Silverado C1500 LT" → "A-8377 · 2009 Chevr…o C1500 LT"
+}
+```
+
+- `MiddleTruncate::cut($value, $maxChars, kind: 'auto', minTail: 0)` returns the shown string; `Str::middleTruncate()` is the same, registered by the kit's service provider unless the host has a macro of that name.
+- `MiddleTruncate::parts(...)` returns `['head', 'middle', 'tail', 'end', 'truncated']`, as `middleTruncate()` does.
+- The rules are the component's: a file keeps its extension, a path or URL its last segment, a URL drops its query or fragment first, and the kinds are `auto`, `file`, `path` and `url`.
+
+Tests: `tests/MiddleTruncateCheck.php` (`composer test:middle-truncate`) holds it to the TypeScript on 2000 cases in `tests/fixtures/middle-truncate/parity.json`, which `node tests/js/middle-truncate-parity.mjs` writes from `middleTruncate.ts`; the node test fails when that file is stale.
+
 Tests: `tests/js/middle-truncate.test.mjs` covers the truncation math (every width keeps the extension and fits, graphemes stay whole, URLs, paths, RTL, `minTail`) and the component's markup. The browser job (`?middle-truncate`) resizes each row from 120 to 400px with no overflow, reads the accessible name and a copied selection, runs axe in light and dark, and renders the component under Vue's server renderer.
