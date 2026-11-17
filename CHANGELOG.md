@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.33.8
+
+Features affected: core (re-pinned `sha256:bdc1717e…f276` → `sha256:50d7c9a7…a9c`: kit.css scroll margin), shell (re-pinned `sha256:4d65d619…44db` → `sha256:a21554be…c47a`: the Workspace Layout publishes `--shell-top`).
+
+### Added
+
+- **`--shell-top`, the app shell's pinned height as a live CSS variable** (docs/shell.md): the Workspace Layout measures its pinned top stack (environment edge, bar, trail bar) with one ResizeObserver and writes it on the root in whole pixels, only on a change, `0px` with nothing pinned, removed on unmount. Use `sticky top-(--shell-top)` instead of measuring `[data-shell-top]`.
+- **Scroll targets clear the bar**: kit.css gives `:target`, `[id]:focus-visible` and focused form controls `scroll-margin-top: calc(var(--shell-top, 0px) + 0.5rem)`, so a #hash link, a skip link or the scroll to the first invalid field lands below the bar.
+
 ## v0.33.7
 
 Features affected: core (re-pinned `sha256:1f8dee2d…c37d` → `sha256:bdc1717e…f276`: new npm requirements).

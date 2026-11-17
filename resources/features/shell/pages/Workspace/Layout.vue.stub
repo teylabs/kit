@@ -78,13 +78,46 @@ onMounted(() => {
     rootObserver.observe(document.documentElement, { attributes: true });
 });
 onBeforeUnmount(() => rootObserver?.disconnect());
+// The pinned top stack's height (the environment edge, the bar and the trail bar), published on the root as `--shell-top` so a page's sticky element sits
+// flush under it (`sticky top-(--shell-top)`) and kit.css keeps scroll targets out from under it. One ResizeObserver, owned here: it follows the trail bar
+// coming and going, the bar growing at a narrow width and a theme changing the mark. Written in whole pixels and only on a change; 0px with nothing pinned.
+const top = ref<HTMLElement | null>(null);
+let topObserver: ResizeObserver | null = null;
+let published: string | null = null;
+const publishTop = (height: number) => {
+    const value = `${Math.round(height)}px`;
+    if (value === published) return;
+    published = value;
+    document.documentElement.style.setProperty('--shell-top', value);
+};
+watch(
+    top,
+    (element) => {
+        topObserver?.disconnect();
+        topObserver = null;
+        if (!element) return publishTop(0);
+        if (typeof ResizeObserver === 'undefined') return publishTop(element.getBoundingClientRect().height);
+        topObserver = new ResizeObserver(([entry]) => publishTop(entry.borderBoxSize?.[0]?.blockSize ?? entry.target.getBoundingClientRect().height));
+        topObserver.observe(element, { box: 'border-box' });
+    },
+    { flush: 'post' },
+);
+onMounted(() => {
+    if (!top.value) publishTop(0);
+});
+onBeforeUnmount(() => {
+    topObserver?.disconnect();
+    topObserver = null;
+    published = null;
+    document.documentElement.style.removeProperty('--shell-top');
+});
 </script>
 <template>
     <Head v-if="ssr && props.documentTitle" :title="page.props.layout?.documentTitle" />
     <FocusShell v-if="focus" :shell="focus" :toaster="props.toaster"><slot /></FocusShell>
     <div v-else :class="['flex flex-col bg-[var(--shell-ground,var(--color-background))] text-foreground', props.fill ? 'h-svh overflow-hidden' : 'min-h-svh']" :data-shell-fill="props.fill || undefined">
         <a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:text-sm focus:ring-2 focus:ring-ring">Skip to content</a>
-        <div v-if="app.user || props.guestHeader" class="sticky top-0 z-(--z-header)" data-shell-top>
+        <div v-if="app.user || props.guestHeader" class="sticky top-0 z-(--z-header)" ref="top" data-shell-top>
             <!-- Outside production (the server decides; null there): a 2px edge in the environment's colour, with its name for a screen reader. It takes no space beyond its 2px. -->
             <div v-if="page.props.environment" class="h-0.5 w-full bg-(--kit-environment)" :style="{ '--kit-environment': page.props.environment.colour }" data-environment-edge><span class="sr-only">{{ page.props.environment.label }} environment</span></div>
             <header ref="bar" :class="['border-b border-shell-bar-border bg-shell-bar text-shell-bar-foreground [--avatar-ring:var(--shell-bar,var(--background))]', barBlur && 'backdrop-blur-(--shell-bar-blur)']" :data-shell-bar-blur="barBlur || undefined" data-shell-bar>
