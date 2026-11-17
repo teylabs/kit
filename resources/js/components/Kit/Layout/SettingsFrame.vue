@@ -22,7 +22,13 @@ provide('kit.navigation.framed', true);
 </script>
 <template>
     <div
-        class="grid gap-6 md:grid-cols-[13rem_minmax(0,1fr)] md:gap-10"
+        :class="[
+            'grid gap-6 md:gap-10',
+            // Two columns only beside a sidebar: with no navigation the content would fall into the 13rem sidebar column.
+            page.props.layout?.navigation.length
+                ? 'md:grid-cols-[13rem_minmax(0,1fr)]'
+                : '',
+        ]"
         data-settings-frame
     >
         <nav
