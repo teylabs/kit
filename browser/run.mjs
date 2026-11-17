@@ -13500,3 +13500,70 @@ test('MediaGallery opened from code (show(id)) returns focus to what had it when
             await tab.waitForFunction((selector) => document.activeElement?.matches(selector), selector, { timeout: 2000 }).catch(async () => assert.fail(`${selector} ${close}: focus on ${await tab.evaluate(() => document.activeElement?.outerHTML.slice(0, 80))}`));
         }
     }));
+
+// ── A local kit Modal returns focus to its opener on the real @inertiaui/modal-vue (select-modal.html, Return/Base) ─────────────────────────────────────────
+// A link opening a MediaGallery's lightbox through show(id), its items set just before, and a button opening a plain Modal; each closes by Escape, a pointer
+// click on Close (and WebKit's, which drops focus to the page as it presses) and Enter on Close, with the package's native <dialog> and its role=dialog panel.
+// Focus must be back on the opener once the panel has left; a viewer who moves focus elsewhere while it leaves keeps it. The backdrop never closes a kit Modal.
+async function returnFocusPage({ panel = '' } = {}, run) {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    try {
+        const tab = await context.newPage();
+        const pageErrors = [];
+        tab.on('pageerror', (error) => pageErrors.push(error.message));
+        const html = readFileSync(path.join(here, 'dist-people/select-modal.html'), 'utf8');
+        await tab.route((u) => u.pathname.startsWith('/@acme/'), async (route) => {
+            if (!route.request().headers()['x-inertia']) return route.fulfill({ status: 200, contentType: 'text/html', body: html });
+            return route.fulfill({ status: 200, headers: formsInertia, body: JSON.stringify({ component: 'Return/Base', props: { errors: {} }, url: '/@acme/files', version: null, flash: {}, clearHistory: false, encryptHistory: false }) });
+        });
+        await tab.goto(`${peopleUrl}/@acme/files${panel ? `?panel=${panel}` : ''}`);
+        await tab.waitForSelector('#return-link');
+        await run(tab);
+        assert.deepEqual(pageErrors, []);
+    } finally {
+        await context.close();
+    }
+}
+async function openFrom(tab, opener, title) {
+    await tab.focus(opener);
+    await tab.keyboard.press('Enter');
+    const modal = tab.getByRole('dialog', { name: title });
+    await modal.waitFor();
+    await tab.waitForFunction(() => document.querySelector('[data-inertiaui-modal-entered="true"]'));
+    await tab.waitForTimeout(100);
+    return modal;
+}
+const closeWays = {
+    escape: (tab) => tab.keyboard.press('Escape'),
+    click: (tab, modal) => modal.locator('button[aria-label="Close"]').click(),
+    // WebKit's pointer press: a button takes no focus from a click and the focused one blurs, so focus falls to the page while the panel is still leaving.
+    'click (WebKit)': async (tab, modal) => {
+        await tab.evaluate(() => document.addEventListener('mousedown', (event) => { event.preventDefault(); document.activeElement.blur(); }, { capture: true, once: true }));
+        await modal.locator('button[aria-label="Close"]').click();
+    },
+    enter: async (tab, modal) => { await modal.locator('button[aria-label="Close"]').focus(); await tab.keyboard.press('Enter'); },
+};
+async function returnFocusCheck(panel) {
+        await returnFocusPage({ panel }, async (tab) => {
+            for (const [opener, title] of [['#return-link', 'Floor plan'], ['#return-button', 'Details']]) {
+                for (const [way, close] of Object.entries(closeWays)) {
+                    const modal = await openFrom(tab, opener, title);
+                    await close(tab, modal);
+                    await modal.waitFor({ state: 'detached' });
+                    await tab.waitForTimeout(1600);
+                    const active = await tab.evaluate(() => document.activeElement?.id || document.activeElement?.tagName);
+                    assert.equal(active, opener.slice(1), `${opener} by ${way}: focus is back on the opener`);
+                }
+            }
+            // A viewer who moves focus elsewhere as the panel leaves keeps it there.
+            const modal = await openFrom(tab, '#return-button', 'Details');
+            await tab.keyboard.press('Escape');
+            await modal.waitFor({ state: 'detached' });
+            await tab.focus('#return-elsewhere');
+            await tab.waitForTimeout(1700);
+            assert.equal(await tab.evaluate(() => document.activeElement?.id), 'return-elsewhere');
+        });
+}
+test('A local kit Modal returns focus to its opener after Escape, a click on Close and Enter on Close, on the real inertiaui/modal (native <dialog>)', () => returnFocusCheck(''));
+test('A local kit Modal returns focus to its opener after Escape, a click on Close and Enter on Close, on the real inertiaui/modal (role=dialog panel)', () => returnFocusCheck('div'));
+
