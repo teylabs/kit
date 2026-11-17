@@ -1,9 +1,3 @@
-<script lang="ts">
-// Shared by every Modal: each open (and each close's return) starts a new generation, so a return still watching from an earlier close stops,
-// even one from a Modal since unmounted. Reopening from another opener within that watch never sends focus back to the previous opener.
-const focusReturns = { generation: 0 };
-</script>
-
 <script setup lang="ts">
 import { Form } from '@inertiajs/vue3';
 import { Modal as PackageModal, visitModal } from '@inertiaui/modal-vue';
@@ -17,6 +11,7 @@ import {
     useId,
     watch,
 } from 'vue';
+import { focusReturns } from '@/components/Kit/Overlay/focusReturn';
 import ModalPanel from '@/components/Kit/Overlay/ModalPanel.vue';
 import { provideCard, provideSurface } from '@/components/Kit/Surface/surface';
 
