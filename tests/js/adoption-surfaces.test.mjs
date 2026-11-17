@@ -129,3 +129,10 @@ test('calibrated against legacy apps: narrow signals stay narrow', () => {
     assert.deepEqual(byId['layout.page'].handRolled.map(signal => signal.kind), ['rule', 'file-name', 'template-tag']);
     assert.ok(byId['overlay.modal'].replaces.npm.includes('@inertiaui/modal-vue'), 'the library the kit Modal wraps');
 });
+
+test('data.table\'s tag signal skips row headers: a slot grid (a <table> whose only headers are <th scope="row">, no <thead>) is not a hand-rolled data table', () => {
+    const table = surfaces.find(s => s.id === 'data.table');
+    const tag = table.handRolled.find(h => h.kind === 'template-tag');
+    assert.deepEqual(tag.tags, ['thead', 'th']);
+    assert.deepEqual(tag.except, { scope: ['row'] }, 'a <th scope="row"> never counts; <thead> and column headers still do');
+});

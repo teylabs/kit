@@ -47,7 +47,7 @@ const statementRows = [
         <LineItems :columns="statementColumns" :rows="statementRows" caption="Member statement, September to October 2026" caption-hidden row-header="date" :totals="[{ label: 'Balance owing', value: '$0.00', emphasis: true }]" data-test-statement />
         <Card class="w-full max-w-96 p-4" data-test-narrow-card>
             <LineItems
-                :columns="[{ key: 'item', label: 'Description' }, { key: 'qty', label: 'Qty', kind: 'number' }, { key: 'tax', label: 'Tax', align: 'end' }, { key: 'amount', label: 'Amount', kind: 'money' }]"
+                :columns="[{ key: 'item', label: 'Description' }, { key: 'qty', label: 'Qty', kind: 'number' }, { key: 'tax', label: 'Tax', align: 'end', nowrap: true }, { key: 'amount', label: 'Amount', kind: 'money' }]"
                 :rows="[{ item: 'Annual membership', qty: 1, tax: 'HST (13 %)', amount: '$240.00' }, { item: 'Locker rental', qty: 2, tax: 'HST (13 %)', amount: '$70.00' }]"
                 caption="Narrow invoice"
                 caption-hidden

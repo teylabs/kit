@@ -13,6 +13,8 @@ export type LineItemsColumn = {
     label: string;
     align?: 'start' | 'end' | 'center';
     kind?: 'text' | 'money' | 'number' | 'date';
+    /** A short text column (a tax label) that should stay on one line. */
+    nowrap?: boolean;
 };
 export type LineItemsTotal = {
     label: string;
@@ -56,8 +58,10 @@ const cellClass = (column: LineItemsColumn, index: number) => [
     column.kind === 'date'
         ? 'tabular-nums whitespace-nowrap'
         : index === 0
-          ? 'min-w-40'
-          : '',
+          ? 'min-w-28'
+          : column.nowrap
+            ? 'whitespace-nowrap'
+            : '',
     // The sticky first column is painted in its surface's colour: --avatar-ring is the colour each surface (a card, a popover, a dialog) sets for what sits on it.
     index === 0 ? 'sticky start-0 bg-(--avatar-ring,var(--background))' : '',
 ];
