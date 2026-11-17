@@ -13366,3 +13366,14 @@ test('InputNumber takes a FormCard span: two span-2 number fields share a row fr
         await tab.close();
     }
 });
+
+test('SettingsFrame with no section navigation: the page takes the whole width, not the 13rem sidebar column', async () => {
+    const password = passwordAccount();
+    const bare = () => { const shown = password.pages.Password(); return { ...shown, props: { ...shown.props, layout: { ...shown.props.layout, navigation: [] } } }; };
+    await accountPage({ start: 'Password', query: '&shell', routes: [], pages: { Password: bare } }, async ({ tab }) => {
+        await tab.waitForSelector('[data-settings-frame] [data-slot=page]');
+        const shape = await tab.evaluate(() => ({ sidebar: Boolean(document.querySelector('[data-settings-sidebar]')), frame: Math.round(document.querySelector('[data-settings-frame]').getBoundingClientRect().width), page: Math.round(document.querySelector('[data-settings-frame] [data-slot=page]').getBoundingClientRect().width) }));
+        assert.equal(shape.sidebar, false);
+        assert.ok(shape.page > 400 && shape.page >= Math.min(shape.frame, 600), `the page is not squeezed into 13rem: ${JSON.stringify(shape)}`);
+    });
+});

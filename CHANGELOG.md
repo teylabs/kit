@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.33.12
+
+Features affected: none (kit components only).
+
+### Fixed
+
+- **A settings section with no section navigation takes the whole width.** SettingsFrame always laid out a 13rem sidebar column beside the content, so with no `layout.navigation` the page fell into that column and rendered about 208px wide, squeezing FormCard fields over each other. The two columns now apply only when the sidebar is drawn.
+
 ## v0.33.11
 
 Features affected: none (kit components only).
