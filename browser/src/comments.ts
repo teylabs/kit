@@ -2,7 +2,7 @@ import { createInertiaApp } from '@inertiajs/vue3';
 import { createApp, h } from 'vue';
 import { Check } from '@lucide/vue';
 import './app.css';
-import { COMMENT_TONES, CommentForm, CommentItem, CommentThread, NoteCard, QuickAction, type CommentComposerData, type CommentData } from '@kit/ui';
+import { COMMENT_TONES, CommentForm, CommentItem, CommentThread, Dropdown, DropdownItem, Button, NoteCard, QuickAction, type CommentComposerData, type CommentData } from '@kit/ui';
 
 // The comment and note components (comments.html, built with the auth pages by vite.auth.config.js) on the real @inertiajs/vue3, so CommentForm's <Form>, transform and
 // CommentItem's delete visit run as in an app. The test answers each write under /@acme/comments with Playwright's page.route. A thread with a composer, a comment the
@@ -110,6 +110,18 @@ const Page = {
                     timestamp: () => 'Nov 9, 2026, 11:34 AM',
                     actions: () => h(QuickAction, { label: 'Mark done', icon: Check }),
                     default: () => 'Call the owner back.',
+                }),
+            ]),
+            // A row of actions: a default Button then the ⋮ Dropdown, and a NoteCard header with a QuickAction then the ⋯ menu.
+            h('section', { 'aria-label': 'Row actions', class: 'flex items-center gap-1', 'data-row-actions': '' }, [
+                h(Button, { variant: 'secondary', type: 'button' }, () => 'Open valuation'),
+                h(Dropdown, { 'aria-label': 'Actions for case 7' }, () => h(DropdownItem, { as: 'button' }, () => 'Archive')),
+            ]),
+            h('section', { 'aria-label': 'Header menu', class: 'grid w-[28rem] max-w-full', 'data-header-menu': '' }, [
+                h(NoteCard, { author }, {
+                    timestamp: () => 'Nov 9, 2026',
+                    actions: () => h('span', { class: 'flex items-center gap-1' }, [h(QuickAction, { label: 'Mark done', icon: Check }), h(Dropdown, { horizontal: true, 'aria-label': 'Note actions' }, () => h(DropdownItem, { as: 'button' }, () => 'Delete'))]),
+                    default: () => 'Aligned.',
                 }),
             ]),
             h('section', { 'aria-label': 'Wide', class: 'grid w-[36rem] max-w-full gap-3', 'data-wide': '' }, [

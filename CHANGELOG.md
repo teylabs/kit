@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.33.1
+
+Features affected: none (kit components only).
+
+### Fixed
+
+- **The overflow menu trigger (⋮ / ⋯) is centred on its siblings**: Dropdown and DropdownMenu's wrapper was `inline-block`, which sits on the text baseline and kept descender room under the trigger, so the icon rode a few pixels above a Button or QuickAction beside it (row actions, card headers, tile footers). It is `inline-flex` now.
+
 ## v0.33.0
 
 Features affected: **core** (kit.css sets the ring on the host's shadcn-vue surfaces) and **shell** (the bar sets the ring's colour; UserAvatar drops `ring`). After `composer update tey/kit`:

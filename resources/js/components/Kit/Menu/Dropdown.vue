@@ -25,7 +25,8 @@ withDefaults(
 );
 </script>
 <template>
-    <div class="relative inline-block text-left">
+    <!-- inline-flex, not inline-block: an inline-block box sits on the text baseline and keeps descender room under the trigger, so the icon rode above its row's centre. -->
+    <div class="relative inline-flex items-center text-left" data-dropdown>
         <MenuPanel
             :align="alignLeft ? 'start' : 'end'"
             :content-class="[
@@ -56,7 +57,7 @@ withDefaults(
                     <button
                         v-else
                         v-bind="$attrs"
-                        class="text-muted-foreground hover:text-foreground inline-flex items-center gap-x-1 rounded-md"
+                        class="text-muted-foreground hover:text-foreground inline-flex items-center justify-center gap-x-1 rounded-md"
                         type="button"
                     >
                         <span class="sr-only">Open options</span>
