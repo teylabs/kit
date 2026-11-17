@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { nextTick, ref } from 'vue';
 import ItemStack from '@/components/Kit/Media/ItemStack.vue';
 import MediaCollection from '@/components/Kit/Media/MediaCollection.vue';
 import MediaGallery from '@/components/Kit/Media/MediaGallery.vue';
@@ -62,6 +62,15 @@ const single = ref([{ id: 'one', label: 'One', thumb: pixel, preview: pixel }]);
 const headedOpen = ref(false);
 // Lightbox only: no thumbnail row, opened through the exposed show().
 const viewer = ref<InstanceType<typeof MediaGallery>>();
+// Opened late: items arrive with the click, so the lightbox mounts in the same tick show() opens it (as an app's viewer does from a comment's image link).
+const lateViewer = ref<InstanceType<typeof MediaGallery>>();
+const lateItems = ref<typeof attachments>([]);
+async function viewLate(event: Event) {
+    event.preventDefault();
+    lateItems.value = attachments;
+    await nextTick();
+    lateViewer.value?.show('a4');
+}
 // A strip the host saves itself (sortable, no reorder url), numbered from 3, with an upload in progress.
 const strip = ref({ ...photos, collection: 'strip', items: photos.items.slice(0, 2).map((item) => ({ ...item, id: `x${item.id}` })) });
 function reordered(from: number, to: number) {
@@ -111,6 +120,10 @@ async function persist(order: string[], version: string | number | null) {
         <div data-fixture="viewer">
             <MediaGallery ref="viewer" :items="attachments" label="Viewer" :thumbnails="false" />
             <button type="button" data-open-viewer @click="viewer?.show('a4')">Open back</button>
+        </div>
+        <div data-fixture="late-viewer">
+            <Teleport to="body"><MediaGallery ref="lateViewer" :items="lateItems" label="Late viewer" :thumbnails="false" /></Teleport>
+            <a href="#back" target="_blank" data-open-late-viewer @click="viewLate">Back photo</a>
         </div>
         <MediaCollection
             :collection="strip"

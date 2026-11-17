@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.37.1
+
+Features affected: none (kit components only).
+
+### Fixed
+
+- **A local Modal returns focus to its opener however it closes.** A Modal opened with `v-model:open` (MediaGallery's lightbox through `show(id)`, or any button) gave focus back after Escape, but a pointer click on Close in Safari left it on the page: WebKit drops focus to the page as the button is pressed, the Modal returned it to the opener while the panel was still leaving, and the package's focus trap (its role=dialog panel) pulled it back in before the panel went. The Modal now keeps the opener focused until the panel has left (up to 1.5s), counts the package's `<dialog>` itself as part of the leaving modal, and still leaves focus alone when the viewer moved it elsewhere. A browser check on the real `@inertiaui/modal-vue` closes by Escape, a click, WebKit's click and Enter on Close, with the native `<dialog>` and the role=dialog panel.
+
 ## v0.37.0
 
 Features affected: none (kit components only; no stub or pin changes).

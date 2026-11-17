@@ -64,7 +64,7 @@ const localName = `kit-modal-${useId()}`;
 // The package ships no declaration for its Modal component, so its instance is typed here by the one method used.
 const modal = ref<{ close: () => void } | null>(null);
 // The panel ends its opening focus window before every close the Modal starts, so nothing queued moves focus into a leaving panel.
-const panel = ref<{ settle: () => void } | null>(null);
+const panel = ref<{ settle: () => void; $el?: Element } | null>(null);
 const checks = new Set<() => boolean>();
 provide('kit.modal-guard', {
     register: (check: () => boolean) => checks.add(check),
@@ -113,7 +113,9 @@ const panelClasses = computed(() =>
     ].join(' '),
 );
 
-// Focus returns to the opener: the package does not, so once the panel has left and focus has fallen to the page, the element focused when it opened gets it back.
+// Focus returns to the opener: the package does not, so once the panel is leaving and focus has fallen to the page (or still sits in the leaving modal), the
+// element focused when it opened gets it back. It keeps watching until the panel has left: a pointer press on Close in WebKit drops focus to the page while
+// the panel is still there, and the package's focus trap (its role=dialog panel) pulls an early return back into it.
 let opener: HTMLElement | null = null;
 const remember = () =>
     (opener =
@@ -121,18 +123,26 @@ const remember = () =>
         document.activeElement !== document.body
             ? document.activeElement
             : null);
+const layers =
+    'dialog, [role="dialog"], .im-dialog, .im-modal-dialog, .im-modal-wrapper, .im-modal-container, .im-modal-positioner, .im-modal-content, .im-slideover-dialog, .im-slideover-wrapper, .im-slideover-container, .im-slideover-positioner, .im-slideover-content';
 function returnFocus() {
     const target = opener;
     opener = null;
+    const leaving: Element | null = panel.value?.$el ?? null;
     const started = Date.now();
     const settle = () => {
         if (!target?.isConnected) return;
         const active = document.activeElement;
-        if (!active || active === document.body)
-            return target.focus({ preventScroll: true });
-        // Still inside the leaving panel: wait for it to go; anywhere else, the viewer moved focus on purpose.
+        const fallen =
+            !active ||
+            active === document.body ||
+            !active.isConnected ||
+            Boolean(active.closest(layers));
+        // Anywhere else, the viewer moved focus on purpose.
+        if (active !== target && !fallen) return;
+        if (fallen && active !== target) target.focus({ preventScroll: true });
         if (
-            active.closest('.im-modal-content, [role="dialog"]') &&
+            (leaving?.isConnected || document.activeElement !== target) &&
             Date.now() - started < 1500
         )
             setTimeout(settle, 50);
