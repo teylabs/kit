@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.37.3
+
+Features affected: none (kit components only).
+
+### Fixed
+
+- A local `Modal` (and so `MediaGallery`'s lightbox) reopened soon after a close, from another opener, returns focus to that new opener. Before, the earlier close's return could still be watching: it read focus in the new panel as the modal holding it, waited, and when the new panel closed sent focus back to the previous opener. Each open now cancels every earlier return, across all Modals, including one since unmounted. Verified in an adopting app's browser spec (Escape, settled Close, mid-enter Close, reopen from a second tile) with its own restore off. The kit's own browser case for the reopen doesn't reproduce that app's timing.
+
 ## v0.37.2
 
 Features affected: none (kit components only).
