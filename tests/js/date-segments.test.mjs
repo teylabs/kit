@@ -16,3 +16,17 @@ for (const stub of ['InputDate', 'InputDateRange', 'InputTime', 'InputTimeRange'
         assert.ok(source.includes(':class="segment"'), `${stub} puts the classes on its segments`);
     });
 }
+
+// Every literal ("/", "-", ":") sits the same distance from the glyphs either side: each segment pads its text symmetrically (px-2, so a one-digit
+// segment already fills its 24px and centring adds no uneven slack), with no negative margin on the literals. The browser job (?date-clear) measures
+// the gaps in en-US, fr-CA and en-GB.
+for (const stub of ['InputDate', 'InputDateRange', 'InputTime', 'InputTimeRange']) {
+    test(`${stub}: its literals are evenly spaced`, () => {
+        const source = readFileSync(new URL(`${stub}.vue`, form), 'utf8');
+        assert.ok(source.match(/const segment =\s*'([^']+)'/)[1].split(/\s+/).includes('px-2'), `${stub} segment pads its text with px-2`);
+        const literals = source.match(/item\.part === 'literal'"[^>]*?class="([^"]+)"/gs) ?? [];
+        assert.ok(literals.length >= 1, `${stub} renders its literals`);
+        // A literal never overlaps a segment (a negative margin would partly cover a target, which axe's target-size refuses).
+        for (const literal of literals) assert.doesNotMatch(literal, /class="[^"]*-m[xlr]-/, `${stub} literal has no negative margin`);
+    });
+}

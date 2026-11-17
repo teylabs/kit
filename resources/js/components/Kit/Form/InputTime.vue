@@ -92,7 +92,7 @@ watch(
     },
 );
 const segment =
-    'inline-flex min-h-6 min-w-6 items-center justify-center rounded-sm px-0.5 tabular-nums outline-none focus:bg-accent focus:text-accent-foreground data-placeholder:text-muted-foreground';
+    'inline-flex min-h-6 min-w-6 items-center justify-center rounded-sm px-2 tabular-nums outline-none focus:bg-accent focus:text-accent-foreground data-placeholder:text-muted-foreground';
 </script>
 <template>
     <Field
@@ -130,7 +130,7 @@ const segment =
                         .join(' ') || undefined
                 "
                 :class="[
-                    'focus-within:border-ring focus-within:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 flex h-9 w-full min-w-0 items-center rounded-md border px-3 text-base transition-[color,box-shadow] focus-within:ring-[3px] data-disabled:cursor-not-allowed data-disabled:opacity-50 md:text-sm',
+                    'focus-within:border-ring focus-within:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 flex h-9 w-full min-w-0 items-center rounded-md border px-1.5 text-base transition-[color,box-shadow] focus-within:ring-[3px] data-disabled:cursor-not-allowed data-disabled:opacity-50 md:text-sm',
                     locked
                         ? 'border-border bg-muted shadow-none'
                         : 'border-input dark:bg-input/30 bg-transparent shadow-xs',
