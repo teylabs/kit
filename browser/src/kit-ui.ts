@@ -79,3 +79,5 @@ export type { CommentComposerData, CommentData } from '@/components/Kit/Comment/
 export { default as LineItems } from '@/components/Kit/Table/LineItems.vue';
 export { default as TextMarkdown } from '@/components/Kit/Text/TextMarkdown.vue';
 export { renderMarkdown } from '@/components/Kit/Text/markdown';
+// FilterPopover (?filter-popover).
+export { default as FilterPopover } from '@/components/Kit/Table/FilterPopover.vue';

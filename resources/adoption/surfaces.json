@@ -2260,6 +2260,7 @@
           "@/components/Kit:LineItems",
           "@/components/Kit:RowActions",
           "@/components/Kit:IndexToolbar",
+          "@/components/Kit:FilterPopover",
           "@/components/Kit:BulkBar"
         ]
       },

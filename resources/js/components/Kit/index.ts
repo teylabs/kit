@@ -261,6 +261,13 @@ export type {
 export { default as RowActions } from './Table/RowActions.vue';
 // The index page's pieces around DataTable: the search-and-filters toolbar, the bulk bar for selected rows and the selection model (DataTable uses all three).
 export { default as IndexToolbar } from './Table/IndexToolbar.vue';
+export { default as FilterPopover } from './Table/FilterPopover.vue';
+export type {
+    FilterDescriptor,
+    FilterKind,
+    FilterOption,
+    FilterValues,
+} from './Table/filters';
 export { default as BulkBar } from './Table/BulkBar.vue';
 export {
     emptySelection,

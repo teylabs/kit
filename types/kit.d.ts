@@ -172,7 +172,11 @@ label: string,
 options: {
 value: string,
 label: string,
+group?: string,
 }[],
+kind: 'select' | 'multi' | 'search',
+default: string | null,
+narrows: string | null,
 };
 export type TablePagination = {
 page: number,

@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.33.9
+
+Features affected: none (kit components and TableQuery).
+
+### Added
+
+- **FilterPopover, a page toolbar's filters as one control** (`Kit/Table/FilterPopover.vue`, docs/filter-popover.md): a "Filters" button with an info badge counting the filters off their default; selects apply at once, a multi filter's ticks (grouped, sticky headings, "All …") apply in one visit when the popover closes (Escape included), a search narrows a multi's options in the browser, and an optional Reset. The URL is the state; other params are kept. **TableFilter gains optional `kind`, `default` and `narrows`, and options an optional `group`**; `TableQuery::filter()` takes `multiple`, `groups` and `default`. DataTable's toolbar shows only single-value choices, as before. The kit Popover takes `stayOnVisit`.
+
 ## v0.33.8
 
 Features affected: core (re-pinned `sha256:bdc1717e…f276` → `sha256:50d7c9a7…a9c`: kit.css scroll margin), shell (re-pinned `sha256:4d65d619…44db` → `sha256:a21554be…c47a`: the Workspace Layout publishes `--shell-top`).
