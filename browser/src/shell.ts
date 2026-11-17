@@ -4,6 +4,7 @@ import './app.css';
 import AppearanceToggle from '@/components/Kit/Appearance/AppearanceToggle.vue';
 import Page from '@/components/Kit/Layout/Page.vue';
 import PageTabs from '@/components/Kit/Layout/PageTabs.vue';
+import { focusFirstInvalid } from '@/components/Kit/Form/formFrame';
 import Layout from '@/pages/Workspace/Layout.vue';
 import inter400 from '../../resources/fonts/files/inter-latin-400-normal.woff2?url';
 import inter500 from '../../resources/fonts/files/inter-latin-500-normal.woff2?url';
@@ -62,7 +63,21 @@ const breadcrumbs = [
 ];
 const recordTabs = ref(true);
 (window as unknown as { kitRecordTabs: (shown: boolean) => void }).kitRecordTabs = (shown) => { recordTabs.value = shown; };
-const content = () => h('p', { class: 'text-sm' }, 'Content');
+// `&top` (with `module`): a long page under the shell's `--shell-top`: a `sticky top-(--shell-top)` row, a #hash target far down (`#far`) and a tall invalid
+// field (`#notes`) that window.kitValidate() focuses and scrolls to as a form's 422 does. window.kitTrail(false) draws the trail on the page instead of the bar.
+const trail = ref<'bar' | 'page'>('bar');
+(window as unknown as { kitTrail: (shown: boolean) => void }).kitTrail = (shown) => { trail.value = shown ? 'bar' : 'page'; };
+(window as unknown as { kitValidate: () => Promise<unknown> }).kitValidate = () => focusFirstInvalid(() => [document], { notes: 'Add a note.' });
+const content = query.has('top')
+    ? () => [
+          h('div', { class: 'sticky top-(--shell-top) z-10 h-10 border-b bg-background text-sm', 'data-under-bar': '' }, 'Pinned under the bar'),
+          h('div', { style: 'height: 1500px' }),
+          h('textarea', { id: 'notes', name: 'notes', 'aria-invalid': 'true', 'aria-label': 'Notes', rows: 4, class: 'h-32 w-full rounded-md border' }),
+          h('div', { style: 'height: 1500px' }),
+          h('h2', { id: 'far', class: 'text-lg font-semibold' }, 'Far section'),
+          h('div', { style: 'height: 1500px' }),
+      ]
+    : () => h('p', { class: 'text-sm' }, 'Content');
 const body = module === null
     ? () => h('h1', { class: 'p-8 text-xl font-semibold' }, 'Overview')
     : record
@@ -102,7 +117,7 @@ const tile = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3
 const fonts = appBar
     ? Promise.all(([[400, inter400], [500, inter500], [600, inter600]] as const).map(([weight, url]) => { const face = new FontFace('Inter', `url(${url})`, { weight: String(weight) }); document.fonts.add(face); return face.load(); })).then(() => { document.documentElement.style.fontFamily = 'Inter, sans-serif'; })
     : Promise.resolve();
-const Shown = { render: () => h(Layout, { shell: state, subNav: query.has('strip') ? 'strip' : undefined }, slots) };
+const Shown = { render: () => h(Layout, { shell: state, subNav: query.has('strip') ? 'strip' : undefined, breadcrumbs: trail.value }, slots) };
 const layout = module === null ? { documentTitle: 'Shell' } : { documentTitle: title, title, breadcrumbs, navigation: [{ label: record ? null : 'Projects', items }], navigationHeader: null };
 (window as unknown as { kitInitialPage: unknown }).kitInitialPage = { component: 'Shell', props: { errors: {}, layout }, url: module === null ? navigation[current].url : items.find((item) => item.current)!.url, version: null, flash: {}, clearHistory: false, encryptHistory: false };
 void fonts.then(() => createInertiaApp({
