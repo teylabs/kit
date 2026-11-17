@@ -12667,3 +12667,27 @@ test('PhotoField tile with :footer-label="false": no visible label, Change and â
         assert.ok(shape.names.some((n) => /Main photo/.test(n)), `controls still named by the label: ${JSON.stringify(shape)}`);
     });
 });
+
+test('the shell account avatar: the person\'s colour with a white ring, on the bar and in the account menu, in light and dark', async () => {
+    for (const scheme of ['light', 'dark']) {
+        const context = await browser.newContext({ viewport: { width: 1280, height: 600 }, colorScheme: scheme });
+        try {
+            const tab = await context.newPage();
+            await tab.goto(`${authUrl}shell.html?avatar-color=%23f59e0b`);
+            await tab.waitForSelector('[data-shell-user-menu] [data-slot="avatar"]');
+            const bar = await tab.evaluate(() => {
+                const a = getComputedStyle(document.querySelector('[data-shell-user-menu] [data-slot="avatar"]'));
+                return { bg: a.backgroundColor, ring: a.boxShadow };
+            });
+            assert.equal(bar.bg, 'rgb(245, 158, 11)', `${scheme}: the person's colour on the bar`);
+            assert.match(bar.ring, /rgb\(255, 255, 255\)/, `${scheme}: a white ring on the bar: ${bar.ring}`);
+            await tab.click('[data-shell-user-menu]');
+            await tab.waitForSelector('[role="menu"] [data-slot="avatar"]');
+            const menu = await tab.evaluate(() => getComputedStyle(document.querySelector('[role="menu"] [data-slot="avatar"]')).boxShadow);
+            assert.match(menu, /rgb\(255, 255, 255\)/, `${scheme}: the same ring in the menu`);
+            if (process.env.SHOT_DIR) await tab.screenshot({ path: `${process.env.SHOT_DIR}/avatar-${scheme}.png`, clip: { x: 900, y: 0, width: 380, height: 220 } });
+        } finally {
+            await context.close();
+        }
+    }
+});

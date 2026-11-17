@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.32.0
+
+Features affected: **shell** (its UserAvatar stub draws the ring). After `composer update tey/kit`:
+
+- `php artisan kit:scaffold shell --diff --only=resources/js/pages/Workspace/Partials`
+
+then `--force=<path>` for each partial you never edited. A shell whose UserAvatar or UserMenu predates 0.31 also gains the person's colour (it passes `avatar_color`).
+
+### Changed
+
+- **The shell's account avatar is the person's colour with a white ring** (on the bar, in the account menu and in the drawer), so every palette colour and a photo read on a dark bar as well as a light page.
+
+### Added
+
+- **Avatar `ring`**: a white ring around the avatar.
+
 ## v0.31.7
 
 Features affected: none (kit components only).

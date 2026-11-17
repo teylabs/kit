@@ -46,7 +46,7 @@ const shell = {
     workspace: { id: 1, name: 'Acme Workshop', url: '/@acme', settings: null, all: null, leave: null },
     switcher: { current: { id: 1, name: 'Acme Workshop' }, choices: [{ id: 1, name: 'Acme Workshop', slug: 'acme', current: true }, ...(switching ? [{ id: 2, name: 'Northwind Farms', slug: 'northwind', current: false }, { id: 3, name: 'Globex Labs', slug: 'globex', current: false }] : [])], landings: '/me/switcher' },
     navigation,
-    user: { name: 'Ada Example', email: 'ada@example.test', initials: 'AE', avatar_url: null, avatar_url_2x: null, items: [] },
+    user: { name: 'Ada Example', email: 'ada@example.test', initials: 'AE', avatar_url: null, avatar_url_2x: null, avatar_color: query.get('avatar-color') ?? null, items: [] },
     links: { home: '/', switcher: '/workspaces', sign_in: '/login', sign_out: '/logout' },
     footer: { identity: 'Example Product', credit: '', links: [] },
     subNavigation: module !== null && !record ? { label: 'Projects', items } : null,
