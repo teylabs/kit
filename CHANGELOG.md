@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.37.2
+
+Features affected: none (kit components only).
+
+### Fixed
+
+- A local `Modal` (and so `MediaGallery`'s lightbox) returns focus to its opener after a pointer click on Close in Chromium too, including a close while the panel is still entering. 0.37.1 refocused while the panel was still mounted, and the package's focus trap took focus straight back. The Modal now waits until the leaving panel is gone and no modal layer holds focus, refocuses the opener, and re-checks for up to 5 s. Focus a viewer moved elsewhere is left alone. Browser tests on the real `@inertiaui/modal-vue` cover the slow-leave, held-trap and mid-enter cases.
+
 ## v0.37.1
 
 Features affected: none (kit components only).

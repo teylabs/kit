@@ -130,24 +130,26 @@ function returnFocus() {
     opener = null;
     const leaving: Element | null = panel.value?.$el ?? null;
     const started = Date.now();
+    // Only once the leaving modal is gone: while any of its layers is mounted with focus inside, the package's focus trap takes focus straight back
+    // from anything outside it. Then focus returns, and is checked again in case a trap still held it, until the cap.
     const settle = () => {
-        if (!target?.isConnected) return;
+        if (!target?.isConnected || Date.now() - started > 5000) return;
         const active = document.activeElement;
+        const held = Boolean(
+            active &&
+            active !== document.body &&
+            active.isConnected &&
+            active.closest(layers),
+        );
+        if (leaving?.isConnected || held) return void setTimeout(settle, 25);
         const fallen =
-            !active ||
-            active === document.body ||
-            !active.isConnected ||
-            Boolean(active.closest(layers));
+            !active || active === document.body || !active.isConnected;
         // Anywhere else, the viewer moved focus on purpose.
-        if (active !== target && !fallen) return;
-        if (fallen && active !== target) target.focus({ preventScroll: true });
-        if (
-            (leaving?.isConnected || document.activeElement !== target) &&
-            Date.now() - started < 1500
-        )
-            setTimeout(settle, 50);
+        if (!fallen) return;
+        target.focus({ preventScroll: true });
+        setTimeout(settle, 100);
     };
-    setTimeout(settle, 50);
+    setTimeout(settle, 25);
 }
 if (server) onMounted(remember);
 onBeforeUnmount(() => {
