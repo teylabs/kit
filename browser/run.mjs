@@ -13699,6 +13699,31 @@ async function returnFocusCheck(panel) {
                     assert.equal(active, opener.slice(1), `${opener} closed mid-enter by ${way}: focus is back on the opener`);
                 }
             }
+            // One gallery reopened from another opener soon after a close (within the earlier return's watch): focus goes to the new opener, never the
+            // previous one. The second link keeps the gallery mounted; the first remounts its lightbox (items emptied, then set).
+            for (const [first, second] of [['#return-link', '#return-link-2'], ['#return-link-2', '#return-link']]) {
+                // The first closes and the second opens at once, as a spec or a quick viewer does: no settle between them.
+                const before = await openFrom(tab, first, 'Floor plan');
+                await tab.keyboard.press('Escape');
+                // The moment focus is back on the first opener, the second opens (inside the earlier return's last check).
+                await tab.evaluate(([from, to]) => new Promise((done) => {
+                    const tick = () => {
+                        if (document.activeElement?.id !== from) return requestAnimationFrame(tick);
+                        const next = document.getElementById(to);
+                        next.focus();
+                        next.click();
+                        done();
+                    };
+                    tick();
+                }), [first.slice(1), second.slice(1)]);
+                const modal = tab.getByRole('dialog', { name: 'Floor plan' });
+                await modal.waitFor();
+                await modal.locator('button[aria-label="Close"]').click();
+                await modal.waitFor({ state: 'detached', timeout: 8000 });
+                await tab.waitForTimeout(1500);
+                const active = await tab.evaluate(() => document.activeElement?.id || document.activeElement?.tagName);
+                assert.equal(active, second.slice(1), `reopened from ${second} right after ${first}: focus is on the new opener`);
+            }
             // A viewer who moves focus elsewhere as the panel leaves keeps it there.
             const modal = await openFrom(tab, '#return-button', 'Details');
             await tab.keyboard.press('Escape');
