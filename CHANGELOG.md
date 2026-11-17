@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.33.7
+
+Features affected: core (re-pinned `sha256:1f8dee2d…c37d` → `sha256:bdc1717e…f276`: new npm requirements).
+
+### Added
+
+- **TextMarkdown and renderMarkdown, user-authored Markdown rendered safely** (`Kit/Text/TextMarkdown.vue`, `Kit/Text/markdown.ts`, docs/markdown.md): GFM (tables, strikethrough, autolink literals, task lists, footnotes); raw HTML escaped, never passed through; the output sanitized against an allowlist (no script, style, iframe, object, embed or form, no `on*` or `style` attribute, no `javascript:`, `vbscript:` or `data:` URL); links carry `rel="noopener noreferrer nofollow"` and `target="_blank"` only with `newTab`; headings start at h3 (`headingLevel`). Styled as TextProse. **Core now lists `micromark` `^4.0.3`, `micromark-extension-gfm` `^3.0.0` and `dompurify` `^3.4.17` under `requires.npm`**: add them to `package.json`, or your build fails on the new component. The plan flags any that are missing, as attention.
+
 ## v0.33.6
 
 Features affected: none (kit components and the adoption inventory).

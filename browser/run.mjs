@@ -27,6 +27,8 @@
 // A ScriptForm (?script-form) must submit by Enter and its button without a browser post, keep required checks, and ignore a submit while busy.
 // An InputSwitch (?switch, light and dark) must toggle by click, label and Space with aria-checked, submit like a checkbox only when named, ignore input while
 // disabled with its text at full contrast, link its description and a Field's error, and pass axe with contrast.
+// TextMarkdown (?markdown, light and dark) must style GFM as prose (table, task list, strikethrough), start headings at h3, give links rel, run none of
+// its payloads (window.pwned stays undefined), pass axe with contrast, and not overflow a 390px page.
 // LineItems (?line-items) must pass axe, carry a caption and col/row header scopes, end-align money in tabular figures, put totals under the amount
 // column, render its cell slot, and scroll inside its own box at 390px with the first column in view and no page overflow.
 // Money and percent inputs and amounts (?money) must pass axe, name their unit in the label, keep the symbol out of the accessible text, submit percentage
@@ -852,6 +854,70 @@ test('a percentage submits percentage points as typed, and an accounting negativ
         assert.equal(await total.evaluate(el => [...el.childNodes].map(n => (n.nodeType === 1 && n.classList.contains('sr-only') ? '' : n.textContent)).join('')), '($1,234.56)', 'shown as accounting parentheses');
         assert.equal(await total.evaluate(el => [...el.childNodes].map(n => (n.nodeType === 1 && n.getAttribute('aria-hidden') === 'true' ? '' : n.textContent)).join('')), 'negative $1,234.56');
         assert.match(await tab.locator('[data-test-tax]').innerText(), /^13,00\s%$/u);
+    } finally {
+        await tab.close();
+    }
+});
+
+// ── TextMarkdown: GFM as prose, h3 headings, rel on links, payloads inert, axe in light and dark, no page overflow at 390px ─────────────────────────────────
+test('TextMarkdown renders GFM in the prose styling, headings from h3, links with rel, and runs none of its payloads', async () => {
+    const tab = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    const dialogs = [];
+    tab.on('dialog', dialog => { dialogs.push(dialog.message()); dialog.dismiss(); });
+    try {
+        await tab.goto(`${url}?markdown`);
+        const sample = tab.locator('[data-test-sample] [data-slot="text-markdown"]');
+        await sample.locator('table').waitFor();
+        await tab.waitForTimeout(300);
+        assert.equal(await tab.evaluate(() => window.pwned), undefined, 'no payload ran');
+        assert.deepEqual(dialogs, []);
+        const payloads = tab.locator('[data-test-payloads]');
+        assert.equal(await payloads.locator('script, iframe, svg, math, style, details, [style], [onerror], [onload]').count(), 0);
+        assert.equal(await payloads.locator('a[href^="javascript"], img[src^="data"]').count(), 0);
+        assert.deepEqual(await sample.locator('h1, h2, h3, h4, h5, h6').evaluateAll(els => els.map(el => el.tagName)), ['H3', 'H4', 'H4'], 'h1 and h2 demoted to h3 and h4; the footnotes label (an h2) to h4 too');
+        assert.equal(await sample.locator('h3').evaluate(el => getComputedStyle(el).fontWeight), '600', 'prose heading style applies');
+        assert.equal(await sample.locator('li:has(> input)').first().evaluate(el => getComputedStyle(el).listStyleType), 'none', 'a task list has no bullets');
+        assert.deepEqual(await sample.locator('input').evaluateAll(els => els.map(el => [el.type, el.checked, el.disabled])), [['checkbox', true, true], ['checkbox', false, true], ['checkbox', false, true]]);
+        assert.equal(await sample.locator('del').innerText(), 'Saturdays');
+        assert.deepEqual(await sample.locator('th').evaluateAll(els => els.map(el => getComputedStyle(el).textAlign)), ['start', 'start', 'end']);
+        assert.equal(await sample.locator('table').evaluate(el => getComputedStyle(el).borderCollapse), 'collapse', 'TextTable styling applies');
+        const rels = await sample.locator('a:not([href^="#"])').evaluateAll(els => els.map(el => [el.getAttribute('rel'), el.hasAttribute('target')]));
+        assert.equal(rels.length, 3);
+        assert.deepEqual(rels, Array(3).fill(['noopener noreferrer nofollow', false]));
+        await sample.locator('a[href="https://example.test/schedule"]').evaluate(el => getComputedStyle(el).textDecorationLine).then(v => assert.equal(v, 'underline'));
+        await tab.addScriptTag({ path: axeSource });
+        for (const scheme of ['light', 'dark']) {
+            if (scheme === 'dark') {
+                await tab.goto(`${url}?markdown=dark`);
+                await tab.locator('[data-test-sample] table').waitFor();
+                await tab.addScriptTag({ path: axeSource });
+            }
+            const violations = await tab.evaluate(async () => (await window.axe.run(document)).violations.map(v => ({ id: v.id, targets: v.nodes.map(n => n.target.join(' ')) })));
+            assert.deepEqual(violations, [], `axe in ${scheme}`);
+            assert.equal(await tab.evaluate(() => window.pwned), undefined, `no payload ran in ${scheme}`);
+        }
+    } finally {
+        await tab.close();
+    }
+});
+
+test('TextMarkdown at 390px does not overflow the page', async () => {
+    const tab = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    try {
+        await tab.goto(`${url}?markdown`);
+        await tab.locator('[data-test-sample] table').waitFor();
+        assert.equal(await tab.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, 'no page overflow at 390px');
+        const shots = process.env.KIT_MARKDOWN_SCREENSHOT;
+        if (shots) {
+            for (const scheme of ['light', 'dark']) {
+                for (const [width, name] of [[1280, 'desktop'], [390, 'phone']]) {
+                    await tab.setViewportSize({ width, height: 844 });
+                    await tab.goto(`${url}?markdown${scheme === 'dark' ? '=dark' : ''}`);
+                    await tab.locator('[data-test-sample] table').waitFor();
+                    await tab.locator('main').screenshot({ path: `${shots}markdown-${scheme}-${name}.png` });
+                }
+            }
+        }
     } finally {
         await tab.close();
     }
