@@ -12927,48 +12927,117 @@ test('ItemStack fanout header: title and description replace "Arrange <label>" a
         assert.doesNotMatch(await slotted.innerText(), /3 shots/, 'the slot replaces the count');
     }));
 
-test('ItemStack fanout add cell: one dashed drop zone after the last shot takes dropped files and emits files, #after follows it; without accept the cell emits add', () =>
+const openHeadedDrop = async (tab) => {
+    await tab.locator('[data-fixture="headed-stack"] [data-item-stack-arrange]').click();
+    const dialog = tab.getByRole('dialog');
+    await dialog.locator('[data-item-stack-drop]').waitFor();
+    return dialog;
+};
+
+test('ItemStack fanout add: a full BulkDrop in its own section below the list, not a list row; drop and paste emit files, #after ends the list; without accept a secondary Button emits add', () =>
     mediaTab(async (tab) => {
-        await tab.locator('[data-fixture="headed-stack"] [data-item-stack-arrange]').click();
-        const dialog = tab.getByRole('dialog');
-        const fanout = dialog.locator('[data-item-stack-fanout]');
-        await fanout.waitFor();
-        const shape = await fanout.evaluate(root => {
-            const cell = root.querySelector('[data-item-stack-add-cell]');
-            const last = [...root.querySelectorAll('[data-item-stack-item]')].at(-1).getBoundingClientRect();
-            const tile = cell?.querySelector('[data-item-stack-add-row]');
+        const dialog = await openHeadedDrop(tab);
+        const shape = await dialog.evaluate(root => {
+            const drop = root.querySelector('[data-item-stack-drop]');
+            const list = root.querySelector('[data-item-stack-fanout] ul');
+            const last = [...root.querySelectorAll('[data-sortable-item]')].at(-1).getBoundingClientRect();
             const after = root.querySelector('[data-fixture-after]');
-            return { drops: root.querySelectorAll('[data-dropzone]').length, below: cell ? cell.getBoundingClientRect().top >= last.bottom : false, dashed: tile ? getComputedStyle(tile).borderStyle : null, afterFollows: Boolean(cell && after && (cell.compareDocumentPosition(after) & Node.DOCUMENT_POSITION_FOLLOWING)) };
+            return {
+                drops: root.querySelectorAll('[data-dropzone]').length,
+                isZone: drop.matches('[data-dropzone]'),
+                inList: list.contains(drop),
+                inRow: Boolean(drop.closest('li, [data-sortable-item], [role="listitem"]')),
+                compactRow: root.querySelectorAll('[data-item-stack-add-row], [data-item-stack-add-icon]').length,
+                icon: Boolean(drop.querySelector('svg.lucide-upload, svg[class*="upload"]')),
+                gap: Math.round(drop.getBoundingClientRect().top - Math.max(last.bottom, after.getBoundingClientRect().bottom)),
+                afterInList: list.contains(after),
+                dashed: getComputedStyle(drop).borderStyle,
+            };
         });
-        assert.deepEqual(shape, { drops: 1, below: true, dashed: 'dashed', afterFollows: true });
-        const fit = await fanout.evaluate(root => {
-            const rows = [...root.querySelectorAll('[data-sortable-item]')].map(el => el.getBoundingClientRect());
-            const cell = root.querySelector('[data-item-stack-add-row]').getBoundingClientRect();
-            const icon = root.querySelector('[data-item-stack-add-icon]').getBoundingClientRect();
-            const thumb = root.querySelector('[data-item-stack-item] img').getBoundingClientRect();
-            const after = root.querySelector('[data-fixture-after]').getBoundingClientRect();
-            return { cellH: Math.round(cell.height), rowH: Math.round(rows[0].height), cellW: Math.round(cell.width), rowW: Math.round(rows[0].width), iconLeft: Math.round(icon.left - thumb.left), cellGap: Math.round(cell.top - rows.at(-1).bottom), rowGap: Math.round(rows[1].top - rows[0].bottom), afterGap: Math.round(after.top - cell.bottom) };
-        });
-        assert.ok(fit.cellH <= fit.rowH + 8, `the add cell is a row, not a tile: ${JSON.stringify(fit)}`);
-        assert.equal(fit.cellW, fit.rowW, `full width of the list: ${JSON.stringify(fit)}`);
-        assert.ok(Math.abs(fit.iconLeft) <= 2, `icon left-aligned with the thumbs: ${JSON.stringify(fit)}`);
-        assert.ok(fit.cellGap === fit.rowGap && fit.afterGap === fit.rowGap, `the list's gap rhythm: ${JSON.stringify(fit)}`);
-        const drop = fanout.locator('[data-dropzone]');
+        assert.deepEqual(shape, { drops: 1, isZone: true, inList: false, inRow: false, compactRow: 0, icon: true, gap: 16, afterInList: true, dashed: 'dashed' });
+        const drop = dialog.locator('[data-item-stack-drop]');
+        assert.equal((await drop.locator('[data-dropzone-prompt]').innerText()).trim(), 'Drop shots here, or browse');
+        assert.equal((await drop.locator('[data-dropzone-hint]').innerText()).trim(), 'JPEG · Up to 10 MiB each');
         await drop.evaluate(el => {
             const data = new DataTransfer();
             data.items.add(new File(['x'], 'kitchen.jpg', { type: 'image/jpeg' }));
             for (const type of ['dragenter', 'dragover', 'drop']) el.dispatchEvent(new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: data }));
         });
         await tab.waitForFunction(() => window.kitEvents.includes('headed-files kitchen.jpg'));
+        // A fresh zone for the paste: the input keeps the dropped file, and BulkDrop's one-file default would refuse a second (unchanged by this look).
+        await tab.reload();
+        await tab.waitForSelector('[data-media-gallery] [data-media-gallery-item]');
+        await openHeadedDrop(tab);
+        await tab.getByRole('dialog').locator('[data-item-stack-drop]').evaluate(el => {
+            const data = new DataTransfer();
+            data.items.add(new File(['y'], 'porch.jpg', { type: 'image/jpeg' }));
+            el.dispatchEvent(new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: data }));
+        });
+        await tab.waitForFunction(() => window.kitEvents.includes('headed-files porch.jpg'));
         await tab.keyboard.press('Escape');
-        await dialog.waitFor({ state: 'detached' });
+        await tab.getByRole('dialog').waitFor({ state: 'detached' });
         await tab.locator('[data-fixture="slotted-stack"] [data-item-stack-arrange]').click();
-        const plain = tab.getByRole('dialog').locator('[data-item-stack-add-cell]');
-        await plain.waitFor();
-        assert.equal(await plain.evaluate(el => getComputedStyle(el.querySelector('[data-item-stack-add-row]')).borderStyle), 'dashed');
+        const plain = tab.getByRole('dialog');
+        const add = plain.locator('[data-item-stack-add-cell] [data-item-stack-add]');
+        await add.waitFor();
+        assert.deepEqual(await plain.evaluate(root => ({
+            zones: root.querySelectorAll('[data-dropzone]').length,
+            inList: root.querySelector('[data-item-stack-fanout] ul').contains(root.querySelector('[data-item-stack-add]')),
+            dashed: [...root.querySelectorAll('[data-item-stack-add-cell] *')].some(el => getComputedStyle(el).borderStyle === 'dashed'),
+            slot: root.querySelector('[data-item-stack-add]').getAttribute('data-slot'),
+        })), { zones: 0, inList: false, dashed: false, slot: 'button' });
         await plain.getByRole('button', { name: 'Add shot' }).click();
         assert.ok((await tab.evaluate(() => window.kitEvents)).includes('slotted-add'));
     }));
+
+test('ItemStack fanout drop zone: Tab reaches browse and Enter opens the file picker as a user gesture; picked files emit files', () =>
+    mediaTab(async (tab) => {
+        const dialog = await openHeadedDrop(tab);
+        await tab.evaluate(() => {
+            window.kitPickerOpens = [];
+            const click = HTMLInputElement.prototype.click;
+            HTMLInputElement.prototype.click = function () {
+                if (this.matches('[data-item-stack-drop] [data-dropzone-input]')) {
+                    window.kitPickerOpens.push(navigator.userActivation.isActive);
+                    return;
+                }
+                return click.call(this);
+            };
+        });
+        const browse = dialog.locator('[data-item-stack-drop] [data-dropzone-browse]');
+        for (let i = 0; i < 40 && !(await browse.evaluate(el => document.activeElement === el)); i++) await tab.keyboard.press('Tab');
+        assert.ok(await browse.evaluate(el => document.activeElement === el), 'Tab reaches browse');
+        await tab.keyboard.press('Enter');
+        assert.deepEqual(await tab.evaluate(() => window.kitPickerOpens), [true]);
+        await tab.setInputFiles('[data-item-stack-drop] [data-dropzone-input]', [{ name: 'yard.jpg', mimeType: 'image/jpeg', buffer: Buffer.from('jpg') }]);
+        await tab.waitForFunction(() => window.kitEvents.includes('headed-files yard.jpg'));
+    }));
+
+for (const scheme of ['light', 'dark'])
+    test(`ItemStack fanout drop zone (${scheme}): passes axe with contrast, and at 390px the zone stays on screen with nothing overflowing it`, async () => {
+        const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, colorScheme: scheme });
+        try {
+            const tab = await context.newPage();
+            await tab.goto(`${url}?media${scheme === 'dark' ? '&dark' : ''}`);
+            await tab.waitForSelector('[data-media-gallery] [data-media-gallery-item]');
+            assert.equal(await tab.evaluate(() => document.documentElement.classList.contains('dark')), scheme === 'dark');
+            await openHeadedDrop(tab);
+            const { violations, contrast } = await axeScopedContrast(tab, '[data-item-stack-drop]');
+            assert.deepEqual(violations, []);
+            assert.ok(contrast > 0, 'contrast was checked inside the drop zone');
+            await tab.setViewportSize({ width: 390, height: 800 });
+            const fit = await tab.evaluate(() => {
+                // The ?media page itself is wider than a phone (its gallery fixtures), so the zone is read against the viewport: on screen, with nothing overflowing it.
+                const zone = document.querySelector('[data-item-stack-drop]');
+                const box = zone.getBoundingClientRect();
+                const parts = [...zone.querySelectorAll('[data-dropzone-prompt], [data-dropzone-hint]')].map(el => el.getBoundingClientRect());
+                return { onScreen: box.left >= 0 && box.right <= 390, partsInside: parts.every(r => r.left >= box.left && r.right <= box.right), zone: zone.scrollWidth - zone.clientWidth };
+            });
+            assert.deepEqual(fit, { onScreen: true, partsInside: true, zone: 0 });
+        } finally {
+            await context.close();
+        }
+    });
 
 test('ItemStack footer balance: "1 of 1", + and ⋯ share one centred line at one height, with equal padding both sides', () =>
     mediaTab(async (tab) => {

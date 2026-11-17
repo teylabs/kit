@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+Features affected: none (kit components only).
+
+### Changed
+
+- **ItemStack's fanout adds through the kit's standard drop zone.** With `actions.add` and `accept`, the add is no longer a dashed list row after the last item: a full BulkDrop sits in its own section below the list, with the upload icon, "Drop <items> here, or browse" and the accepted types and size. Drop, paste and browse emit `files` as before. Without `accept`, the add is a secondary Button ("Add <item>") in that section that emits `add`. The #after slot now ends the list, above the add section. BulkDrop takes `lead`, the words before "browse".
+
+### Upgrading
+
+- The `data-item-stack-add-row` and `data-item-stack-add-icon` hooks are gone. Target the drop zone with `data-item-stack-drop` (or `data-item-stack-add-cell`, now the section below the list) and the plain add with `data-item-stack-add`.
+- A host whose #after content was meant to follow the add cell now sits above it; move it out of the slot if it should come after the drop zone.
+
 ## v0.34.0
 
 Features affected: none (kit components only).
