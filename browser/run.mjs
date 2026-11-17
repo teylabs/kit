@@ -12910,6 +12910,91 @@ test('ItemStack on a 220px tile: the host footer label stays readable, the arrow
         assert.equal((await stack.locator('[data-item-stack-announce]').textContent()).trim(), 'shot 2 of 3');
         if (process.env.SHOT) await tab.locator('[data-fixture="narrow-stack"]').screenshot({ path: process.env.SHOT });
     }));
+const openPreview = async (tab, fixture = 'preview-stack') => {
+    await tab.locator(`[data-fixture="${fixture}"] [data-item-stack-top]`).click();
+    const dialog = tab.getByRole('dialog');
+    await dialog.locator('[data-item-stack-preview-pane] img').waitFor();
+    return dialog;
+};
+const previewShown = (dialog) => dialog.locator('[data-item-stack-preview-pane]').getAttribute('data-item');
+const currentRow = (dialog) => dialog.locator('[aria-current="true"]').evaluate(el => el.closest('[data-item-stack-item]').getAttribute('data-item-stack-item'));
+test('ItemStack fanout="preview": a click on the stack opens the fanout on that item, large, in the xl dialog, and still emits open; open(id) preselects', () =>
+    mediaTab(async (tab) => {
+        await tab.locator('[data-fixture="preview-stack"] [data-item-stack-next]').click();
+        const dialog = await openPreview(tab);
+        assert.equal(await previewShown(dialog), 'v2', 'the clicked (current) item is shown');
+        assert.equal(await currentRow(dialog), 'v2');
+        assert.equal(await dialog.locator('[data-item-stack-selected]').getAttribute('data-item-stack-item'), 'v2');
+        assert.ok(await tab.evaluate(() => window.kitEvents.includes('preview-open v2')), 'the open hook still fires');
+        const pane = await dialog.locator('[data-item-stack-preview-pane]').boundingBox();
+        const list = await dialog.locator('[data-item-stack-list]').boundingBox();
+        assert.ok(pane.width > 500 && pane.height >= 500, `the preview is large (${pane.width}×${pane.height})`);
+        assert.ok(list.x > pane.x + pane.width - 1 && Math.abs(list.width - 288) < 2, 'the list (18rem) sits beside the preview');
+        assert.ok(await dialog.locator('[data-item-stack-drop]').evaluate((drop, listBottom) => drop.getBoundingClientRect().top >= listBottom, list.y + list.height), 'the drop section is below');
+        await tab.keyboard.press('Escape');
+        await dialog.waitFor({ state: 'detached' });
+        await tab.locator('[data-open-preview-v3]').click();
+        assert.equal(await previewShown(await tab.getByRole('dialog')), 'v3', 'open(id) opens on that item');
+    }));
+test('ItemStack fanout="preview": a row click swaps the preview and moves aria-current, ↑/↓ on a focused row move the selection, removing the selected selects the next', () =>
+    mediaTab(async (tab) => {
+        const dialog = await openPreview(tab);
+        assert.equal(await previewShown(dialog), 'v1');
+        await dialog.getByRole('button', { name: 'Show Shot 3 (Wheel detail)' }).click();
+        assert.equal(await previewShown(dialog), 'v3');
+        assert.equal(await currentRow(dialog), 'v3');
+        assert.equal(await dialog.locator('[aria-current="true"]').count(), 1);
+        await tab.keyboard.press('ArrowUp');
+        assert.equal(await previewShown(dialog), 'v2', '↑ selects the row above');
+        assert.equal(await tab.evaluate(() => document.activeElement.closest('[data-item-stack-item]')?.getAttribute('data-item-stack-item')), 'v2', 'focus follows');
+        await tab.keyboard.press('ArrowDown');
+        assert.equal(await previewShown(dialog), 'v3');
+        await tab.keyboard.press('ArrowUp');
+        await dialog.getByRole('button', { name: 'Remove Shot 2 (Listing-screenshot-2026-11-16.png)' }).click();
+        await tab.waitForFunction(() => window.kitEvents.includes('preview-remove v2'));
+        await tab.waitForFunction(() => document.querySelector('[data-item-stack-preview-pane]').getAttribute('data-item') === 'v3');
+        assert.equal(await currentRow(dialog), 'v3', 'the next item takes the selection');
+    }));
+test('ItemStack fanout="preview" with one item: no list column, the preview fills the width, and its actions sit in a row under it', () =>
+    mediaTab(async (tab) => {
+        const dialog = await openPreview(tab, 'preview-one');
+        assert.equal(await dialog.locator('[data-item-stack-list]').count(), 0, 'no list column');
+        const pane = await dialog.locator('[data-item-stack-preview-pane]').boundingBox();
+        const fanout = await dialog.locator('[data-item-stack-fanout]').boundingBox();
+        assert.ok(Math.abs(pane.width - fanout.width) < 2, 'the preview takes the whole width');
+        const actions = dialog.locator('[data-item-stack-preview-actions]');
+        assert.ok((await actions.boundingBox()).y >= pane.y + pane.height, 'the actions row is under the preview');
+        await actions.getByRole('button', { name: /^Remove Shot 1/ }).click();
+        await tab.waitForFunction(() => window.kitEvents.includes('preview-one-remove w1'));
+    }));
+test('ItemStack fanout="preview" at 390px: the preview on top, the list under it, then the drop section, no sideways scroll', async () => {
+    await mediaTab(async (tab) => {
+        await tab.setViewportSize({ width: 390, height: 844 });
+        const dialog = await openPreview(tab);
+        const pane = await dialog.locator('[data-item-stack-preview-pane]').boundingBox();
+        const list = await dialog.locator('[data-item-stack-list]').boundingBox();
+        const drop = await dialog.locator('[data-item-stack-drop]').boundingBox();
+        assert.ok(list.y >= pane.y + pane.height, 'the list is under the preview');
+        assert.ok(drop.y >= list.y + list.height, 'the drop section is under the list');
+        assert.ok(Math.abs(list.width - pane.width) < 2, 'the list takes the full width');
+        assert.equal(await dialog.locator('[data-item-stack-fanout]').evaluate(el => el.scrollWidth - el.clientWidth), 0);
+    });
+    // KIT_STACK_PREVIEW_SCREENSHOTS=<dir> saves the open fanout with 1 and 3 items at 1280 and 390px, light, and dark at 1280.
+    const dir = process.env.KIT_STACK_PREVIEW_SCREENSHOTS;
+    if (!dir) return;
+    for (const [width, scheme] of [[1280, 'light'], [390, 'light'], [1280, 'dark']]) {
+        for (const [fixture, name] of [['preview-one', '1-shot'], ['preview-stack', '3-shot']]) {
+            const context = await browser.newContext({ viewport: { width, height: width === 390 ? 844 : 900 } });
+            const tab = await context.newPage();
+            await tab.goto(`${url}?media${scheme === 'dark' ? '&dark' : ''}`);
+            await openPreview(tab, fixture);
+            await tab.evaluate(() => Promise.all([...document.querySelectorAll('dialog img')].map(img => img.decode().catch(() => {}))));
+            await tab.screenshot({ path: path.join(dir, `${name}-${width}-${scheme}.png`) });
+            await context.close();
+        }
+    }
+});
+
 test('ItemStack fanout header: title and description replace "Arrange <label>" and the count, and #fanout-header writes its own line', () =>
     mediaTab(async (tab) => {
         await tab.locator('[data-fixture="headed-stack"] [data-item-stack-arrange]').click();

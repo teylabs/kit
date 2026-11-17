@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ChevronDown, ChevronUp, Layers, Plus, Trash2 } from '@lucide/vue';
-import { computed, useSlots, watch } from 'vue';
+import { computed, nextTick, ref, useSlots, watch } from 'vue';
 import SortableList from '@/components/Kit/Data/SortableList.vue';
 import type {
     ReorderAction,
@@ -27,6 +27,8 @@ export type StackItem = {
  * `{ order, version }` and a 409 rolls back and emits `conflict`. Add, open and remove are emitted for the host to run. `index` and `fanoutOpen` are models.
  * The fanout's header is `title` and `description` (or the #fanout-header slot); the list ends in the #after slot. With `actions.add` a section below the list
  * adds: the kit's full BulkDrop when `accept` is given (drop, paste or browse emits `files`), else a secondary Button whose click emits `add`. The footer's controls are the kit's ghost Button, one 32px row.
+ * `fanout="preview"` makes the fanout a viewer: a click on the stack (or `open(id)`, or `selected` with `fanoutOpen`) opens it on that item, shown large in a
+ * preview pane with the list beside it (md+) or under it (phone). A row's click or ↑/↓ selects; removing the selected item selects the next. One item has no list.
  */
 const props = withDefaults(
     defineProps<{
@@ -56,6 +58,8 @@ const props = withDefaults(
         accept?: string[] | null;
         maxBytes?: number;
         maxFiles?: number;
+        /** 'preview' opens the fanout on the clicked item, shown large beside the list, in a wider dialog; 'arrange' (the default) is the list alone. */
+        fanout?: 'arrange' | 'preview';
     }>(),
     {
         actions: () => ({}),
@@ -71,10 +75,13 @@ const props = withDefaults(
         accept: null,
         maxBytes: 10485760,
         maxFiles: 20,
+        fanout: 'arrange',
     },
 );
 const index = defineModel<number>('index', { default: 0 });
 const fanoutOpen = defineModel<boolean>('fanoutOpen', { default: false });
+/** The item the preview fanout shows (its id); set with `fanoutOpen` to open on a host's own click. */
+const selected = defineModel<string | null>('selected', { default: null });
 const emit = defineEmits<{
     add: [];
     files: [files: File[]];
@@ -114,6 +121,61 @@ const typesHint = (types: string[]) =>
     types.map((type) => (type.split('/')[1] ?? type).toUpperCase()).join(', ');
 const itemLabel = (item: StackItem, at: number) =>
     `${props.noun[0][0].toUpperCase()}${props.noun[0].slice(1)} ${at + 1} (${item.label})`;
+
+// The preview fanout: the selected item, kept on an item that exists (a removed one hands the selection to the item that took its place).
+const previewing = computed(() => props.fanout === 'preview');
+const selectedAt = computed(() =>
+    props.items.findIndex((item) => item.id === selected.value),
+);
+const shown = computed(() => props.items[selectedAt.value] ?? null);
+let lastAt = 0;
+watch(
+    () => props.items.map((item) => item.id),
+    (ids) => {
+        if (!previewing.value || selected.value === null) return;
+        if (ids.includes(selected.value)) return;
+        selected.value = ids[Math.min(lastAt, ids.length - 1)] ?? null;
+    },
+);
+watch(selectedAt, (at) => {
+    if (at < 0) return;
+    lastAt = at;
+    if (previewing.value) index.value = at;
+});
+watch(fanoutOpen, (open) => {
+    if (open && previewing.value && selectedAt.value < 0)
+        selected.value = current.value?.id ?? null;
+});
+/** Opens the fanout on an item (by id; the current one without). */
+function open(id?: string) {
+    selected.value = id ?? current.value?.id ?? null;
+    fanoutOpen.value = true;
+}
+defineExpose({ open });
+function onTop(event: Event) {
+    if (!current.value) return;
+    emit('open', current.value.id, event);
+    if (previewing.value) open(current.value.id);
+}
+const rows = ref<HTMLElement>();
+function onRowKeydown(at: number, event: KeyboardEvent) {
+    const by = event.key === 'ArrowDown' ? 1 : event.key === 'ArrowUp' ? -1 : 0;
+    const next = props.items[at + by];
+    if (!by || !next) return;
+    event.preventDefault();
+    selected.value = next.id;
+    void nextTick(() =>
+        rows.value
+            ?.querySelector<HTMLElement>(
+                `[data-item-stack-item="${CSS.escape(next.id)}"] [data-item-stack-row]`,
+            )
+            ?.focus(),
+    );
+}
+function onRow(item: StackItem, event: Event) {
+    if (previewing.value) selected.value = item.id;
+    else emit('open', item.id, event);
+}
 </script>
 <template>
     <section
@@ -153,7 +215,7 @@ const itemLabel = (item: StackItem, at: number) =>
                 ]"
                 :aria-label="`Open ${itemLabel(current, index)}`"
                 data-item-stack-top
-                @click="emit('open', current.id, $event)"
+                @click="onTop"
             >
                 <slot name="preview" :item="current" :index="index">
                     <img
@@ -293,7 +355,7 @@ const itemLabel = (item: StackItem, at: number) =>
                     ? undefined
                     : (description ?? `${count} ${nounFor(count)}`)
             "
-            size="lg"
+            :size="previewing ? 'xl' : 'lg'"
         >
             <div
                 v-if="slots['fanout-header']"
@@ -302,70 +364,191 @@ const itemLabel = (item: StackItem, at: number) =>
             >
                 <slot name="fanout-header" :count="count" />
             </div>
-            <div data-item-stack-fanout :data-orientation="orientation">
-                <SortableList
-                    :items="items"
-                    :item-label="itemLabel"
-                    :label="label"
-                    :reorder="actions.reorder ?? null"
-                    :persist="persist"
-                    :settle="400"
-                    :version="version"
-                    :disabled="busy || !(actions.reorder || persist)"
-                    :layout="orientation === 'grid' ? 'grid' : 'list'"
-                    @saved="(version, body) => emit('saved', version, body)"
-                    @conflict="emit('conflict', $event)"
+            <div
+                data-item-stack-fanout
+                :data-orientation="orientation"
+                :data-mode="fanout"
+            >
+                <div
+                    :class="
+                        previewing
+                            ? [
+                                  'grid gap-4',
+                                  count > 1 &&
+                                      'md:grid-cols-[minmax(0,1fr)_18rem]',
+                              ]
+                            : undefined
+                    "
                 >
-                    <template #default="{ item, index: at }">
+                    <div v-if="previewing && shown" class="grid min-w-0 gap-2">
                         <div
-                            class="flex min-w-0 flex-1 items-center gap-2"
-                            :data-item-stack-item="item.id"
+                            class="bg-muted flex h-[min(50vh,24rem)] items-center justify-center overflow-hidden rounded-md md:h-[min(70vh,40rem)]"
+                            data-item-stack-preview-pane
+                            :data-item="shown.id"
                         >
-                            <button
-                                type="button"
-                                class="focus-visible:outline-ring flex min-w-0 flex-1 items-center gap-2 rounded-md text-left focus-visible:outline-2"
-                                :aria-label="`Open ${itemLabel(item, at)}`"
-                                @click="emit('open', item.id, $event)"
+                            <img
+                                v-if="shown.preview ?? shown.thumb"
+                                :key="shown.id"
+                                :src="(shown.preview ?? shown.thumb)!"
+                                :srcset="shown.srcset ?? undefined"
+                                sizes="(min-width: 768px) 38rem, 100vw"
+                                :alt="shown.label"
+                                class="max-h-full max-w-full object-contain"
+                            />
+                            <span
+                                v-else
+                                class="bg-muted block size-full animate-pulse"
+                                data-media-pending
+                            />
+                        </div>
+                        <div
+                            v-if="count === 1"
+                            class="flex min-h-8 items-center gap-2 text-sm"
+                            data-item-stack-preview-actions
+                        >
+                            <span class="min-w-0 flex-1 truncate">{{
+                                shown.label
+                            }}</span>
+                            <span
+                                v-if="shown.meta"
+                                class="text-muted-foreground text-xs"
+                                >{{ shown.meta }}</span
                             >
-                                <slot name="thumb" :item="item" :index="at">
-                                    <img
-                                        v-if="item.thumb ?? item.preview"
-                                        :src="(item.thumb ?? item.preview)!"
-                                        alt=""
-                                        loading="lazy"
-                                        class="border-border size-12 shrink-0 rounded border object-cover"
-                                    />
-                                    <span
-                                        v-else
-                                        class="bg-muted size-12 shrink-0 rounded"
-                                        data-media-pending
-                                    />
-                                </slot>
-                                <span class="min-w-0 truncate text-sm">{{
-                                    item.label
-                                }}</span>
-                                <span
-                                    v-if="item.meta"
-                                    class="text-muted-foreground text-xs"
-                                    >{{ item.meta }}</span
-                                >
-                            </button>
                             <button
                                 v-if="actions.remove"
                                 type="button"
                                 class="hover:bg-accent text-destructive-text inline-flex size-8 items-center justify-center rounded-md"
-                                :aria-label="`Remove ${itemLabel(item, at)}`"
+                                :aria-label="`Remove ${itemLabel(shown, 0)}`"
                                 data-item-stack-remove
-                                @click="emit('remove', item.id)"
+                                @click="emit('remove', shown.id)"
                             >
                                 <Trash2 class="size-4" aria-hidden="true" />
                             </button>
                         </div>
-                    </template>
-                    <template v-if="slots.after" #after>
-                        <slot name="after" :count="count" />
-                    </template>
-                </SortableList>
+                    </div>
+                    <div
+                        v-if="!previewing || count > 1"
+                        ref="rows"
+                        :class="
+                            previewing &&
+                            'min-w-0 md:max-h-[min(70vh,40rem)] md:overflow-y-auto md:p-1'
+                        "
+                        data-item-stack-list
+                    >
+                        <SortableList
+                            :items="items"
+                            :item-label="itemLabel"
+                            :label="label"
+                            :reorder="actions.reorder ?? null"
+                            :persist="persist"
+                            :settle="400"
+                            :version="version"
+                            :disabled="busy || !(actions.reorder || persist)"
+                            :layout="orientation === 'grid' ? 'grid' : 'list'"
+                            @saved="
+                                (version, body) => emit('saved', version, body)
+                            "
+                            @conflict="emit('conflict', $event)"
+                        >
+                            <template #default="{ item, index: at }">
+                                <div
+                                    :class="[
+                                        'flex min-w-0 flex-1 items-center gap-2',
+                                        previewing &&
+                                            '-m-1 rounded-md p-1 ring-inset',
+                                        previewing &&
+                                            item.id === selected &&
+                                            'bg-accent ring-primary ring-2',
+                                    ]"
+                                    :data-item-stack-item="item.id"
+                                    :data-item-stack-selected="
+                                        (previewing && item.id === selected) ||
+                                        undefined
+                                    "
+                                >
+                                    <button
+                                        type="button"
+                                        class="focus-visible:outline-ring flex min-w-0 flex-1 items-center gap-2 rounded-md text-left focus-visible:outline-2"
+                                        :aria-label="`${previewing ? 'Show' : 'Open'} ${itemLabel(item, at)}`"
+                                        :aria-current="
+                                            (previewing &&
+                                                item.id === selected) ||
+                                            undefined
+                                        "
+                                        data-item-stack-row
+                                        @click="onRow(item, $event)"
+                                        @keydown="
+                                            previewing &&
+                                            onRowKeydown(at, $event)
+                                        "
+                                    >
+                                        <slot
+                                            name="thumb"
+                                            :item="item"
+                                            :index="at"
+                                        >
+                                            <img
+                                                v-if="
+                                                    item.thumb ?? item.preview
+                                                "
+                                                :src="
+                                                    (item.thumb ??
+                                                        item.preview)!
+                                                "
+                                                alt=""
+                                                loading="lazy"
+                                                class="border-border size-12 shrink-0 rounded border object-cover"
+                                            />
+                                            <span
+                                                v-else
+                                                class="bg-muted size-12 shrink-0 rounded"
+                                                data-media-pending
+                                            />
+                                        </slot>
+                                        <span
+                                            :class="
+                                                previewing
+                                                    ? 'grid min-w-0'
+                                                    : 'contents'
+                                            "
+                                        >
+                                            <span
+                                                class="min-w-0 truncate text-sm"
+                                                :title="
+                                                    previewing
+                                                        ? item.label
+                                                        : undefined
+                                                "
+                                                >{{ item.label }}</span
+                                            >
+                                            <span
+                                                v-if="item.meta"
+                                                class="text-muted-foreground text-xs"
+                                                >{{ item.meta }}</span
+                                            >
+                                        </span>
+                                    </button>
+                                    <button
+                                        v-if="actions.remove"
+                                        type="button"
+                                        class="hover:bg-accent text-destructive-text inline-flex size-8 items-center justify-center rounded-md"
+                                        :aria-label="`Remove ${itemLabel(item, at)}`"
+                                        data-item-stack-remove
+                                        @click="emit('remove', item.id)"
+                                    >
+                                        <Trash2
+                                            class="size-4"
+                                            aria-hidden="true"
+                                        />
+                                    </button>
+                                </div>
+                            </template>
+                            <template v-if="slots.after" #after>
+                                <slot name="after" :count="count" />
+                            </template>
+                        </SortableList>
+                    </div>
+                </div>
                 <div v-if="actions.add" class="mt-4" data-item-stack-add-cell>
                     <BulkDrop
                         v-if="accept"
