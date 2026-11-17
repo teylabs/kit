@@ -20,6 +20,8 @@ const query = new URLSearchParams(window.location.search);
 // `?dark` paints the dark tokens.
 if (query.has('dark')) document.documentElement.classList.add('dark');
 // `?blur=<length>` and `&subblur=<length>` set the host's `--shell-bar-blur` and `--shell-subbar-blur` on the root before the shell mounts.
+// `?bar=<colour>` sets the host's --shell-bar (a dark bar).
+if (query.has('bar')) document.documentElement.style.setProperty('--shell-bar', query.get('bar') ?? '');
 if (query.has('blur')) document.documentElement.style.setProperty('--shell-bar-blur', query.get('blur') ?? '');
 if (query.has('subblur')) document.documentElement.style.setProperty('--shell-subbar-blur', query.get('subblur') ?? '');
 const ten = ['Overview', 'Projects', 'Schedules', 'Contacts', 'Invoices', 'Documents', 'Inventory', 'Reports', 'Automations', 'Integrations'];

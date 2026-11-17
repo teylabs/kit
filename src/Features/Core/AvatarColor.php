@@ -29,6 +29,19 @@ final class AvatarColor
         return self::PALETTE[abs($hash) % count(self::PALETTE)];
     }
 
+    /** The initials' colour on a disc of `$color` (`#rrggbb`): white, or black when that contrasts more (4.58:1 or better on any colour). Mirrors `avatarInk()`. */
+    public static function ink(string $color): string
+    {
+        $channel = function (int $offset) use ($color): float {
+            $value = hexdec(substr($color, $offset, 2)) / 255;
+
+            return $value <= 0.04045 ? $value / 12.92 : (($value + 0.055) / 1.055) ** 2.4;
+        };
+        $l = 0.2126 * $channel(1) + 0.7152 * $channel(3) + 0.0722 * $channel(5);
+
+        return 1.05 / ($l + 0.05) >= ($l + 0.05) / 0.05 ? '#ffffff' : '#000000';
+    }
+
     /** A user's colour: their `avatar_color` attribute when they store one, else derived from their key. */
     public static function of(object $user): string
     {

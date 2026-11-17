@@ -62,10 +62,10 @@ const header = computed(
             'text-card-foreground @container grid min-w-0 content-start',
             variant === 'compact' ? 'gap-1' : 'gap-3',
             density === 'flush'
-                ? 'bg-card h-full p-3'
+                ? 'bg-card h-full p-3 [--avatar-ring:var(--card)]'
                 : density === 'compact'
                   ? 'py-3 pl-3'
-                  : 'border-border bg-card rounded-lg border p-4',
+                  : 'border-border bg-card rounded-lg border p-4 [--avatar-ring:var(--card)]',
             accent && [
                 widths[accentEdge][accentWidth],
                 accentClass(accent.tone, accentEdge),

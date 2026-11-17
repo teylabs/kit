@@ -87,7 +87,7 @@ onBeforeUnmount(() => rootObserver?.disconnect());
         <div v-if="app.user || props.guestHeader" class="sticky top-0 z-(--z-header)" data-shell-top>
             <!-- Outside production (the server decides; null there): a 2px edge in the environment's colour, with its name for a screen reader. It takes no space beyond its 2px. -->
             <div v-if="page.props.environment" class="h-0.5 w-full bg-(--kit-environment)" :style="{ '--kit-environment': page.props.environment.colour }" data-environment-edge><span class="sr-only">{{ page.props.environment.label }} environment</span></div>
-            <header ref="bar" :class="['border-b border-shell-bar-border bg-shell-bar text-shell-bar-foreground', barBlur && 'backdrop-blur-(--shell-bar-blur)']" :data-shell-bar-blur="barBlur || undefined" data-shell-bar>
+            <header ref="bar" :class="['border-b border-shell-bar-border bg-shell-bar text-shell-bar-foreground [--avatar-ring:var(--shell-bar,var(--background))]', barBlur && 'backdrop-blur-(--shell-bar-blur)']" :data-shell-bar-blur="barBlur || undefined" data-shell-bar>
                 <div :class="['mx-auto flex h-16 min-w-0 items-center gap-2 px-4 sm:px-6 lg:px-8', props.widthClass]">
                     <!-- The product lockup (Partials/Wordmark, shared with the GuestShell); the mark slot replaces its symbol. -->
                     <Wordmark :product="app.product" :label="props.wordmarkLabel"><template v-if="$slots.mark" #default><slot name="mark" /></template></Wordmark>

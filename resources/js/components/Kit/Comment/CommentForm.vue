@@ -270,7 +270,7 @@ defineExpose({
                 @files="chosen"
             >
                 <div
-                    class="border-border bg-card text-card-foreground focus-within:ring-ring/50 grid min-w-0 gap-2 rounded-lg border p-3 focus-within:ring-2"
+                    class="border-border bg-card text-card-foreground focus-within:ring-ring/50 grid min-w-0 gap-2 rounded-lg border p-3 [--avatar-ring:var(--card)] focus-within:ring-2"
                     data-comment-box
                 >
                     <input

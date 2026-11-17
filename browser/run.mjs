@@ -12668,24 +12668,91 @@ test('PhotoField tile with :footer-label="false": no visible label, Change and �
     });
 });
 
-test('the shell account avatar: the person\'s colour with a white ring, on the bar and in the account menu, in light and dark', async () => {
+// ── Avatar's gap ring: the colour of the surface it sits on (docs/avatars.md), on the shell's dark bar, its account menu, a note card and a comment feed ───────────
+// The page tokens are made distinct (card, popover and page each their own colour), so a ring in the wrong surface's colour, or the old white ring, fails.
+const distinctSurfaces = ':root{--background:#ffffff;--card:#f4f4f5;--popover:#fefce8}.dark{--background:#0a0a0a;--card:#18181b;--popover:#1e293b}';
+// Each avatar's ring (the 2px spread box-shadow) and the background of the nearest ancestor that paints one.
+const gapRings = (tab, selector) => tab.evaluate((s) => [...document.querySelectorAll(s)].map((el) => {
+    const ring = getComputedStyle(el).boxShadow.match(/(rgba?\([^)]*\)) 0px 0px 0px 2px/)?.[1] ?? getComputedStyle(el).boxShadow;
+    let node = el.parentElement;
+    while (node && /^rgba\(0, 0, 0, 0\)$|^transparent$/.test(getComputedStyle(node).backgroundColor)) node = node.parentElement;
+    return { ring, surface: node ? getComputedStyle(node).backgroundColor : 'rgb(255, 255, 255)', where: node?.tagName };
+}), selector);
+const assertGap = (rings, label) => {
+    assert.ok(rings.length > 0, `${label}: an avatar`);
+    for (const r of rings) assert.equal(r.ring, r.surface, `${label}: the ring is the surface's colour (${r.where})`);
+};
+
+test('Avatar gap ring on the shell: the dark bar\'s colour on the bar, the popover\'s in the account menu, light and dark', async () => {
+    const shots = process.env.KIT_AVATAR_RING_SHOTS;
     for (const scheme of ['light', 'dark']) {
-        const context = await browser.newContext({ viewport: { width: 1280, height: 600 }, colorScheme: scheme });
+        const context = await browser.newContext({ viewport: { width: 1280, height: 600 } });
         try {
             const tab = await context.newPage();
-            await tab.goto(`${authUrl}shell.html?avatar-color=%23f59e0b`);
+            await tab.goto(`${authUrl}shell.html?avatar-color=%23f59e0b&bar=%2318181b${scheme === 'dark' ? '&dark' : ''}`);
+            await tab.addStyleTag({ content: distinctSurfaces });
             await tab.waitForSelector('[data-shell-user-menu] [data-slot="avatar"]');
-            const bar = await tab.evaluate(() => {
-                const a = getComputedStyle(document.querySelector('[data-shell-user-menu] [data-slot="avatar"]'));
-                return { bg: a.backgroundColor, ring: a.boxShadow };
-            });
-            assert.equal(bar.bg, 'rgb(245, 158, 11)', `${scheme}: the person's colour on the bar`);
-            assert.match(bar.ring, /rgb\(255, 255, 255\)/, `${scheme}: a white ring on the bar: ${bar.ring}`);
+            const bar = await gapRings(tab, '[data-shell-user-menu] [data-slot="avatar"]');
+            assertGap(bar, `${scheme} bar`);
+            assert.equal(bar[0].ring, 'rgb(24, 24, 27)', `${scheme}: the bar's own colour`);
+            const ink = await tab.evaluate(() => getComputedStyle(document.querySelector('[data-shell-user-menu] [data-slot="avatar"]')).color);
+            assert.equal(ink, 'rgb(0, 0, 0)', `${scheme}: amber takes dark initials`);
             await tab.click('[data-shell-user-menu]');
             await tab.waitForSelector('[role="menu"] [data-slot="avatar"]');
-            const menu = await tab.evaluate(() => getComputedStyle(document.querySelector('[role="menu"] [data-slot="avatar"]')).boxShadow);
-            assert.match(menu, /rgb\(255, 255, 255\)/, `${scheme}: the same ring in the menu`);
-            if (process.env.SHOT_DIR) await tab.screenshot({ path: `${process.env.SHOT_DIR}/avatar-${scheme}.png`, clip: { x: 900, y: 0, width: 380, height: 220 } });
+            const menu = await gapRings(tab, '[role="menu"] [data-slot="avatar"]');
+            assertGap(menu, `${scheme} menu`);
+            assert.equal(menu[0].ring, scheme === 'dark' ? 'rgb(30, 41, 59)' : 'rgb(254, 252, 232)', `${scheme}: the popover's colour`);
+            if (shots) {
+                await tab.screenshot({ path: `${shots}/header-menu-${scheme}.png`, clip: { x: 880, y: 0, width: 400, height: 240 } });
+                await tab.keyboard.press('Escape');
+                await tab.screenshot({ path: `${shots}/header-${scheme}.png`, clip: { x: 0, y: 0, width: 1280, height: 72 } });
+            }
+        } finally {
+            await context.close();
+        }
+    }
+});
+
+test('Avatar gap ring in comments: the card\'s colour on a note card, the comment feed and the composer, light and dark', async () => {
+    const shots = process.env.KIT_AVATAR_RING_SHOTS;
+    for (const query of ['', '?dark']) {
+        await commentsPage(query, async ({ tab }) => {
+            await tab.addStyleTag({ content: distinctSurfaces });
+            const scheme = query ? 'dark' : 'light';
+            const card = scheme === 'dark' ? 'rgb(24, 24, 27)' : 'rgb(244, 244, 245)';
+            const feed = await gapRings(tab, '[data-comment-thread] [data-note-card] [data-slot="avatar"]');
+            assertGap(feed, `${scheme} feed`);
+            for (const r of feed) assert.equal(r.ring, card, `${scheme}: a feed avatar on the card`);
+            const note = await gapRings(tab, '[data-narrow] [data-note-card] [data-slot="avatar"], [data-look="flush"] [data-slot="avatar"]');
+            assertGap(note, `${scheme} note card`);
+            for (const r of note) assert.equal(r.ring, card, `${scheme}: a note card avatar`);
+            const composer = await gapRings(tab, '[data-comment-thread] [data-comment-form] [data-slot="avatar"]');
+            assertGap(composer, `${scheme} composer`);
+            if (shots) {
+                await tab.locator('[data-narrow]').screenshot({ path: `${shots}/note-card-${scheme}.png` });
+                await tab.locator('[data-comment-thread]').first().screenshot({ path: `${shots}/comment-feed-${scheme}.png` });
+            }
+        });
+    }
+});
+
+test('Avatar: the gap ring is on by default and off with :ring="false"; every palette colour and a light stored one get initials at 4.5:1, light and dark', async () => {
+    const shots = process.env.KIT_AVATAR_RING_SHOTS;
+    for (const query of ['avatar-color', 'avatar-color=dark']) {
+        const context = await browser.newContext({ viewport: { width: 900, height: 700 } });
+        try {
+            const tab = await context.newPage();
+            await tab.goto(`${url}?${query}`);
+            await tab.addStyleTag({ content: distinctSurfaces });
+            await tab.waitForSelector('[data-palette] [data-slot="avatar"]');
+            assertGap(await gapRings(tab, '[data-palette] [data-slot="avatar"]'), query);
+            assert.equal(await tab.evaluate(() => getComputedStyle(document.querySelector('[data-person="no-ring"] [data-slot="avatar"]')).boxShadow), 'none', ':ring="false" draws none');
+            await tab.addScriptTag({ path: axeSource });
+            const result = await tab.evaluate(() => window.axe.run('[data-palette]', { runOnly: ['color-contrast'] }));
+            assert.deepEqual(result.violations.map((v) => v.nodes.map((n) => n.html)), [], 'initials pass contrast');
+            const ink = await tab.evaluate(() => getComputedStyle(document.querySelector('[data-swatch="#f59e0b"] [data-slot="avatar"]')).color);
+            assert.equal(ink, 'rgb(0, 0, 0)', 'amber takes dark initials');
+            if (shots) await tab.locator('[data-palette]').screenshot({ path: `${shots}/palette-${query.includes('dark') ? 'dark' : 'light'}.png` });
         } finally {
             await context.close();
         }
