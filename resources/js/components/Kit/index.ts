@@ -110,6 +110,12 @@ export { default as InputCheckbox } from './Form/InputCheckbox.vue';
 export { default as Checkbox } from './Form/InputCheckbox.vue';
 export { default as InputSwitch } from './Form/InputSwitch.vue';
 export { default as DataTable } from './Table/DataTable.vue';
+// A frozen document's table (an invoice's lines, a statement): caption, typed columns, totals in a <tfoot>; no sorting or selection.
+export {
+    default as LineItems,
+    type LineItemsColumn,
+    type LineItemsTotal,
+} from './Table/LineItems.vue';
 export { rowName, type RowLabel } from './Table/rowLabel';
 export { default as Dialog } from './Overlay/Dialog.vue';
 export { confirmationData, typedMatches } from './Overlay/confirmText';

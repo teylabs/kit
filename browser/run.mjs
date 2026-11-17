@@ -27,6 +27,8 @@
 // A ScriptForm (?script-form) must submit by Enter and its button without a browser post, keep required checks, and ignore a submit while busy.
 // An InputSwitch (?switch, light and dark) must toggle by click, label and Space with aria-checked, submit like a checkbox only when named, ignore input while
 // disabled with its text at full contrast, link its description and a Field's error, and pass axe with contrast.
+// LineItems (?line-items) must pass axe, carry a caption and col/row header scopes, end-align money in tabular figures, put totals under the amount
+// column, render its cell slot, and scroll inside its own box at 390px with the first column in view and no page overflow.
 // Money and percent inputs and amounts (?money) must pass axe, name their unit in the label, keep the symbol out of the accessible text, submit percentage
 // points as typed, and read accounting negatives as "negative".
 // An AddressFieldset (?address) must pass axe, be a group named by its title, carry autocomplete tokens, relabel region and postal code with the country, and
@@ -850,6 +852,80 @@ test('a percentage submits percentage points as typed, and an accounting negativ
         assert.equal(await total.evaluate(el => [...el.childNodes].map(n => (n.nodeType === 1 && n.classList.contains('sr-only') ? '' : n.textContent)).join('')), '($1,234.56)', 'shown as accounting parentheses');
         assert.equal(await total.evaluate(el => [...el.childNodes].map(n => (n.nodeType === 1 && n.getAttribute('aria-hidden') === 'true' ? '' : n.textContent)).join('')), 'negative $1,234.56');
         assert.match(await tab.locator('[data-test-tax]').innerText(), /^13,00\s%$/u);
+    } finally {
+        await tab.close();
+    }
+});
+
+// ── LineItems: table semantics, money end-aligned and tabular, totals under the amount column, the cell slot, no page overflow at 390px ───────────────────
+test('LineItems has a caption, column and row headers, a filled cell slot, and no axe violations', async () => {
+    const tab = await browser.newPage();
+    try {
+        await tab.goto(`${url}?line-items`);
+        await tab.addScriptTag({ path: axeSource });
+        const violations = await tab.evaluate(async () => (await window.axe.run(document)).violations.map(v => ({ id: v.id, targets: v.nodes.map(n => n.target.join(' ')) })));
+        assert.deepEqual(violations, []);
+        const invoice = tab.locator('[data-test-invoice] table');
+        assert.equal(await invoice.locator('caption').innerText(), 'Invoice 1042 lines');
+        assert.equal(await tab.getByRole('region', { name: 'Invoice 1042 lines' }).count(), 1, 'the scroll box is a region named by the caption');
+        assert.deepEqual(await invoice.locator('thead th').evaluateAll(els => els.map(el => el.getAttribute('scope'))), ['col', 'col', 'col', 'col', 'col']);
+        assert.equal(await invoice.locator('tbody tr').count(), 3);
+        assert.equal(await invoice.locator('tbody [data-test-computed]').count(), 3, '#cell-amount renders in every line');
+        assert.equal(await invoice.locator('tfoot').getByText('Due on receipt.').count(), 1, '#footer renders in the tfoot');
+        const statement = tab.locator('[data-test-statement] table');
+        assert.equal(await statement.locator('caption').evaluate(el => el.classList.contains('sr-only')), true, 'captionHidden keeps the caption for assistive technology');
+        assert.deepEqual(await statement.locator('tbody th').evaluateAll(els => els.map(el => [el.getAttribute('scope'), el.dataset.column])), Array(4).fill(['row', 'date']));
+        assert.equal(await statement.locator('tbody td').count(), 16);
+        assert.equal(await tab.locator('[data-test-empty] [data-line-items-empty]').innerText(), 'No entries this period.');
+    } finally {
+        await tab.close();
+    }
+});
+
+test('LineItems end-aligns money in tabular figures, and puts each total under the amount column', async () => {
+    const tab = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+    try {
+        await tab.goto(`${url}?line-items`);
+        const invoice = tab.locator('[data-test-invoice] table');
+        for (const key of ['quantity', 'price', 'amount']) {
+            const styles = await invoice.locator(`[data-column="${key}"]`).evaluateAll(els => els.map(el => [getComputedStyle(el).textAlign, getComputedStyle(el).fontVariantNumeric]));
+            assert.deepEqual(styles, Array(4).fill(['end', 'tabular-nums']), `${key} is end-aligned and tabular`);
+        }
+        assert.equal(await invoice.locator('[data-column="item"]').first().evaluate(el => getComputedStyle(el).textAlign), 'start');
+        const amountRight = await invoice.locator('thead [data-column="amount"]').evaluate(el => Math.round(el.getBoundingClientRect().right));
+        const amountLeft = await invoice.locator('thead [data-column="amount"]').evaluate(el => Math.round(el.getBoundingClientRect().left));
+        const totals = await invoice.locator('[data-total-value]').evaluateAll(els => els.map(el => { const r = el.getBoundingClientRect(); return [Math.round(r.left), Math.round(r.right), el.textContent.trim()]; }));
+        assert.deepEqual(totals, [[amountLeft, amountRight, '$400.00'], [amountLeft, amountRight, '$52.00'], [amountLeft, amountRight, '$452.00']], 'each total sits in the amount column');
+        assert.deepEqual(await invoice.locator('tfoot th').evaluateAll(els => els.map(el => [el.getAttribute('scope'), el.textContent.trim()])), [['row', 'Subtotal'], ['row', 'Tax (13%)'], ['row', 'Total']]);
+        const statementRight = await tab.locator('[data-test-statement] thead [data-column="balance"]').evaluate(el => Math.round(el.getBoundingClientRect().right));
+        assert.equal(await tab.locator('[data-test-statement] [data-total-value]').evaluate(el => Math.round(el.getBoundingClientRect().right)), statementRight, 'the balance owing sits under the balance');
+    } finally {
+        await tab.close();
+    }
+});
+
+test('LineItems at 390px scrolls inside its own box, keeps the first column in view, and the page does not scroll sideways', async () => {
+    const tab = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    try {
+        await tab.goto(`${url}?line-items`);
+        assert.equal(await tab.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, 'no page overflow at 390px');
+        const box = tab.locator('[data-test-invoice]');
+        assert.equal(await box.evaluate(el => el.scrollWidth > el.clientWidth), true, 'the invoice is wider than the phone, so its box scrolls');
+        await box.evaluate(el => { el.scrollLeft = el.scrollWidth; });
+        const [boxLeft, firstLeft] = await box.evaluate(el => [el.getBoundingClientRect().left, el.querySelector('tbody [data-column="item"]').getBoundingClientRect().left].map(Math.round));
+        assert.equal(firstLeft, boxLeft, 'the first column stays at the box edge when scrolled to the end');
+        assert.equal(await tab.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, 'still no page overflow after scrolling the box');
+        const shots = process.env.KIT_LINE_ITEMS_SCREENSHOT;
+        if (shots) {
+            for (const scheme of ['light', 'dark']) {
+                for (const [width, name] of [[1280, 'desktop'], [390, 'phone']]) {
+                    await tab.setViewportSize({ width, height: 844 });
+                    await tab.goto(`${url}?line-items${scheme === 'dark' ? '=dark' : ''}`);
+                    await tab.locator('[data-test-invoice]').screenshot({ path: `${shots}invoice-${scheme}-${name}.png` });
+                    await tab.locator('[data-test-statement]').screenshot({ path: `${shots}statement-${scheme}-${name}.png` });
+                }
+            }
+        }
     } finally {
         await tab.close();
     }
