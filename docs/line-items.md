@@ -38,7 +38,7 @@ Slots: `#cell-<key>="{ row, value }"` for any column, and `#footer`, a full-widt
 
 ## Semantics and the phone
 
-It is a real `<table>`: `<caption>`, `<th scope="col">` headers, row headers with `rowHeader`, totals in `<tfoot>`. On a page narrower than the table it scrolls sideways inside its own box, a focusable region named by the caption so a keyboard can scroll it, and the page itself never scrolls sideways. The first column is sticky, so a line stays identifiable while the amounts scroll into view; its cells paint `bg-background`, so on a card or another ground set that ground with a wrapper class (`[&_td:first-child]:bg-card`). Text columns keep a minimum width rather than wrapping a word per line. Colours are the theme's tokens, so light and dark follow the app.
+It is a real `<table>`: `<caption>`, `<th scope="col">` headers, row headers with `rowHeader`, totals in `<tfoot>`. On a page narrower than the table it scrolls sideways inside its own box, a focusable region named by the caption so a keyboard can scroll it, and the page itself never scrolls sideways. The first column is sticky, so a line stays identifiable while the amounts scroll into view; its cells paint their surface's colour (the `--avatar-ring` each kit surface sets: a card, a popover, a dialog; the page background elsewhere), so no wrapper class is needed. Only that first text column keeps a minimum width (rather than wrapping a word per line); other text columns, such as a short tax label, shrink to their content. Colours are the theme's tokens, so light and dark follow the app.
 
 Browser checks: `browser/run.mjs` (`?line-items`).
 
