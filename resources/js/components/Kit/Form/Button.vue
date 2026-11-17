@@ -2,6 +2,7 @@
 import { Link } from '@inertiajs/vue3';
 import { useOptionalFormContext } from '@/components/Kit/Form/formContext';
 import { computed } from 'vue';
+import { ChevronDown } from '@lucide/vue';
 import { Button as BaseButton } from '@/components/ui/button';
 import {
     inverseControl,
@@ -38,6 +39,7 @@ export type VisitData = Record<string, VisitValue>;
 // With `href` it is a link styled as this button (the host button's as-child, so the classes land on the link and a <button> is never inside an <a>): an Inertia
 // <Link> (`method`, `data`, `preserveScroll`; a method other than get renders it as a <button>, as Inertia requires for a non-GET visit), or a plain <a> when
 // `external`, with `rel="noopener noreferrer"` when `target` is `_blank`. A `mailto:`, `tel:` or `sms:` href is always a plain <a>: an Inertia visit would mangle it.
+// `chevron` adds a trailing down chevron: the button opens a menu or a popover (a DropdownMenuTrigger's or PopoverTrigger's as-child), not an action. A link never has one.
 const props = withDefaults(
     defineProps<{
         variant?:
@@ -56,6 +58,7 @@ const props = withDefaults(
         preserveScroll?: boolean;
         external?: boolean;
         target?: string;
+        chevron?: boolean;
     }>(),
     {
         variant: 'primary',
@@ -67,6 +70,7 @@ const props = withDefaults(
         preserveScroll: false,
         external: false,
         target: undefined,
+        chevron: false,
     },
 );
 const surface = useSurface();
@@ -132,7 +136,11 @@ const blend = computed(() =>
         :size="hostSize"
         :type="kind"
         :class="blend"
-        ><slot
+        ><slot /><ChevronDown
+            v-if="chevron"
+            class="-mr-1 opacity-70"
+            aria-hidden="true"
+            data-button-chevron
     /></BaseButton>
     <BaseButton v-else as-child :variant="base" :size="hostSize" :class="blend">
         <a

@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.33.2
+
+Features affected: none (kit components only).
+
+### Added
+
+- **Button `chevron`**: a trailing, decorative down chevron for a button that opens a menu or a popover (a DropdownMenuTrigger's or PopoverTrigger's as-child), so it reads as "opens something" rather than an action. A link never draws one.
+
 ## v0.33.1
 
 Features affected: none (kit components only).
