@@ -12,6 +12,7 @@ use Tey\Kit\Features\Core\Clock;
 use Tey\Kit\Features\Core\Kit;
 use Tey\Kit\Features\Core\KitShares;
 use Tey\Kit\Features\Core\Toast;
+use Tey\Kit\Support\MiddleTruncate;
 
 final class KitServiceProvider extends ServiceProvider
 {
@@ -27,6 +28,8 @@ final class KitServiceProvider extends ServiceProvider
         // The kit's UI copy (lang/en/ui.php) as `kit::ui`, shared with every page as `kitUi` for the Vue side; lazy, so only a rendered page reads it.
         // Lazy closures through KitShares: shared now and put back on every web request after a flush, never over a key the host shares.
         $this->loadTranslationsFrom(dirname(__DIR__).'/lang', 'kit');
+        // A label cut in the middle to a character count, for a model's own label (MiddleTruncate::cut); a host's own macro of the name wins.
+        MiddleTruncate::macro();
         if (class_exists(Inertia::class)) {
             KitShares::provide([
                 'kitUi' => fn (): array => (array) trans('kit::ui'),

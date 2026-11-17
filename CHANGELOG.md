@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+Features affected: none (kit PHP support).
+
+### Added
+
+- **`MiddleTruncate::cut()` and `Str::middleTruncate()`**: the server's twin of MiddleTruncate, cutting a label to a character count in the middle so its start and end stay, for a model's own label (`Str::middleTruncate("{$code} · {$title}", 40)`). `MiddleTruncate::parts()` returns the same parts as `middleTruncate()`, and a parity check holds the two to each other.
+
 ## v0.35.1
 
 Features affected: none (kit components only).

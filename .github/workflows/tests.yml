@@ -561,6 +561,9 @@ jobs:
       - name: Report tables
         timeout-minutes: 4
         run: composer test:report-table
+      - name: Middle truncate
+        timeout-minutes: 4
+        run: composer test:middle-truncate
       - name: Scroll lists
         timeout-minutes: 4
         run: composer test:lists
