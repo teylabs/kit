@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.31.7
+
+Features affected: none (kit components only).
+
+### Added
+
+- **PhotoField tile `:footer-label="false"`**: hides the footer's visible label when a badge already names the photo; Change and ⋯ stay right-aligned, and `label` still names the controls.
+
 ## v0.31.6
 
 Features affected: none (kit components only).

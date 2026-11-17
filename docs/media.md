@@ -350,7 +350,7 @@ Beyond a record's collection, the kit ships the pieces an adopting app needs to 
   - Tile actions take `icon` (an actionIcons name or a component) and `attrs`.
   - Tiles take `busy`, `maxFiles` and `indexOffset`. With `sortable` and no `reorder`, they emit `reordered(from, to)` for the host to save.
   - ItemStack's `persist(order, version)` replaces the built-in reorder request and resolves `{ ok, conflict?, version? }`.
-- **`directUpload(file, { ticket, register, maxBytes })`** is the same upload as `{ request, confirm }`. With `maxBytes`, a larger file is refused before any request with an `UploadTooLargeError` ("front.jpg is larger than 10 MB"), and `tooLarge(file, maxBytes)` gives that message without uploading.
+- **`directUpload(file, { ticket, register, maxBytes })`** is the same upload as `{ request, confirm }`. With `maxBytes`, a larger file is refused before any request with an `UploadTooLargeError` ("front.jpg is larger than 10 MB"), and `tooLarge(file, maxBytes)` gives that message without uploading. `:footer-label="false"` hides the footer's visible label (when the badge already names the photo); `label` still names Change and the menu.
 
 ## Where failed jobs live
 

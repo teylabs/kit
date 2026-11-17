@@ -215,6 +215,9 @@ async function persist(order: string[], version: string | number | null) {
             />
             <div data-tall style="height: 480px">Tall sibling</div>
         </div>
+        <div data-fixture="tile-no-label" style="width: 240px">
+            <PhotoField variant="tile" badge="Main photo" :footer-label="false" :photo="{ thumb: pixel, card: pixel }" label="Main photo" :accept="['image/jpeg']" :max-bytes="10485760" :actions="{ replace: true, remove: { url: '/main', method: 'delete' } }" />
+        </div>
         <div data-fixture="tile-empty" style="width: 240px">
             <PhotoField variant="tile" badge="Main photo" :photo="null" label="Front" :accept="['image/jpeg']" :max-bytes="10485760" :actions="{ replace: true }" />
         </div>

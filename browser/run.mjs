@@ -12650,3 +12650,20 @@ test('NoteCard on a narrow card: the author and date wrap onto further lines (ne
         assert.ok(shape.wideLabelW > 20, `the label shows on a wide card: ${JSON.stringify(shape)}`);
         if (process.env.SHOT_DIR) await tab.locator('[data-narrow]').screenshot({ path: `${process.env.SHOT_DIR}/notecard-wrap.png` });
     }));
+
+test('PhotoField tile with :footer-label="false": no visible label, Change and ⋯ stay right-aligned, and the controls are still named by `label`', async () => {
+    await mediaTab(async (tab) => {
+        const field = tab.locator('[data-fixture="tile-no-label"] [data-photo-field]');
+        await field.locator('[data-photo-field-footer]').waitFor();
+        assert.equal(await field.locator('[data-photo-field-label]').count(), 0, 'no visible label');
+        const shape = await field.evaluate((root) => {
+            const footer = root.querySelector('[data-photo-field-footer]').getBoundingClientRect();
+            const buttons = [...root.querySelectorAll('[data-photo-field-footer] button')];
+            const last = buttons.at(-1).getBoundingClientRect();
+            const first = buttons[0].getBoundingClientRect();
+            return { right: Math.round(footer.right - last.right), firstLeft: Math.round(first.left - footer.left), names: buttons.map((b) => b.getAttribute('aria-label') ?? b.textContent.trim()) };
+        });
+        assert.ok(shape.right <= 8 && shape.firstLeft > 60, `actions right-aligned: ${JSON.stringify(shape)}`);
+        assert.ok(shape.names.some((n) => /Main photo/.test(n)), `controls still named by the label: ${JSON.stringify(shape)}`);
+    });
+});
