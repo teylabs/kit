@@ -13484,3 +13484,115 @@ test('ItemStack drop hands files off: two files at once, then another drop and a
         await tab.waitForFunction(() => window.kitEvents.includes('headed-files yard.jpg'));
         assert.equal(await drop.locator('[role="alert"], [data-dropzone-error]').count(), 0, 'no "only 1 file" error');
     }));
+
+// ── InputCalendarDate's inline Clear and even literal gaps (?date-clear, &dark, &lang=) ─────────────────────────────────────────────────────────────────
+// The Clear is a 24px × button inside the field box, on the segments' row, before the calendar trigger, only while there is a value; it empties the value
+// and the hidden input and puts focus back on the first segment. Every literal ("/", "-", ":", "–") has the same gap to the glyphs either side of it.
+async function onDateClear(query, run, width = 1280) {
+    const context = await browser.newContext({ viewport: { width, height: 1100 } });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        await tab.goto(`${url}?date-clear${query}`);
+        await tab.waitForSelector('[data-slot="input-time-range"]');
+        await run(tab);
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+}
+const clearBox = (tab, hook) => tab.$eval(`[data-calendar-date]:has([data-date="${hook}"])`, (root) => {
+    const rect = (el) => { if (!el) return null; const r = el.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, w: r.width, h: r.height }; };
+    const clear = root.querySelector('[data-date-clear]');
+    const field = root.querySelector('[data-date]');
+    const segments = [...field.querySelectorAll('[role="spinbutton"]')];
+    const trigger = root.querySelector('[aria-label^="Choose"]');
+    return {
+        clear: rect(clear), field: rect(field), first: rect(segments[0]), last: rect(segments.at(-1)), trigger: rect(trigger),
+        name: clear?.getAttribute('aria-label') ?? null, title: clear?.getAttribute('title') ?? null, text: clear?.textContent.trim() ?? null,
+        inField: Boolean(clear && field.contains(clear)), rows: root.querySelectorAll(':scope > *').length,
+        value: root.querySelector('input[type="hidden"]').value,
+    };
+});
+// The gap from each literal's glyphs to the glyphs of the segment either side, measured on the text itself (Range boxes), not the segment boxes.
+const literalGaps = (tab, selector) => tab.$eval(selector, (root) => {
+    const ink = (el) => {
+        const node = [...el.childNodes].find(n => n.nodeType === 3 && n.textContent.trim());
+        if (!node) return null;
+        const text = node.textContent;
+        const start = text.length - text.trimStart().length, end = text.trimEnd().length;
+        const range = document.createRange();
+        range.setStart(node, start);
+        range.setEnd(node, end);
+        const r = range.getBoundingClientRect();
+        return { left: r.left, right: r.right, text: text.trim() };
+    };
+    const parts = [...root.querySelectorAll('[data-reka-date-field-segment], [data-reka-time-field-segment]')].map(el => ({ literal: (el.dataset.rekaDateFieldSegment ?? el.dataset.rekaTimeFieldSegment) === 'literal', ink: ink(el) })).filter(p => p.ink);
+    const gaps = [];
+    parts.forEach((part, i) => {
+        if (!part.literal || i === 0 || i === parts.length - 1 || parts[i - 1].literal || parts[i + 1].literal) return;
+        gaps.push({ literal: part.ink.text, before: +(part.ink.left - parts[i - 1].ink.right).toFixed(2), after: +(parts[i + 1].ink.left - part.ink.right).toFixed(2) });
+    });
+    return gaps;
+});
+
+for (const scheme of ['light', 'dark']) {
+    test(`InputCalendarDate (${scheme}): Clear is a 24px × inside the field, on the segments' row before the calendar trigger, only with a value; no row under the field; axe with contrast; fits 390px`, async () => {
+        for (const width of [1280, 390]) {
+            await onDateClear(scheme === 'dark' ? '&dark' : '', async (tab) => {
+                const shots = process.env.KIT_DATE_CLEAR_SCREENSHOT;
+                if (shots) await tab.screenshot({ path: `${shots}-${scheme}-${width}.png`, fullPage: true });
+                const box = await clearBox(tab, 'loss');
+                assert.equal(box.inField, true, 'the Clear is inside the field box');
+                assert.deepEqual([box.name, box.title, box.text], ['Clear Loss date', 'Clear Loss date', ''], 'named "Clear <label>", with a title tooltip and no visible text');
+                assert.ok(box.clear.w >= 24 && box.clear.h >= 24, `a 24px target (${box.clear.w}×${box.clear.h})`);
+                assert.ok(box.clear.left >= box.field.left && box.clear.right <= box.field.right && box.clear.top >= box.field.top && box.clear.bottom <= box.field.bottom, 'within the field\'s rect');
+                assert.ok(Math.abs((box.clear.top + box.clear.bottom) / 2 - (box.first.top + box.first.bottom) / 2) <= 1, 'on the segments\' row');
+                assert.ok(box.clear.left >= box.last.right, 'the segments never run under it');
+                assert.ok(box.clear.right <= box.trigger.left, 'before the calendar trigger');
+                assert.equal(box.rows, 1, 'no row under the field');
+                assert.equal(box.field.h, 36, 'the field keeps h-9');
+                const empty = await clearBox(tab, 'empty');
+                assert.equal(empty.clear, null, 'no Clear without a value');
+                assert.ok(await tab.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), `no sideways scroll at ${width}px`);
+                assert.deepEqual(await axeWithContrast(tab), [], `axe at ${width}px`);
+            }, width);
+        }
+    });
+}
+
+test('InputCalendarDate: the inline Clear empties the value and the hidden input and refocuses the first segment, by click and by Tab then Enter or Space', async () => {
+    for (const how of ['click', 'Enter', 'Space']) {
+        await onDateClear('', async (tab) => {
+            const hidden = () => tab.$eval('form#date-clear input[type="hidden"][name="loss_date"]', el => el.value);
+            assert.equal(await hidden(), '2026-09-05');
+            if (how === 'click') await tab.getByRole('button', { name: 'Clear Loss date' }).click();
+            else {
+                await tab.focus('[data-date="loss"] [role="spinbutton"]:last-of-type');
+                let guard = 0;
+                while (await tab.evaluate(() => document.activeElement?.getAttribute('aria-label')) !== 'Clear Loss date' && guard++ < 6) await tab.keyboard.press('Tab');
+                assert.equal(await tab.evaluate(() => document.activeElement?.getAttribute('aria-label')), 'Clear Loss date', 'Tab reaches the Clear');
+                await tab.keyboard.press(how);
+            }
+            await tab.waitForFunction(() => document.querySelector('form#date-clear input[name="loss_date"]').value === '');
+            assert.equal((await clearBox(tab, 'loss')).clear, null, 'the Clear goes with the value');
+            assert.equal(await tab.$eval('[data-calendar-date]:has([data-date="loss"]) [data-date-not-set]', el => el.textContent.trim()), 'Not set');
+            assert.deepEqual(await tab.evaluate(() => [Boolean(document.activeElement?.closest('[data-date="loss"]')), document.activeElement?.getAttribute('role'), document.activeElement === document.querySelector('[data-date="loss"] [role="spinbutton"]')]), [true, 'spinbutton', true], `${how}: focus is on the field's first segment`);
+        });
+    }
+});
+
+test('date and time inputs: each literal has the same gap to the glyphs either side (within 1px), en-US, fr-CA and en-GB, date, range and time', async () => {
+    for (const lang of ['en-US', 'fr-CA', 'en-GB']) {
+        await onDateClear(`&lang=${lang}`, async (tab) => {
+            for (const selector of ['[data-date="loss"]', '[data-gaps="date"]', '[data-gaps="range"]', '[data-gaps="month"]', '[data-gaps="time"]', '[data-gaps="time-range"]']) {
+                const found = await tab.$(selector);
+                if (!found) continue;
+                const gaps = await literalGaps(tab, selector);
+                if (selector !== '[data-gaps="month"]') assert.ok(gaps.length >= 1, `${lang} ${selector} has literals`);
+                for (const gap of gaps) assert.ok(Math.abs(gap.before - gap.after) <= 1 && gap.before >= 1, `${lang} ${selector} "${gap.literal}": ${gap.before}px before, ${gap.after}px after`);
+            }
+        });
+    }
+});

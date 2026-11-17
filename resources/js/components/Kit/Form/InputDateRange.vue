@@ -128,7 +128,7 @@ watchEffect(() => hidden.value?.setCustomValidity(hint.value), {
     flush: 'post',
 });
 const segment =
-    'inline-flex min-h-6 min-w-6 items-center justify-center rounded-sm px-0.5 tabular-nums outline-none focus:bg-accent focus:text-accent-foreground data-placeholder:text-muted-foreground';
+    'inline-flex min-h-6 min-w-6 items-center justify-center rounded-sm px-2 tabular-nums outline-none focus:bg-accent focus:text-accent-foreground data-placeholder:text-muted-foreground';
 </script>
 <template>
     <Field
@@ -178,7 +178,7 @@ const segment =
                             : 'border-input dark:bg-input/30 bg-transparent shadow-xs',
                     ]"
                 >
-                    <div class="flex min-w-0 flex-1 items-center">
+                    <div class="-ml-1.5 flex min-w-0 flex-1 items-center">
                         <template
                             v-for="item in segments.start"
                             :key="`start-${item.part}`"
@@ -200,7 +200,7 @@ const segment =
                         </template>
                         <span
                             aria-hidden="true"
-                            class="text-muted-foreground px-1.5"
+                            class="text-muted-foreground px-0.5"
                             >–</span
                         >
                         <template
