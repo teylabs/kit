@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.33.7
 
 Features affected: core (re-pinned `sha256:1f8dee2d…c37d` → `sha256:bdc1717e…f276`: new npm requirements).
 
