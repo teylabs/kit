@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **ItemStack `fanout="preview"`** (opt-in; the default fanout is unchanged): a click on the stack opens the fanout on that item, shown large beside the list (under it on a phone), in the xl dialog. A row's click or ↑/↓ selects; `v-model:selected` and the exposed `open(id)` open it on a host's own click. One item shows no list.
+
 ## v0.35.1
 
 Features affected: none (kit components only).

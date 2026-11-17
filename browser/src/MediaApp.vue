@@ -74,6 +74,21 @@ function reordered(from: number, to: number) {
 const persisted = ref(['Red', 'Green', 'Blue'].map((label, index) => ({ id: `c${index + 1}`, label, thumb: pixel })));
 const persistOpen = ref(false);
 const kitPersist = ((window as unknown as { kitPersist: { conflict: boolean; calls: { order: string[]; version: string | number | null }[] } }).kitPersist = { conflict: false, calls: [] });
+// The preview fanout (fanout="preview"): stand-in pictures of different shapes, a wide yard photo, a tall phone screenshot and a square detail.
+const svg = (w: number, h: number, body: string) => `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${body}</svg>`)}`;
+const yard = svg(1600, 1000, '<defs><linearGradient id="s" x2="0" y2="1"><stop offset="0" stop-color="#8ec5ec"/><stop offset="1" stop-color="#dbeefa"/></linearGradient></defs><rect width="1600" height="1000" fill="url(#s)"/><rect y="640" width="1600" height="360" fill="#6b7a5a"/><rect x="380" y="420" width="760" height="260" rx="18" fill="#b8352b"/><rect x="1140" y="470" width="200" height="210" rx="14" fill="#9f2e25"/><rect x="1180" y="500" width="120" height="70" fill="#cfe4f2"/><circle cx="520" cy="690" r="70" fill="#222"/><circle cx="1000" cy="690" r="70" fill="#222"/><circle cx="1260" cy="690" r="60" fill="#222"/>');
+const phone = svg(390, 844, '<rect width="390" height="844" fill="#f4f5f7"/><rect width="390" height="96" fill="#1f2937"/><rect x="20" y="52" width="180" height="20" rx="4" fill="#fff"/><rect x="20" y="120" width="350" height="200" rx="12" fill="#c7d2fe"/>' + [0, 1, 2, 3, 4, 5].map((n) => `<rect x="20" y="${344 + n * 76}" width="350" height="60" rx="10" fill="#fff"/><rect x="36" y="${358 + n * 76}" width="${120 + n * 25}" height="12" rx="3" fill="#9ca3af"/><rect x="36" y="${378 + n * 76}" width="90" height="10" rx="3" fill="#d1d5db"/>`).join('') + '<rect x="20" y="800" width="350" height="28" rx="14" fill="#4f46e5"/>');
+const detail = svg(900, 900, '<rect width="900" height="900" fill="#3b3f46"/><circle cx="450" cy="450" r="300" fill="#575d66"/><circle cx="450" cy="450" r="190" fill="#2a2d32"/><circle cx="450" cy="450" r="60" fill="#8b929c"/>' + [0, 1, 2, 3, 4].map((n) => `<circle cx="${450 + 120 * Math.cos((n * 2 * Math.PI) / 5)}" cy="${450 + 120 * Math.sin((n * 2 * Math.PI) / 5)}" r="18" fill="#c0c5cc"/>`).join(''));
+const previewShots = ref([
+    { id: 'v1', label: 'Front three-quarter', meta: '1600×1000', thumb: yard, preview: yard },
+    { id: 'v2', label: 'Listing-screenshot-2026-11-16.png', meta: '390×844', thumb: phone, preview: phone },
+    { id: 'v3', label: 'Wheel detail', meta: '900×900', thumb: detail, preview: detail },
+]);
+const previewOne = ref([{ id: 'w1', label: 'Listing-screenshot-2026-11-16.png', meta: '390×844', thumb: phone, preview: phone }]);
+const previewOpen = ref(false);
+const previewSelected = ref<string | null>(null);
+const previewOneOpen = ref(false);
+const previewStack = ref<InstanceType<typeof ItemStack>>();
 async function persist(order: string[], version: string | number | null) {
     kitPersist.calls.push({ order, version });
     return kitPersist.conflict ? { ok: false, conflict: true } : { ok: true, version: Number(version) + 1 };
@@ -274,6 +289,39 @@ async function persist(order: string[], version: string | number | null) {
             <ItemStack :items="shots" label="Slotted" :noun="['shot', 'shots']" :actions="{ add: true }" @add="events.push('slotted-add')">
                 <template #fanout-header="{ count }"><span data-fixture-header>Listing shots · {{ count }} on file</span></template>
             </ItemStack>
+        </div>
+        <div data-fixture="preview-stack" class="max-w-xs">
+            <ItemStack
+                ref="previewStack"
+                v-model:fanout-open="previewOpen"
+                v-model:selected="previewSelected"
+                fanout="preview"
+                :items="previewShots"
+                label="Listing"
+                :noun="['shot', 'shots']"
+                title="Listing shots"
+                description="Comparable 2 · 1996 Sample Tractor"
+                :accept="['image/jpeg', 'image/png']"
+                :actions="{ add: true, remove: true }"
+                :persist="async () => ({ ok: true, version: 1 })"
+                :version="1"
+                @open="(id) => events.push(`preview-open ${id}`)"
+                @remove="(id) => { events.push(`preview-remove ${id}`); previewShots = previewShots.filter((item) => item.id !== id); }"
+            />
+            <button type="button" data-open-preview-v3 @click="previewStack?.open('v3')">Open the wheel</button>
+        </div>
+        <div data-fixture="preview-one" class="max-w-xs">
+            <ItemStack
+                v-model:fanout-open="previewOneOpen"
+                fanout="preview"
+                :items="previewOne"
+                label="Listing"
+                :noun="['shot', 'shots']"
+                title="Listing shot"
+                :accept="['image/jpeg', 'image/png']"
+                :actions="{ add: true, remove: true }"
+                @remove="(id) => events.push(`preview-one-remove ${id}`)"
+            />
         </div>
     </main>
 </template>
