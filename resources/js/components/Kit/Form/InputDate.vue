@@ -106,7 +106,7 @@ watch(
     },
 );
 const segment =
-    'inline-flex min-h-6 min-w-6 items-center justify-center rounded-sm px-0.5 tabular-nums outline-none focus:bg-accent focus:text-accent-foreground data-placeholder:text-muted-foreground';
+    'inline-flex min-h-6 min-w-6 items-center justify-center rounded-sm px-2 tabular-nums outline-none focus:bg-accent focus:text-accent-foreground data-placeholder:text-muted-foreground';
 </script>
 <template>
     <Field
@@ -156,12 +156,12 @@ const segment =
                             : 'border-input dark:bg-input/30 bg-transparent shadow-xs',
                     ]"
                 >
-                    <div class="flex min-w-0 flex-1 items-center">
+                    <div class="-ml-1.5 flex min-w-0 flex-1 items-center">
                         <template v-for="item in segments" :key="item.part">
                             <DatePickerInput
                                 v-if="item.part === 'literal'"
                                 :part="item.part"
-                                class="text-muted-foreground"
+                                class="text-muted-foreground -mx-0.5"
                                 >{{ item.value }}</DatePickerInput
                             >
                             <DatePickerInput
@@ -172,6 +172,8 @@ const segment =
                             >
                         </template>
                     </div>
+                    <!-- A control that belongs in the field box, after the segments and before the calendar trigger (InputCalendarDate's Clear). -->
+                    <slot name="end" />
                     <DatePickerTrigger
                         v-if="!locked"
                         :aria-label="`Choose ${label}`"

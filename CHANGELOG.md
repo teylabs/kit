@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+Features affected: none (kit components only; no stub or pin changes).
+
+### Changed
+
+- **InputCalendarDate's Clear is a × inside the field.** The Clear text button used to sit on its own row under the field. It is now a small icon-only × (a 24px target) inside the field, after the segments and before the calendar trigger, shown only while the field has a value and may be emptied (not `required`, `disabled` or locked). Its name and tooltip are still "Clear <label>" (`clearLabel`), and clearing submits the same empty value, emits the same `''`, dirties the form and focuses the first segment as before. "Not set" still shows under an empty field.
+- **Date and time literals are evenly spaced.** InputDate, InputCalendarDate, InputDateRange, InputTime and InputTimeRange used to centre each segment in its 24px box, so a one-digit month sat further from its "/" than a four-digit year ("9 / 5 /2026"). Segments now pad their text evenly and each literal ("/", "-", ":") sits the same distance from the glyphs either side, in every locale. The segments keep their 24×24 targets, keys and values; the fields keep their height and their text inset.
+- InputDate takes an `#end` slot: a control inside the field box, after the segments and before the calendar trigger.
+
+### Upgrading
+
+- Nothing to do for most apps. `[data-date-clear]` is now the × button inside the field (it was a ghost Button on a row under it); a test or style that looked for the Clear by its visible "Clear" text should use its name, "Clear <label>". The row wrapper under a filled field is gone; `[data-date-not-set]` still marks "Not set" under an empty one.
+
 ## v0.36.0
 
 Features affected: workspace-ui (code only; no stub or pin changes).
