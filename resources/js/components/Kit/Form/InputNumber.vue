@@ -28,6 +28,7 @@ const props = withDefaults(
             suffix?: string;
             placeholder?: string;
             error?: string;
+            span?: 1 | 2 | 3 | 4 | 5 | 6;
             disabled?: boolean;
             required?: boolean;
         }
@@ -148,6 +149,7 @@ watch(
         :name="name"
         :label="spoken ? `${label}, ${spoken}` : label"
         :error="error || undefined"
+        :span="span"
         class="min-w-0"
     >
         <div

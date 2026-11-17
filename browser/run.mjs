@@ -13351,3 +13351,16 @@ test('LineItems in a 24rem card: a short text column shrinks to its content so e
         await context.close();
     }
 });
+
+test('InputNumber takes a FormCard span: two span-2 number fields share a row from sm up', async () => {
+    const tab = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    try {
+        await tab.goto(`${url}?form-saved`);
+        await tab.waitForSelector('[data-test-span-number]');
+        const tops = await tab.locator('[data-test-span-number]').evaluateAll(els => els.map(el => Math.round((el.closest('[data-field], div') ?? el).getBoundingClientRect().top)));
+        assert.equal(tops.length, 2);
+        assert.equal(tops[0], tops[1], `side by side: ${JSON.stringify(tops)}`);
+    } finally {
+        await tab.close();
+    }
+});
