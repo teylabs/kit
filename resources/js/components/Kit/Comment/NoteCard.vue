@@ -8,7 +8,7 @@ import { accentClass, type CommentAuthor } from './comments';
  * `timestamp` slot, the colour's `meaning`, and the `actions` slot on the right), the body (default slot) and a `footer` slot. Presentational: it renders what it
  * is given and does nothing. `accent` is a colour ({tone, label, meaning?}); its label is read out with the author, so a colour never carries meaning alone.
  * `variant` compact is one line: the body truncated, the time after it, no header. `density`: default (a bordered card), compact (no card, an inset row) or flush
- * (a filled tile that fills its cell). The card is a size container: on a narrow card the author, time and meaning shrink and cut off rather than run under the actions,
+ * (a filled tile that fills its cell). The card is a size container: on a narrow card the author, time and meaning wrap onto further lines (never cut off) beside the actions, which keep the top right,
  * and a QuickAction in the actions shows only its icon. `accentWidth`: thin, medium (default) or wide. `authorStyle`: avatar-name (default), name or none. `as` is its element.
  */
 const props = withDefaults(
@@ -79,12 +79,12 @@ const header = computed(
     >
         <header
             v-if="header"
-            class="flex min-w-0 items-center gap-2"
+            class="flex min-w-0 items-start gap-2"
             data-note-header
         >
             <p
                 :id="`${id}-meta`"
-                class="text-muted-foreground flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden text-xs whitespace-nowrap"
+                class="text-muted-foreground flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs"
                 data-note-meta
             >
                 <Avatar
@@ -97,13 +97,13 @@ const header = computed(
                 />
                 <span
                     v-if="showsAuthor"
-                    class="text-foreground min-w-0 truncate font-medium"
+                    class="text-foreground max-w-[calc(100%-1.75rem)] min-w-0 font-medium break-words"
                     data-note-author
                     >{{ author!.name }}</span
                 >{{ ' ' }}
                 <span
                     v-if="$slots.timestamp"
-                    class="min-w-0 truncate"
+                    class="min-w-0"
                     data-note-timestamp
                     ><slot name="timestamp" /></span
                 >{{ ' ' }}
@@ -113,7 +113,7 @@ const header = computed(
                 >{{ ' ' }}
                 <span
                     v-if="accent?.meaning"
-                    class="min-w-0 truncate"
+                    class="min-w-0"
                     data-note-meaning
                     >{{ accent.meaning }}</span
                 >{{ ' ' }}
@@ -124,7 +124,10 @@ const header = computed(
                     ><slot name="meta"
                 /></span>
             </p>
-            <div v-if="$slots.actions" class="text-muted-foreground shrink-0">
+            <div
+                v-if="$slots.actions"
+                class="text-muted-foreground shrink-0 self-start"
+            >
                 <slot name="actions" />
             </div>
         </header>
