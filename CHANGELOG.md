@@ -13,6 +13,14 @@ Features affected: workspace-ui (code only; no stub or pin changes).
 - Nothing to do for most apps. The kit replaces only Fortify's own `LoginResponse` and `TwoFactorLoginResponse`: an app that binds its own keeps it.
 - An app whose `config/fortify.php` sets `home` (or `redirects.login`) to `kit.home` or `/me/workspaces` gets the single hop; keep that setting, or drop the published key to use the kit's default (`kit.home`). An app that sets another `fortify.home` keeps landing there, unchanged; point it at `kit.home` to get the single hop.
 
+## v0.35.2
+
+Features affected: none (kit PHP support).
+
+### Added
+
+- **`MiddleTruncate::cut()` and `Str::middleTruncate()`**: the server's twin of MiddleTruncate, cutting a label to a character count in the middle so its start and end stay, for a model's own label (`Str::middleTruncate("{$code} · {$title}", 40)`). `MiddleTruncate::parts()` returns the same parts as `middleTruncate()`, and a parity check holds the two to each other.
+
 ## v0.35.1
 
 Features affected: none (kit components only).
