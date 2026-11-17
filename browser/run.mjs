@@ -7416,6 +7416,69 @@ test('the shell bar and the trail bar have no backdrop-filter when --shell-bar-b
     }
 });
 
+// ── The shell's --shell-top (shell.html?module=1&top): the pinned stack's height on the root, live, and what kit.css keeps out from under it ──────────────
+const shellTop = async (tab) => tab.evaluate(() => ({
+    variable: document.documentElement.style.getPropertyValue('--shell-top'),
+    measured: Math.round(document.querySelector('[data-shell-top]').getBoundingClientRect().height),
+    bottom: document.querySelector('[data-shell-top]').getBoundingClientRect().bottom,
+}));
+test('the shell publishes --shell-top as its pinned stack\'s height, and it follows the trail bar toggling and the bar wrapping at a narrow width', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${authUrl}shell.html?module=1&top`);
+        await tab.waitForSelector('[data-shell-breadcrumbs]');
+        await tab.waitForFunction(() => document.documentElement.style.getPropertyValue('--shell-top') !== '');
+        const first = await shellTop(tab);
+        assert.equal(first.variable, `${first.measured}px`, 'the variable is the bar and the trail bar together');
+        assert.equal(first.measured, 106, 'a 64px bar and a 40px trail bar, each with its 1px border');
+        await tab.evaluate(() => window.kitTrail(false));
+        await tab.waitForFunction(() => !document.querySelector('[data-shell-breadcrumbs]'));
+        await tab.waitForFunction(() => document.documentElement.style.getPropertyValue('--shell-top') === '65px');
+        assert.equal((await shellTop(tab)).measured, 65, 'without the trail bar, the bar alone');
+        await tab.evaluate(() => window.kitTrail(true));
+        await tab.waitForFunction(() => document.documentElement.style.getPropertyValue('--shell-top') === '106px');
+        // A host whose bar wraps at a narrow width (the kit's bar keeps h-16; a host's theme may not): narrowing the viewport grows the stack and the variable.
+        await tab.addStyleTag({ content: '@media (max-width: 700px) { [data-shell-bar] > div { height: auto; flex-wrap: wrap; padding-block: 0.5rem; } [data-shell-search] { flex-basis: 100%; } }' });
+        await tab.setViewportSize({ width: 600, height: 800 });
+        await tab.waitForFunction(() => document.querySelector('[data-shell-top]').getBoundingClientRect().height > 106);
+        await tab.waitForFunction(() => document.documentElement.style.getPropertyValue('--shell-top') === `${Math.round(document.querySelector('[data-shell-top]').getBoundingClientRect().height)}px`);
+        const wrapped = await shellTop(tab);
+        assert.match(wrapped.variable, /^\d+px$/, 'whole pixels');
+        await tab.setViewportSize({ width: 1280, height: 800 });
+        await tab.waitForFunction(() => document.documentElement.style.getPropertyValue('--shell-top') === '106px');
+    } finally {
+        await context.close();
+    }
+});
+
+test('a sticky top-(--shell-top) row sits flush under the shell after scrolling, and a #hash target or a field scrolled to by validation lands below the bar', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 300 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${authUrl}shell.html?module=1&top`);
+        await tab.waitForSelector('[data-under-bar]');
+        await tab.waitForFunction(() => document.documentElement.style.getPropertyValue('--shell-top') === '106px');
+        await tab.evaluate(() => window.scrollTo(0, 1000));
+        await tab.waitForFunction(() => window.scrollY >= 1000);
+        const pinned = await tab.evaluate(() => ({ row: document.querySelector('[data-under-bar]').getBoundingClientRect().top, bar: document.querySelector('[data-shell-top]').getBoundingClientRect().bottom }));
+        assert.ok(Math.abs(pinned.row - pinned.bar) <= 1, `the row sits flush under the bar (row ${pinned.row}, bar ${pinned.bar})`);
+        const bottom = (await shellTop(tab)).bottom;
+        await tab.evaluate(() => window.scrollTo(0, 0));
+        await tab.evaluate(() => window.kitValidate());
+        await tab.waitForFunction(() => document.activeElement?.id === 'notes');
+        const field = await tab.evaluate(() => document.querySelector('#notes').getBoundingClientRect().top);
+        assert.ok(field >= bottom, `the invalid field (top ${field}) is below the bar (bottom ${bottom})`);
+        await tab.evaluate(() => { location.hash = 'far'; });
+        await tab.waitForFunction(() => document.querySelector('#far').matches(':target'));
+        await tab.waitForTimeout(100);
+        const target = await tab.evaluate(() => document.querySelector('#far').getBoundingClientRect().top);
+        assert.ok(target >= bottom, `the #far heading (top ${target}) is below the bar (bottom ${bottom})`);
+    } finally {
+        await context.close();
+    }
+});
+
 // ── The signed-in bar with ten top-level pages (shell.html): the pages that don't fit go into More, so search, the appearance toggle and the avatar stay ──
 test('the shell bar with ten pages at 1440 and 1024: nothing overflows, the avatar can be clicked, the rest are under More, the current page stays, axe-clean', async () => {
     for (const width of [1440, 1024]) {

@@ -38,6 +38,16 @@
         --avatar-ring: var(--background);
     }
 
+    /*
+     * The app shell publishes its pinned top stack's height as `--shell-top` (docs/shell.md). A #hash target, or a field focused by keyboard or scrolled to by
+     * validation, lands below the bar rather than under it. Outside the shell the variable is unset and the margin is just the 0.5rem.
+     */
+    :target,
+    [id]:focus-visible,
+    :is(input, select, textarea):focus {
+        scroll-margin-top: calc(var(--shell-top, 0px) + 0.5rem);
+    }
+
     /* PageTabs' row scrolls sideways when its tabs don't fit, by touch, trackpad or keyboard, without drawing a scrollbar under the tabs. */
     [data-page-tabs] > ul {
         scrollbar-width: none;
