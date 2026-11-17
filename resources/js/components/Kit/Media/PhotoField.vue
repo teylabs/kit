@@ -88,6 +88,8 @@ const props = withDefaults(
         badge?: string | null;
         /** `tile`: the host's own ⋯ menu rows, after Remove, emitted as `action(key)`. */
         tileActions?: MediaTileAction[];
+        /** `tile`: false hides the footer's visible label (a badge already names the photo); `label` still names its controls. */
+        footerLabel?: boolean;
     }>(),
     {
         actions: () => ({}),
@@ -99,6 +101,7 @@ const props = withDefaults(
         variant: 'field',
         badge: null,
         tileActions: () => [],
+        footerLabel: true,
     },
 );
 const emit = defineEmits<{
@@ -302,10 +305,11 @@ function remove() {
             <CardFooter class="shrink-0 px-1! py-0.5!" data-photo-field-footer>
                 <div class="flex min-w-0 items-center gap-0.5">
                     <span
+                        v-if="footerLabel"
                         class="min-w-0 flex-1 truncate px-1 text-xs"
                         data-photo-field-label
                         >{{ label }}</span
-                    >
+                    ><span v-else class="flex-1" aria-hidden="true" />
                     <Button
                         v-if="canChange"
                         variant="ghost"
