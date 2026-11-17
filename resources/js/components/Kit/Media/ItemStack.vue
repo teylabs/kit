@@ -55,6 +55,7 @@ const props = withDefaults(
         /** The files the fanout's add cell takes: with it the cell is a drop zone (drag in or browse) that emits `files`; without it a click emits `add`. */
         accept?: string[] | null;
         maxBytes?: number;
+        maxFiles?: number;
     }>(),
     {
         actions: () => ({}),
@@ -69,6 +70,7 @@ const props = withDefaults(
         description: null,
         accept: null,
         maxBytes: 10485760,
+        maxFiles: 20,
     },
 );
 const index = defineModel<number>('index', { default: 0 });
@@ -375,6 +377,8 @@ const itemLabel = (item: StackItem, at: number) =>
                         :lead="`Drop ${noun[1]} here, or`"
                         :hint="`${typesHint(accept)} · ${sizeHint(maxBytes)}`"
                         multiple
+                        :max-files="maxFiles"
+                        hand-off
                         :disabled="busy"
                         handle-drops
                         data-item-stack-drop

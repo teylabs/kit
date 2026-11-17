@@ -13462,3 +13462,25 @@ test('Page heading: a long title stays on one line, ellipsised, with the whole t
         assert.equal(shape.clipped, true, 'the rest is clipped');
     });
 });
+
+test('ItemStack drop hands files off: two files at once, then another drop and a paste in the same open dialog, each reach the files emit', () =>
+    mediaTab(async (tab) => {
+        const dialog = await openHeadedDrop(tab);
+        const drop = dialog.locator('[data-item-stack-drop]');
+        const dropFiles = (names) => drop.evaluate((el, names) => {
+            const data = new DataTransfer();
+            for (const name of names) data.items.add(new File(['x'], name, { type: 'image/jpeg' }));
+            for (const type of ['dragenter', 'dragover', 'drop']) el.dispatchEvent(new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: data }));
+        }, names);
+        await dropFiles(['kitchen.jpg', 'porch.jpg']);
+        await tab.waitForFunction(() => window.kitEvents.includes('headed-files kitchen.jpg,porch.jpg'));
+        await dropFiles(['garage.jpg']);
+        await tab.waitForFunction(() => window.kitEvents.includes('headed-files garage.jpg'));
+        await drop.evaluate(el => {
+            const data = new DataTransfer();
+            data.items.add(new File(['y'], 'yard.jpg', { type: 'image/jpeg' }));
+            el.dispatchEvent(new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: data }));
+        });
+        await tab.waitForFunction(() => window.kitEvents.includes('headed-files yard.jpg'));
+        assert.equal(await drop.locator('[role="alert"], [data-dropzone-error]').count(), 0, 'no "only 1 file" error');
+    }));

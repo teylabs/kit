@@ -39,6 +39,7 @@ const props = withDefaults(
         active?: boolean;
         multiple?: boolean;
         maxFiles?: number;
+        handOff?: boolean;
         handleDrops?: boolean;
         prompt?: string;
         /** The words before "browse", in place of "Drop, paste or" (e.g. "Drop shots here, or"). */
@@ -101,6 +102,11 @@ function selected() {
     filename.value = files.map((file) => file.name).join(', ');
     emit('files', files);
     if (props.direct) upload(files);
+    // `handOff`: the host takes the files and sends them itself, so the input empties for the next drop, which then counts on its own.
+    else if (props.handOff && input.value) {
+        input.value.value = '';
+        filename.value = '';
+    }
 }
 async function upload(files: File[]) {
     const routes = props.direct!;

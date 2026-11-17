@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.35.1
+
+Features affected: none (kit components only).
+
+### Fixed
+
+- **ItemStack takes more than one drop, and several files at once.** Its drop zone kept the files it had taken and allowed one file, so dropping two shots, or dropping again in the same open dialog, was refused with "Only 1 file at once". ItemStack now takes up to `maxFiles` (20 by default) per drop and hands each drop off.
+
+### Added
+
+- **BulkDrop `handOff`**: for a host that sends the files itself, the input empties after each `files` emit, so the next drop or paste counts on its own.
+
 ## v0.35.0
 
 Features affected: none (kit components only).
