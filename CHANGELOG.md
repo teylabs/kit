@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.31.6
+
+Features affected: none (kit components only).
+
+### Changed
+
+- **NoteCard's header wraps instead of cutting off**: on a narrow card the author wraps beside the avatar and the full date goes beneath it (never an ellipsis); the actions keep the top right and never shrink. Replaces 0.31.4's ellipsis.
+
 ## v0.31.5
 
 Features affected: none (kit components only).

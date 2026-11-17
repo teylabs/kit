@@ -12620,25 +12620,33 @@ test('Dialog size lg with #footer-start: the secondary actions sit at the start 
     }
 });
 
-test('NoteCard on a narrow card: the date line cuts off before the actions (never under them), and a QuickAction shows only its icon, named and titled by its label; on a wide card the label shows', () =>
+test('NoteCard on a narrow card: the author and date wrap onto further lines (never cut off), beside the actions, which keep the top right; a QuickAction shows only its icon, named and titled by its label; on a wide card the label shows', () =>
     commentsPage('', async ({ tab }) => {
         await tab.waitForSelector('[data-narrow] [data-quick-action]');
         const shape = await tab.evaluate(() => {
-            const card = (s) => document.querySelector(s);
-            const narrow = card('[data-narrow] [data-note-card]');
-            const meta = narrow.querySelector('[data-note-meta]').getBoundingClientRect();
+            const narrow = document.querySelector('[data-narrow] [data-note-card]');
+            const header = narrow.querySelector('[data-note-header]').getBoundingClientRect();
+            const meta = narrow.querySelector('[data-note-meta]');
+            const m = meta.getBoundingClientRect();
+            const cut = [...meta.querySelectorAll('span')].filter((el) => el.scrollWidth > el.clientWidth + 1 || getComputedStyle(el).textOverflow === 'ellipsis').length;
+            const author = narrow.querySelector('[data-note-author]').getBoundingClientRect();
             const time = narrow.querySelector('[data-note-timestamp]').getBoundingClientRect();
             const button = narrow.querySelector('[data-quick-action]');
             const b = button.getBoundingClientRect();
             const box = narrow.getBoundingClientRect();
-            const wideLabel = card('[data-wide] [data-quick-action-label]').getBoundingClientRect();
-            return { metaRight: Math.round(meta.right), timeVisibleRight: Math.round(Math.min(time.right, meta.right)), buttonLeft: Math.round(b.left), buttonRight: Math.round(b.right), cardRight: Math.round(box.right), buttonW: Math.round(b.width), name: button.textContent.trim(), title: button.title, wideLabelW: Math.round(wideLabel.width) };
+            const wideLabel = document.querySelector('[data-wide] [data-quick-action-label]').getBoundingClientRect();
+            const avatar = narrow.querySelector('[data-note-meta] > :first-child').getBoundingClientRect();
+            return { avatarBeside: Math.abs(avatar.top - author.top) < author.height, cut, metaRight: Math.round(m.right), metaH: Math.round(m.height), buttonLeft: Math.round(b.left), buttonTop: Math.round(b.top), headerTop: Math.round(header.top), timeBelow: time.top >= author.bottom - 1, timeRight: Math.round(time.right), buttonRight: Math.round(b.right), cardRight: Math.round(box.right), buttonW: Math.round(b.width), name: button.textContent.trim(), title: button.title, wideLabelW: Math.round(wideLabel.width) };
         });
-        assert.ok(shape.metaRight <= shape.buttonLeft, `the date line ends before the action: ${JSON.stringify(shape)}`);
+        assert.ok(shape.avatarBeside, `the name stays beside the avatar: ${JSON.stringify(shape)}`);
+        assert.equal(shape.cut, 0, `nothing is cut off: ${JSON.stringify(shape)}`);
+        assert.ok(shape.timeBelow && shape.metaH > 20, `the date wraps below the name: ${JSON.stringify(shape)}`);
+        assert.ok(shape.metaRight <= shape.buttonLeft && shape.timeRight <= shape.buttonLeft, `the meta ends before the action: ${JSON.stringify(shape)}`);
+        assert.ok(Math.abs(shape.buttonTop - shape.headerTop) <= 1, `the action keeps the top right: ${JSON.stringify(shape)}`);
         assert.ok(shape.buttonRight <= shape.cardRight, `the action stays inside the card: ${JSON.stringify(shape)}`);
         assert.ok(shape.buttonW <= 40, `icon only on a narrow card: ${JSON.stringify(shape)}`);
         assert.equal(shape.name, 'Mark done');
         assert.equal(shape.title, 'Mark done');
         assert.ok(shape.wideLabelW > 20, `the label shows on a wide card: ${JSON.stringify(shape)}`);
-        if (process.env.SHOT_DIR) await tab.locator('[data-narrow]').screenshot({ path: `${process.env.SHOT_DIR}/notecard-narrow.png` });
+        if (process.env.SHOT_DIR) await tab.locator('[data-narrow]').screenshot({ path: `${process.env.SHOT_DIR}/notecard-wrap.png` });
     }));
