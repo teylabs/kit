@@ -27,8 +27,8 @@ test('ActionBar hands itemClass to every ActionMenuItems and ButtonGroup it rend
 
 test('every menu row adds it after its own classes; destructive and disabled stay', () => {
     assert.match(items, /const rowClass = computed\(\(\) => props\.itemClass \?\? groupItemClass\(\)\);/);
-    assert.equal((items.match(/<DropdownMenu(?:Checkbox)?Item /g) ?? []).length, 5);
-    assert.equal((items.match(/<DropdownMenu(?:Checkbox)?Item [^>]*(?::class="rowClass"|rowClass\]")/g) ?? []).length, 5, 'all five row kinds');
+    assert.equal((items.match(/<DropdownMenu(?:Checkbox)?Item /g) ?? []).length, 6);
+    assert.equal((items.match(/<DropdownMenu(?:Checkbox)?Item [^>]*(?::class="rowClass"|rowClass\]")/g) ?? []).length, 6, 'all six row kinds');
     assert.equal((items.match(/'text-destructive-text focus:text-destructive-text', action\.disabled && 'cursor-not-allowed opacity-50', rowClass\]/g) ?? []).length, 2);
     assert.match(group, /provideMenuItemClass\(\(\) => props\.itemClass\);/);
     // DropdownItem / DropdownLink: merged last onto the inner control (not the padded-twice row); DropdownItem's wrapper slot has no control, so its row takes it.

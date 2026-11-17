@@ -2,7 +2,7 @@ import type { ActionDescriptor } from '@/components/Kit/Action/actionPlacement';
 
 /*
  * One action as InertiaAction and DropdownAction read it: the kit's own Action (Tey\Kit\Features\Core\Data\Action: `confirm`, `destructive`, `disabled` with
- * `reason`, `newTab`) or the older keyed-link shape (`confirmationMessage`, `variant: 'danger'`, `target`, `description`). Both normalise to the same fields.
+ * `reason`, `newTab`, `download`) or the older keyed-link shape (`confirmationMessage`, `variant: 'danger'`, `target`, `description`). Both normalise to the same fields.
  */
 export type LegacyAction = {
     url: string;
@@ -26,6 +26,7 @@ export type NormalAction = {
     disabled: boolean;
     reason: string | null;
     newTab: boolean;
+    download: boolean;
     confirm: {
         title: string;
         description: string;
@@ -65,7 +66,10 @@ export function normalAction(action: SingleAction): NormalAction {
         danger,
         disabled: Boolean(kit.disabled),
         reason: kit.reason ?? null,
-        newTab: Boolean(kit.newTab) || legacy.target === '_blank',
+        download: Boolean(kit.download),
+        newTab:
+            !kit.download &&
+            (Boolean(kit.newTab) || legacy.target === '_blank'),
         confirm,
     };
 }

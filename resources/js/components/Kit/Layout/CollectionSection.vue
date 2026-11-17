@@ -34,7 +34,7 @@ import {
  * - on the header's right, the Sort by menu (`sortBy`, while ready: an InlineDropdown, sort icon and current order, its menu headed by the label and the title), the `#actions` slot, the descriptor `actions` (a GET action with the see-all's URL is
  *   left out, so the link is drawn once; one with a confirmation, intent or new tab stays) and a header see-all, shrinking and wrapping inside the header's width
  *   (a long item in `#actions` wraps, or truncates with its own `truncate`). Plain GET navigation is a compact link; every other
- *   action (a confirmation, `disabled`, a `dialog`, `panel` or `document` intent, `newTab`, another method) goes to one ActionBar after the links, which keeps
+ *   action (a confirmation, `disabled`, a `dialog`, `panel` or `document` intent, `newTab`, `download`, another method) goes to one ActionBar after the links, which keeps
  *   its meaning: it asks first, shows its reason, opens the route modal or a new tab. A host that listens to `action` runs those itself (a `panel` needs it);
  *   otherwise the bar runs them;
  * - below the header, the `segments` (tabs such as All / New / In progress: links to the same page, the current one `aria-current`, named "New (4)" with a
@@ -81,7 +81,10 @@ const descriptor = (action: CollectionAction): ActionDescriptor => ({
     method: action.method ?? 'get',
 });
 const navigates = (action: ActionDescriptor) =>
-    rendersAsLink(action) && !action.newTab && action.intent !== 'document';
+    rendersAsLink(action) &&
+    !action.newTab &&
+    !action.download &&
+    action.intent !== 'document';
 const actions = computed(() =>
     state.value === 'error'
         ? []

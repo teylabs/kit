@@ -16,13 +16,23 @@ use Spatie\TypeScriptTransformer\Attributes\TypeScript;
  * `ariaLabel` is the accessible name when the visible label, a verb, needs its record ("Remove Billing"); RowActions, ActionBar and BulkBar put it on the control.
  * Without it RowActions names a row action "<Label> <row>". Keep `label` a short verb and put the record in `confirm`'s description; its title stays short
  * ("Remove permission?"). `description` is a short line under the label in a RowActions menu (muted, truncated) and the item's accessible description, for
- * rows that share a label: several "Remove" rows each name their grant.
+ * rows that share a label: several "Remove" rows each name their grant. `download` (or ->download()) makes a GET a file download: every renderer draws a plain
+ * `<a href download>` with the Download icon, no new tab, no Inertia visit.
  */
 #[TypeScript]
 final class Action extends Data
 {
     /** @param  ?array{title?: string|null, description: string, label: string, typed?: string}  $confirm */
-    public function __construct(public string $label, public string $url, public string $method = 'post', public bool $disabled = false, public ?string $reason = null, public ?array $confirm = null, public ?string $key = null, public bool $destructive = false, public ?string $intent = null, public ?string $group = null, public bool $menu = false, public ?string $icon = null, public ?bool $newTab = null, #[LiteralTypeScriptType("'primary' | 'secondary' | 'overflow' | null")] public ?string $priority = null, public ?bool $checked = null, public ?string $ariaLabel = null, public ?string $description = null) {}
+    public function __construct(public string $label, public string $url, public string $method = 'post', public bool $disabled = false, public ?string $reason = null, public ?array $confirm = null, public ?string $key = null, public bool $destructive = false, public ?string $intent = null, public ?string $group = null, public bool $menu = false, public ?string $icon = null, public ?bool $newTab = null, #[LiteralTypeScriptType("'primary' | 'secondary' | 'overflow' | null")] public ?string $priority = null, public ?bool $checked = null, public ?string $ariaLabel = null, public ?string $description = null, public ?bool $download = null) {}
+
+    /** The same action as a file download: a plain `<a href download>` with the Download icon, never an Inertia visit and never a new tab. Use a GET route that answers with the file. */
+    public function download(bool $download = true): self
+    {
+        $copy = clone $this;
+        $copy->download = $download ?: null;
+
+        return $copy;
+    }
 
     public static function disabled(string $label, string $url, string $method, string $reason): self
     {

@@ -38,6 +38,7 @@ import {
 // always asks first with the action's own `confirm` text (and its `typed` text to type, sent as `confirmation`). `intercept` names actions the page performs itself (a dialog) instead of an Inertia visit.
 // The menu trigger is named by `label` ("Actions for Ana Lopez"). Each action's accessible name is its `ariaLabel`, else "<Label> <record>" (`record`, else
 // `label` without "Actions for "); a confirmation without a title asks a short "<Label> this <noun>?" (`noun`, DataTable passes TableQuery::noun()) or "<Label> this item?" and names the record in the body, where it wraps (never in the bold title).
+// A `download` action is a plain <a download> (inline, split primary or menu row), never an Inertia visit or a new tab.
 // In a menu, each row shows its icon (`icon`, else the common intent's: Edit a pencil, Delete a trash can) and an action's `description` shows under its label (muted, wrapping; hidden from the name, read as the description) and describes the item (aria-describedby): several "Remove" rows name their grant. A visible label over 24
 // characters or 3 words is clamped with an ellipsis, its full text in `title` (and a development warning: labels are verbs, the record goes in the confirm).
 // A destructive action is never a danger button, a lone one included: red is only the menu item's text and the confirmation Dialog's commit, and follows
@@ -58,6 +59,7 @@ type RowAction = {
     section?: string | null;
     primary?: boolean | null;
     newTab?: boolean | null;
+    download?: boolean | null;
     intent?: string | null;
     confirm: {
         title?: string | null;
@@ -262,6 +264,7 @@ function confirmed(confirmation?: string) {
                 :href="action.url"
                 :external="opensNewTab(action)"
                 :target="opensNewTab(action) ? '_blank' : undefined"
+                :download="Boolean(action.download)"
                 v-bind="linkState(action)"
                 :data-action="action.key"
                 >{{ shownLabel(action) }}</Button
@@ -318,6 +321,7 @@ function confirmed(confirmation?: string) {
                 :href="primary.url"
                 :external="opensNewTab(primary)"
                 :target="opensNewTab(primary) ? '_blank' : undefined"
+                :download="Boolean(primary.download)"
                 v-bind="linkState(primary)"
                 :title="
                     linkState(primary).title ??
@@ -385,10 +389,15 @@ function confirmed(confirmation?: string) {
                             :data-action="action.key"
                         >
                             <a
-                                v-if="opensNewTab(action)"
+                                v-if="opensNewTab(action) || action.download"
                                 :href="action.url"
-                                target="_blank"
-                                rel="noopener noreferrer"
+                                :target="action.download ? undefined : '_blank'"
+                                :rel="
+                                    action.download
+                                        ? undefined
+                                        : 'noopener noreferrer'
+                                "
+                                :download="action.download ? '' : undefined"
                                 ><component
                                     :is="iconOf(action)"
                                     v-if="iconOf(action)"
@@ -500,10 +509,15 @@ function confirmed(confirmation?: string) {
                             :data-action="action.key"
                         >
                             <a
-                                v-if="opensNewTab(action)"
+                                v-if="opensNewTab(action) || action.download"
                                 :href="action.url"
-                                target="_blank"
-                                rel="noopener noreferrer"
+                                :target="action.download ? undefined : '_blank'"
+                                :rel="
+                                    action.download
+                                        ? undefined
+                                        : 'noopener noreferrer'
+                                "
+                                :download="action.download ? '' : undefined"
                                 ><component
                                     :is="iconOf(action)"
                                     v-if="iconOf(action)"

@@ -7,12 +7,13 @@ import {
     type SingleAction,
 } from '@/components/Kit/Action/singleAction';
 import Dialog from '@/components/Kit/Overlay/Dialog.vue';
+import { Download } from '@lucide/vue';
 import { confirmationData } from '@/components/Kit/Overlay/confirmText';
 
 /*
  * One server action as a button (docs/single-actions.md), the twin of the menu's DropdownAction. It takes the kit's Action (or the older keyed-link shape):
  * with a `confirm` it asks first in the kit's Dialog (typed when it has `typed`, sent as `confirmation`), then visits; a GET without one is an Inertia link,
- * and `newTab` opens a plain link in a new tab with rel="noopener noreferrer". `disabled` shows it unusable with its `reason`. The default slot replaces the
+ * and `newTab` opens a plain link in a new tab with rel="noopener noreferrer"; `download` is a plain <a href download> with the Download icon (no visit, no tab). `disabled` shows it unusable with its `reason`. The default slot replaces the
  * label; a null action renders nothing, so `:action="actions.edit"` follows the server's "absent means not allowed". It lays nothing out: place it yourself. It is Button's size by default (36px, a ButtonGroup segment's height), so it lines up beside them; pass `size="sm"` for a dense row.
  */
 // One root for the host's class and data-*: they go on the button (or link), never dropped on a fragment.
@@ -75,6 +76,7 @@ function choose() {
             :external="normal.newTab"
             :target="normal.newTab ? '_blank' : undefined"
             :rel="normal.newTab ? 'noopener noreferrer' : undefined"
+            :download="normal.download"
             :variant="look"
             :size="size"
             :title="normal.caption ?? undefined"
@@ -85,6 +87,10 @@ function choose() {
                 v-if="normal.icon"
                 :class="normal.icon"
                 aria-hidden="true"
+            /><Download
+                v-else-if="normal.download"
+                aria-hidden="true"
+                data-download-icon
             /><slot>{{ normal.label }}</slot>
         </Button>
         <Button

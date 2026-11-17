@@ -558,6 +558,9 @@ jobs:
       - name: Tables
         timeout-minutes: 4
         run: composer test:tables
+      - name: Report tables
+        timeout-minutes: 4
+        run: composer test:report-table
       - name: Scroll lists
         timeout-minutes: 4
         run: composer test:lists

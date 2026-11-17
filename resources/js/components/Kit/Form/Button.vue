@@ -38,7 +38,7 @@ export type VisitData = Record<string, VisitValue>;
 // takes the alert's tone and actions style (soft or link) whatever its variant; the `link` variant there is a link in either style.
 // With `href` it is a link styled as this button (the host button's as-child, so the classes land on the link and a <button> is never inside an <a>): an Inertia
 // <Link> (`method`, `data`, `preserveScroll`; a method other than get renders it as a <button>, as Inertia requires for a non-GET visit), or a plain <a> when
-// `external`, with `rel="noopener noreferrer"` when `target` is `_blank`. A `mailto:`, `tel:` or `sms:` href is always a plain <a>: an Inertia visit would mangle it.
+// `external`, with `rel="noopener noreferrer"` when `target` is `_blank`. `download` makes it a plain <a download> (a file, never an Inertia visit). A `mailto:`, `tel:` or `sms:` href is always a plain <a>: an Inertia visit would mangle it.
 // `chevron` adds a trailing down chevron: the button opens a menu or a popover (a DropdownMenuTrigger's or PopoverTrigger's as-child), not an action. A link never has one.
 const props = withDefaults(
     defineProps<{
@@ -58,6 +58,7 @@ const props = withDefaults(
         preserveScroll?: boolean;
         external?: boolean;
         target?: string;
+        download?: boolean;
         chevron?: boolean;
     }>(),
     {
@@ -70,6 +71,7 @@ const props = withDefaults(
         preserveScroll: false,
         external: false,
         target: undefined,
+        download: false,
         chevron: false,
     },
 );
@@ -94,7 +96,10 @@ const kind = computed(() => props.type ?? (inForm ? 'submit' : 'button'));
 const visitAsButton = computed(() => props.method !== 'get');
 // A scheme a browser hands to another app, never an Inertia visit.
 const plainLink = computed(
-    () => props.external || /^(mailto|tel|sms):/i.test(props.href ?? ''),
+    () =>
+        props.external ||
+        props.download ||
+        /^(mailto|tel|sms):/i.test(props.href ?? ''),
 );
 const rel = computed(() =>
     props.target === '_blank' ? 'noopener noreferrer' : undefined,
@@ -148,6 +153,7 @@ const blend = computed(() =>
             :href="href"
             :target="target"
             :rel="rel"
+            :download="download ? '' : undefined"
             data-button-link
             ><slot
         /></a>

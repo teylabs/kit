@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { Download } from '@lucide/vue';
 import {
     normalAction,
     type SingleAction,
@@ -9,7 +10,7 @@ import DropdownItem from '@/components/Kit/Menu/DropdownItem.vue';
 
 /*
  * A menu entry from one server action (DropdownAction.md, docs/single-actions.md), the twin of InertiaAction. It takes the kit's Action or the older keyed-link
- * shape: a DropdownConfirm when it has a confirmation, else an Inertia DropdownItem; `newTab` opens a plain link. `icon` is a CSS class for an `<i>`. The
+ * shape: a DropdownConfirm when it has a confirmation, else an Inertia DropdownItem; `newTab` opens a plain link, `download` is a plain <a download> with the Download icon. `icon` is a CSS class for an `<i>`. The
  * default slot replaces the label; a null action renders nothing. A typed confirmation can't be asked from a menu, so such an action is shown disabled with
  * that reason (place it as an InertiaAction instead): it never runs without the typing.
  */
@@ -67,6 +68,28 @@ const blockedReason = computed(() =>
                 ><p>{{ normal.confirm.description }}</p></template
             >
         </DropdownConfirm>
+        <DropdownItem
+            v-else-if="normal.download && normal.method === 'get'"
+            as="a"
+            :href="normal.url"
+            download
+            data-action-download
+        >
+            <template #icon
+                ><i
+                    v-if="normal.icon"
+                    aria-hidden="true"
+                    :class="[normal.icon, iconClass]" /><Download
+                    v-else
+                    class="size-4"
+                    aria-hidden="true"
+                    data-download-icon
+            /></template>
+            <slot>{{ normal.label }}</slot>
+            <template v-if="normal.caption" #caption>{{
+                normal.caption
+            }}</template>
+        </DropdownItem>
         <DropdownItem
             v-else-if="normal.newTab"
             :href="normal.url"
