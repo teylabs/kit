@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.33.8
 
 Features affected: core (re-pinned `sha256:bdc1717e…f276` → `sha256:50d7c9a7…a9c`: kit.css scroll margin), shell (re-pinned `sha256:4d65d619…44db` → `sha256:a21554be…c47a`: the Workspace Layout publishes `--shell-top`).
 
