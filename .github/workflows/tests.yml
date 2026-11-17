@@ -165,6 +165,8 @@ jobs:
       - run: sh bin/typecheck-components.sh
       - name: Stubs are formatted (house Prettier)
         run: typecheck/node_modules/.bin/prettier --check "resources/js/components/**/*.{vue,ts}"
+      - name: renderMarkdown XSS corpus (micromark, DOMPurify and jsdom from typecheck/)
+        run: node --test tests/js/markdown.test.mjs
 
   browser:
     name: Kit components in a browser (Playwright)

@@ -77,3 +77,5 @@ export { COMMENT_TONES } from '@/components/Kit/Comment/comments';
 export type { CommentComposerData, CommentData } from '@/components/Kit/Comment/comments';
 // LineItems (?line-items).
 export { default as LineItems } from '@/components/Kit/Table/LineItems.vue';
+export { default as TextMarkdown } from '@/components/Kit/Text/TextMarkdown.vue';
+export { renderMarkdown } from '@/components/Kit/Text/markdown';

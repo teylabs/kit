@@ -24,7 +24,7 @@ import { CopyField, TextAddress, TextChips, TextCode, TextCopy, TextLong, TextNu
 
 | Component | What it shows |
 | --- | --- |
-| `TextProse` | Running text. `text` is plain text with its line breaks kept; the default slot takes markup the app renders itself (paragraphs, lists, headings, links, quotes, code, tables), styled from tokens with no outer margin. `size` sm (default), base or lg. It never renders HTML from a string. |
+| `TextProse` | Running text. `text` is plain text with its line breaks kept; the default slot takes markup the app renders itself (paragraphs, lists, headings, links, quotes, code, tables), styled from tokens with no outer margin. `size` sm (default), base or lg. It never renders HTML from a string; for Markdown a person wrote, use [`TextMarkdown`](markdown.md). |
 | `TextCode` | Raw text in a monospaced `<pre>`, exactly as written: code, JSON, a log, an email's source. See [below](#textcode). |
 | `TextTable` | A plain `<table>` the app writes, styled for reading: full width, rules between rows, padded cells. It scrolls sideways in its own box, which takes focus, and is a region named by `label`. For sorting or selection, use `DataTable`. |
 | `TextLong` | A long plain-text body cut to `limit` characters (default 360) with a Show more button after it. See [below](#textlong). |

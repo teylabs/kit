@@ -529,8 +529,10 @@ export {
 // A button that copies a value, claiming success only once the clipboard write resolves: TextCopy's button form, under its own name.
 export { default as CopyButton } from './Action/CopyButton.vue';
 // The Text family (docs/text.md): read-only text on a page. Prose, raw code or output, tables, long and truncated text, copyable text and fields,
-// numbers, addresses, chips and tags, one clipboard helper behind every copy.
+// numbers, addresses, chips and tags, one clipboard helper behind every copy. TextMarkdown and renderMarkdown render user-authored Markdown safely (docs/markdown.md).
 export { default as TextProse } from './Text/TextProse.vue';
+export { default as TextMarkdown } from './Text/TextMarkdown.vue';
+export { renderMarkdown, type MarkdownOptions } from './Text/markdown';
 export { default as TextCode } from './Text/TextCode.vue';
 export { default as TextTable } from './Text/TextTable.vue';
 export { default as TextLong } from './Text/TextLong.vue';

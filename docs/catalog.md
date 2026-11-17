@@ -37,7 +37,7 @@ Each feature's manifest declares these (`host_steps`, `requires.npm`, `optional`
 
 | Feature | Host step or requirement | Met when |
 |---|---|---|
-| core | npm: `@inertiaui/modal-vue`, `@lucide/vue`, `@tanstack/vue-table`, `reka-ui >=2.11.0`, and `@tiptap/core`, `@tiptap/extension-code`, `@tiptap/extension-placeholder`, `@tiptap/pm`, `@tiptap/starter-kit`, `@tiptap/vue-3` `^3.32.0` (InputRichText) | `package.json` declares a range that allows no older version, and it is installed |
+| core | npm: `@inertiaui/modal-vue`, `@lucide/vue`, `@tanstack/vue-table`, `reka-ui >=2.11.0`, and `@tiptap/core`, `@tiptap/extension-code`, `@tiptap/extension-placeholder`, `@tiptap/pm`, `@tiptap/starter-kit`, `@tiptap/vue-3` `^3.32.0` (InputRichText), and `micromark` `^4.0.3`, `micromark-extension-gfm` `^3.0.0`, `dompurify` `^3.4.17` (TextMarkdown) | `package.json` declares a range that allows no older version, and it is installed |
 | core | optional: register `ExplanationTypesExtension` in the typescript-transformer config | you register it |
 | workspaces | `user_model`: the user model implements the Member contract and uses `HasWorkspaces` | the model implements and uses them |
 | workspaces | `workspace_model`: `concierge.models.workspace` and `multitenancy.tenant_model` name one model that implements the Workspace contract and `IsTenant` and uses `IsKitWorkspace` | the model implements and uses them |

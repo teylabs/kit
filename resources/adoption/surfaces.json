@@ -28,6 +28,9 @@
         "@tiptap/vue-3",
         "class-variance-authority",
         "clsx",
+        "dompurify",
+        "micromark",
+        "micromark-extension-gfm",
         "reka-ui",
         "tailwind-merge",
         "tw-animate-css",
@@ -3413,6 +3416,40 @@
           "EmailMessage",
           "MailMessage",
           "EmailPreview"
+        ]
+      }
+    },
+    {
+      "id": "text.markdown",
+      "layer": "ui",
+      "group": "content",
+      "label": "User-authored Markdown rendered safely (GFM, raw HTML escaped, sanitized, headings demoted)",
+      "feature": "core",
+      "applies": true,
+      "uses": {
+        "imports": [
+          "@/components/Kit:TextMarkdown",
+          "@/components/Kit:renderMarkdown"
+        ]
+      },
+      "handRolled": [],
+      "docs": "docs/markdown.md",
+      "status": "new",
+      "since": "0.33.7",
+      "replaces": {
+        "npm": [
+          "marked",
+          "markdown-it",
+          "snarkdown",
+          "showdown",
+          "sanitize-html",
+          "xss"
+        ],
+        "components": [
+          "Markdown",
+          "MarkdownRenderer",
+          "MarkdownContent",
+          "RenderedMarkdown"
         ]
       }
     },
