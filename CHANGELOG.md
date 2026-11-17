@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.35.2
 
 Features affected: none (kit PHP support).
 
