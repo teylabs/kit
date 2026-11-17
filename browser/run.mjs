@@ -13684,6 +13684,21 @@ async function returnFocusCheck(panel) {
                     assert.equal(active, opener.slice(1), `${opener} by ${way}: focus is back on the opener`);
                 }
             }
+            // Closed while the panel is still entering (a quick double press): focus still returns once it has gone. (The role=dialog panel takes no Escape until focus is inside it.)
+            for (const [opener, title] of [['#return-link', 'Floor plan'], ['#return-button', 'Details']]) {
+                for (const way of panel ? ['click'] : ['click', 'escape']) {
+                    await tab.focus(opener);
+                    await tab.keyboard.press('Enter');
+                    const entering = tab.getByRole('dialog', { name: title });
+                    await entering.waitFor();
+                    if (way === 'click') await entering.locator('button[aria-label="Close"]').click({ force: true });
+                    else await tab.keyboard.press('Escape');
+                    await entering.waitFor({ state: 'detached', timeout: 8000 }).catch(() => { throw new Error(`${opener} mid-enter ${way}: the modal never closed`); });
+                    await tab.waitForFunction((id) => document.activeElement?.id === id, opener.slice(1), { timeout: 3000 }).catch(() => {});
+                    const active = await tab.evaluate(() => document.activeElement?.id || document.activeElement?.tagName);
+                    assert.equal(active, opener.slice(1), `${opener} closed mid-enter by ${way}: focus is back on the opener`);
+                }
+            }
             // A viewer who moves focus elsewhere as the panel leaves keeps it there.
             const modal = await openFrom(tab, '#return-button', 'Details');
             await tab.keyboard.press('Escape');
