@@ -40,3 +40,7 @@ A search filter is a client-side narrowing only: declare it on the page (`{ key:
 Props: `filters`, `label` ("Filters"), `resettable`, `resetLabel` ("Reset"), `scope`. It sets the kit Popover's `stayOnVisit`, so its own select visits do not close it.
 
 Browser checks: `?filter-popover` in `browser/run.mjs` (the count, the hidden select, search, one visit on close, select, Reset, the pin and headings while scrolling, the keyboard, axe light and dark, 390px).
+
+## Test hooks
+
+The trigger button carries `data-filter-popover` and the open panel `data-filter-popover-panel`, so a browser test can click the trigger without wrapping it.
