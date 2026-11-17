@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ChevronLeft, ChevronRight, FileText } from '@lucide/vue';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import Modal from '@/components/Kit/Overlay/Modal.vue';
 
 /** A file to show: an image opens in the lightbox, anything else opens as a link. `thumbnail` (or `thumb`) is the generated preview; until it exists a placeholder shows, never the original. */
@@ -60,8 +60,25 @@ function show(target: GalleryItem | string) {
     const at = images.value.findIndex((image) => image.id === id);
     if (at < 0) return;
     current.value = at;
+    // Opened from code there is no trigger for the dialog to hand focus back to, so it remembers what had focus and returns it on close.
+    if (
+        !open.value &&
+        document.activeElement instanceof HTMLElement &&
+        document.activeElement !== document.body
+    )
+        returnTo = document.activeElement;
     open.value = true;
 }
+let returnTo: HTMLElement | null = null;
+watch(open, (isOpen) => {
+    if (isOpen || !returnTo) return;
+    const target = returnTo;
+    returnTo = null;
+    // After the dialog's own close focus (which lands on body without a trigger).
+    requestAnimationFrame(() => {
+        if (target.isConnected) target.focus();
+    });
+});
 defineExpose({ show });
 function step(by: number) {
     const count = images.value.length;

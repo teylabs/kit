@@ -13484,3 +13484,19 @@ test('ItemStack drop hands files off: two files at once, then another drop and a
         await tab.waitForFunction(() => window.kitEvents.includes('headed-files yard.jpg'));
         assert.equal(await drop.locator('[role="alert"], [data-dropzone-error]').count(), 0, 'no "only 1 file" error');
     }));
+
+test('MediaGallery opened from code (show(id)) returns focus to what had it when the lightbox closes, by Escape and by its Close button', () =>
+    mediaTab(async (tab) => {
+        for (const [selector, close] of [['[data-open-viewer]', 'Escape'], ['[data-open-viewer]', 'button'], ['[data-open-late-viewer]', 'Escape'], ['[data-open-late-viewer]', 'button']]) {
+            const opener = tab.locator(selector);
+            await opener.focus();
+            await opener.click();
+            const dialog = tab.getByRole('dialog');
+            await dialog.waitFor();
+            for (let i = 0; i < 4; i++) await tab.keyboard.press('Tab');
+            if (close === 'Escape') await tab.keyboard.press('Escape');
+            else await dialog.getByRole('button', { name: /close/i }).click();
+            await dialog.waitFor({ state: 'detached' });
+            await tab.waitForFunction((selector) => document.activeElement?.matches(selector), selector, { timeout: 2000 }).catch(async () => assert.fail(`${selector} ${close}: focus on ${await tab.evaluate(() => document.activeElement?.outerHTML.slice(0, 80))}`));
+        }
+    }));
