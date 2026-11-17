@@ -41,6 +41,8 @@ const props = withDefaults(
         maxFiles?: number;
         handleDrops?: boolean;
         prompt?: string;
+        /** The words before "browse", in place of "Drop, paste or" (e.g. "Drop shots here, or"). */
+        lead?: string;
         hint?: string;
         showLimit?: boolean;
         disabled?: boolean;
@@ -235,7 +237,7 @@ function over(event: DragEvent) {
                 >
                 <template v-else-if="disabled && prompt">{{ prompt }}</template>
                 <template v-else
-                    >Drop, paste or
+                    >{{ lead ?? 'Drop, paste or' }}
                     <button
                         type="button"
                         class="text-primary focus-visible:outline-ring disabled:text-muted-foreground rounded-sm font-medium underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:no-underline"
