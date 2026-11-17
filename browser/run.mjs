@@ -5640,6 +5640,8 @@ test('ActionDialogs: a required prompt keeps Confirm disabled until it has text,
         assert.equal(await confirm.isDisabled(), true, 'Confirm waits for a reason');
         await tab.getByLabel('Reason').fill('Client sent new documents');
         assert.equal(await confirm.isDisabled(), false);
+        // axe reads colours mid fade-in as low contrast, so it waits for the dialog's open animations to finish (a suspected flake under load).
+        await tab.evaluate(() => Promise.all(document.getAnimations().map(a => a.finished.catch(() => {}))));
         if (!(await tab.evaluate(() => Boolean(window.axe)))) await tab.addScriptTag({ path: axeSource });
         const violations = await tab.evaluate(async () => (await window.axe.run('[role="alertdialog"]')).violations.map(v => v.id));
         assert.deepEqual(violations, []);
