@@ -50,7 +50,6 @@ const SESSION_UI_WORKSPACE_FILES = [
     'SessionUi/Deletions.php',
     'SessionUi/FirstRunDemoCommand.php',
     'SessionUi/Http/DashboardController.php',
-    'SessionUi/Http/HomeController.php',
     'SessionUi/Http/InvitationAccountController.php',
     'SessionUi/Http/InvitationController.php',
     'SessionUi/Http/MemberController.php', 'SessionUi/Http/SuspendMemberController.php', 'SessionUi/Http/ReinstateMemberController.php', 'SessionUi/Http/TenantInvitationAccountController.php', 'SessionUi/TenantInvites.php', 'SessionUi/Http/TenantInvitationController.php', 'SessionUi/Http/TenantInvitationResponses.php',

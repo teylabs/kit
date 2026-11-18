@@ -10,7 +10,7 @@ use Tey\Kit\Features\SessionUi\Http\ClockController;
 use Tey\Kit\Features\SessionUi\Http\DashboardController;
 use Tey\Kit\Features\SessionUi\Http\DemoLoginController;
 use Tey\Kit\Features\SessionUi\Http\DevicesController;
-use Tey\Kit\Features\SessionUi\Http\HomeController;
+use Tey\Kit\Features\WorkspaceUi\Http\HomeController;
 use Tey\Kit\Features\SessionUi\Http\InvitationAccountController;
 use Tey\Kit\Features\SessionUi\Http\InvitationController;
 use Tey\Kit\Features\SessionUi\Http\MemberController;
