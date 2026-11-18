@@ -39,6 +39,19 @@ You no longer pass `errors[name('amount')]` to the Field yourself. A Field in a 
 
 A compact bar is usually not sticky: pass `:sticky="false"` when it sits in a small box. It carries `data-density="compact"`.
 
+## Choosing a select: InputSelect or Select
+
+`InputSelect` is the default for a choice in a form. Reach for the plain `Select` only when every answer below points to it; this is a judgement call, and no check fails on either.
+
+Ask at build time:
+
+1. **Does the list come from data, or can it grow?** (records, users, tags, anything a person or a seeder adds to) → `InputSelect`. It turns search on past 8 options and takes `filter="remote"`.
+2. **Will anyone need to search it?** → `InputSelect`.
+3. **Is the field optional, or must the person be able to clear it?** → `InputSelect` with `clearable`. A plain `Select` has no clear control: once chosen, the only way back is an option for "none".
+4. **Does "no choice" need its own label** ("Any scope", "No team")? → `InputSelect`, with the label as its `placeholder` and `clearable`. A plain `Select` can carry an option whose value is `''`, and shows its label (fixed in v0.39.3), but nothing tells the reader it means "none".
+
+A plain `Select` is right for a short, fixed list the code owns (a handful of enum cases that never change at runtime), that always holds a value, needs no search and has no "none" choice: a status on a dense settings row, a unit beside a number, a role picked from three. A choice that changes what a page shows (a sort order, a view) is neither: use `InlineDropdown`.
+
 ## InputSelect: select-only or searchable
 
 A short fixed list is never typeable. `searchable` left unset is off for up to 8 local options (`SEARCH_THRESHOLD` in `inputSelect.ts`) and on above that and for `filter="remote"`; pass it to override. A select that is not searchable is a select-only combobox that reads as a button: a pointer cursor, no text caret or selection, and no on-screen keyboard (`inputmode="none"`, `data-select-only`). Only a searchable select shows a text cursor. For a choice that changes what a page shows (a sort order, a view), use `InlineDropdown` (docs/inline-dropdown.md) rather than a bordered field. The browser job (`?inline-dropdown`) reads both kinds: the select-only field's cursor, caret and `inputmode`, typing into it changing nothing, and the searchable one's text cursor.
