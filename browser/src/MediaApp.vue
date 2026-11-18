@@ -57,6 +57,11 @@ const shotMenu = [{ key: 'remove', label: 'Remove', url: '#', method: 'delete', 
 const direct = { request: '/uploads', confirm: '/uploads/confirm' };
 const shots = ref(['One', 'Two', 'Three'].map((label, index) => ({ id: `s${index + 1}`, label, thumb: pixel, preview: pixel })));
 const shot = ref(0);
+// A stack that grows (window.addGrowing()): its layers, the face's "k of N" chip and the added pulse.
+const growing = ref(['One', 'Two', 'Three'].map((label, index) => ({ id: `g${index + 1}`, label, thumb: pixel, preview: pixel })));
+(window as unknown as { addGrowing: () => void }).addGrowing = () => {
+    growing.value = [...growing.value, { id: `g${growing.value.length + 1}`, label: 'New', thumb: pixel, preview: pixel }];
+};
 const arranging = ref(false);
 const single = ref([{ id: 'one', label: 'One', thumb: pixel, preview: pixel }]);
 const headedOpen = ref(false);
@@ -261,6 +266,7 @@ async function persist(order: string[], version: string | number | null) {
                 /></template>
             </ItemStack>
         </div>
+        <div class="w-72 bg-background text-foreground"><ItemStack :items="growing" label="Growing" :noun="['shot', 'shots']" data-growing /></div>
         <div data-fixture="single-stack" class="bg-background text-foreground" style="width: 260px">
             <ItemStack :items="single" label="Single" :noun="['shot', 'shots']" :actions="{ add: true }" :arrange="false" @add="events.push('single-add')">
                 <template #footer-label="{ index, count }">{{ index + 1 }} of {{ count }}</template>

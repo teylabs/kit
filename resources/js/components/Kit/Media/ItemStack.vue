@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ChevronDown, ChevronUp, Layers, Plus, Trash2 } from '@lucide/vue';
-import { computed, useSlots, watch } from 'vue';
+import { computed, onBeforeUnmount, ref, useSlots, watch } from 'vue';
 import SortableList from '@/components/Kit/Data/SortableList.vue';
 import type {
     ReorderAction,
@@ -21,7 +21,8 @@ export type StackItem = {
 };
 
 /*
- * An ordered set of pictures shown as one stack (docs/media.md, "A stack"): the current item on top with plain layers peeking out below, a "k of N" count
+ * An ordered set of pictures shown as one stack (docs/media.md, "A stack"): the current item on top with up to three bordered, shadowed layers peeking out
+ * below (one per item behind it, three from four items), a "k of N" chip on the face, a ring that pulses when an item is added, a "k of N" count
  * and Previous/Next steps, and a footer with the count, Add and Arrange. Arrange opens the fanout: the whole stack in a column (or a grid) on SortableList,
  * with a grip, keys and Move buttons per item, each opened or removed from its row. The order is the server's: with `actions.reorder` a move sends
  * `{ order, version }` and a 409 rolls back and emits `conflict`. Add, open and remove are emitted for the host to run. `index` and `fanoutOpen` are models.
@@ -99,12 +100,30 @@ const count = computed(() => props.items.length);
 // A host footer label (e.g. "Listing · 1 of 3") carries the position, so the arrows join the footer and the separate "k / N" row goes; the live announcement stays.
 const slots = useSlots();
 const hostLabel = computed(() => Boolean(slots['footer-label']));
-watch(count, (now) => {
+// An added item pulses a ring on the face for a moment (`data-item-stack-added`), so a stack that grew reads as grown; reduced motion keeps the ring, without the pulse.
+const added = ref(false);
+let addedTimer: ReturnType<typeof setTimeout> | undefined;
+watch(count, (now, before) => {
     if (index.value > now - 1) index.value = Math.max(0, now - 1);
+    if (now > before) {
+        added.value = true;
+        clearTimeout(addedTimer);
+        addedTimer = setTimeout(() => (added.value = false), 1600);
+    }
 });
+onBeforeUnmount(() => clearTimeout(addedTimer));
 const current = computed(() => props.items[index.value] ?? null);
 const nounFor = (n: number) => (n === 1 ? props.noun[0] : props.noun[1]);
-const layers = computed(() => Math.min(2, Math.max(0, count.value - 1)));
+const layers = computed(() => Math.min(3, Math.max(0, count.value - 1)));
+// Each layer sits 0.5rem lower and 0.5rem narrower a side than the one above it; the top item leaves room for all of them.
+const layerClass = (depth: number) => [
+    'border-foreground/20 bg-card absolute rounded-md border shadow-sm',
+    ['inset-x-2', 'inset-x-4', 'inset-x-6'][depth - 1],
+    ['top-2', 'top-4', 'top-6'][depth - 1],
+    ['bottom-0', 'bottom-2', 'bottom-4'][layers.value - depth],
+    depth === 3 ? 'opacity-70' : depth === 2 ? 'opacity-85' : '',
+    ['z-[3]', 'z-[2]', 'z-[1]'][depth - 1],
+];
 function step(by: number) {
     if (!count.value) return;
     index.value = (index.value + by + count.value) % count.value;
@@ -127,28 +146,20 @@ const itemLabel = (item: StackItem, at: number) =>
             :class="[
                 'relative',
                 fill && 'min-h-0 flex-1',
-                layers === 2 ? 'pb-3' : layers === 1 ? 'pb-1.5' : '',
+                ['', 'pb-2', 'pb-4', 'pb-6'][layers],
             ]"
         >
             <span
-                v-if="layers === 2"
+                v-for="depth in [3, 2, 1].filter((d) => d <= layers)"
+                :key="depth"
                 aria-hidden="true"
-                class="border-border bg-muted absolute inset-x-4 top-3 bottom-0 rounded-md border"
-                data-item-stack-layer
-            />
-            <span
-                v-if="layers >= 1"
-                aria-hidden="true"
-                :class="[
-                    'border-border bg-muted absolute inset-x-2 top-1.5 rounded-md border',
-                    layers === 2 ? 'bottom-1.5' : 'bottom-0',
-                ]"
+                :class="layerClass(depth)"
                 data-item-stack-layer
             />
             <button
                 type="button"
                 :class="[
-                    'border-border bg-card focus-visible:outline-ring relative z-10 block w-full overflow-hidden rounded-md border focus-visible:outline-2 focus-visible:outline-offset-2',
+                    'border-border bg-card focus-visible:outline-ring relative z-10 block w-full overflow-hidden rounded-md border shadow-sm transition-shadow focus-visible:outline-2 focus-visible:outline-offset-2',
                     fill && 'h-full',
                 ]"
                 :aria-label="`Open ${itemLabel(current, index)}`"
@@ -180,6 +191,19 @@ const itemLabel = (item: StackItem, at: number) =>
                 <span class="absolute top-1.5 left-1.5"
                     ><slot name="badge" :item="current" :index="index"
                 /></span>
+                <span
+                    v-if="count > 1"
+                    aria-hidden="true"
+                    class="bg-background/90 text-foreground absolute top-1.5 right-1.5 rounded px-1.5 py-0.5 text-xs font-medium tabular-nums shadow-sm"
+                    data-item-stack-count
+                    >{{ index + 1 }} of {{ count }}</span
+                >
+                <span
+                    v-if="added"
+                    aria-hidden="true"
+                    class="ring-primary pointer-events-none absolute inset-0 z-20 rounded-md ring-2 ring-inset motion-safe:animate-pulse"
+                    data-item-stack-added
+                />
             </button>
         </div>
         <span
