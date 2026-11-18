@@ -13762,3 +13762,29 @@ test('TagList shows flags before tags, reads a flag\'s reason and links it, wrap
     });
 });
 
+
+// ── PasswordInput secret (?secret-field): password managers opt out, autofill to the loaded value stays saved, a save clears unsaved ───────────────────
+test('PasswordInput secret tells password managers to leave it alone, autofill that keeps the loaded value leaves the form saved, and a save clears unsaved', async () => {
+    await onPage('secret-field', async (tab) => {
+        const key = tab.locator('[data-secret-key]');
+        const attrs = (locator) => locator.evaluate((input) => Object.fromEntries(['autocomplete', 'data-1p-ignore', 'data-lpignore', 'data-bwignore'].map((name) => [name, input.getAttribute(name)])));
+        assert.deepEqual(await attrs(key), { autocomplete: 'new-password', 'data-1p-ignore': '', 'data-lpignore': 'true', 'data-bwignore': '' }, 'a secret field opts out of 1Password, LastPass, Bitwarden and browser fill');
+        assert.deepEqual(await attrs(tab.locator('[data-plain]')), { autocomplete: 'current-password', 'data-1p-ignore': null, 'data-lpignore': null, 'data-bwignore': null }, 'a plain password field keeps its own');
+        assert.equal(await tab.locator('[data-override]').getAttribute('autocomplete'), 'off', "the page's own attribute wins");
+        assert.equal(await tab.locator('[data-override]').getAttribute('data-1p-ignore'), '', 'and the opt-outs stay');
+        assert.equal(await tab.getByRole('button', { name: 'Show value' }).count(), 2, 'a secret field\'s toggle says value, not password');
+        const bar = tab.locator('[data-form-actions]');
+        assert.equal(await bar.getAttribute('data-state'), 'idle', 'loaded: saved');
+        // A password manager filling the field fires input with the value it writes; one that leaves the loaded key is no edit.
+        await key.evaluate((input) => { input.value = 'sk-live-loaded'; input.dispatchEvent(new Event('input', { bubbles: true })); input.dispatchEvent(new Event('change', { bubbles: true })); });
+        assert.equal(await bar.getAttribute('data-state'), 'idle', 'autofill that keeps the loaded value: still saved');
+        await key.fill('sk-live-pasted');
+        assert.equal(await bar.getAttribute('data-state'), 'dirty', 'a pasted key is unsaved');
+        await bar.getByRole('button', { name: /save/i }).click();
+        await tab.waitForFunction(() => window.kitSaved.length === 1);
+        assert.deepEqual(await tab.evaluate(() => window.kitSaved[0]), { apiKey: 'sk-live-pasted', note: '' }, 'the pasted key is saved');
+        assert.notEqual(await bar.getAttribute('data-state'), 'dirty', 'after the save: no longer unsaved');
+        assert.ok(['saved', 'idle'].includes(await bar.getAttribute('data-state')));
+        assert.deepEqual(await axeWithContrast(tab), [], 'axe, colour contrast included');
+    });
+});

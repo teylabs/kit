@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+Features affected: core (`PasswordInput`, from the package; nothing to re-scaffold).
+
+### Added
+
+- **`PasswordInput secret`** is for a value pasted in rather than remembered: an API key, a token or a signing secret. It tells password managers to leave the field alone with `autocomplete="new-password"`, `data-1p-ignore`, `data-lpignore="true"` and `data-bwignore`. A saved login is no longer filled into it, so the form doesn't turn unsaved on load. Its toggle reads "Show value". An attribute the page passes, such as its own `autocomplete`, wins.
+
+### Fixed
+
+- No kit change was needed for two related form checks, now covered by a browser test. A kit form isn't marked unsaved when autofill leaves the loaded value, since `isDirty` deep-compares against the defaults. It also clears its unsaved state after a successful save: `useSubmitForm` moves its defaults to the submitted data, and Inertia's `useForm` (3.x) sets its defaults on success unless `onSuccess` calls `defaults()` itself.
+
 ## v0.39.0
 
 Features affected: workspaces (a new migration and the HasFlags API, from the package; run `php artisan migrate`), core (`TagList`, from the package; nothing to re-scaffold). Requires spatie/laravel-tags ^4.12.
