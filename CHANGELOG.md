@@ -14,7 +14,7 @@ Before upgrading, audit the app's queued classes:
 
 A class you miss fails loudly, not silently: the kit's workspace models throw `workspace_required` outside a workspace, and with RLS on, protected tables show it nothing and refuse its inserts. An app that publishes its own `config/multitenancy.php` keeps its own value. An app that needs time can set `'queues_are_tenant_aware_by_default' => true` there and flip it after the audit.
 
-Features affected: workspaces (config defaults and `RlsQueuedHandler`, from the package; and new make stubs: run `php artisan kit:scaffold --diff --only=workspaces` to add them).
+Features affected: workspaces (config defaults and `RlsQueuedHandler`, from the package; and new make stubs: run `php artisan kit:scaffold workspaces --diff --only=stubs` to see them, then without `--diff` to write them).
 
 ### Added
 
