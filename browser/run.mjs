@@ -329,6 +329,20 @@ test('a kit Select opens over the modal, its option takes the click, and Escape 
     assert.equal(await page.textContent('[data-status]'), 'b');
 });
 
+test('a kit Select shows and chooses back an option whose value is empty', async () => {
+    await openModal();
+    assert.equal((await page.textContent('#scope')).trim(), 'Any scope', 'the empty-value option shows its label');
+    await page.click('#scope');
+    await page.click('[role="option"]:has-text("Read")');
+    assert.equal(await page.textContent('[data-scope]'), '"read"');
+    await page.click('#scope');
+    await page.click('[role="option"]:has-text("Any scope")');
+    assert.equal(await page.textContent('[data-scope]'), '""', 'choosing it back sets the model to an empty string');
+    await page.waitForSelector('[role="listbox"]', { state: 'detached' });
+    await page.waitForTimeout(200);
+    assert.equal((await page.textContent('#scope')).trim(), 'Any scope', 'and shows its label again');
+});
+
 test('a kit menu opens over the modal, its item takes the click, and Escape closes only the menu', async () => {
     await openModal();
     await page.click('[data-menu-trigger]');

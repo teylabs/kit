@@ -16,7 +16,8 @@ import { useLayerTarget } from '@/components/Kit/Overlay/layer';
 import { useLocked } from './useLocked';
 import { useFieldAria } from './fieldAria';
 
-// Deprecated: use InputSelect, the kit's rich select. Select stays, its props unchanged, until 0.4 (they don't map one to one: `autofocus`, and InputSelect turns search on past 8 options).
+// InputSelect is the default select; this plain one is for a short fixed list that always holds a value (docs/form-fields.md, "Choosing a select").
+// Its props stay unchanged (they don't map one to one onto InputSelect's: `autofocus`, and InputSelect turns search on past 8 options).
 // A select on Reka UI: `options` are values with labels; `id` goes on the trigger and `name` makes it submit a native named value, through a hidden input (so it works inside an uncontrolled <Form>), so a Field's label points at it.
 // Caller attributes (`aria-describedby`, `data-*` and the rest, `class` included) land on the trigger; `required` marks the select required (`aria-required` on the trigger).
 defineOptions({ inheritAttrs: false });
@@ -33,6 +34,15 @@ const props = defineProps<{
 const trigger = ref<{ $el?: HTMLElement } | null>(null);
 onMounted(() => props.autofocus && trigger.value?.$el?.focus());
 const model = defineModel<string>();
+// Reka reserves '' for "no value" (an item can't hold it), so an option with value '' showed the placeholder, or a blank box, and couldn't be chosen
+// back. Inside, '' travels as EMPTY; the model, the hidden input and the submitted value stay ''.
+const EMPTY = '\u0000kit-empty';
+const hasEmpty = computed(() => props.options.some((o) => o.value === ''));
+const inner = computed({
+    get: () => (model.value === '' && hasEmpty.value ? EMPTY : model.value),
+    set: (value) => (model.value = value === EMPTY ? '' : value),
+});
+const itemValue = (value: string) => (value === '' ? EMPTY : value);
 const attrs = useAttrs();
 // Inside a Field: described only by what it renders, and invalid while it has an error.
 const aria = useFieldAria(attrs, () => props.invalid);
@@ -71,7 +81,7 @@ const layerTarget = useLayerTarget();
 </script>
 <template>
     <SelectRoot
-        v-model="model"
+        v-model="inner"
         :disabled="disabled"
         :required="required"
         :open="locked ? false : open"
@@ -119,7 +129,7 @@ const layerTarget = useLayerTarget();
                     <SelectItem
                         v-for="option in options"
                         :key="option.value"
-                        :value="option.value"
+                        :value="itemValue(option.value)"
                         class="data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground relative flex cursor-pointer items-center rounded-sm py-1.5 pr-8 pl-2 text-sm outline-none select-none data-[disabled]:cursor-not-allowed"
                     >
                         <SelectItemText>{{ option.label }}</SelectItemText>

@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+Features affected: Select (Form). Nothing to re-scaffold.
+
+### Fixed
+
+- **Select: an option whose value is `''` shows its label and can be chosen back.** Reka reserves the empty string for "no value", so such an option rendered as a blank box (or the placeholder) and picking it did nothing visible. Select now carries `''` internally as a private value; the model, the hidden input and the submitted value are still `''`. The browser job checks the label shows, and that choosing another option and then the empty one returns the model to `""` with the label back.
+
+### Docs
+
+- **docs/form-fields.md: "Choosing a select: InputSelect or Select".** InputSelect is the default; the section names the cases where a plain Select is right and the four questions to ask at build time (list from data or can grow, needs search, optional or clearable, a labelled empty choice). Judgement only, no check.
+
 ## v0.39.2
 
 Features affected: none (docs and a check; nothing to re-scaffold).
