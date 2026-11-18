@@ -12629,8 +12629,11 @@ test('ItemStack layers: bordered layers sit 8px apart, a third shows from four i
         const face = await stack.locator('[data-item-stack-top]').evaluate(el => el.getBoundingClientRect().bottom);
         const bottoms = [...tops].sort((a, b) => a - b);
         assert.deepEqual(bottoms.map(b => Math.round(b - face)), [8, 16, 24], 'each layer peeks 8px below the one above it');
-        assert.ok(await stack.locator('[data-item-stack-top]').evaluate(el => getComputedStyle(el).boxShadow.includes('rgb')), 'the added ring shows');
-        await stack.locator('[data-item-stack-added]').waitFor({ state: 'detached', timeout: 3000 });
+        const ring = stack.locator('[data-item-stack-added]');
+        assert.ok(await ring.evaluate(el => getComputedStyle(el).boxShadow.includes('rgb')), 'the added ring shows, on its own overlay');
+        const still = await stack.locator('[data-item-stack-top]').evaluate(el => [getComputedStyle(el).animationName, getComputedStyle(el).opacity]);
+        assert.deepEqual(still, ['none', '1'], 'the face itself does not pulse');
+        await ring.waitFor({ state: 'detached', timeout: 3000 });
         assert.equal(await tab.locator('[aria-label="Single"] [data-item-stack-count]').count(), 0, 'a single item has no chip');
     });
 });

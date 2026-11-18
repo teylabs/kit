@@ -122,6 +122,7 @@ const layerClass = (depth: number) => [
     ['top-2', 'top-4', 'top-6'][depth - 1],
     ['bottom-0', 'bottom-2', 'bottom-4'][layers.value - depth],
     depth === 3 ? 'opacity-70' : depth === 2 ? 'opacity-85' : '',
+    ['z-[3]', 'z-[2]', 'z-[1]'][depth - 1],
 ];
 function step(by: number) {
     if (!count.value) return;
@@ -153,7 +154,6 @@ const itemLabel = (item: StackItem, at: number) =>
                 :key="depth"
                 aria-hidden="true"
                 :class="layerClass(depth)"
-                :style="{ zIndex: 4 - depth }"
                 data-item-stack-layer
             />
             <button
@@ -161,9 +161,7 @@ const itemLabel = (item: StackItem, at: number) =>
                 :class="[
                     'border-border bg-card focus-visible:outline-ring relative z-10 block w-full overflow-hidden rounded-md border shadow-sm transition-shadow focus-visible:outline-2 focus-visible:outline-offset-2',
                     fill && 'h-full',
-                    added && 'ring-primary ring-2 motion-safe:animate-pulse',
                 ]"
-                :data-item-stack-added="added || undefined"
                 :aria-label="`Open ${itemLabel(current, index)}`"
                 data-item-stack-top
                 @click="emit('open', current.id, $event)"
@@ -200,6 +198,12 @@ const itemLabel = (item: StackItem, at: number) =>
                     data-item-stack-count
                     >{{ index + 1 }} of {{ count }}</span
                 >
+                <span
+                    v-if="added"
+                    aria-hidden="true"
+                    class="ring-primary pointer-events-none absolute inset-0 z-20 rounded-md ring-2 ring-inset motion-safe:animate-pulse"
+                    data-item-stack-added
+                />
             </button>
         </div>
         <span
