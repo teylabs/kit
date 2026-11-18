@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.39.1
 
 Features affected: core (`PasswordInput`, from the package; nothing to re-scaffold).
 
