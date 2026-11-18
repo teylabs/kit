@@ -164,7 +164,15 @@ node_ready() {
 if ! node_ready; then
     curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
     sudo apt-get install -y nodejs
-    node_ready || { echo "setup: node is not Node 24 with npm" >&2; exit 1; }
+    # An image can ship its own node earlier on PATH (an Amp orb's /usr/local/bin): nodesource's lands in /usr/bin, so it goes first
+    # for the rest of this script, and the agent is told how to keep it.
+    hash -r
+    if ! node_ready && [ -x /usr/bin/node ] && [ -x /usr/bin/npm ]; then
+        echo "setup: $(command -v node || echo 'no node') ($(node -v 2>/dev/null || echo none)) comes before /usr/bin/node on PATH; using /usr/bin first. Run export PATH=\"/usr/bin:\$PATH\" in later shells for Node 24." >&2
+        export PATH="/usr/bin:$PATH"
+        hash -r
+    fi
+    node_ready || { echo "setup: node is not Node 24 with npm (found $(command -v node || echo none) $(node -v 2>/dev/null || echo))" >&2; exit 1; }
 fi
 
 composer update --prefer-dist --no-interaction --no-progress
