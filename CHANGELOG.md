@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## v0.37.4
+
+Features affected: workspace-ui (passkey sign-in response, from the package; nothing to re-scaffold).
 
 ### Changed
 
