@@ -3,8 +3,8 @@
  *
  * Position: the shell's `kit.toasts.position` (shared as `kitToasts`): auto, top-center, top-right, bottom-right or bottom-center; an unknown value is auto.
  * Below `sm` it is always bottom-center, lifted above the registered sticky bars (the safe-area inset is added in CSS). Otherwise `auto` is top-center when
- * sticky bottom bars are registered and the shell header has right-aligned actions, top-right with sticky bars only, else bottom-right. A top position sits
- * just under the shell's header and breadcrumb bar, never over it.
+ * sticky bottom bars are registered and the shell header has right-aligned actions, top-right with sticky bars only, else bottom-right. A top position's offset
+ * is the gap below the shell's pinned stack: the Toaster adds the shell's live `--shell-top` in CSS, so it never sits over the bar and follows it as it resizes.
  *
  * Trigger: the server names it by action-descriptor key (`from`), and rendered descriptor buttons carry that key as `data-action`. The last activated
  * element with that key wins (a row's own button among many rows), else the only one on the page. Anything else, a gone or offscreen element, is no trigger.
@@ -18,7 +18,6 @@ export type ShellState = {
     bars: { count: number; height: number };
     small: boolean;
     headerActions: boolean;
-    headerHeight: number;
 };
 
 const GAP = 16;
@@ -46,11 +45,7 @@ export function toastPlacement(
     shell: ShellState,
 ): ToastPlacement {
     const resolved = resolvePosition(position, shell);
-    if (resolved.startsWith('top-'))
-        return {
-            position: resolved,
-            offset: Math.max(0, shell.headerHeight) + GAP,
-        };
+    if (resolved.startsWith('top-')) return { position: resolved, offset: GAP };
     return {
         position: resolved,
         offset:

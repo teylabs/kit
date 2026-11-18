@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- The shell's `Toaster` places a top toast with the shell's live `--shell-top` (`calc(var(--shell-top, 0px) + 16px)`) instead of measuring `[data-shell-top]` when a toast shows, so it follows the bar as it resizes. Toasts sit where they did. `toastPlacement`'s `ShellState` drops `headerHeight` (internal).
+
 ## v0.37.3
 
 Features affected: none (kit components only).

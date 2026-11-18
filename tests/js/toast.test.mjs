@@ -10,7 +10,7 @@ const dir = mkdtempSync(join(tmpdir(), 'kit-toast-'));
 copyFileSync(new URL('Feedback/toastPlacement.ts', kit), join(dir, 'toastPlacement.ts'));
 const { resolvePosition, toastPlacement, flashedToast, resolveTrigger, toastPlan, toastTiming, isAway, whenBack, toastGate } = await import(pathToFileURL(join(dir, 'toastPlacement.ts')).href);
 
-const shell = (over = {}) => ({ bars: { count: 0, height: 0 }, small: false, headerActions: false, headerHeight: 104, ...over });
+const shell = (over = {}) => ({ bars: { count: 0, height: 0 }, small: false, headerActions: false, ...over });
 const bar = { count: 1, height: 56 };
 
 test('auto: under sm bottom-center, above the sticky bars', () => {
@@ -18,7 +18,7 @@ test('auto: under sm bottom-center, above the sticky bars', () => {
     assert.equal(resolvePosition('top-right', shell({ small: true })), 'bottom-center', 'an explicit position still yields to phones');
 });
 test('auto: sticky bars and header actions is top-center, under the header', () => {
-    assert.deepEqual(toastPlacement('auto', shell({ bars: bar, headerActions: true })), { position: 'top-center', offset: 104 + 16 });
+    assert.deepEqual(toastPlacement('auto', shell({ bars: bar, headerActions: true })), { position: 'top-center', offset: 16 });
 });
 test('auto: sticky bars only is top-right', () => assert.equal(resolvePosition('auto', shell({ bars: bar })), 'top-right'));
 test('auto: otherwise bottom-right; header actions alone do not move it', () => {
