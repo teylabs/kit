@@ -1,8 +1,8 @@
 # Changelog
 
-## Unreleased
+## v0.40.0
 
-Features affected: workspace-ui (People: Invite and Change role), mcp (Settings: Connections), deliver (DeliverPanel). Take the pages with `php artisan kit:scaffold workspace-ui --diff --only=resources/js/pages/Workspace/Settings/People` and `php artisan kit:scaffold mcp --diff --only=resources/js/pages/Workspace/Settings/Connections`.
+Features affected: workspace-ui (People: Invite and Change role), mcp (Settings: Connections), deliver (DeliverPanel), ItemStack (Media), .agents/setup. Take the pages with `php artisan kit:scaffold workspace-ui --diff --only=resources/js/pages/Workspace/Settings/People` and `php artisan kit:scaffold mcp --diff --only=resources/js/pages/Workspace/Settings/Connections`.
 
 ### Changed
 
