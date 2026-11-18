@@ -21,7 +21,11 @@ import PasswordRules from './PasswordRules.vue';
 // It follows its form's `reset` (a native reset, or Inertia's whole-form reset): the value it holds becomes the input's reset value, so a re-render never
 // writes the old password back. A reset of named fields only (Inertia's `reset-on-error` list) fires no event: the page clears its v-model.
 defineOptions({ inheritAttrs: false });
-const props = defineProps<{ invalid?: boolean; rules?: boolean; secret?: boolean }>();
+const props = defineProps<{
+    invalid?: boolean;
+    rules?: boolean;
+    secret?: boolean;
+}>();
 const model = defineModel<string>();
 const shown = ref(false);
 const attrs = useAttrs();
