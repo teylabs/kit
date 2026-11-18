@@ -13736,3 +13736,29 @@ async function returnFocusCheck(panel) {
 test('A local kit Modal returns focus to its opener after Escape, a click on Close and Enter on Close, on the real inertiaui/modal (native <dialog>)', () => returnFocusCheck(''));
 test('A local kit Modal returns focus to its opener after Escape, a click on Close and Enter on Close, on the real inertiaui/modal (role=dialog panel)', () => returnFocusCheck('div'));
 
+// ── TagList (?tag-list): flags before tags, a reason read out and a link followed, wrapping, "+N more" only past eight, axe ─────────────────────────────
+test('TagList shows flags before tags, reads a flag\'s reason and links it, wraps up to eight, folds the rest into "+N more", and passes axe', async () => {
+    await onPage('tag-list', async (tab) => {
+        const row = tab.getByRole('list', { name: 'Case A-2001 tags' });
+        assert.deepEqual(await row.locator(':scope > li').evaluateAll((items) => items.map((item) => [item.dataset.kind, item.textContent.trim()])),
+            [['flag', 'Stalled'], ['flag', 'Possible duplicate: Looks like A-1042'], ['tag', 'VIP']], 'flags first, in the server\'s order; the reason is read after the label');
+        const link = row.getByRole('link', { name: /^Possible duplicate\s*: Looks like A-1042$/ });
+        assert.equal(await link.getAttribute('href'), '/cases/1042', 'a flag with a link is a link');
+        assert.equal(await link.getAttribute('title'), 'Looks like A-1042', 'its reason is the hover text');
+        const many = tab.getByRole('list', { name: 'Case A-2002 tags' });
+        assert.equal(await many.locator(':scope > li[data-kind]').count(), 8, 'eight show');
+        const tops = await many.locator(':scope > li').evaluateAll((items) => new Set(items.map((item) => Math.round(item.getBoundingClientRect().top))).size);
+        assert.ok(tops > 1, 'and wrap onto more lines in a narrow cell');
+        const more = many.getByRole('button', { name: '+2 more' });
+        assert.equal(await more.count(), 1, 'the rest fold into "+N more"');
+        await more.click();
+        const panel = tab.getByRole('dialog', { name: 'Case A-2002 tags' });
+        await panel.waitFor();
+        assert.deepEqual(await panel.locator('li').allTextContents(), ['Reviewed', 'Spare'], 'which opens them');
+        await tab.keyboard.press('Escape');
+        assert.equal(await tab.getByRole('list', { name: 'Case A-2003 tags' }).locator(':scope > li[data-kind]').count(), 10, 'max null never folds');
+        assert.equal(await tab.locator('[data-case="none"] [data-slot="tag-list"]').count(), 0, 'no tags, no list');
+        assert.deepEqual(await axeWithContrast(tab), [], 'axe, colour contrast included');
+    });
+});
+

@@ -88,6 +88,14 @@ jobs:
           DB_DATABASE: kit_adopt_check
           DB_USERNAME: kit
           DB_PASSWORD: kit
+      - run: composer test:flags
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_DATABASE: kit_adopt_check
+          DB_USERNAME: kit
+          DB_PASSWORD: kit
       # Its own kit_table_* schemas; the check prints "Database: pgsql" and fails unless every step ran.
       - run: composer test:table-adopt
         env:
@@ -488,6 +496,9 @@ jobs:
       - name: Workspace model concerns
         timeout-minutes: 4
         run: composer test:workspace-models
+      - name: Flags and tags
+        timeout-minutes: 4
+        run: composer test:flags
       - name: touched_at pattern (SQLite)
         timeout-minutes: 4
         run: composer test:touched-at
