@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.39.2
 
 Features affected: none (docs and a check; nothing to re-scaffold).
 
