@@ -1,5 +1,30 @@
 # Changelog
 
+## Unreleased
+
+### Upgrading
+
+Queues are no longer tenant-aware by default: the kit's `multitenancy.queues_are_tenant_aware_by_default` is now `false`. A queued job, notification, mailable or listener gets the dispatching workspace only when it declares spatie's `TenantAware` (or is listed in `multitenancy.tenant_aware_jobs`). Before, every undeclared queued class carried the workspace, and one dispatched with no workspace (a webhook, a scheduled task, a central notification) was dropped by spatie with `CurrentTenantCouldNotBeDeterminedInTenantAwareJob`.
+
+Before upgrading, audit the app's queued classes:
+
+1. List every `ShouldQueue` job, queued notification, mailable and listener.
+2. Mark each one that needs its workspace (it reads or writes workspace models, or calls `Workspaces::current()`) `implements TenantAware`.
+3. Mark the central ones `NotTenantAware`, so the choice is written down.
+
+A class you miss fails loudly, not silently: the kit's workspace models throw `workspace_required` outside a workspace, and with RLS on, protected tables show it nothing and refuse its inserts. An app that publishes its own `config/multitenancy.php` keeps its own value. An app that needs time can set `'queues_are_tenant_aware_by_default' => true` there and flip it after the audit.
+
+Features affected: workspaces (config defaults and `RlsQueuedHandler`, from the package; and new make stubs: run `php artisan kit:scaffold workspaces --diff --only=stubs` to see them, then without `--diff` to write them).
+
+### Added
+
+- **Make stubs that declare tenancy.** workspaces scaffolds Laravel's make stubs into `stubs/`: `job.queued`, `job.batched.queued`, `listener.queued`, `listener.typed.queued`, `notification`, `mail`, `markdown-mail`, `markdown-notification` and `view-mail`. So `make:job`, `make:listener --queued`, `make:notification` and `make:mail` start explicit. A queued job or listener `implements ShouldQueue, TenantAware`, with a note to keep TenantAware (it runs in the dispatching workspace) or swap in `NotTenantAware` (it runs centrally). Notifications and mail import both and say to choose when they are queued. tey/standards v0.11.106's `tenant.queued-declared` warns on a queued class that declares neither.
+
+### Changed
+
+- **Queues are tenant-aware only by opt-in.** The kit's multitenancy default `queues_are_tenant_aware_by_default` is `false`. Concierge's `DeliverInvitation` (workspace invitations) is listed in `tenant_aware_jobs`, so it still carries its workspace; `DeliverTenantInvitation` stays not tenant-aware. The kit's own queued classes already declare one or the other (`AdoptChunk`, `PerformConversions`: `TenantAware`; `RunQueuedTool`: `NotTenantAware`).
+- **`RlsQueuedHandler` follows spatie's tenant-awareness rule** (the interfaces, then the lists, then the default) through the new `RlsQueuedHandler::tenantAware()`. A tenant-aware job with no current workspace still fails closed (`rls_workspace_required`). Any other job runs with no workspace id, where before an undeclared job failed closed when the default was off.
+
 ## v0.37.5
 
 Features affected: session-ui, workspace-ui (the home controller moves between them, inside the package; nothing to re-scaffold).

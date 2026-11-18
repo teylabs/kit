@@ -19,7 +19,7 @@ $loader->addPsr4('Tey\\Kit\\', dirname(__DIR__).'/src', true);
 /** Kept in step with Catalog::FEATURES; a changed manifest or stub must be repinned in both places on purpose. */
 const PINS = [
     'core' => 'sha256:50d7c9a7e6a1cec003109eb623758638a7fa67308ba6bd141dbf9256ca77ca9c',
-    'workspaces' => 'sha256:bbf33a40f7a70cd24b99d270cbca71f088265243e03d679ba35b588eb50a99f4',
+    'workspaces' => 'sha256:087e236b75d0215f2bbdd63286bbb743eeed79275188b97bc26ed710a3cafbe0',
     'access' => 'sha256:98af2e26dd12f50c7e65dcf10e9692afdbc611248571e12d379e0cc7405a2de6',
     'settings' => 'sha256:222aa23365087ff10406af69e5481f58b5a9a691059611d51e77ce7898914757',
     'shell' => 'sha256:a21554beb50e804c8e8b6bb40deac635c715da17b58a5c010b7e6700961fc47a',
@@ -32,7 +32,7 @@ const PINS = [
 ];
 const BASE = 'sha256:596e1701b4bb1fd524fe62978ca1b2d5122f6756cfb0b5146255938545b79e39';
 /** Generated files live only here: per-feature migrations, Vue starting points and the shell's type aliases. Config and routes ship in the library. */
-const GENERATED = ['database/migrations/kit/', 'resources/js/pages/', 'resources/js/widgets/', 'resources/js/components/Kit/', 'resources/css/kit.css', 'resources/js/types/kit-shell.d.ts'];
+const GENERATED = ['database/migrations/kit/', 'resources/js/pages/', 'resources/js/widgets/', 'resources/js/components/Kit/', 'resources/css/kit.css', 'resources/js/types/kit-shell.d.ts', 'stubs/'];
 /** Migration prefix block per feature, in requires order: core, workspaces, access, settings, session-ui, mcp. Shell and workspace-ui migrate nothing and have no block. */
 const MIGRATION_BLOCK = ['core' => 1, 'workspaces' => 2, 'access' => 3, 'settings' => 4, 'session-ui' => 5, 'mcp' => 6, 'notes' => 7, 'finalize' => 8, 'deliver' => 9];
 /** Tailwind-style utilities only: a class token needs a dash or a variant, or is one of the bare utilities. */
@@ -123,6 +123,18 @@ try {
     starterCheck(in_array('app/Models/User.php', $manifests['core']['host_owned'], true) && in_array('bootstrap', $manifests['core']['host_owned'], true) && in_array('config', $manifests['core']['host_owned'], true) && in_array('resources/css/app.css', $manifests['core']['host_owned'], true) && in_array('composer.json', $manifests['core']['host_owned'], true) && in_array('resources/js/app.ts', $manifests['session-ui']['host_owned'], true), 'core declares the common host-owned set (config, app.css and composer.json included), and session-ui the app entry');
     $files = $all->manifest['generated'];
     starterCheck(array_filter(array_keys($files), fn (string $path): bool => ! array_filter(GENERATED, fn (string $prefix): bool => str_starts_with($path, $prefix))) === [], 'every generated file is a kit migration, a Vue starting point, a dashboard widget body, a kit component, the kit stylesheet or the shell\'s type aliases');
+    $makeStubs = array_filter($files, fn (string $path): bool => str_starts_with($path, 'stubs/'), ARRAY_FILTER_USE_KEY);
+    $undeclared = [];
+    foreach ($makeStubs as $path => $bytes) { // $bytes: the manifest entry; the stub is the workspaces feature's.
+        $source = str_replace(['{{ namespace }}', '{{ class }}', '{{ eventNamespace }}', '{{ event }}', '{{ view }}', '{{ subject }}'], ['App\\Jobs', 'Probe', 'App\\Events\\Probe', 'Probe', 'mail.probe', 'Probe'], (string) file_get_contents(dirname(__DIR__).'/resources/features/workspaces/'.$bytes['stub']));
+        $queued = str_starts_with(basename($path), 'job.') || str_starts_with(basename($path), 'listener.');
+        $declared = $queued ? preg_match('/implements ShouldQueue, (TenantAware|NotTenantAware)\b/', $source) === 1 : str_contains($source, 'NotTenantAware runs it centrally');
+        $parses = ! preg_match('/\{\{.*?\}\}/', $source) && str_contains($source, 'use Spatie\\Multitenancy\\Jobs\\TenantAware;') && str_contains($source, 'use Spatie\\Multitenancy\\Jobs\\NotTenantAware;');
+        if (! $declared || ! $parses) {
+            $undeclared[] = $path;
+        }
+    }
+    starterCheck(count($makeStubs) === 9 && $undeclared === [], 'the make stubs (jobs, listeners, notifications, mail) declare their tenancy: queued ones implement TenantAware, the rest say to choose ('.implode(', ', $undeclared).')');
     starterCheck(array_filter(array_keys($files), fn (string $path): bool => str_starts_with($path, 'config/')) === [] && array_filter(array_merge(...array_column($manifests, 'owns')), fn (string $path): bool => within($path, 'config')) === [], 'no generated or owned file is under config/');
     starterCheck(array_filter(array_keys($files), fn (string $path): bool => str_starts_with($path, 'routes/') || str_starts_with($path, 'app/')) === [], 'no route file or app class is generated');
 

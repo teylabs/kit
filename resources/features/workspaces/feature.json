@@ -2,9 +2,64 @@
   "format": 1,
   "id": "workspaces",
   "owns": [
-    "database/migrations/kit/workspaces"
+    "database/migrations/kit/workspaces",
+    "stubs/job.batched.queued.stub",
+    "stubs/job.queued.stub",
+    "stubs/listener.queued.stub",
+    "stubs/listener.typed.queued.stub",
+    "stubs/mail.stub",
+    "stubs/markdown-mail.stub",
+    "stubs/markdown-notification.stub",
+    "stubs/notification.stub",
+    "stubs/view-mail.stub"
   ],
-  "files": {},
+  "files": {
+    "stubs/job.queued.stub": {
+      "stub": "stubs/job.queued.stub.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "stubs/job.batched.queued.stub": {
+      "stub": "stubs/job.batched.queued.stub.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "stubs/listener.queued.stub": {
+      "stub": "stubs/listener.queued.stub.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "stubs/listener.typed.queued.stub": {
+      "stub": "stubs/listener.typed.queued.stub.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "stubs/notification.stub": {
+      "stub": "stubs/notification.stub.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "stubs/mail.stub": {
+      "stub": "stubs/mail.stub.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "stubs/markdown-mail.stub": {
+      "stub": "stubs/markdown-mail.stub.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "stubs/markdown-notification.stub": {
+      "stub": "stubs/markdown-notification.stub.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "stubs/view-mail.stub": {
+      "stub": "stubs/view-mail.stub.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    }
+  },
   "files_from": {
     "stubs": "migrations",
     "target": "database/migrations/kit/workspaces"
