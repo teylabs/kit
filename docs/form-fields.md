@@ -48,3 +48,9 @@ A short fixed list is never typeable. `searchable` left unset is off for up to 8
 - **Node:** `tests/js/number.test.mjs` covers `fieldError`: bracket, mixed and dot names against dot-keyed and bracket-keyed errors, another field of the same row, an index that is a prefix of another (`2` and `20`) and an exact key winning.
 - **Browser (`?field-paths`):** Fields named `title`, `contacts[0][email]`, `contacts[0].email` and `contacts.1.name` show Laravel's dot-path errors, are `aria-invalid` and described by the error; a Field with no error is described by its description only; the default Field's classes are unchanged. A Repeater row's error shows on its row's Field and follows the row when it moves up. The default FormActions bar keeps its border, padding and gap; the compact bar has none of its own and an 8px gap. axe with contrast, light and dark.
 - **Not covered:** a host's real Inertia `<Form>` (the fixture provides the context Inertia does) and a screen-reader run.
+
+## Secret fields (API keys, tokens)
+
+Use `<PasswordInput secret />` for a value that is pasted in rather than remembered: an API key, a token or a webhook signing secret. It sets `autocomplete="new-password"`, `data-1p-ignore`, `data-lpignore="true"` and `data-bwignore`, so browsers and password managers (1Password, LastPass, Bitwarden) don't fill a saved login into it. That autofill is what made such a form show "Unsaved changes" on load. The toggle reads "Show value". An attribute you pass yourself wins.
+
+A kit form is not marked unsaved when autofill leaves the loaded value, because `isDirty` compares against the defaults. It clears its unsaved state after a successful save. If your `onSuccess` calls `form.defaults(...)` itself, Inertia leaves the defaults to you.
