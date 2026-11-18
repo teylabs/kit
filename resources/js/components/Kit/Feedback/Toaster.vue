@@ -36,18 +36,16 @@ const page = usePage<{ kitToasts?: { position?: string } }>();
 const bars = useStickyBars();
 const small = ref(false);
 const headerActions = ref(false);
-const headerHeight = ref(0);
 const placement = computed(() =>
     toastPlacement(page.props.kitToasts?.position, {
         bars: { count: bars.count.value, height: bars.height.value },
         small: small.value,
         headerActions: headerActions.value,
-        headerHeight: headerHeight.value,
     }),
 );
 const offset = computed(() =>
     placement.value.position.startsWith('top-')
-        ? { top: `${placement.value.offset}px` }
+        ? { top: `calc(var(--shell-top, 0px) + ${placement.value.offset}px)` }
         : {
               bottom: `calc(${placement.value.offset}px + env(safe-area-inset-bottom))`,
           },
@@ -64,8 +62,6 @@ const waiting = new Set<() => void>();
 const timers = new Set<ReturnType<typeof setTimeout>>();
 
 function measureShell(): void {
-    const top = document.querySelector<HTMLElement>('[data-shell-top]');
-    headerHeight.value = top ? top.getBoundingClientRect().height : 0;
     headerActions.value = !!document.querySelector('[data-shell-actions] > *');
 }
 

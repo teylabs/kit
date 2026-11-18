@@ -320,6 +320,29 @@ try {
     [$status, $location] = $send(null, 'POST', '/two-factor-challenge', ['kit' => ['workspace' => $acme->id], 'login' => ['id' => $many->id, 'remember' => false]], ['recovery_code' => 'recovery-one']);
     httpCheck($status === 302 && $location === 'https://kit.test/@acme' && Auth::guard('web')->id() === $many->id, 'the two-factor challenge redirects straight to /@acme too ('.$status.' '.$location.')');
     $many->forceFill(['two_factor_secret' => null, 'two_factor_recovery_codes' => null, 'two_factor_confirmed_at' => null])->save();
+    // Passkey sign-in (Laravel Passkeys' login response, replaced by the kit's) lands as the password path does, also when the login page asks for JSON.
+    if (! app()->bound(Laravel\Passkeys\Contracts\PasskeyLoginResponse::class)) {
+        app()->singleton(Laravel\Passkeys\Contracts\PasskeyLoginResponse::class, Laravel\Passkeys\Http\Responses\PasskeyLoginResponse::class);
+    }
+    $passkey = function (array $session, bool $json = false) use ($many): array {
+        $request = Request::create('https://kit.test/passkeys/login', 'POST', server: $json ? ['HTTP_ACCEPT' => 'application/json'] : []);
+        $store = app('session')->driver();
+        $store->flush();
+        foreach ($session as $key => $value) {
+            $store->put($key, $value);
+        }
+        $request->setLaravelSession($store);
+        $request->setUserResolver(fn () => $many);
+        app()->instance('request', $request);
+        Auth::guard('web')->setUser($many);
+        $response = app(Laravel\Passkeys\Contracts\PasskeyLoginResponse::class)->toResponse($request);
+
+        return $json ? [$response->getStatusCode(), $response->getData(true)['redirect'] ?? null] : [$response->getStatusCode(), $response->headers->get('Location')];
+    };
+    httpCheck($passkey(['kit' => ['workspace' => $acme->id]]) === [302, 'https://kit.test/@acme'], 'passkey sign-in redirects straight to /@acme too ('.json_encode($passkey(['kit' => ['workspace' => $acme->id]])).')');
+    httpCheck($passkey(['kit' => ['workspace' => $acme->id]], json: true) === [200, 'https://kit.test/@acme'], 'and its JSON answer names /@acme as the redirect');
+    httpCheck($passkey(['kit' => ['workspace' => $acme->id], 'url' => ['intended' => 'https://kit.test/me/profile']]) === [302, 'https://kit.test/me/profile'], 'an intended URL still wins for a passkey sign-in');
+    Auth::guard('web')->logout();
     // An app that sends sign-in to its own page keeps it.
     $config->set('fortify.home', '/dashboard');
     httpCheck($signIn('many@example.test', ['kit' => ['workspace' => $acme->id]]) === [302, 'https://kit.test/dashboard'], 'an app\'s own fortify.home is kept');
