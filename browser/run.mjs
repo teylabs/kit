@@ -12638,6 +12638,50 @@ test('ItemStack layers: bordered layers sit 8px apart, a third shows from four i
     });
 });
 
+test('ItemStack thumbnails: a strip beside the face, within its height; a thumbnail sets the index and is aria-current, "+K" opens the fanout, all by keyboard', async () => {
+    await mediaTab(async tab => {
+        const pair = tab.locator('[data-fixture="strip-pair"]');
+        assert.deepEqual(await pair.locator('[data-item-stack-thumbnail]').evaluateAll(els => els.map(el => el.dataset.itemStackThumbnail)), ['s1', 's2'], 'two items fill two slots');
+        assert.equal(await pair.locator('[data-item-stack-more]').count(), 0, 'no "+K" when every item fits');
+        assert.equal(await tab.locator('[aria-label="Single"] [data-item-stack-thumbnails]').count(), 0, 'no strip without the prop');
+
+        const strip = tab.locator('[data-fixture="strip-more"]');
+        const thumbs = strip.locator('[data-item-stack-thumbnail]');
+        assert.equal(await thumbs.count(), 2, 'four items in three slots: two thumbnails and "+K"');
+        const more = strip.locator('[data-item-stack-more]');
+        assert.equal(await more.innerText(), '+2');
+        const box = await strip.evaluate(el => {
+            const r = (s) => el.querySelector(s).getBoundingClientRect();
+            const face = r('[data-item-stack-top]'), group = el.querySelector('[data-item-stack-thumbnails]');
+            const row = group.parentElement.parentElement.getBoundingClientRect();
+            const slots = [...group.querySelectorAll('button')].map(b => b.getBoundingClientRect());
+            return { beside: group.getBoundingClientRect().left >= face.right, inside: slots.every(s => s.top >= row.top - 0.5 && s.bottom <= row.bottom + 0.5) };
+        });
+        assert.deepEqual(box, { beside: true, inside: true }, 'the strip sits beside the face, within the tile');
+        assert.equal(await thumbs.nth(0).getAttribute('aria-current'), 'true');
+        assert.equal(await thumbs.nth(1).getAttribute('aria-current'), null);
+        assert.equal(await strip.locator('[data-item-stack-count]').innerText(), '1 of 4', 'the "k of N" chip still shows');
+
+        await thumbs.nth(0).focus();
+        await tab.keyboard.press('Tab');
+        assert.equal(await tab.evaluate(() => document.activeElement.dataset.itemStackThumbnail), 's2', 'Tab moves along the strip');
+        await tab.keyboard.press('Enter');
+        assert.equal(await strip.locator('[data-item-stack-count]').innerText(), '2 of 4', 'a thumbnail sets the index');
+        assert.equal(await thumbs.nth(1).getAttribute('aria-current'), 'true');
+        assert.equal(await thumbs.nth(0).getAttribute('aria-current'), null);
+
+        await tab.addScriptTag({ path: axeSource });
+        const violations = await tab.evaluate(async () => (await window.axe.run('[data-fixture="strip-more"]')).violations.map(v => `${v.id}: ${v.nodes.map(n => n.target).join(' ')}`));
+        assert.deepEqual(violations, [], 'the strip passes axe');
+
+        await tab.keyboard.press('Tab');
+        assert.equal(await tab.evaluate(() => 'itemStackMore' in document.activeElement.dataset), true, '"+K" is next in the tab order');
+        await tab.keyboard.press('Enter');
+        await tab.locator('[data-item-stack-fanout]').waitFor();
+        assert.equal(await tab.locator('[data-item-stack-fanout] [data-item-stack-item]').count(), 4, '"+K" opens the fanout with every item');
+    });
+});
+
 test('ItemStack persist: the host save replaces the built-in request; ok keeps the new version, a conflict rolls back and emits conflict', async () => {
     await mediaTab(async tab => {
         const stack = tab.locator('[data-fixture="persist"] [data-item-stack]');
