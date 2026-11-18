@@ -14,7 +14,11 @@ Before upgrading, audit the app's queued classes:
 
 A class you miss fails loudly, not silently: the kit's workspace models throw `workspace_required` outside a workspace, and with RLS on, protected tables show it nothing and refuse its inserts. An app that publishes its own `config/multitenancy.php` keeps its own value. An app that needs time can set `'queues_are_tenant_aware_by_default' => true` there and flip it after the audit.
 
-Features affected: workspaces (config defaults and `RlsQueuedHandler`, from the package; nothing to re-scaffold).
+Features affected: workspaces (config defaults and `RlsQueuedHandler`, from the package; and new make stubs: run `php artisan kit:scaffold --diff --only=workspaces` to add them).
+
+### Added
+
+- **Make stubs that declare tenancy.** workspaces scaffolds Laravel's make stubs into `stubs/`: `job.queued`, `job.batched.queued`, `listener.queued`, `listener.typed.queued`, `notification`, `mail`, `markdown-mail`, `markdown-notification` and `view-mail`. So `make:job`, `make:listener --queued`, `make:notification` and `make:mail` start explicit. A queued job or listener `implements ShouldQueue, TenantAware`, with a note to keep TenantAware (it runs in the dispatching workspace) or swap in `NotTenantAware` (it runs centrally). Notifications and mail import both and say to choose when they are queued. tey/standards v0.11.106's `tenant.queued-declared` warns on a queued class that declares neither.
 
 ### Changed
 
