@@ -59,6 +59,8 @@ use Symfony\Component\Console\Output\BufferedOutput;
 use Tey\Concierge\ConciergeServiceProvider;
 use Tey\Concierge\Contracts\Member;
 use Tey\Concierge\Enums\MembershipStatus;
+use Tey\Concierge\Jobs\DeliverInvitation;
+use Tey\Concierge\Jobs\DeliverTenantInvitation;
 use Tey\Kit\Features\Core\Deploy\PreflightCommand;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Core\Savepoint;
@@ -468,13 +470,23 @@ try {
     rlsCheck(Rls::current() === null && DB::transactionLevel() === 0, 'after the jobs nothing is left on the worker\'s connection');
     dispatch(new RlsAwareJob('orphan'));
     rlsCheck($work() instanceof CurrentTenantCouldNotBeDeterminedInTenantAwareJob && ! isset(RlsProbeJob::$seen['orphan']), 'a tenant-aware job queued with no workspace fails before handle() runs');
-    $config->set('multitenancy.queues_are_tenant_aware_by_default', false);
+    rlsCheck(config('multitenancy.queues_are_tenant_aware_by_default') === false, 'queues are not tenant-aware by default: a job opts in with TenantAware');
     dispatch(new RlsPlainJob('plain'));
-    $error = $work();
-    rlsCheck($error instanceof RuntimeException && str_starts_with($error->getMessage(), 'rls_workspace_required') && ! isset(RlsProbeJob::$seen['plain']), 'a job spatie does not restore a workspace for fails closed with rls_workspace_required before handle() runs');
+    rlsCheck($work() === null && RlsProbeJob::$seen['plain'] === [0, null], 'an undeclared job runs with no workspace id and sees no protected rows');
+    Workspaces::run($b, function (): void {
+        dispatch(new RlsPlainJob('plain-in-acme'));
+    });
+    Workspace::forgetCurrent();
+    rlsCheck($work() === null && RlsProbeJob::$seen['plain-in-acme'] === [0, null], 'an undeclared job queued inside a workspace does not carry it');
     dispatch(new RlsCentralJob('central'));
     rlsCheck($work() === null && RlsProbeJob::$seen['central'] === [0, null], 'a NotTenantAware job runs with no workspace id and sees no protected rows');
     $config->set('multitenancy.queues_are_tenant_aware_by_default', true);
+    rlsCheck(RlsQueuedHandler::tenantAware(new RlsPlainJob('x')) && ! RlsQueuedHandler::tenantAware(new RlsCentralJob('x')), 'with the default on, an undeclared job is tenant-aware and NotTenantAware still opts out');
+    $config->set('multitenancy.queues_are_tenant_aware_by_default', false);
+    $config->set('multitenancy.tenant_aware_jobs', [RlsPlainJob::class]);
+    rlsCheck(RlsQueuedHandler::tenantAware(new RlsPlainJob('x')), 'a job listed in multitenancy.tenant_aware_jobs is tenant-aware');
+    $config->set('multitenancy.tenant_aware_jobs', [DeliverInvitation::class]);
+    rlsCheck(RlsQueuedHandler::tenantAware(new DeliverInvitation(1, 1, 'token')) && ! RlsQueuedHandler::tenantAware(new DeliverTenantInvitation(1, 1, 'token')), 'Concierge\'s workspace invitation delivery is tenant-aware by the kit\'s defaults, its app-wide one is not');
 
     // The guard and the preflight.
     $unprotected = Rls::unprotected();
