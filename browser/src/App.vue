@@ -14,6 +14,7 @@ const closed = () => {
     dialog.value?.close();
 };
 const status = ref('a');
+const scope = ref('');
 onMounted(() => dialog.value?.addEventListener('close', () => events.push('dialog close')));
 </script>
 <template>
@@ -40,6 +41,7 @@ onMounted(() => dialog.value?.addEventListener('close', () => events.push('dialo
                 >
                     <input aria-label="Title" class="h-9 rounded-md border px-3" />
                     <Select id="status" v-model="status" :options="[{ value: 'a', label: 'Draft' }, { value: 'b', label: 'Published' }]" />
+                    <Select id="scope" v-model="scope" :options="[{ value: '', label: 'Any scope' }, { value: 'read', label: 'Read' }, { value: '\u0000kit-empty', label: 'Colliding' }]" /><span data-scope>{{ JSON.stringify(scope) }}</span>
                     <DropdownMenu>
                         <DropdownMenuTrigger data-menu-trigger>More</DropdownMenuTrigger>
                         <DropdownMenuContent><DropdownMenuItem data-menu-item @select="events.push('menu item')">Duplicate</DropdownMenuItem></DropdownMenuContent>
