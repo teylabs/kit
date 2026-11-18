@@ -341,6 +341,10 @@ test('a kit Select shows and chooses back an option whose value is empty', async
     await page.waitForSelector('[role="listbox"]', { state: 'detached' });
     await page.waitForTimeout(200);
     assert.equal((await page.textContent('#scope')).trim(), 'Any scope', 'and shows its label again');
+    // An option whose value equals the internal stand-in is still its own value.
+    await page.click('#scope');
+    await page.click('[role="option"]:has-text("Colliding")');
+    assert.equal(await page.textContent('[data-scope]'), JSON.stringify('\u0000kit-empty'), 'a colliding option keeps its own value');
 });
 
 test('a kit menu opens over the modal, its item takes the click, and Escape closes only the menu', async () => {

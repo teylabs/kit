@@ -36,13 +36,19 @@ onMounted(() => props.autofocus && trigger.value?.$el?.focus());
 const model = defineModel<string>();
 // Reka reserves '' for "no value" (an item can't hold it), so an option with value '' showed the placeholder, or a blank box, and couldn't be chosen
 // back. Inside, '' travels as EMPTY; the model, the hidden input and the submitted value stay ''.
-const EMPTY = '\u0000kit-empty';
+// The stand-in is derived from the options, so it never equals a real one.
+const EMPTY = computed(() => {
+    let value = '\u0000kit-empty';
+    while (props.options.some((o) => o.value === value)) value += '_';
+    return value;
+});
 const hasEmpty = computed(() => props.options.some((o) => o.value === ''));
 const inner = computed({
-    get: () => (model.value === '' && hasEmpty.value ? EMPTY : model.value),
-    set: (value) => (model.value = value === EMPTY ? '' : value),
+    get: () =>
+        model.value === '' && hasEmpty.value ? EMPTY.value : model.value,
+    set: (value) => (model.value = value === EMPTY.value ? '' : value),
 });
-const itemValue = (value: string) => (value === '' ? EMPTY : value);
+const itemValue = (value: string) => (value === '' ? EMPTY.value : value);
 const attrs = useAttrs();
 // Inside a Field: described only by what it renders, and invalid while it has an error.
 const aria = useFieldAria(attrs, () => props.invalid);
