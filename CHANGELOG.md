@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.39.0
 
 Features affected: workspaces (a new migration and the HasFlags API, from the package; run `php artisan migrate`), core (`TagList`, from the package; nothing to re-scaffold). Requires spatie/laravel-tags ^4.12.
 
