@@ -12612,6 +12612,29 @@ test('MediaCollection tiles: action icons and attrs on the menu rows; sortable w
     });
 });
 
+test('ItemStack layers: bordered layers sit 8px apart, a third shows from four items, the face carries "k of N", and an added item pulses a ring', async () => {
+    await mediaTab(async tab => {
+        const stack = tab.locator('[data-growing]');
+        const layers = stack.locator('[data-item-stack-layer]');
+        assert.equal(await layers.count(), 2, 'three items: two layers');
+        assert.equal(await stack.locator('[data-item-stack-count]').innerText(), '1 of 3');
+        const look = await layers.first().evaluate(el => { const s = getComputedStyle(el); return { border: s.borderTopWidth, shadow: s.boxShadow }; });
+        assert.equal(look.border, '1px', 'each layer has a border');
+        assert.notEqual(look.shadow, 'none', 'and a shadow');
+        await tab.evaluate(() => window.addGrowing());
+        await stack.locator('[data-item-stack-added]').waitFor();
+        assert.equal(await layers.count(), 3, 'four items: three layers');
+        assert.equal(await stack.locator('[data-item-stack-count]').innerText(), '1 of 4');
+        const tops = await layers.evaluateAll(els => els.map(el => el.getBoundingClientRect().bottom));
+        const face = await stack.locator('[data-item-stack-top]').evaluate(el => el.getBoundingClientRect().bottom);
+        const bottoms = [...tops].sort((a, b) => a - b);
+        assert.deepEqual(bottoms.map(b => Math.round(b - face)), [8, 16, 24], 'each layer peeks 8px below the one above it');
+        assert.ok(await stack.locator('[data-item-stack-top]').evaluate(el => getComputedStyle(el).boxShadow.includes('rgb')), 'the added ring shows');
+        await stack.locator('[data-item-stack-added]').waitFor({ state: 'detached', timeout: 3000 });
+        assert.equal(await tab.locator('[aria-label="Single"] [data-item-stack-count]').count(), 0, 'a single item has no chip');
+    });
+});
+
 test('ItemStack persist: the host save replaces the built-in request; ok keeps the new version, a conflict rolls back and emits conflict', async () => {
     await mediaTab(async tab => {
         const stack = tab.locator('[data-fixture="persist"] [data-item-stack]');

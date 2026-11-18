@@ -6,6 +6,8 @@ Features affected: workspace-ui (People: Invite and Change role), mcp (Settings:
 
 ### Changed
 
+- **ItemStack: a stack reads as a stack.** The layers behind the face are bordered cards with a shadow, each 8px below and narrower than the one above. A third layer shows from four items. The face carries a "k of N" chip from two items, and an added item pulses a ring on the face for a moment (`data-item-stack-added`; reduced motion keeps the ring without the pulse). A host that set `v-model:index` to bring the new item to the top gets the pulse with it, and can drop its own ring.
+
 - **Scaffolded choice fields use InputSelect, the standard select.** Invite and Change role (People) and the assistant picker (Connections) move from the plain Select to InputSelect. Each page holds the chosen value in a ref with `v-model`, because InputSelect is controlled, and its hidden input still submits `role` / `token_id`. DeliverPanel's role and "When" fields switch too. See docs/form-fields.md, "Choosing a select".
 
 ### Upgrading
