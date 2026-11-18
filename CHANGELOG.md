@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+Features affected: workspace-ui (People: Invite and Change role), mcp (Settings: Connections), deliver (DeliverPanel). Take the pages with `php artisan kit:scaffold workspace-ui --diff --only=resources/js/pages/Workspace/Settings/People` and `php artisan kit:scaffold mcp --diff --only=resources/js/pages/Workspace/Settings/Connections`.
+
+### Changed
+
+- **Scaffolded choice fields use InputSelect, the standard select.** Invite and Change role (People) and the assistant picker (Connections) move from the plain Select to InputSelect. Each page holds the chosen value in a ref with `v-model`, because InputSelect is controlled, and its hidden input still submits `role` / `token_id`. DeliverPanel's role and "When" fields switch too. See docs/form-fields.md, "Choosing a select".
+
+### Upgrading
+
+- An app whose People or Connections pages are still the kit's own takes them with the two `kit:scaffold <feature> --diff --only=<path>` commands above. An app that edited them keeps its copy, and `--diff` shows the change to bring across.
+
 ## v0.39.3
 
 Features affected: Select (Form). Nothing to re-scaffold.
