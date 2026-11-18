@@ -157,24 +157,43 @@ sudo -u postgres psql -c "alter database kit_adopt_check owner to kit"
 chmod 600 "$HOME/.kit-pgsql.env"
 
 # Node 24 exactly, as CI runs the browser suite and the component type-check, with npm present.
+# When an image's own node comes first on PATH (an Amp orb's /usr/local/bin), Node 24 is pinned in later shells too: NODE_PIN_DIR holds
+# node, npm and npx links to nodesource's /usr/bin ones (all three required), and one marked line, added once, puts it first in ~/.profile,
+# ~/.bashrc and whichever of ~/.bash_profile and ~/.bash_login exists (a Bash login shell reads those instead of ~/.profile).
+# Only those three names move ahead; the image's other /usr/local tools keep their place. NODE_SYSTEM_BIN and NODE_PIN_DIR exist for
+# tests/AgentsSetupNodeCheck.php; a real run leaves them unset.
+NODE_PIN_DIR="${NODE_PIN_DIR:-$HOME/.local/share/kit-node24/bin}"
+NODE_PIN_MARK='# kit .agents/setup: Node 24 first'
+[ -x "$NODE_PIN_DIR/node" ] && export PATH="$NODE_PIN_DIR:$PATH"
+pin_node() {
+    mkdir -p "$NODE_PIN_DIR"
+    local tool
+    for tool in node npm npx; do
+        ln -sfn "$1/$tool" "$NODE_PIN_DIR/$tool"
+    done
+    local rc line="case \":\$PATH:\" in *\":$NODE_PIN_DIR:\"*) ;; *) export PATH=\"$NODE_PIN_DIR:\$PATH\" ;; esac $NODE_PIN_MARK"
+    for rc in "$HOME/.profile" "$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.bash_login"; do
+        case "$rc" in *bash_profile | *bash_login) [ -f "$rc" ] || continue ;; esac
+        grep -qF "$NODE_PIN_MARK" "$rc" 2>/dev/null || printf '\n%s\n' "$line" >> "$rc"
+    done
+    export PATH="$NODE_PIN_DIR:$PATH"
+    hash -r
+}
 node_ready() {
-    command -v node >/dev/null && command -v npm >/dev/null || return 1
+    command -v node >/dev/null && command -v npm >/dev/null && command -v npx >/dev/null || return 1
     node -e 'process.exit(Number(process.versions.node.split(".")[0]) === 24 ? 0 : 1)'
 }
 if ! node_ready; then
     curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
     sudo apt-get install -y nodejs
-    # An image can ship its own node earlier on PATH (an Amp orb's /usr/local/bin): nodesource's lands in /usr/bin, so it goes first
-    # for the rest of this script, and the agent is told how to keep it.
+    # nodesource's node lands in /usr/bin; an image's own one earlier on PATH is shadowed by the pin, here and in later shells.
     hash -r
-    # NODE_SYSTEM_BIN exists for tests/AgentsSetupNodeCheck.php; a real run leaves it unset.
     system_bin="${NODE_SYSTEM_BIN:-/usr/bin}"
-    if ! node_ready && [ -x "$system_bin/node" ] && [ -x "$system_bin/npm" ]; then
-        echo "setup: $(command -v node || echo 'no node') ($(node -v 2>/dev/null || echo none)) comes before $system_bin/node on PATH; using $system_bin first. Run export PATH=\"$system_bin:\$PATH\" in later shells for Node 24." >&2
-        export PATH="$system_bin:$PATH"
-        hash -r
+    if ! node_ready && [ -x "$system_bin/node" ] && [ -x "$system_bin/npm" ] && [ -x "$system_bin/npx" ]; then
+        echo "setup: $(command -v node || echo 'no node') ($(node -v 2>/dev/null || echo none)) comes before $system_bin/node on PATH; pinning Node 24 first in $NODE_PIN_DIR (~/.profile, ~/.bashrc and any ~/.bash_profile or ~/.bash_login)." >&2
+        pin_node "$system_bin"
     fi
-    node_ready || { echo "setup: node is not Node 24 with npm (found $(command -v node || echo none) $(node -v 2>/dev/null || echo))" >&2; exit 1; }
+    node_ready || { echo "setup: node is not Node 24 with npm and npx (found $(command -v node || echo none) $(node -v 2>/dev/null || echo))" >&2; exit 1; }
 fi
 
 composer update --prefer-dist --no-interaction --no-progress

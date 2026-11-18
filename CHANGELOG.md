@@ -14,6 +14,10 @@ Features affected: workspace-ui (People: Invite and Change role), mcp (Settings:
 
 - An app whose People or Connections pages are still the kit's own takes them with the two `kit:scaffold <feature> --diff --only=<path>` commands above. An app that edited them keeps its copy, and `--diff` shows the change to bring across.
 
+### Fixed
+
+- **.agents/setup: Node 24 stays first in later shells on an image that ships its own node.** After nodesource's install, setup links node, npm and npx into `~/.local/share/kit-node24/bin` and puts that dir first through one marked line in `~/.profile`, `~/.bashrc` and any existing `~/.bash_profile` or `~/.bash_login`. All three tools are required, or setup fails closed. The image's other `/usr/local` tools keep their place, so an Amp orb's browser suite and component typecheck run on Node 24. tests/AgentsSetupNodeCheck.php covers the pin, later login and interactive shells, a rerun (one line each) and the fail-closed cases.
+
 ## v0.39.3
 
 Features affected: Select (Form). Nothing to re-scaffold.
