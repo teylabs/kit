@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.39.3
 
 Features affected: Select (Form). Nothing to re-scaffold.
 
