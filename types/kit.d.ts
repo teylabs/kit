@@ -1178,6 +1178,16 @@ readonly html: string,
 }
 }
 export namespace Workspaces {
+export namespace Flags {
+export type TagItemData = {
+key: string,
+label: string,
+kind: 'flag' | 'tag',
+tone: string,
+tooltip: string | null,
+href: string | null,
+};
+}
 export namespace ViewModels {
 export type IndexWorkspaceViewModel = {
 readonly title: string,

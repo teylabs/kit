@@ -2403,7 +2403,9 @@
         "imports": [
           "@/components/Kit:Badge",
           "@/components/Kit:ColourDot",
-          "@/components/Kit:ToneLabel"
+          "@/components/Kit:TagList",
+          "@/components/Kit:ToneLabel",
+          "@/components/Kit:shownTags"
         ]
       },
       "handRolled": [

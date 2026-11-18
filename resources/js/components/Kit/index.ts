@@ -555,6 +555,9 @@ export { default as TextNumeric } from './Text/TextNumeric.vue';
 export { default as TextAddress } from './Text/TextAddress.vue';
 export { default as TextChips } from './Text/TextChips.vue';
 export { default as TextTags } from './Text/TextTags.vue';
+// A record's flags and tags (docs/flags.md): flags first, wrapping, "+N more" only past `max`.
+export { default as TagList } from './Text/TagList.vue';
+export { shownTags, type TagItem } from './Text/tagList';
 export { copyText } from './Text/copy';
 export { useCopy, type CopyState } from './Text/useCopy';
 export {

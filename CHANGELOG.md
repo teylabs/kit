@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+Features affected: workspaces (a new migration and the HasFlags API, from the package; run `php artisan migrate`), core (`TagList`, from the package; nothing to re-scaffold). Requires spatie/laravel-tags ^4.12.
+
+### Added
+
+- **Flags and tags** (docs/flags.md). A flag is a fact the system raises on a record ("Possible duplicate", "Unpaid", "Stalled"), stored as a spatie/laravel-tags tag of type `flag` on the kit's own tables, so adding one needs no column, scope or migration.
+  - `HasFlags` gives `flag($key, reason:, link:, when:, force:)`, `unflag()`, `flagged()`, `flags()`, `dismissFlag()`, and the scopes `flagged()` and `notFlagged()`.
+  - `Flags::define()` sets a flag's label, tone and whether it is dismissible. An undefined flag shows neutral.
+  - `Tags::for($records)` builds a page's tags in one query: flags first, most severe first, then people's tags.
+  - `Flags::filter($table)` adds a "Flags" filter to a `TableQuery`.
+  - A dismissed flag ("Not a duplicate") is not raised again unless forced.
+  - Flags and tags carry their record's workspace and are deleted with it. People's tags belong to their workspace.
+  - New tables: `kit_tags`, `kit_taggables` and `kit_flag_dismissals`. With RLS on, protect them or list them in `kit.tenancy.rls.except`.
+- **`TagList`** (`@kit/ui`) shows a record's flags and tags everywhere. It wraps freely and folds into "+N more" (a popover) only past `max` (default 8), with flags never folded before tags. A flag's link and reason are kept: the reason is its hover text and is read out after the label. The `shownTags()` helper and the `TagItem` type are exported alongside it.
+
 ## v0.38.0
 
 ### Upgrading
