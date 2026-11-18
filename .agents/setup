@@ -75,9 +75,10 @@ php_ready() {
 }
 # PHP 8.5 comes from Ondřej Surý's packages: the ondrej PPA on Ubuntu, packages.sury.org on Debian (an Amp orb is Debian 13,
 # which has no add-apt-repository). Added as a signed-by keyring plus one sources.list.d entry, rewritten whole on every run.
+# APT_ROOT and OS_RELEASE exist for tests/AgentsSetupSourceCheck.php (a throwaway root); a real run leaves both unset.
 add_php_source() {
-    . /etc/os-release
-    local keyring=/usr/share/keyrings/ondrej-php.gpg list=/etc/apt/sources.list.d/ondrej-php.list key_url repo fingerprint
+    . "${OS_RELEASE:-/etc/os-release}"
+    local keyring="${APT_ROOT:-}/usr/share/keyrings/ondrej-php.gpg" list="${APT_ROOT:-}/etc/apt/sources.list.d/ondrej-php.list" key_url repo fingerprint
     # Each source's signing key is pinned by its primary fingerprint: a download that holds any other key fails closed.
     case "${ID:-}" in
         ubuntu) fingerprint=14AA40EC0831756756D7F66C4F4EA0AAE5267A6C
@@ -104,7 +105,7 @@ add_php_source() {
     rm -f "$tmp"; sudo chmod 644 "$keyring"
     echo "deb [signed-by=$keyring] $repo $VERSION_CODENAME main" | sudo tee "$list" >/dev/null
 }
-remove_php_source() { sudo rm -f /etc/apt/sources.list.d/ondrej-php.list /usr/share/keyrings/ondrej-php.gpg; }
+remove_php_source() { sudo rm -f "${APT_ROOT:-}/etc/apt/sources.list.d/ondrej-php.list" "${APT_ROOT:-}/usr/share/keyrings/ondrej-php.gpg"; }
 # Called as a condition, so a failing step returns nonzero instead of stopping the script. Anywhere add_php_source can't
 # serve, or when the source can't deliver a working 8.5, the distribution's own php packages, accepted at 8.4 or 8.5
 # (composer.json's range); an older one fails here with the version found.
