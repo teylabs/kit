@@ -9,7 +9,7 @@ import Button from '@/components/Kit/Form/Button.vue';
 import Field from '@/components/Kit/Form/Field.vue';
 import Input from '@/components/Kit/Form/Input.vue';
 import InputCheckbox from '@/components/Kit/Form/InputCheckbox.vue';
-import Select from '@/components/Kit/Form/Select.vue';
+import InputSelect from '@/components/Kit/Form/InputSelect.vue';
 import Textarea from '@/components/Kit/Form/Textarea.vue';
 import Dialog from '@/components/Kit/Overlay/Dialog.vue';
 import { errorJson } from '@/components/Kit/http';
@@ -322,7 +322,7 @@ defineExpose({ resend: startResend });
                                 class="text-foreground truncate text-sm"
                                 >{{ optionLabel(option) }}</label
                             >
-                            <Select
+                            <InputSelect
                                 :id="`${uid}-role-${option.address}`"
                                 v-model="choices[option.address]"
                                 :options="roleOptions"
@@ -412,7 +412,7 @@ defineExpose({ resend: startResend });
                         label="When"
                         :data-deliver-when-value="when"
                     >
-                        <Select
+                        <InputSelect
                             :id="`${uid}-when`"
                             v-model="when"
                             :options="whenOptions"
