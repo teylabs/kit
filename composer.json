@@ -193,7 +193,8 @@
         "test:release-lineages": "@php tests/ReleaseLineagesCheck.php",
         "test:agents-setup": [
             "@php tests/AgentsSetupHookCheck.php",
-            "@php tests/AgentsSetupSourceCheck.php"
+            "@php tests/AgentsSetupSourceCheck.php",
+            "@php tests/AgentsSetupNodeCheck.php"
         ],
         "test:form-payload-check": "@php tests/FormPayloadCheck.php"
     },
