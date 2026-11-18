@@ -4,6 +4,7 @@
 
 ### Changed
 
+- **Passkey sign-in goes straight to the workspace, in one redirect**, like the password and two-factor sign-in since v0.36.0. With workspace-ui and laravel/passkeys, the kit replaces Laravel Passkeys' own `PasskeyLoginResponse` with `PasskeySignedInResponse`, which sends the person to `HomeDestination` (the JSON answer to the login page's passkey request names it as `redirect`) instead of `kit.home`, which redirected again. An intended URL still wins; an app that binds its own response, or sets another Fortify home, keeps it.
 - The shell's `Toaster` places a top toast with the shell's live `--shell-top` (`calc(var(--shell-top, 0px) + 16px)`) instead of measuring `[data-shell-top]` when a toast shows, so it follows the bar as it resizes. Toasts sit where they did. `toastPlacement`'s `ShellState` drops `headerHeight` (internal).
 
 ## v0.37.3

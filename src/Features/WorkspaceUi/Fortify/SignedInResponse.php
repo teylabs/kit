@@ -23,11 +23,17 @@ final class SignedInResponse implements LoginResponse, TwoFactorLoginResponse
         if ($request->wantsJson()) {
             return $this->twoFactor ? new JsonResponse('', 204) : response()->json(['two_factor' => false]);
         }
-        $home = Fortify::redirects('login');
+
+        return redirect()->intended(self::home($request, Fortify::redirects('login')));
+    }
+
+    /** The sign-in destination: HomeDestination when `$home` is the kit's own (`kit.home` or the list), else `$home` unchanged. */
+    public static function home($request, mixed $home): string
+    {
         if (in_array(rtrim((string) $home, '/') ?: '/', [rtrim((string) config('kit.home', '/'), '/') ?: '/', WorkspaceUrl::chooser()], true)) {
-            $home = HomeDestination::resolve($request) ?? WorkspaceUrl::chooser();
+            return HomeDestination::resolve($request) ?? WorkspaceUrl::chooser();
         }
 
-        return redirect()->intended($home);
+        return (string) $home;
     }
 }
