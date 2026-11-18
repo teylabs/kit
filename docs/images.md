@@ -56,3 +56,22 @@ Put `DecodeAtLeast` first and hint at least the size you scale to (twice it keep
 ## Custom transformations
 
 `Image::transformUsing('kit-imagick', MyStep::class, fn (Imagick $image, MyStep $step) => ...)` works, but the handler receives the **raw `Imagick` object**, not an Intervention image, and must return it. Handlers match by `instanceof`, so a subclass of `MyStep` uses the same handler. A handler written for the framework's drivers won't work unchanged.
+
+**Register it in `callAfterResolving('image', ...)`, not once in `boot()`.** Laravel binds `image` as a *scoped* instance, so a queue worker (and Octane) forgets the ImageManager after every job and builds a new one for the next. A handler registered once with `Image::transformUsing()` in `boot()` lands on the first manager only. The worker's first job works, and every later one refuses the transformation. Register it on every manager the way the kit registers `kit-imagick`:
+
+```php
+// AppServiceProvider::boot()
+$this->callAfterResolving('image', function (ImageManager $images): void {
+    $images->transformUsing('kit-imagick', MyStep::class, new MyStepHandler);
+});
+```
+
+`callAfterResolving` also runs at once when the manager is already resolved. To test it, resolve the manager, call `app()->forgetScopedInstances()` (what the worker does between jobs), and run the transformation again:
+
+```php
+Image::read($bytes)->transform(new MyStep)->toJpeg();
+app()->forgetScopedInstances();
+Image::read($bytes)->transform(new MyStep)->toJpeg(); // the second job's manager
+```
+
+tey/standards' `media.image-scoped` warns on `transformUsing()` or `extend()` on the image manager outside a resolving callback.
