@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.39.3
+## Unreleased
 
 Features affected: workspace-ui (People: Invite and Change role), mcp (Settings: Connections), deliver (DeliverPanel). Take the pages with `php artisan kit:scaffold --diff --only=workspace-ui,mcp`.
 
@@ -12,7 +12,7 @@ Features affected: workspace-ui (People: Invite and Change role), mcp (Settings:
 
 - An app whose People or Connections pages are still the kit's own takes them with `kit:scaffold --diff --only=workspace-ui,mcp`. An app that edited them keeps its copy, and `--diff` shows the change to bring across.
 
-## Unreleased
+## v0.39.3
 
 Features affected: Select (Form). Nothing to re-scaffold.
 
