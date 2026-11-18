@@ -14,6 +14,7 @@ use Illuminate\Image\ImageServiceProvider;
 use Illuminate\Image\Transformations\Blur;
 use Illuminate\Image\Transformations\Scale;
 use Illuminate\Support\Facades\Facade;
+use Illuminate\Support\ServiceProvider;
 use Tey\Kit\KitServiceProvider;
 use Tey\Kit\Media\Images\SizedImagickDriver;
 use Tey\Kit\Media\Images\Transformations\CropToRatio;
@@ -225,6 +226,20 @@ check((new Image(jpeg(200, 100)))->scale(50)->toJpeg()->width() === 50, 'Laravel
 check($register(['images.default' => 'gd', 'kit.images.default' => false])->get('images.default') === 'gd', 'kit.images.default false keeps gd');
 check($register(['images.default' => 'imagick', 'kit.images.default' => true])->get('images.default') === 'imagick', 'a host that chose another driver keeps it');
 check($app->make('image')->driver('kit-imagick') instanceof SizedImagickDriver, 'kit-imagick is still registered by name');
+
+// Laravel binds 'image' scoped: a queue worker forgets it after every job (forgetScopedInstances) and builds a fresh ImageManager for the next one.
+// The kit's driver is registered on each new manager (callAfterResolving), and so is a transformation registered the same way; one registered once on the
+// first manager is gone by the second job.
+$first = $app->make('image');
+(fn () => $this->callAfterResolving('image', fn ($images) => $images->transformUsing('kit-imagick', SubProbe::class, fn ($image) => $image)))->call(new class($app) extends ServiceProvider {});
+$first->transformUsing('kit-imagick', Probe::class, fn ($image) => $image);
+$app->forgetScopedInstances();
+$second = $app->make('image');
+check($second !== $first, "'image' is scoped: the next job gets a new ImageManager");
+check($second->driver('kit-imagick') instanceof SizedImagickDriver, 'kit-imagick is registered on the new manager too');
+$handlers = (fn () => $this->handlers)->call($second->driver('kit-imagick'));
+check(array_key_exists(SubProbe::class, $handlers), 'a transformation registered in callAfterResolving is on the new manager');
+check(! array_key_exists(Probe::class, $handlers), 'one registered once on the first manager is not: register custom transformations in callAfterResolving');
 
 echo PHP_EOL.$passes.' passed, '.$failures.' failed'.PHP_EOL;
 exit($failures === 0 && $passes > 0 ? 0 : 1);

@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+Features affected: none (docs and a check; nothing to re-scaffold).
+
+### Fixed
+
+- **docs/images.md: register custom image transformations in `callAfterResolving('image')`.** Laravel binds `image` as scoped, so a queue worker builds a new ImageManager for every job. A `transformUsing()` call made once in `boot()` works on the worker's first job and is refused on every later one. The docs show the pattern the kit uses for `kit-imagick`, and a two-run test with `forgetScopedInstances()`. ImageDriverCheck now covers the kit driver and a callback-registered transformation surviving a scoped reset.
+
 ## v0.39.1
 
 Features affected: core (`PasswordInput`, from the package; nothing to re-scaffold).
