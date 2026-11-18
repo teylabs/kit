@@ -52,7 +52,6 @@ use Tey\Kit\Features\Mcp\Http\ConnectionGrantController;
 use Tey\Kit\Features\Notes\Http\NoteController;
 use Tey\Kit\Features\Notes\Http\NoteMediaController;
 use Tey\Kit\Features\SessionUi\Http\DashboardController;
-use Tey\Kit\Features\SessionUi\Http\HomeController;
 use Tey\Kit\Features\SessionUi\Http\MemberController;
 use Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests;
 use Tey\Kit\Features\SessionUi\Http\OwnershipController;
@@ -74,6 +73,7 @@ use Tey\Kit\Features\Workspaces\Concerns\HasWorkspaces;
 use Tey\Kit\Features\Workspaces\Http\MembershipController;
 use Tey\Kit\Features\Workspaces\Http\Middleware\ResolveWorkspace;
 use Tey\Kit\Features\Workspaces\Http\MovedWorkspacePageController;
+use Tey\Kit\Features\WorkspaceUi\Http\HomeController;
 use Tey\Mod\ModServiceProvider;
 
 $loader = require $argv[1];
@@ -258,7 +258,7 @@ try {
     $flagged = scopeProblems($router);
     scopeCheck(in_array('no ResolveWorkspace: GET|HEAD /rogue/@{workspace}/people -> Tey\Kit\Features\SessionUi\Http\PeopleController', $flagged, true), 'a {workspace} route to a listed controller without ResolveWorkspace is flagged');
     scopeCheck(in_array('no ResolveWorkspace: GET|HEAD /rogue-short/people -> Tey\Kit\Features\SessionUi\Http\PeopleController', $flagged, true) && in_array('no {workspace} and no /@{workspace} twin: GET|HEAD /rogue-short/people -> Tey\Kit\Features\SessionUi\Http\PeopleController', $flagged, true), 'a route to it with neither the middleware nor {workspace} is flagged twice');
-    scopeCheck(in_array('{workspace} without ResolveWorkspace: GET|HEAD /rogue/@{workspace}/sections -> Tey\Kit\Features\SessionUi\Http\HomeController', $flagged, true), 'any {workspace} route to a kit controller without ResolveWorkspace is flagged by the general rule');
+    scopeCheck(in_array('{workspace} without ResolveWorkspace: GET|HEAD /rogue/@{workspace}/sections -> Tey\Kit\Features\WorkspaceUi\Http\HomeController', $flagged, true), 'any {workspace} route to a kit controller without ResolveWorkspace is flagged by the general rule');
     scopeCheck(count($flagged) === 5, 'and nothing else is flagged (the first rogue route breaks both rules)');
     $outside = array_unique(array_filter(array_map('scopeController', $general), fn (?string $class): bool => $class !== null && array_key_exists($class, OUTSIDE_WORKSPACE)));
     sort($outside);

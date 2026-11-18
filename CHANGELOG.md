@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **The kit's home controller moved to workspace-ui**, the feature that routes `kit.home` and owns `HomeDestination`: `Tey\Kit\Features\SessionUi\Http\HomeController` is now `Tey\Kit\Features\WorkspaceUi\Http\HomeController`. session-ui used `WorkspaceUi\HomeDestination` since v0.36.0 without requiring workspace-ui (which requires session-ui), breaking a host's feature-graph check. Behaviour is unchanged; an app that names the old class in its own routes updates the import.
+
 ## v0.37.4
 
 Features affected: workspace-ui (passkey sign-in response, from the package; nothing to re-scaffold).

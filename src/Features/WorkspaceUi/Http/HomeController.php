@@ -1,10 +1,11 @@
 <?php
 
-namespace Tey\Kit\Features\SessionUi\Http;
+namespace Tey\Kit\Features\WorkspaceUi\Http;
 
 use Illuminate\Contracts\Support\Responsable;
 use Illuminate\Http\Request;
 use Tey\Kit\Features\Core\Routing\PublicRoute;
+use Tey\Kit\Features\SessionUi\Http\DashboardController;
 use Tey\Kit\Features\Workspaces\Workspaces;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 use Tey\Kit\Features\WorkspaceUi\HomeDestination;
