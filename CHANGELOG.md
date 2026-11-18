@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## v0.37.5
+
+Features affected: session-ui, workspace-ui (the home controller moves between them, inside the package; nothing to re-scaffold).
 
 ### Fixed
 
