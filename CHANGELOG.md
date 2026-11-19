@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+Features affected: ItemStack (Media).
+
+### Added
+
+- **ItemStack: an opt-in thumbnail strip.** `:thumbnails="2"` (or `true`) puts a vertical strip of N thumbnail slots beside the face from two items, constrained to the face's height (`data-item-stack-thumbnails`). A thumbnail sets `v-model:index` and the current one carries `aria-current`; past N items the last slot is "+K", which opens the fanout through `v-model:fanout-open`. Every slot is a button in the tab order. The "k of N" chip and the added pulse still apply.
+
 ## v0.40.0
 
 Features affected: workspace-ui (People: Invite and Change role), mcp (Settings: Connections), deliver (DeliverPanel), ItemStack (Media), .agents/setup. Take the pages with `php artisan kit:scaffold workspace-ui --diff --only=resources/js/pages/Workspace/Settings/People` and `php artisan kit:scaffold mcp --diff --only=resources/js/pages/Workspace/Settings/Connections`.

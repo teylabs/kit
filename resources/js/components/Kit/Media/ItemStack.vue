@@ -57,6 +57,8 @@ const props = withDefaults(
         accept?: string[] | null;
         maxBytes?: number;
         maxFiles?: number;
+        /** A strip of up to this many thumbnails beside the face, from two items (true is 2); past that the last slot is "+K", which opens the fanout. */
+        thumbnails?: number | boolean;
     }>(),
     {
         actions: () => ({}),
@@ -72,6 +74,7 @@ const props = withDefaults(
         accept: null,
         maxBytes: 10485760,
         maxFiles: 20,
+        thumbnails: false,
     },
 );
 const index = defineModel<number>('index', { default: 0 });
@@ -124,6 +127,25 @@ const layerClass = (depth: number) => [
     depth === 3 ? 'opacity-70' : depth === 2 ? 'opacity-85' : '',
     ['z-[3]', 'z-[2]', 'z-[1]'][depth - 1],
 ];
+// The thumbnail strip: N slots from two items; with more items than slots the last slot is "+K" for the rest.
+const slotCount = computed(() =>
+    count.value < 2
+        ? 0
+        : props.thumbnails === true
+          ? 2
+          : Math.max(0, Math.floor(Number(props.thumbnails) || 0)),
+);
+const stripItems = computed(() =>
+    props.items.slice(
+        0,
+        count.value > slotCount.value
+            ? Math.max(0, slotCount.value - 1)
+            : slotCount.value,
+    ),
+);
+const more = computed(() =>
+    slotCount.value ? count.value - stripItems.value.length : 0,
+);
 function step(by: number) {
     if (!count.value) return;
     index.value = (index.value + by + count.value) % count.value;
@@ -141,70 +163,113 @@ const itemLabel = (item: StackItem, at: number) =>
         data-item-stack
         :data-count="count"
     >
-        <div
-            v-if="current"
-            :class="[
-                'relative',
-                fill && 'min-h-0 flex-1',
-                ['', 'pb-2', 'pb-4', 'pb-6'][layers],
-            ]"
-        >
-            <span
-                v-for="depth in [3, 2, 1].filter((d) => d <= layers)"
-                :key="depth"
-                aria-hidden="true"
-                :class="layerClass(depth)"
-                data-item-stack-layer
-            />
-            <button
-                type="button"
+        <div v-if="current" :class="['flex gap-1.5', fill && 'min-h-0 flex-1']">
+            <div
                 :class="[
-                    'border-border bg-card focus-visible:outline-ring relative z-10 block w-full overflow-hidden rounded-md border shadow-sm transition-shadow focus-visible:outline-2 focus-visible:outline-offset-2',
-                    fill && 'h-full',
+                    'relative min-w-0 flex-1',
+                    ['', 'pb-2', 'pb-4', 'pb-6'][layers],
                 ]"
-                :aria-label="`Open ${itemLabel(current, index)}`"
-                data-item-stack-top
-                @click="emit('open', current.id, $event)"
             >
-                <slot name="preview" :item="current" :index="index">
-                    <img
-                        v-if="current.preview ?? current.thumb"
-                        :src="(current.preview ?? current.thumb)!"
-                        :srcset="current.srcset ?? undefined"
-                        :sizes="sizes"
-                        alt=""
-                        :class="
-                            fill
-                                ? 'h-full w-full object-contain'
-                                : 'aspect-4/3 w-full object-cover object-top'
-                        "
-                    />
-                    <span
-                        v-else
-                        :class="[
-                            'bg-muted block w-full animate-pulse',
-                            fill ? 'h-full' : 'aspect-4/3',
-                        ]"
-                        data-media-pending
-                    />
-                </slot>
-                <span class="absolute top-1.5 left-1.5"
-                    ><slot name="badge" :item="current" :index="index"
-                /></span>
                 <span
-                    v-if="count > 1"
+                    v-for="depth in [3, 2, 1].filter((d) => d <= layers)"
+                    :key="depth"
                     aria-hidden="true"
-                    class="bg-background/90 text-foreground absolute top-1.5 right-1.5 rounded px-1.5 py-0.5 text-xs font-medium tabular-nums shadow-sm"
-                    data-item-stack-count
-                    >{{ index + 1 }} of {{ count }}</span
-                >
-                <span
-                    v-if="added"
-                    aria-hidden="true"
-                    class="ring-primary pointer-events-none absolute inset-0 z-20 rounded-md ring-2 ring-inset motion-safe:animate-pulse"
-                    data-item-stack-added
+                    :class="layerClass(depth)"
+                    data-item-stack-layer
                 />
-            </button>
+                <button
+                    type="button"
+                    :class="[
+                        'border-border bg-card focus-visible:outline-ring relative z-10 block w-full overflow-hidden rounded-md border shadow-sm transition-shadow focus-visible:outline-2 focus-visible:outline-offset-2',
+                        fill && 'h-full',
+                    ]"
+                    :aria-label="`Open ${itemLabel(current, index)}`"
+                    data-item-stack-top
+                    @click="emit('open', current.id, $event)"
+                >
+                    <slot name="preview" :item="current" :index="index">
+                        <img
+                            v-if="current.preview ?? current.thumb"
+                            :src="(current.preview ?? current.thumb)!"
+                            :srcset="current.srcset ?? undefined"
+                            :sizes="sizes"
+                            alt=""
+                            :class="
+                                fill
+                                    ? 'h-full w-full object-contain'
+                                    : 'aspect-4/3 w-full object-cover object-top'
+                            "
+                        />
+                        <span
+                            v-else
+                            :class="[
+                                'bg-muted block w-full animate-pulse',
+                                fill ? 'h-full' : 'aspect-4/3',
+                            ]"
+                            data-media-pending
+                        />
+                    </slot>
+                    <span class="absolute top-1.5 left-1.5"
+                        ><slot name="badge" :item="current" :index="index"
+                    /></span>
+                    <span
+                        v-if="count > 1"
+                        aria-hidden="true"
+                        class="bg-background/90 text-foreground absolute top-1.5 right-1.5 rounded px-1.5 py-0.5 text-xs font-medium tabular-nums shadow-sm"
+                        data-item-stack-count
+                        >{{ index + 1 }} of {{ count }}</span
+                    >
+                    <span
+                        v-if="added"
+                        aria-hidden="true"
+                        class="ring-primary pointer-events-none absolute inset-0 z-20 rounded-md ring-2 ring-inset motion-safe:animate-pulse"
+                        data-item-stack-added
+                    />
+                </button>
+            </div>
+            <!-- The strip: as tall as the face (absolute in a column that stretches with the row), its slots shrinking to fit. -->
+            <div v-if="slotCount" class="relative w-12 shrink-0">
+                <div
+                    role="group"
+                    :aria-label="`${label} thumbnails`"
+                    class="absolute inset-0 flex flex-col gap-1.5"
+                    data-item-stack-thumbnails
+                >
+                    <button
+                        v-for="(item, at) in stripItems"
+                        :key="item.id"
+                        type="button"
+                        :class="[
+                            'bg-muted focus-visible:outline-ring block aspect-square min-h-0 w-full shrink overflow-hidden rounded border focus-visible:outline-2 focus-visible:outline-offset-1',
+                            at === index
+                                ? 'border-primary ring-primary ring-1'
+                                : 'border-border',
+                        ]"
+                        :aria-label="`Show ${itemLabel(item, at)}`"
+                        :aria-current="at === index ? 'true' : undefined"
+                        :data-item-stack-thumbnail="item.id"
+                        @click="index = at"
+                    >
+                        <img
+                            v-if="item.thumb ?? item.preview"
+                            :src="(item.thumb ?? item.preview)!"
+                            alt=""
+                            loading="lazy"
+                            class="h-full w-full object-cover"
+                        />
+                    </button>
+                    <button
+                        v-if="more"
+                        type="button"
+                        class="bg-muted text-foreground hover:bg-accent focus-visible:outline-ring border-border flex aspect-square min-h-0 w-full shrink items-center justify-center rounded border text-xs font-medium tabular-nums focus-visible:outline-2 focus-visible:outline-offset-1"
+                        :aria-label="`${more} more ${nounFor(more)}: arrange all ${count}`"
+                        data-item-stack-more
+                        @click="fanoutOpen = true"
+                    >
+                        +{{ more }}
+                    </button>
+                </div>
+            </div>
         </div>
         <span
             v-if="count > 1 && hostLabel"
