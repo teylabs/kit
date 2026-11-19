@@ -302,7 +302,7 @@ async function persist(order: string[], version: string | number | null) {
         <div data-fixture="strip-pair" class="bg-background text-foreground" style="width: 260px">
             <ItemStack :items="pair" label="Pair" :noun="['shot', 'shots']" :thumbnails="2" />
         </div>
-        <div data-fixture="strip-more" class="bg-background text-foreground" style="height: 260px; width: 260px">
+        <div data-fixture="strip-more" class="bg-card text-foreground rounded-lg border" style="height: 260px; width: 260px">
             <ItemStack v-model:index="stripIndex" v-model:fanout-open="stripOpen" :items="four" label="Strip" :noun="['shot', 'shots']" :thumbnails="3" fill />
         </div>
     </main>
