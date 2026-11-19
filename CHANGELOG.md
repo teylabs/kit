@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.42.0
 
 Features affected: ItemStack (Media).
 
