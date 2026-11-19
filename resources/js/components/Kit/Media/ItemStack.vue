@@ -163,7 +163,15 @@ const itemLabel = (item: StackItem, at: number) =>
         data-item-stack
         :data-count="count"
     >
-        <div v-if="current" :class="['flex gap-1.5', fill && 'min-h-0 flex-1']">
+        <!-- With the strip, the face and strip share one inset from the tile's edge (the footer's px-2) and a gap between them. -->
+        <div
+            v-if="current"
+            :class="[
+                'flex',
+                slotCount ? 'gap-2 p-2' : 'gap-1.5',
+                fill && 'min-h-0 flex-1',
+            ]"
+        >
             <div
                 :class="[
                     'relative min-w-0 flex-1',

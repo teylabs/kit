@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+Features affected: ItemStack (Media).
+
+### Fixed
+
+- **ItemStack: the thumbnail strip no longer touches the tile's edge.** With `thumbnails`, the face and the strip share one inset from the tile's edge (`p-2`, the footer's own padding) with a `gap-2` between them. Stacks without the strip are unchanged.
+
 ## v0.41.0
 
 Features affected: ItemStack (Media).
