@@ -1,0 +1,28 @@
+name: packagist
+
+# Tells Packagist about each new tag, so a release made from an orb (gh release create) lists without waiting on the
+# GitHub hook. Needs the repository secrets PACKAGIST_USERNAME and PACKAGIST_TOKEN (Packagist profile, "Show API Token").
+# Fails closed when either is missing. Run it by hand (workflow_dispatch) to sync a release the hook missed.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  update:
+    name: Update Packagist
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify Packagist
+        env:
+          PACKAGIST_USERNAME: ${{ secrets.PACKAGIST_USERNAME }}
+          PACKAGIST_TOKEN: ${{ secrets.PACKAGIST_TOKEN }}
+        run: |
+          if [ -z "$PACKAGIST_USERNAME" ] || [ -z "$PACKAGIST_TOKEN" ]; then
+            echo "PACKAGIST_USERNAME and PACKAGIST_TOKEN must be set as repository secrets" >&2
+            exit 1
+          fi
+          curl --fail-with-body -sS -X POST \
+            -H 'Content-Type: application/json' \
+            "https://packagist.org/api/update-package?username=${PACKAGIST_USERNAME}&apiToken=${PACKAGIST_TOKEN}" \
+            -d '{"repository":{"url":"https://github.com/teylabs/kit"}}'
