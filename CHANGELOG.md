@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+Features affected: ItemStack (Media).
+
+### Changed
+
+- **ItemStack: the "k of N" chip hides when something else shows the position.** A new `badge` prop defaults to `'auto'`: the chip on the face shows from two items only when there's no thumbnail strip and no `#footer-label`. `:badge="true"` or `false` forces it either way. A stack with a strip or a host footer label loses its chip; set `:badge="true"` to keep it.
+
 ## v0.41.1
 
 Features affected: ItemStack (Media).

@@ -68,6 +68,7 @@ const pair = ref(shots.value.slice(0, 2));
 const four = ref([...shots.value, { id: 's4', label: 'Four', thumb: pixel, preview: pixel }]);
 const stripIndex = ref(0);
 const stripOpen = ref(false);
+(window as unknown as { stripIndex: () => number }).stripIndex = () => stripIndex.value;
 const single = ref([{ id: 'one', label: 'One', thumb: pixel, preview: pixel }]);
 const headedOpen = ref(false);
 // Lightbox only: no thumbnail row, opened through the exposed show().
@@ -304,6 +305,9 @@ async function persist(order: string[], version: string | number | null) {
         </div>
         <div data-fixture="strip-more" class="bg-card text-foreground rounded-lg border" style="height: 260px; width: 260px">
             <ItemStack v-model:index="stripIndex" v-model:fanout-open="stripOpen" :items="four" label="Strip" :noun="['shot', 'shots']" :thumbnails="3" fill />
+        </div>
+        <div data-fixture="strip-forced" class="bg-background text-foreground" style="width: 260px">
+            <ItemStack :items="pair" label="Forced" :noun="['shot', 'shots']" :thumbnails="2" :badge="true" />
         </div>
     </main>
 </template>

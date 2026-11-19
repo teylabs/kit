@@ -59,6 +59,8 @@ const props = withDefaults(
         maxFiles?: number;
         /** A strip of up to this many thumbnails beside the face, from two items (true is 2); past that the last slot is "+K", which opens the fanout. */
         thumbnails?: number | boolean;
+        /** The face's "k of N" chip: 'auto' hides it when the thumbnail strip or a #footer-label already shows the position; true or false forces it. */
+        badge?: 'auto' | boolean;
     }>(),
     {
         actions: () => ({}),
@@ -75,6 +77,7 @@ const props = withDefaults(
         maxBytes: 10485760,
         maxFiles: 20,
         thumbnails: false,
+        badge: 'auto',
     },
 );
 const index = defineModel<number>('index', { default: 0 });
@@ -145,6 +148,13 @@ const stripItems = computed(() =>
 );
 const more = computed(() =>
     slotCount.value ? count.value - stripItems.value.length : 0,
+);
+const showBadge = computed(
+    () =>
+        count.value > 1 &&
+        (props.badge === 'auto'
+            ? !slotCount.value && !hostLabel.value
+            : props.badge),
 );
 function step(by: number) {
     if (!count.value) return;
@@ -221,7 +231,7 @@ const itemLabel = (item: StackItem, at: number) =>
                         ><slot name="badge" :item="current" :index="index"
                     /></span>
                     <span
-                        v-if="count > 1"
+                        v-if="showBadge"
                         aria-hidden="true"
                         class="bg-background/90 text-foreground absolute top-1.5 right-1.5 rounded px-1.5 py-0.5 text-xs font-medium tabular-nums shadow-sm"
                         data-item-stack-count
