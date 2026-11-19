@@ -12660,13 +12660,15 @@ test('ItemStack thumbnails: a strip beside the face, within its height; a thumbn
         assert.deepEqual(box, { beside: true, inside: true }, 'the strip sits beside the face, within the tile');
         assert.equal(await thumbs.nth(0).getAttribute('aria-current'), 'true');
         assert.equal(await thumbs.nth(1).getAttribute('aria-current'), null);
-        assert.equal(await strip.locator('[data-item-stack-count]').innerText(), '1 of 4', 'the "k of N" chip still shows');
+        assert.equal(await strip.locator('[data-item-stack-count]').count(), 0, 'badge auto: the strip shows the position, so no "k of N" chip');
+        assert.equal(await tab.locator('[data-fixture="narrow-stack"] [data-item-stack-count]').count(), 0, 'badge auto: a #footer-label hides the chip too');
+        assert.equal(await tab.locator('[data-fixture="strip-forced"] [data-item-stack-count]').innerText(), '1 of 2', ':badge="true" forces the chip beside the strip');
 
         await thumbs.nth(0).focus();
         await tab.keyboard.press('Tab');
         assert.equal(await tab.evaluate(() => document.activeElement.dataset.itemStackThumbnail), 's2', 'Tab moves along the strip');
         await tab.keyboard.press('Enter');
-        assert.equal(await strip.locator('[data-item-stack-count]').innerText(), '2 of 4', 'a thumbnail sets the index');
+        assert.equal(await tab.evaluate(() => window.stripIndex()), 1, 'a thumbnail sets the index');
         assert.equal(await thumbs.nth(1).getAttribute('aria-current'), 'true');
         assert.equal(await thumbs.nth(0).getAttribute('aria-current'), null);
 
