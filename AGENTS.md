@@ -28,5 +28,6 @@ CI runs every `composer test:*` script on PHP 8.4 and 8.5, plus the Privacy job.
 
 - Match the surrounding code: names, comment density, idiom. Class names stay `Blueprint`, `Catalog` and so on; the namespace is `Tey\Kit`.
 - Commit as Jasper Tey <jasper@teylabs.com>. Commits and PRs carry no attribution lines or trailers. Stage explicit paths only.
-- Work on a branch and open a pull request. Never push to `main`, merge, tag or release.
+- Work on a branch and open a pull request. Never push to `main`.
+- Only the project's lead thread may merge, tag and release, and only once CI is fully green on the pull request. Helper orbs and subagents never merge, tag or release; they hand the pull request to the lead.
 - Never commit private project names, internal tooling references or local paths. `bin/privacy-check.sh` runs in CI.
