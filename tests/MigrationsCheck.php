@@ -16,6 +16,12 @@ use Tey\Kit\Features\PackageMigrator;
 $loader = require $argv[1];
 $loader->addPsr4('Tey\\Kit\\', dirname(__DIR__).'/src', true);
 
+// Kit tables with a workspace_id that docs/rls.md lists as not yet verified under RLS. Frozen: a new workspace table is protected in its migration.
+const UNVERIFIED_RLS = [
+    'audit_events', 'entitlements', 'complimentary_grants', 'kit_user_state', 'kit_finalize_confirmations', 'kit_finalizations', 'connections', 'kit_notes',
+    'kit_note_intents', 'kit_mcp_runs', 'kit_deliveries', 'kit_delivery_recipients', 'kit_delivery_events', 'workspace_mail_identities', 'settings_intents',
+    'kit_capability_overrides', 'kit_entitlements',
+];
 const PACKAGE = __DIR__.'/../database/migrations';
 const FEATURES = ['core', 'workspaces', 'access', 'shell', 'session-ui', 'mcp'];
 const RENAMES = [
@@ -167,6 +173,29 @@ function rows(string $table): array
 
 $schemas = 0;
 try {
+    // RLS guard: a kit migration that creates a table with a workspace_id must protect it (Rls::protect('table'), or a policy on it) in a kit migration.
+    // UNVERIFIED_RLS is the frozen list docs/rls.md names as not yet verified under RLS (apps protect or except them); it only shrinks.
+    $created = $protected = [];
+    foreach (glob(PACKAGE.'/*/*.php') ?: [] as $file) {
+        $code = (string) file_get_contents($file);
+        foreach (preg_split("/(?=Schema::create\(')/", $code) as $part) {
+            if (preg_match("/^Schema::create\('([a-z_]+)'/", $part, $m) && str_contains($part, "'workspace_id'")) {
+                $created[$m[1]] = basename($file);
+            }
+        }
+        preg_match_all("/Rls::protect\('([a-z_]+)'\)|policy '\.Rls::POLICY\.' on ([a-z_]+)/", $code, $found);
+        $protected = [...$protected, ...array_filter($found[1]), ...array_filter($found[2])];
+        if (preg_match_all("/foreach \(\[([^\]]+)\] as \\\$table => /", $code, $loops) && str_contains($code, 'Rls::protect($table)')) {
+            foreach ($loops[1] as $list) {
+                preg_match_all("/'([a-z_]+)' =>/", $list, $keys);
+                $protected = [...$protected, ...$keys[1]];
+            }
+        }
+    }
+    $bare = array_diff(array_keys($created), $protected, UNVERIFIED_RLS);
+    check(count($created) >= 20 && $bare === [], 'every kit table with a workspace_id is protected by a kit migration or on the frozen unverified list (bare: '.implode(', ', $bare).')');
+    check(array_diff(UNVERIFIED_RLS, array_keys($created)) === [] && array_intersect(UNVERIFIED_RLS, $protected) === [], 'the unverified list names only unprotected kit tables (drop a table from it once protected)');
+    check(count(array_intersect(['kit_tags', 'kit_taggables', 'kit_flag_dismissals'], array_unique($protected))) === 3, 'the flag and tag tables are protected');
     // The package baselines are the catalog's migration stubs: the same names kit:add gave its copies, the same bytes. Only new migrations are package-only.
     $stubs = [];
     foreach (glob(__DIR__.'/../resources/features/*/migrations/*.php.stub') ?: [] as $stub) {

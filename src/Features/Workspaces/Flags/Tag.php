@@ -3,6 +3,7 @@
 namespace Tey\Kit\Features\Workspaces\Flags;
 
 use Illuminate\Database\Eloquent\Builder;
+use RuntimeException;
 use Spatie\Tags\Tag as SpatieTag;
 use Tey\Kit\Features\Workspaces\Workspaces;
 
@@ -18,7 +19,8 @@ class Tag extends SpatieTag
     {
         static::creating(function (self $tag): void {
             if ($tag->type !== Flags::TYPE && $tag->workspace_id === null) {
-                $tag->workspace_id = Workspaces::current()?->getKey();
+                // Fail closed: a non-flag tag saved with no workspace would read as shared vocabulary in every workspace.
+                $tag->workspace_id = Workspaces::current()?->getKey() ?? throw new RuntimeException('tag_workspace_required: a tag that is not a flag needs a current workspace or a workspace_id');
             }
         });
         static::addGlobalScope('kit.workspace', function (Builder $query): void {

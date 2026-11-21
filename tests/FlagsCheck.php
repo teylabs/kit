@@ -257,6 +257,36 @@ try {
         check(Ticket::query()->flagged('unpaid')->count() === 0, 'flags are read in the current workspace only');
     });
 
+    // Fail closed (#1190): a tag that is not a flag, made with no current workspace (a job, a command, a seeder), is refused, never saved as shared.
+    $refused = null;
+    try {
+        Tag::findOrCreate('Orphan');
+    } catch (RuntimeException $error) {
+        $refused = $error->getMessage();
+    }
+    check(str_contains((string) $refused, 'tag_workspace_required') && DB::table('kit_tags')->where('slug', 'like', '%orphan%')->count() === 0, 'a non-flag tag with no current workspace is refused, not saved with a null workspace');
+    $nullable = collect(Schema::getColumns('kit_taggables'))->firstWhere('name', 'workspace_id')['nullable'] ?? true;
+    check($nullable === false && (collect(Schema::getColumns('kit_flag_dismissals'))->firstWhere('name', 'workspace_id')['nullable'] ?? true) === false, 'kit_taggables and kit_flag_dismissals require a workspace_id');
+
+    // Upgrading: 000212 fills a missing workspace_id from the record's own, and refuses, naming the rows, when the record gives none (it never guesses).
+    $protect = require dirname(__DIR__).'/database/migrations/workspaces/0001_01_02_000212_protect_kit_tags_tables.php';
+    $protect->down();
+    $ticket = (int) DB::table('tickets')->insertGetId(['workspace_id' => $other->id, 'title' => 'legacy']);
+    $flagTag = (int) DB::table('kit_tags')->where('type', 'flag')->value('id');
+    DB::table('kit_taggables')->insert([['tag_id' => $flagTag, 'taggable_type' => Ticket::class, 'taggable_id' => $ticket, 'workspace_id' => null], ['tag_id' => $flagTag, 'taggable_type' => Ticket::class, 'taggable_id' => 999999, 'workspace_id' => null]]);
+    $refused = null;
+    try {
+        $protect->up();
+    } catch (RuntimeException $error) {
+        $refused = $error->getMessage();
+    }
+    check(str_contains((string) $refused, 'kit_taggables') && str_contains((string) $refused, Ticket::class.' #999999') && ! str_contains((string) $refused, '#'.$ticket.','), 'the upgrade refuses, naming the row whose record has no workspace');
+    DB::table('kit_taggables')->where('taggable_id', 999999)->delete();
+    $protect->up();
+    check((int) DB::table('kit_taggables')->where('taggable_id', $ticket)->value('workspace_id') === (int) $other->id && (collect(Schema::getColumns('kit_taggables'))->firstWhere('name', 'workspace_id')['nullable'] ?? true) === false, 'then fills the rest from the record\'s workspace and makes the column NOT NULL');
+    DB::table('kit_taggables')->where('taggable_id', $ticket)->delete();
+    DB::table('tickets')->where('id', $ticket)->delete();
+
     $rows = fn (int $id) => DB::table('kit_taggables')->where('workspace_id', $id)->count() + DB::table('kit_tags')->where('workspace_id', $id)->count();
     $before = $rows((int) $other->id);
     (new DeleteWorkspace)->deleteRows((int) $other->id);

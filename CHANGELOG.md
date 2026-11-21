@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+Features affected: workspaces (flags and tags). Run `php artisan migrate`; with `kit.tenancy.rls` on, run it as the admin connection.
+
+### Security
+
+- **Row-level security for the flag and tag tables.** `kit_tags`, `kit_taggables` and `kit_flag_dismissals` get the `kit_workspace` policy. `kit_tags` reads its own workspace's rows plus the shared flags, and writes a null workspace only for a flag. The migration is idempotent: it replaces a `kit_workspace` policy an app already added. (#1190)
+- **`kit_taggables` and `kit_flag_dismissals` require a workspace.** The migration fills a missing `workspace_id` from the record, and refuses, naming the rows, when the record has none. (#1190)
+- **A tag that isn't a flag needs a workspace.** Created with no current workspace (a job, command or seeder) it now throws `tag_workspace_required` instead of saving as shared vocabulary every workspace reads. (#1190)
+
 ## v0.42.3
 
 Features affected: Avatar (Layout), workspace-ui (Dashboard You widget). Take the widget with `php artisan kit:scaffold workspace-ui --diff --only=resources/js/pages/Workspace/Dashboard`.
