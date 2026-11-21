@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.43.0
 
 Features affected: core (bookkeeping tables, morph aliases), workspaces (flags and tags), media (uploads table), mail (tests only). Run `php artisan migrate`; with `kit.tenancy.rls` on, run it as the admin connection.
 
