@@ -2,11 +2,12 @@
 
 ## Unreleased
 
-Features affected: shell (Workspace Layout). Take it with `php artisan kit:scaffold shell --diff --only=resources/js/pages/Workspace/Layout.vue`.
+Features affected: shell (Workspace Layout), session-ui (invite, password reset and email verification mail). Take the layout with `php artisan kit:scaffold shell --diff --only=resources/js/pages/Workspace/Layout.vue`.
 
 ### Fixed
 
 - **Shell bar: a long workspace name gives way before search.** At lg and up the switcher now shrinks first (down to `min-w-24`), so the name ellipsizes, with the full name in `title`, while search keeps its width. Short names render as before. (#1177)
+- **Invite, password reset and verification mail show the fallback link once.** The kit's own "If the button does not work, open this link" paragraph is gone; the layout's standard subcopy already carries the link in the HTML and text parts. (#1179)
 
 ## v0.42.0
 

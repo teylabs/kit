@@ -30,7 +30,6 @@ final class InviteNotification extends Notification
             ->headline($headline)
             ->when($this->personal !== null, fn (FluentMailMessage $mail) => $mail->quote($this->personal."\n".__('— :name', ['name' => $this->inviter])))
             ->paragraph(__('You have been invited to join :workspace on :product. The link works until :date.', ['workspace' => $this->workspace, 'product' => $this->product, 'date' => $this->expiresAt->toFormattedDayDateString()]))
-            ->button(__('Join :workspace', ['workspace' => $this->workspace]), $this->url)
-            ->paragraph(__('If the button does not work, open this link: :url', ['url' => $this->url]));
+            ->button(__('Join :workspace', ['workspace' => $this->workspace]), $this->url);
     }
 }
