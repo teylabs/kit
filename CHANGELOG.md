@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.43.1
 
 Features affected: core (migration `000102`).
 
