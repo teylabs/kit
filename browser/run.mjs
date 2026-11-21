@@ -14019,12 +14019,14 @@ test('ConnectionCard states: connected, not connected (empty), checking (busy) a
             return {
                 shapes: [...new Set(badges.map(b => strip(b.className)))].length,
                 heads: Math.max(...heads) - Math.min(...heads),
+                placeholders: [...document.querySelectorAll('[data-description-placeholder]')].map(p => p.getAttribute('aria-hidden')),
                 checkingLine: checking.querySelector('[data-connection-checking]')?.textContent.trim(),
                 disconnectEnabled: [...checking.querySelectorAll('button, a')].some(b => b.textContent.includes('Disconnect') && !b.disabled && b.getAttribute('aria-disabled') !== 'true'),
             };
         });
         assert.equal(look.shapes, 1, 'every status badge has the same shape and fill classes; only the tone differs');
         assert.ok(look.heads < 1, 'headers keep one height with or without a description: '+look.heads);
+        assert.ok(look.placeholders.length > 0 && look.placeholders.every(v => v === 'true'), 'the description placeholder is hidden from assistive tech: '+look.placeholders);
         assert.equal(look.checkingLine, 'Checking the connection…', 'checking says so in a status line');
         assert.ok(look.disconnectEnabled, 'checking keeps Disconnect usable, not dimmed without a reason');
         assert.equal(states.error.error, 'alert', 'failed: the error is an alert');
