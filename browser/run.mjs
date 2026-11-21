@@ -9279,6 +9279,8 @@ test('Profile photo: Remove photo asks first, then deletes it; the initials show
     profile.store.avatar = { token: 'a'.repeat(40), bytes: photo.buffer, type: 'image/png' };
     await accountPage(profile, async ({ tab, posts, reload, confirm, settle }) => {
         await servePhoto(tab, profile.store);
+        // The page loaded before the photo route existed, so its image failed and Avatar fell back to the initials (#1187): load it again with the route on.
+        await reload();
         assert.equal(await avatarSrc(tab), `/avatars/${'a'.repeat(40)}`);
         await confirm(tab.locator('main'), 'Remove photo');
         await settle(1);
