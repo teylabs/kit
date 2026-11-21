@@ -33,23 +33,38 @@ return new class extends Migration
                 Schema::rename($from, $to);
             }
         }
+        foreach (array_values(self::RENAMES) as $table) {
+            // A policy (any name: an app's own kit_workspace, say) depends on workspace_id, which PostgreSQL then refuses to change: drop them first.
+            $this->dropPolicies($table);
+        }
         foreach (['taggables' => 'taggable', 'flag_dismissals' => 'flaggable'] as $table => $morph) {
             $this->fill($table, $morph);
             Schema::table($table, fn (Blueprint $t) => $t->unsignedBigInteger('workspace_id')->nullable(false)->change());
-            Rls::unprotect($table);
             Rls::protect($table, policy: Rls::ISOLATION);
         }
         if (DB::getDriverName() !== 'pgsql' || ! config('kit.tenancy.rls.enabled', false)) {
             return;
         }
         $current = "nullif(current_setting('".Rls::SETTING."', true), '')::bigint";
-        DB::statement('drop policy if exists '.Rls::POLICY.' on tags');
         DB::statement('alter table tags enable row level security');
         DB::statement('alter table tags force row level security');
         DB::statement('drop policy if exists '.Rls::ISOLATION.' on tags');
         DB::statement('create policy '.Rls::ISOLATION.' on tags'
             ." using (workspace_id is null or workspace_id = {$current})"
             ." with check ((workspace_id is null and type = 'flag') or workspace_id = {$current})");
+    }
+
+    /** Drops every policy on $table, whatever its name, and turns RLS off; a no-op off PostgreSQL. */
+    private function dropPolicies(string $table): void
+    {
+        if (DB::getDriverName() !== 'pgsql') {
+            return;
+        }
+        foreach (DB::select('select polname from pg_policy where polrelid = to_regclass(?)', [$table]) as $row) {
+            DB::statement('drop policy if exists "'.str_replace('"', '""', (string) $row->polname).'" on '.$table);
+        }
+        DB::statement('alter table '.$table.' no force row level security');
+        DB::statement('alter table '.$table.' disable row level security');
     }
 
     /** Fills a missing workspace_id from the record's own, then refuses when any row is still without one. */
@@ -80,7 +95,7 @@ return new class extends Migration
     public function down(): void
     {
         foreach (['tags', 'flag_dismissals', 'taggables'] as $table) {
-            Rls::unprotect($table, Rls::ISOLATION);
+            $this->dropPolicies($table);
         }
         foreach (['taggables', 'flag_dismissals'] as $table) {
             Schema::table($table, fn (Blueprint $t) => $t->unsignedBigInteger('workspace_id')->nullable()->change());

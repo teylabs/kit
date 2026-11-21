@@ -404,11 +404,20 @@ try {
     DB::setDefaultConnection('pgsql_admin');
     $unprefix->down();
     foreach (['kit_tags', 'kit_taggables', 'kit_flag_dismissals'] as $table) {
-        $admin->statement('create policy kit_workspace on '.$table.' using (true)');
+        // HC's state (#1204): RLS forced and a kit_workspace policy on workspace_id, which PostgreSQL won't let a column change step over.
+        $admin->statement('alter table '.$table.' enable row level security');
+        $admin->statement('alter table '.$table.' force row level security');
+        $admin->statement('create policy kit_workspace on '.$table." using (workspace_id = nullif(current_setting('kit.workspace_id', true), '')::bigint)");
     }
     $unprefix->up();
     DB::setDefaultConnection($runtime);
     rlsCheck($policies() === $isolated, 'over an app\'s own kit_workspace policies, the migration ends with workspace_isolation alone');
+    // AB's and Fleetbox's state: the tables with no policy at all.
+    DB::setDefaultConnection('pgsql_admin');
+    $unprefix->down();
+    $unprefix->up();
+    DB::setDefaultConnection($runtime);
+    rlsCheck($policies() === $isolated, 'from tables with no prior policy, the migration ends with workspace_isolation alone');
 
     // The flag and tag tables: a workspace sees its own rows and the shared flags (workspace_id null), never another's.
     $tagRow = fn (?int $ws, ?string $type, string $name): int => (int) $admin->table('tags')->insertGetId(['workspace_id' => $ws, 'type' => $type, 'name' => json_encode(['en' => $name]), 'slug' => json_encode(['en' => $name])]);
