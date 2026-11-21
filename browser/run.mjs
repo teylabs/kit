@@ -7797,6 +7797,38 @@ test('a sticky top-(--shell-top) row sits flush under the shell after scrolling,
     }
 });
 
+// ── A long workspace name (shell.html?name=…, #1177): the switcher gives way before search; the name ellipsizes with its full name in title ──
+for (const scheme of ['light', 'dark'])
+    test(`the shell bar with a long workspace name (${scheme}): the name ellipsizes first, search keeps its width, no overflow, no axe target-size failure`, async () => {
+        const name = '10C Shared Space Long Workspace Name';
+        for (const width of [1440, 1024, 390]) {
+            const context = await browser.newContext({ viewport: { width, height: 700 }, colorScheme: scheme });
+            try {
+                const tab = await context.newPage();
+                await tab.goto(`${authUrl}shell.html?pages=four&name=${encodeURIComponent(name)}${scheme === 'dark' ? '&dark' : ''}`);
+                await tab.waitForSelector('[data-shell-bar] [data-shell-workspace]');
+                const short = await context.newPage();
+                await short.goto(`${authUrl}shell.html?pages=four${scheme === 'dark' ? '&dark' : ''}`);
+                await short.waitForSelector('[data-global-search]');
+                const searchWidth = (t) => t.evaluate(() => Math.round(document.querySelector('[data-global-search]').getBoundingClientRect().width));
+                const box = await tab.evaluate(() => {
+                    const span = document.querySelector('[data-shell-workspace]');
+                    const row = document.querySelector('[data-shell-bar] > div');
+                    return { truncated: span.scrollWidth > span.clientWidth, title: span.closest('[data-shell-home]').getAttribute('title'), overflow: Math.max(document.documentElement.scrollWidth - innerWidth, row.scrollWidth - row.clientWidth) };
+                });
+                assert.equal(box.truncated, true, `${width}: the name ellipsizes`);
+                assert.equal(box.title, name, `${width}: the full name is in title`);
+                assert.ok(box.overflow <= 0, `${width}: nothing overflows (${box.overflow}px)`);
+                assert.equal(await searchWidth(tab), await searchWidth(short), `${width}: search keeps the width it has with a short name`);
+                await tab.addScriptTag({ path: axeSource });
+                const violations = await tab.evaluate(async () => (await window.axe.run('[data-shell-bar]', { runOnly: ['target-size'] })).violations.map(v => v.nodes.map(n => n.target.join(' ')).join(', ')));
+                assert.deepEqual(violations, [], `${width}: no target-size failure in the bar`);
+            } finally {
+                await context.close();
+            }
+        }
+    });
+
 // ── The signed-in bar with ten top-level pages (shell.html): the pages that don't fit go into More, so search, the appearance toggle and the avatar stay ──
 test('the shell bar with ten pages at 1440 and 1024: nothing overflows, the avatar can be clicked, the rest are under More, the current page stays, axe-clean', async () => {
     for (const width of [1440, 1024]) {
@@ -7880,6 +7912,8 @@ test('the shell bar with four pages and search at 1024: pages that fit stay in t
                 const gap = Number.parseFloat(getComputedStyle(ruler).columnGap) || 0;
                 const need = widths.reduce((sum, width) => sum + width, 0) + gap * (widths.length - 1);
                 switcher.style.marginRight = '0px';
+                // The switcher gives way before search (#1177); hold it so the margin squeezes the pages' room, not the name.
+                switcher.style.flexShrink = '0';
                 await frames();
                 // Search shrinks first: a short room takes the slot down to its minimum (its own width or the 10rem token) before any page moves.
                 const slotBox = document.querySelector('[data-shell-bar-slot]');

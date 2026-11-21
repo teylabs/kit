@@ -30,6 +30,8 @@ const labels = query.get('pages') === 'four' ? ['Dashboard', 'Assignments', 'Not
 const module = query.get('module');
 // `?switch`: two more workspaces in the switcher, whose pages it loads from `landings` (the test answers /me/switcher) when it opens, or on hover or focus.
 const switching = query.has('switch');
+// A long workspace name (?name=…) for the bar's give-way check.
+const workspaceName = query.get('name') ?? 'Acme Workshop';
 const current = module !== null ? 1 : Number(query.get('current') ?? 0);
 const navigation = labels.map((label, index) => ({ label, url: `/@acme/${label.toLowerCase()}`, current: index === current, group: 'main' }));
 // `&billing`: the module's seven pages are billing ones instead, the row that showed a vertical scrollbar on a wide window.
@@ -46,8 +48,8 @@ const shell = {
     kind: 'app',
     account: { label: 'Account', url: '/account', current: false },
     product: { name: 'Example Product', url: '/', logomark: null, logomark_dark: null, wordmark: null, wordmark_dark: null, lockup: false },
-    workspace: { id: 1, name: 'Acme Workshop', url: '/@acme', settings: null, all: null, leave: null },
-    switcher: { current: { id: 1, name: 'Acme Workshop' }, choices: [{ id: 1, name: 'Acme Workshop', slug: 'acme', current: true }, ...(switching ? [{ id: 2, name: 'Northwind Farms', slug: 'northwind', current: false }, { id: 3, name: 'Globex Labs', slug: 'globex', current: false }] : [])], landings: '/me/switcher' },
+    workspace: { id: 1, name: workspaceName, url: '/@acme', settings: null, all: null, leave: null },
+    switcher: { current: { id: 1, name: workspaceName }, choices: [{ id: 1, name: workspaceName, slug: 'acme', current: true }, ...(switching ? [{ id: 2, name: 'Northwind Farms', slug: 'northwind', current: false }, { id: 3, name: 'Globex Labs', slug: 'globex', current: false }] : [])], landings: '/me/switcher' },
     navigation,
     user: { name: 'Ada Example', email: 'ada@example.test', initials: 'AE', avatar_url: null, avatar_url_2x: null, avatar_color: query.get('avatar-color') ?? null, items: [] },
     links: { home: '/', switcher: '/workspaces', sign_in: '/login', sign_out: '/logout' },
