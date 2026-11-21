@@ -21,7 +21,7 @@ final class ConnectionsViewModel extends PageViewModel
      * @param  list<array{key: string, description: string, required: bool}>  $scopes
      * @param  list<AssistantClient>  $assistants  the "add an assistant" cards
      */
-    public function __construct(private string $title, private array $pending, private array $scopes, private TableData $table, private ?Action $approve, private string $intent_key, private string $server_url, private array $assistants) {}
+    public function __construct(private string $title, private array $pending, private array $scopes, private TableData $table, private ?Action $approve, private string $intent_key, private string $server_url, private array $assistants, private string $assistant_label = 'AI assistant') {}
 
     public function title(): string
     {
@@ -67,6 +67,12 @@ final class ConnectionsViewModel extends PageViewModel
     public function assistants(): array
     {
         return $this->assistants;
+    }
+
+    /** The singular label for an assistant (`kit.mcp.assistant_label`), for the page's headings. */
+    public function assistant_label(): string
+    {
+        return $this->assistant_label;
     }
 
     protected function section(): ?string

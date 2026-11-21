@@ -23,6 +23,8 @@ async function copy(text: string, key: string) {
         copied.value = null;
     }
 }
+// The first-use heading names the assistant as the app calls it (kit.mcp.assistant_label).
+const connectTitle = computed(() => `Connect ${/^[aeiou]/i.test(props.assistant_label) ? 'an' : 'a'} ${props.assistant_label}`);
 const empty = computed(() => !props.approve && props.table.rows.length === 0);
 </script>
 <template>
@@ -42,7 +44,7 @@ const empty = computed(() => !props.approve && props.table.rows.length === 0);
             </FormCard>
         </Form>
         <DataTable v-if="table.rows.length" :table="table as never" :toolbar="false" @act="() => undefined" />
-        <Section :title="empty ? 'Connect an AI assistant' : 'Add an assistant'" :description="empty ? 'Let assistants like Claude or ChatGPT work with this workspace over MCP. They only see what you approve, and you can revoke access at any time.' : undefined">
+        <Section :title="empty ? connectTitle : 'Add an assistant'" :description="empty ? 'Let assistants like Claude or ChatGPT work with this workspace over MCP. They only see what you approve, and you can revoke access at any time.' : undefined">
             <Stack>
                 <div class="flex flex-wrap items-center gap-2" data-mcp-address>
                     <code class="min-w-0 flex-1 rounded-md bg-muted px-3 py-2 text-sm break-all">{{ server_url }}</code>

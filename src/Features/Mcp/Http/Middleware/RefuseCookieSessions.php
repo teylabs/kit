@@ -3,6 +3,7 @@
 namespace Tey\Kit\Features\Mcp\Http\Middleware;
 
 use Closure;
+use Tey\Kit\Features\Mcp\AssistantLabel;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
@@ -13,7 +14,11 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class RefuseCookieSessions
 {
-    public const MESSAGE = 'Connecting an AI assistant needs a server-side session. Set SESSION_DRIVER=database (or redis): a cookie session is too small for the consent request.';
+    /** The refusal, naming the assistant with `kit.mcp.assistant_label`. */
+    public static function message(): string
+    {
+        return 'Connecting '.AssistantLabel::article().' '.AssistantLabel::singular().' needs a server-side session. Set SESSION_DRIVER=database (or redis): a cookie session is too small for the consent request.';
+    }
 
     public function handle(Request $request, Closure $next): mixed
     {
@@ -22,6 +27,6 @@ class RefuseCookieSessions
         }
         Log::error('MCP consent refused: SESSION_DRIVER is cookie, which cannot hold the OAuth authorization request. Set SESSION_DRIVER=database (or redis).', ['route' => $request->route()?->getName()]);
 
-        return new Response(self::MESSAGE, 503, ['Content-Type' => 'text/plain; charset=UTF-8']);
+        return new Response(self::message(), 503, ['Content-Type' => 'text/plain; charset=UTF-8']);
     }
 }

@@ -263,6 +263,27 @@ try {
     $props = json_decode((string) $page->getContent(), true)['props'] ?? [];
     httpCheck(json_decode((string) $page->getContent(), true)['component'] === 'Mcp/Authorize/Page' && $props['client'] === 'Assistant', 'the consent page is the kit Inertia page and names the client');
     httpCheck($props['scopes'] === [['key' => 'mcp:use', 'label' => 'Act as you in the workspaces you approve, with what your role there allows']], 'the requested scope is shown in plain words');
+
+    // kit.mcp.assistant_label (#1198): with the label 'assistant', no visible "AI" text is left on the consent page or the Connections page. Visible means
+    // every string prop but tokens, ids, keys and URLs, plus the page stub's own template text (its comments are not shown).
+    $visible = function (array $props) use (&$visible): array {
+        $out = [];
+        foreach ($props as $key => $value) {
+            if (is_string($key) && preg_match('/token|url|_key$|^key$|^id$|host/i', $key) === 1) {
+                continue;
+            }
+            $out = [...$out, ...(is_array($value) ? $visible($value) : (is_string($value) ? [$value] : []))];
+        }
+
+        return $out;
+    };
+    $stubText = fn (string $stub): string => (string) preg_replace(['#^\s*//.*$#m', '#<!--.*?-->#s'], '', (string) file_get_contents(dirname(__DIR__).'/resources/features/mcp/pages/'.$stub.'/Page.vue.stub'));
+    $noAi = fn (array $strings): array => array_values(array_filter($strings, fn (string $text): bool => preg_match('/\bAI\b/', $text) === 1));
+    $app['config']->set('kit.mcp.assistant_label', ['assistant', 'assistants']);
+    $labelled = json_decode((string) $send($people['owner'], 'GET', $authorize(), [], $inertia)->getContent(), true)['props'] ?? [];
+    httpCheck($labelled !== [] && $noAi($visible($labelled)) === [] && $noAi([$stubText('Mcp/Authorize')]) === [], 'with assistant_label "assistant", the consent page shows no "AI" text ('.implode(' | ', $noAi($visible($labelled))).')');
+    httpCheck(str_contains(Tey\Kit\Features\Mcp\Http\Middleware\RefuseCookieSessions::message(), 'Connecting an assistant needs'), 'the cookie-session refusal uses the label');
+    $app['config']->set('kit.mcp.assistant_label', ['AI assistant', 'AI assistants']);
     httpCheck(array_column($props['workspaces'], 'name') === ['Acme', 'Globex'] && in_array($props['workspace'], [$workspace->id, $globex->id], true), "the workspace choice lists the person's active workspaces only (not Initech) with a default");
     httpCheck(is_string($props['auth_token']) && $props['auth_token'] !== '' && is_string($props['csrf_token']) && $props['csrf_token'] !== '', 'the page carries Passport\'s auth token and the CSRF token for its plain posts');
     // Passport refuses an undefined scope before the view, so the view itself is called with one: it is listed as it was asked for.
@@ -396,6 +417,19 @@ try {
             return $app->make(Tey\Kit\Features\Mcp\Http\ConnectionController::class)->index($request, $workspace->id);
         })->getContent(), true)['server_url'] ?? null;
     };
+    $connectionsProps = function () use ($app, $workspace, $people): array {
+        $request = Request::create('https://kit.test/workspaces/'.$workspace->id.'/settings/connections', 'GET', [], [], [], ['HTTP_ACCEPT' => 'application/json']);
+        $app->instance('request', $request);
+        $request->setUserResolver(fn () => $people['member']);
+
+        return json_decode((string) Tey\Kit\Features\Workspaces\Workspaces::run($workspace->id, fn () => $app->make(Tey\Kit\Features\Mcp\Http\ConnectionController::class)->index($request, $workspace->id))->getContent(), true);
+    };
+    $default = $connectionsProps();
+    httpCheck($default['title'] === 'AI assistants' && $default['assistant_label'] === 'AI assistant', 'by default the Connections page is "AI assistants", as before');
+    $app['config']->set('kit.mcp.assistant_label', ['assistant', 'assistants']);
+    $relabelled = $connectionsProps();
+    $app['config']->set('kit.mcp.assistant_label', ['AI assistant', 'AI assistants']);
+    httpCheck($relabelled['title'] === 'assistants' && $relabelled['assistant_label'] === 'assistant' && $noAi($visible($relabelled)) === [] && $noAi([$stubText('Workspace/Settings/Connections')]) === [], 'with assistant_label "assistant", the Connections page shows no "AI" text ('.implode(' | ', $noAi($visible($relabelled))).')');
     httpCheck($serverUrl() === 'https://kit.test/mcp', 'the AI assistants page props carry the one server URL, /mcp');
     httpCheck(array_unique(array_values($listed($people['member']))) === ['Member'] && ! isset($listed($people['member'])[$adminConnection]), "a member's AI assistants page lists their own connections only, never another member's");
     httpCheck(isset($listed($people['owner'])[$memberConnection], $listed($people['owner'])[$adminConnection]), "an owner's AI assistants page lists every member's connection in the workspace");

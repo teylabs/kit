@@ -20,6 +20,7 @@ use Tey\Kit\Features\Core\Routing\AuthorizedBy;
 use Tey\Kit\Features\Core\Users;
 use Tey\Kit\Features\Mcp\AssistantClients;
 use Tey\Kit\Features\Mcp\Operations\WorkspaceConnection;
+use Tey\Kit\Features\Mcp\AssistantLabel;
 use Tey\Kit\Features\Mcp\ViewModels\ConnectionsViewModel;
 use Tey\Kit\Features\Workspaces\WorkspaceUrl;
 
@@ -57,7 +58,7 @@ class ConnectionController
             $token = Token::query()->with('client')->find($connection->oauth_token_id);
             // The explicit grants this connection holds, each removable on its own; the connection and its token stay.
             $held = array_values(array_filter((array) json_decode($connection->scopes, true), fn (string $scope): bool => isset($explicit[$scope])));
-            $assistant = $token?->client?->name ?? 'AI assistant';
+            $assistant = $token?->client?->name ?? AssistantLabel::singular();
             // Labels are verbs: "Remove", named "Remove <grant>" for assistive tech and described by the grant in the menu. The confirm title is short; the grant
             // and the assistant go in its body, where long names wrap.
             $removals = array_map(fn (string $scope): Action => new Action('Remove', WorkspaceUrl::to($workspace, 'settings/connections/'.$connection->id.'/grants/'.$scope, 'mcp'), 'delete',
@@ -78,7 +79,7 @@ class ConnectionController
         $name = (string) config('app.name');
 
         $model = new ConnectionsViewModel(
-            'AI assistants',
+            AssistantLabel::plural(),
             $tokens->map(fn ($token): array => ['id' => (string) $token->id, 'label' => $token->client->name.' · '.$token->created_at.' · expires '.$token->expires_at])->values()->all(),
             array_map(fn (string $scope, string $description): array => ['key' => $scope, 'description' => $description, 'required' => $scope === $base], array_keys($scopes), array_values($scopes)),
             $table,
@@ -87,6 +88,7 @@ class ConnectionController
             (string) Str::uuid(),
             $serverUrl,
             AssistantClients::for($serverUrl, $name),
+            AssistantLabel::singular(),
         );
 
         return $request->expectsJson() && ! $request->header('X-Inertia') ? response()->json($model) : Inertia::render('Workspace/Settings/Connections/Page', $model);

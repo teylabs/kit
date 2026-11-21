@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+Features affected: mcp (Connections page). Take it with `php artisan kit:scaffold mcp --diff --only=resources/js/pages/Workspace/Settings/Connections`.
+
+### Added
+
+- **`kit.mcp.assistant_label`.** What a person sees an MCP client called, `[singular, plural]`, default `['AI assistant', 'AI assistants']`. It names the Connections page heading, its nav, page and settings title and description, an unnamed connection and the cookie-session refusal. An app that avoids "AI" sets `['assistant', 'assistants']`. (#1198)
+
 ## v0.43.1
 
 Features affected: core (migration `000102`).

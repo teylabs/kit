@@ -433,6 +433,7 @@ readonly approve: Tey.Kit.Features.Core.Data.Action | null,
 readonly intent_key: string,
 readonly server_url: string,
 readonly assistants: Tey.Kit.Features.Mcp.Data.AssistantClient[],
+readonly assistant_label: string,
 };
 }
 }
