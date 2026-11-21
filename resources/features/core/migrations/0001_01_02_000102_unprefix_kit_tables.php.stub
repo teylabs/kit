@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 // No `kit` in the schema (0.43). kit_meta becomes app_meta, kit_adoptions app_adoptions (only where an in-place adoption made it; most apps have
 // none) and kit_media_uploads media_uploads (when the app created it under the old default name and `kit.media.uploads_table` is the new default).
 // It refuses when the app already has a table of a new name, naming it, and never merges two tables. Stored morph types under the 0.42 `kit-` aliases
-// (`kit-note`, `kit-user-avatar`, …) are rewritten to the plain ones in every `*_type` column; the old aliases still resolve, so nothing orphans
+// (`kit-note`, `kit-user-avatar`, …) are rewritten to the plain ones in every morph pair (`x_type` beside `x_id`); the old aliases still resolve, so nothing orphans
 // in between. The flag and tag tables are renamed by workspaces' 000212.
 return new class extends Migration
 {
@@ -52,8 +52,10 @@ return new class extends Migration
     private function rewrite(Closure $pair): void
     {
         foreach (Schema::getTables(Schema::getCurrentSchemaName()) as $table) {
-            foreach (Schema::getColumnListing($table['name']) as $column) {
-                if (! str_ends_with($column, '_type')) {
+            $columns = Schema::getColumnListing($table['name']);
+            foreach ($columns as $column) {
+                // Only a morph pair (`x_type` beside `x_id`), never another column that happens to end in _type.
+                if (! str_ends_with($column, '_type') || ! in_array(substr($column, 0, -5).'_id', $columns, true)) {
                     continue;
                 }
                 foreach (self::ALIASES as $alias) {
