@@ -22,6 +22,11 @@ const UNVERIFIED_RLS = [
     'kit_note_intents', 'kit_mcp_runs', 'kit_deliveries', 'kit_delivery_recipients', 'kit_delivery_events', 'workspace_mail_identities', 'settings_intents',
     'kit_capability_overrides', 'kit_entitlements',
 ];
+// Domain tables still created as kit_* (each feature's adopt migration renames them to the app's names). Frozen: a new table is never named kit_*.
+const KIT_DOMAIN = [
+    'kit_finalize_confirmations', 'kit_finalizations', 'kit_notes', 'kit_note_intents', 'kit_deliveries', 'kit_delivery_recipients', 'kit_delivery_events',
+    'kit_security_events', 'kit_capability_overrides', 'kit_entitlements', 'kit_permission_defaults', 'kit_account_deletions', 'kit_user_state',
+];
 const PACKAGE = __DIR__.'/../database/migrations';
 const FEATURES = ['core', 'workspaces', 'access', 'shell', 'session-ui', 'mcp'];
 const RENAMES = [
@@ -33,8 +38,8 @@ const RENAME_MIGRATIONS = ['2026_11_14_000304_rename_access_tables', '2026_11_14
 const DEVICE_MIGRATIONS = ['2026_11_14_000507_create_signed_in_devices_table', '2026_11_14_000508_add_user_foreign_key_to_signed_in_devices_table'];
 // What `migrate` runs on an app upgraded from 0.17, in order: the renames and the devices pair.
 const UPGRADE_MIGRATIONS = ['2026_11_14_000304_rename_access_tables', '2026_11_14_000506_rename_session_ui_tables', ...DEVICE_MIGRATIONS, '2026_11_14_000605_rename_mcp_tables'];
-// Kept as they are in 0.18: the domain tables (app-owned in 0.19), kit_meta and kit_adoptions.
-const UNTOUCHED = ['kit_meta', 'kit_adoptions', 'kit_security_events', 'entitlements', 'complimentary_grants', 'workspaces'];
+// Kept as they are in 0.18: the domain tables (app-owned in 0.19), app_meta and app_adoptions (kit_meta and kit_adoptions before 0.43).
+const UNTOUCHED = ['app_meta', 'app_adoptions', 'kit_security_events', 'entitlements', 'complimentary_grants', 'workspaces'];
 
 function check(bool $ok, string $message): void
 {
@@ -183,19 +188,24 @@ try {
                 $created[$m[1]] = basename($file);
             }
         }
-        preg_match_all("/Rls::protect\('([a-z_]+)'\)|policy '\.Rls::POLICY\.' on ([a-z_]+)/", $code, $found);
+        preg_match_all("/Rls::protect\('([a-z_]+)'|policy '\.Rls::(?:POLICY|ISOLATION)\.' on ([a-z_]+)/", $code, $found);
         $protected = [...$protected, ...array_filter($found[1]), ...array_filter($found[2])];
-        if (preg_match_all("/foreach \(\[([^\]]+)\] as \\\$table => /", $code, $loops) && str_contains($code, 'Rls::protect($table)')) {
+        // A table a kit migration renames is protected under its new name.
+        if (preg_match_all("/'(kit_[a-z_]+)' => '([a-z_]+)'/", $code, $renames)) {
+            $renamed = array_combine($renames[2], $renames[1]);
+        }
+        if (preg_match_all("/foreach \(\[([^\]]+)\] as \\\$table => /", $code, $loops) && str_contains($code, 'Rls::protect($table')) {
             foreach ($loops[1] as $list) {
                 preg_match_all("/'([a-z_]+)' =>/", $list, $keys);
                 $protected = [...$protected, ...$keys[1]];
             }
         }
     }
+    $protected = [...$protected, ...array_values(array_intersect_key($renamed ?? [], array_flip($protected)))];
     $bare = array_diff(array_keys($created), $protected, UNVERIFIED_RLS);
     check(count($created) >= 20 && $bare === [], 'every kit table with a workspace_id is protected by a kit migration or on the frozen unverified list (bare: '.implode(', ', $bare).')');
     check(array_diff(UNVERIFIED_RLS, array_keys($created)) === [] && array_intersect(UNVERIFIED_RLS, $protected) === [], 'the unverified list names only unprotected kit tables (drop a table from it once protected)');
-    check(count(array_intersect(['kit_tags', 'kit_taggables', 'kit_flag_dismissals'], array_unique($protected))) === 3, 'the flag and tag tables are protected');
+    check(count(array_intersect(['kit_tags', 'kit_taggables', 'kit_flag_dismissals', 'tags', 'taggables', 'flag_dismissals'], array_unique($protected))) === 6, 'the flag and tag tables are protected');
     // The package baselines are the catalog's migration stubs: the same names kit:add gave its copies, the same bytes. Only new migrations are package-only.
     $stubs = [];
     foreach (glob(__DIR__.'/../resources/features/*/migrations/*.php.stub') ?: [] as $stub) {
@@ -216,8 +226,12 @@ try {
     $fresh = host();
     $ran = migrate($fresh);
     check(count($ran) === count(array_unique($ran)) && array_diff(array_map(fn (string $path): string => basename($path, '.php'), array_keys(array_filter($package, fn ($hash, string $path): bool => in_array(dirname($path), FEATURES, true), ARRAY_FILTER_USE_BOTH))), $ran) === [], 'a fresh app runs each of its features\' package migrations once ('.count($ran).')');
-    check(array_filter(RENAMES, fn (string $to, string $from): bool => Schema::hasTable($from) || ! Schema::hasTable($to), ARRAY_FILTER_USE_BOTH) === [] && array_filter(UNTOUCHED, fn (string $table): bool => $table !== 'kit_adoptions' && ! Schema::hasTable($table)) === [], 'a fresh database has each infrastructure table under its new name only, and the domain tables and kit_meta as they were');
+    check(array_filter(RENAMES, fn (string $to, string $from): bool => Schema::hasTable($from) || ! Schema::hasTable($to), ARRAY_FILTER_USE_BOTH) === [] && array_filter(UNTOUCHED, fn (string $table): bool => $table !== 'app_adoptions' && ! Schema::hasTable($table)) === [], 'a fresh database has each infrastructure table under its new name only, and the domain tables and app_meta as they were');
     check(migrate($fresh) === [], 'a second migrate runs nothing');
+    // No `kit` in the schema (0.43): after a fresh migrate, a table or policy named with `kit` is only one of the domain tables an app's adopt
+    // migration renames (KIT_DOMAIN, frozen: it only shrinks) or, for a policy, Rls::POLICY on the tables phase B renames.
+    $kitNamed = array_values(array_diff(array_filter(array_column(Schema::getTables(Schema::getCurrentSchemaName()), 'name'), fn (string $t): bool => str_contains($t, 'kit')), KIT_DOMAIN));
+    check($kitNamed === [], 'a fresh app has no table named with kit but the frozen domain tables (got: '.implode(', ', $kitNamed).')');
     check(listed($fresh, 'shell') === [], 'a feature with no migrations loads none');
     $migrator = $fresh->make('migrator');
     check($migrator instanceof PackageMigrator && preg_grep('/\.php\z/', $migrator->paths()) === [] && in_array(PackageMigrator::directory('session-ui'), $migrator->paths(), true), 'the migrator registers each feature\'s package directory, never a single file');

@@ -20,7 +20,7 @@ $case->unflag('stalled');
 - Raising a flag again updates its reason and link in place.
 - `$case->flagged('unpaid')` says whether it is on. `$case->flags()` lists them with their `pivot->meta` (`reason`, `link`).
 - Query with `Assignment::flagged('unpaid', 'stalled')` (any of them) and `Assignment::notFlagged('possible-duplicate')`.
-- A flag carries its record's `workspace_id` (`kit_taggables.workspace_id`), so it goes when the workspace is deleted and RLS can cover it.
+- A flag carries its record's `workspace_id` (`taggables.workspace_id`), so it goes when the workspace is deleted and RLS can cover it.
 
 ## Showing flags
 
@@ -42,7 +42,7 @@ Pass the page's tags with `Tags::for($records)`: record key => `list<TagItemData
 
 ## Dismissing a flag
 
-A flag defined `dismissible: true` can be dismissed ("Not a duplicate"): `$case->dismissFlag('possible-duplicate', by: $user->id)` removes it and records who and when (`kit_flag_dismissals`). A dismissed flag is not raised again by `flag()`. Pass `force: true` when there is a new and different reason, such as another match. That raises it and clears the dismissal. A flag that is not dismissible throws `flag_not_dismissible`.
+A flag defined `dismissible: true` can be dismissed ("Not a duplicate"): `$case->dismissFlag('possible-duplicate', by: $user->id)` removes it and records who and when (`flag_dismissals`). A dismissed flag is not raised again by `flag()`. Pass `force: true` when there is a new and different reason, such as another match. That raises it and clears the dismissal. A flag that is not dismissible throws `flag_not_dismissible`.
 
 ## Filtering and actions
 
@@ -62,6 +62,6 @@ expect(Assignment::query()->flagged('unpaid')->pluck('id')->all())->toBe([$case-
 
 ## Tables
 
-The kit's workspaces migration creates `kit_tags` (a flag has no `workspace_id`; a person's tag has its workspace's), `kit_taggables` (with `workspace_id` and `meta`) and `kit_flag_dismissals`. With RLS on, protect `kit_taggables`, `kit_flag_dismissals` and `kit_tags` (`Rls::protect`), or list them in `kit.tenancy.rls.except`. `HasFlags` always uses these tables and the kit's models, whatever an app's `config/tags.php` says.
+The kit's workspaces migration creates `tags` (a flag has no `workspace_id`; a person's tag has its workspace's), `taggables` (with `workspace_id` and `meta`) and `flag_dismissals`. With RLS on, protect `taggables`, `flag_dismissals` and `tags` (`Rls::protect`), or list them in `kit.tenancy.rls.except`. `HasFlags` always uses these tables and the kit's models, whatever an app's `config/tags.php` says.
 
 **Not covered:** translated tag names (spatie's translations are stored, but TagList shows the current locale's), per-workspace flag definitions, and RLS policies on the tag tables (the app's to add).

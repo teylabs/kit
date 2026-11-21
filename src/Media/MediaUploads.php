@@ -23,7 +23,7 @@ final class MediaUploads
 
     public static function table(): string
     {
-        return (string) config('kit.media.uploads_table', 'kit_media_uploads');
+        return (string) config('kit.media.uploads_table', 'media_uploads');
     }
 
     public static function schema(Blueprint $table): void

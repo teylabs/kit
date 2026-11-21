@@ -149,7 +149,7 @@ class DeleteWorkspace
     private static function owners(): array
     {
         $tables = [];
-        foreach ([['workspaces', 'kit_taggables', false], ['workspaces', 'kit_flag_dismissals', false], ['workspaces', 'kit_tags', false], ['notes', 'note_intent', true], ['notes', 'note', true], ['mcp', 'connections', false], ['settings', 'settings_intents', false], ['access', 'complimentary_grant', true], ['access', 'entitlement', true], ['access', 'plan_entitlements', false], ['access', 'capability_overrides', false], ['session-ui', 'user_state', false]] as [$feature, $table, $domain]) {
+        foreach ([['workspaces', 'taggables', false], ['workspaces', 'flag_dismissals', false], ['workspaces', 'tags', false], ['notes', 'note_intent', true], ['notes', 'note', true], ['mcp', 'connections', false], ['settings', 'settings_intents', false], ['access', 'complimentary_grant', true], ['access', 'entitlement', true], ['access', 'plan_entitlements', false], ['access', 'capability_overrides', false], ['session-ui', 'user_state', false]] as [$feature, $table, $domain]) {
             if (Kit::enabled($feature)) {
                 $tables[$domain ? Kit::table($table) : $table] = $feature;
             }

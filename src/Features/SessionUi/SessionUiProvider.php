@@ -193,6 +193,6 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
         }
         // Fortify's password reset and email check mail are the kit's: its copy, sentence-case buttons, no manage-notifications link, links on app.url.
         AccountMail::register();
-        Relation::morphMap(['kit-user-avatar' => UserAvatar::class]);
+        Relation::morphMap(['user-avatar' => UserAvatar::class, 'kit-user-avatar' => UserAvatar::class]);
     }
 }

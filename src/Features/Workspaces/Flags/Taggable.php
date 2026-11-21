@@ -6,12 +6,12 @@ use Illuminate\Database\Eloquent\Relations\MorphPivot;
 use Tey\Kit\Features\Workspaces\Workspaces;
 
 /**
- * A tag on a record, on `kit_taggables`. It carries the record's workspace (so the workspace scope and RLS cover it) and, for a flag, its `meta`: the
+ * A tag on a record, on `taggables`. It carries the record's workspace (so the workspace scope and RLS cover it) and, for a flag, its `meta`: the
  * reason and link the flag was raised with.
  */
 class Taggable extends MorphPivot
 {
-    protected $table = 'kit_taggables';
+    protected $table = 'taggables';
 
     protected $casts = ['meta' => 'array'];
 

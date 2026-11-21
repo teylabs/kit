@@ -6,7 +6,7 @@ Since 0.19 the kit's domain data is the app's. When you inspect the database, th
 
 | Tier | What | Who owns it | Examples |
 | --- | --- | --- | --- |
-| Infrastructure | Tables the kit reads and writes for itself. They load from the package (0.18). | The kit | `user_state`, `signed_in_devices`, `account_deletions`, `plan_entitlements`, `permission_defaults`, `capability_overrides`, `mcp_*`, `kit_meta`, `kit_adoptions`, the operators table |
+| Infrastructure | Tables the kit reads and writes for itself. They load from the package (0.18). | The kit | `user_state`, `signed_in_devices`, `account_deletions`, `plan_entitlements`, `permission_defaults`, `capability_overrides`, `mcp_*`, `app_meta`, `app_adoptions`, the operators table |
 | Domain | The app's own records, which the kit's features read and write | The app, once it adopts the feature | the tables below |
 | Pages | The feature's pages and partials, written once by `kit:scaffold <feature>` (0.18) | The app | `resources/js/pages/...` |
 
@@ -44,7 +44,7 @@ The kit's own classes (`DeliveryRecord`, `Finalization`, `Note`, and so on) stay
 
 **The boot check.** In `local` and `testing`, the app refuses to boot when a class in `kit.models` doesn't exist, isn't an Eloquent model or doesn't implement its key's contract, doesn't use its key's trait (directly, through a parent or through another trait), or when a feature is adopted in part (its delivery, say, without its recipients). Elsewhere the problem is logged.
 
-**Morph aliases.** Each model has a stable alias, `kit-` and its key (`kit-note`, `kit-delivery`, `kit-delivery-recipient`, …), registered against whichever class config names. Stored rows that name a model by alias (media attachments, an app's own morphs) follow it to the app's model. Once adopted, a row stored under the kit's class name, from before the alias existed, resolves to the app's model too.
+**Morph aliases.** Each model has a stable alias, its key with dashes (`note`, `delivery`, `delivery-recipient`, …; the 0.42 `kit-` aliases still resolve), registered against whichever class config names. Stored rows that name a model by alias (media attachments, an app's own morphs) follow it to the app's model. Once adopted, a row stored under the kit's class name, from before the alias existed, resolves to the app's model too.
 
 ## Adopting a feature
 
@@ -58,7 +58,7 @@ It writes:
 - one migration, `database/migrations/<date>_adopt_deliver_tables.php`;
 - the `kit.models` (and `kit.tables`) entries in `config/kit.php`. When the app has no `config/kit.php`, the kit's defaults are published first. Every other line stays as it was.
 
-Review the migration, then run `php artisan migrate`. On a database where the kit created the tables, the migration renames each one, with its rows. It also renames the indexes named after it, and on PostgreSQL its foreign keys and id sequence. On a fresh database it creates the tables under the app's names, and the kit's own migrations for them don't run. It runs on the migration's connection (`--database` applies). Before renaming anything it checks every table: when both names of any table exist, it refuses, naming both, and changes nothing, so a database without transactional DDL is never left half renamed. The same goes for every index, foreign key and sequence name it would give: one already taken stops it before any table moves. On PostgreSQL `up()` and `down()` also run in one transaction with their `kit_meta` records. `up()` records in `kit_meta`, keyed by the migration and the table (`adopt:<migration>:<table>`), what it did to each table: `renamed`, `created` or `left`. `down()` reads that record. A renamed table is renamed back, after checking every pair; a created one is dropped; a left one stays. A table with no record stays as it is too: a rollback never drops a table the migration didn't create.
+Review the migration, then run `php artisan migrate`. On a database where the kit created the tables, the migration renames each one, with its rows. It also renames the indexes named after it, and on PostgreSQL its foreign keys and id sequence. On a fresh database it creates the tables under the app's names, and the kit's own migrations for them don't run. It runs on the migration's connection (`--database` applies). Before renaming anything it checks every table: when both names of any table exist, it refuses, naming both, and changes nothing, so a database without transactional DDL is never left half renamed. The same goes for every index, foreign key and sequence name it would give: one already taken stops it before any table moves. On PostgreSQL `up()` and `down()` also run in one transaction with their `app_meta` records. `up()` records in `app_meta`, keyed by the migration and the table (`adopt:<migration>:<table>`), what it did to each table: `renamed`, `created` or `left`. `down()` reads that record. A renamed table is renamed back, after checking every pair; a created one is dropped; a left one stays. A table with no record stays as it is too: a rollback never drops a table the migration didn't create.
 
 `kit:scaffold <feature> --adopt` refuses, writing nothing, when:
 

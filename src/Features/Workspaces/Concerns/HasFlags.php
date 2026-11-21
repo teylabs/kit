@@ -13,7 +13,7 @@ use Tey\Kit\Features\Workspaces\Flags\Taggable;
 use Tey\Kit\Features\Workspaces\Workspaces;
 
 /**
- * Flags and tags on a record, through spatie/laravel-tags on the kit's own tables (`kit_tags`, `kit_taggables`), whatever the app's `config/tags.php`
+ * Flags and tags on a record, through spatie/laravel-tags on the kit's own tables (`tags`, `taggables`), whatever the app's `config/tags.php`
  * says. A flag is a tag of type `flag` the system raises: `$case->flag('possible-duplicate', reason: 'Looks like A-1042', link: $url)` where a match is
  * stored, `$case->flag('unpaid', when: $case->paid_at === null)` where payment changes (false removes it), `$case->unflag('stalled')` where a run is
  * retried. A flag someone dismissed ("Not a duplicate") is not raised again unless `force: true`, for a new and different reason. Query with
@@ -31,7 +31,7 @@ trait HasFlags
 
     public function getTaggableTableName(): string
     {
-        return 'kit_taggables';
+        return 'taggables';
     }
 
     public function getPivotModelClassName(): string
@@ -54,7 +54,7 @@ trait HasFlags
 
             return false;
         }
-        $dismissals = DB::table('kit_flag_dismissals')->where(['flaggable_type' => $this->getMorphClass(), 'flaggable_id' => $this->getKey(), 'flag' => $key]);
+        $dismissals = DB::table('flag_dismissals')->where(['flaggable_type' => $this->getMorphClass(), 'flaggable_id' => $this->getKey(), 'flag' => $key]);
         if ($force) {
             $dismissals->delete();
         } elseif ($dismissals->exists()) {
@@ -94,7 +94,7 @@ trait HasFlags
         if (! Flags::definition($key)['dismissible']) {
             throw new \RuntimeException('flag_not_dismissible: '.$key);
         }
-        DB::table('kit_flag_dismissals')->updateOrInsert(['flaggable_type' => $this->getMorphClass(), 'flaggable_id' => $this->getKey(), 'flag' => $key],
+        DB::table('flag_dismissals')->updateOrInsert(['flaggable_type' => $this->getMorphClass(), 'flaggable_id' => $this->getKey(), 'flag' => $key],
             ['workspace_id' => $this->flagWorkspace(), 'dismissed_by' => $by, 'dismissed_at' => now()]);
         $this->unflag($key);
     }

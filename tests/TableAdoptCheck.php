@@ -1,7 +1,7 @@
 <?php
 
 // A host that already has the access feature's entitlements or complimentary_grants table, or spatie/laravel-settings' settings table, adopts a
-// compatible one in place: the migration creates and changes nothing on it (its rows and columns stay as they were), records it in kit_adoptions
+// compatible one in place: the migration creates and changes nothing on it (its rows and columns stay as they were), records it in app_adoptions
 // and creates only the tables the host lacks (settings_intents); rolling back keeps it. The migration refuses an incompatible table, naming the
 // columns, before anything is created. A schema the kit cannot read is a refusal. Synthetic tables and rows.
 // SQLite memory by default. DB_CONNECTION=pgsql runs against the PostgreSQL the DB_* variables name (CI's service container), in the
@@ -157,8 +157,8 @@ try {
     (require $stub('access', $access))->up();
     tableCheck([rowsOf('entitlements'), rowsOf('complimentary_grants')] === $before['rows'], 'the adopted tables\' rows are unchanged');
     tableCheck(schemaOf(['entitlements', 'complimentary_grants']) === $before['schema'], 'and their columns, types and nullability are unchanged');
-    tableCheck(array_values(array_diff(tableNames(), $before['tables'])) === [Adoptions::TABLE], 'nothing is created but the kit_adoptions record');
-    tableCheck(Adoptions::adopted('entitlements') && Adoptions::adopted('complimentary_grants') && Adoptions::added('complimentary_grants') === [] && DB::table(Adoptions::TABLE)->count() === 2, 'a kit_adoptions row is written for each, with no columns added');
+    tableCheck(array_values(array_diff(tableNames(), $before['tables'])) === [Adoptions::TABLE], 'nothing is created but the app_adoptions record');
+    tableCheck(Adoptions::adopted('entitlements') && Adoptions::adopted('complimentary_grants') && Adoptions::added('complimentary_grants') === [] && DB::table(Adoptions::TABLE)->count() === 2, 'a app_adoptions row is written for each, with no columns added');
     (require $stub('access', $access))->up();
     tableCheck([rowsOf('entitlements'), rowsOf('complimentary_grants')] === $before['rows'] && DB::table(Adoptions::TABLE)->count() === 2, 'running the migration again changes nothing');
     (require $stub('access', $access))->down();
@@ -226,7 +226,7 @@ try {
     (require $stub('settings', $intents))->up();
     tableCheck(rowsOf('settings') === $before['rows'] && schemaOf(['settings']) === $before['schema'], 'the host\'s settings rows and columns are unchanged');
     tableCheck(array_values(array_diff(tableNames(), $before['tables'])) === [Adoptions::TABLE, 'settings_intents'], 'only settings_intents (and the record) are created');
-    tableCheck(Adoptions::adopted('settings') && Adoptions::added('settings') === [], 'a kit_adoptions row is written for settings');
+    tableCheck(Adoptions::adopted('settings') && Adoptions::added('settings') === [], 'a app_adoptions row is written for settings');
     (require $stub('settings', $intents))->down();
     (require $stub('settings', $settings))->down();
     tableCheck(Schema::hasTable('settings') && rowsOf('settings') === $before['rows'] && ! Schema::hasTable(Adoptions::TABLE), 'rolling back keeps the host\'s settings table and rows');

@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Schema;
 // The finalize feature's tables: each subject's finalizations and the confirmations of its steps.
 // Written by `php artisan kit:scaffold finalize --adopt` (tey/kit 0.19), and the app's own from then on. On a database where the kit created the tables,
 // up() renames them, with their indexes, keys and sequences, and keeps every row; on a fresh one it creates them under the app's names. With both names of
-// a table present it refuses before changing anything: it never merges two tables. up() records in kit_meta what it did to each table: renamed,
+// a table present it refuses before changing anything: it never merges two tables. up() records in app_meta what it did to each table: renamed,
 // created or left. down() undoes only that, so a table it left, or has no record of, stays as it is, rows and all.
 return new class extends Migration
 {
@@ -20,15 +20,15 @@ return new class extends Migration
 
     public function up(): void
     {
-        if (! Schema::hasTable('kit_meta')) {
-            throw new RuntimeException('kit_meta is missing, and this migration records there what it does to each table so that its rollback undoes only that. Run the core migrations of the kit first.');
+        if (! Schema::hasTable('app_meta')) {
+            throw new RuntimeException('app_meta is missing, and this migration records there what it does to each table so that its rollback undoes only that. Run the core migrations of the kit first.');
         }
         $this->atomically(function (): void {
             $renamed = $this->rename(self::TABLES);
             $created = $this->create();
             foreach (self::TABLES as $table) {
                 $done = in_array($table, $renamed, true) ? 'renamed' : (in_array($table, $created, true) ? 'created' : 'left');
-                DB::table('kit_meta')->updateOrInsert(['key' => $this->record($table)], ['value' => $done, 'updated_at' => now()]);
+                DB::table('app_meta')->updateOrInsert(['key' => $this->record($table)], ['value' => $done, 'updated_at' => now()]);
             }
         });
     }
@@ -37,9 +37,9 @@ return new class extends Migration
     public function down(): void
     {
         $done = [];
-        if (Schema::hasTable('kit_meta')) {
+        if (Schema::hasTable('app_meta')) {
             foreach (self::TABLES as $table) {
-                $done[$table] = DB::table('kit_meta')->where('key', $this->record($table))->value('value');
+                $done[$table] = DB::table('app_meta')->where('key', $this->record($table))->value('value');
             }
         }
         $this->atomically(function () use ($done): void {
@@ -50,14 +50,14 @@ return new class extends Migration
                     Schema::dropIfExists($table);
                 }
             }
-            if (Schema::hasTable('kit_meta')) {
-                DB::table('kit_meta')->whereIn('key', array_map(fn (string $table): string => $this->record($table), array_values(self::TABLES)))->delete();
+            if (Schema::hasTable('app_meta')) {
+                DB::table('app_meta')->whereIn('key', array_map(fn (string $table): string => $this->record($table), array_values(self::TABLES)))->delete();
             }
         });
     }
 
     /**
-     * On PostgreSQL, where DDL is transactional, $work runs in one transaction, its kit_meta record included: a failure part way through puts every
+     * On PostgreSQL, where DDL is transactional, $work runs in one transaction, its app_meta record included: a failure part way through puts every
      * table back and records nothing, even when up() runs outside the migrator. Elsewhere the checks before any rename stand in for it.
      *
      * @param  Closure(): void  $work
@@ -68,7 +68,7 @@ return new class extends Migration
         $connection->getDriverName() === 'pgsql' ? $connection->transaction($work) : $work();
     }
 
-    /** The kit_meta key holding what up() did to $table (renamed, created or left), by this migration's name and the table's. */
+    /** The app_meta key holding what up() did to $table (renamed, created or left), by this migration's name and the table's. */
     private function record(string $table): string
     {
         return 'adopt:'.basename(__FILE__, '.php').':'.$table;

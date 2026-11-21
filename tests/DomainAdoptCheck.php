@@ -194,11 +194,11 @@ function rows(string $table): array
     return array_map(fn (object $row): array => (array) $row, Schema::getConnection()->table($table)->orderBy('id')->get()->all());
 }
 
-/** @return array<string, string> what the adopt migrations recorded in kit_meta, by table: renamed, created or left */
+/** @return array<string, string> what the adopt migrations recorded in app_meta, by table: renamed, created or left */
 function records(): array
 {
     $records = [];
-    foreach (Schema::getConnection()->table('kit_meta')->where('key', 'like', 'adopt:%')->get() as $row) {
+    foreach (Schema::getConnection()->table('app_meta')->where('key', 'like', 'adopt:%')->get() as $row) {
         $records[substr((string) $row->key, strrpos((string) $row->key, ':') + 1)] = (string) $row->value;
     }
     ksort($records);
@@ -284,7 +284,7 @@ try {
     $kitNames = array_keys(array_filter(PAIRS, fn (string $to, string $from): bool => $from !== $to, ARRAY_FILTER_USE_BOTH));
     check(array_filter($kitNames, fn (string $table): bool => ! Schema::hasTable($table)) === [] && array_filter(PAIRS, fn (string $to, string $from): bool => $from !== $to && Schema::hasTable($to), ARRAY_FILTER_USE_BOTH) === [], 'an app that does not adopt migrates the domain tables under the kit\'s names only');
     check(DomainModels::problems() === [] && Kit::model('note') === Note::class && Kit::table('delivery') === 'kit_deliveries' && Kit::table('note_intent') === 'kit_note_intents' && Kit::table('entitlement') === 'entitlements', 'and Kit::model() and Kit::table() name the kit\'s own classes and tables');
-    check(Kit::model('media_upload') === Tey\Kit\Media\Models\MediaUpload::class && Kit::table('media_upload') === 'kit_media_uploads', 'Kit::model() and Kit::table() resolve media_upload too, a kit.models key that no feature registers');
+    check(Kit::model('media_upload') === Tey\Kit\Media\Models\MediaUpload::class && Kit::table('media_upload') === 'media_uploads', 'Kit::model() and Kit::table() resolve media_upload too, a kit.models key that no feature registers');
     $malformed = [];
     foreach ([false, ''] as $value) {
         config(['kit.models.media_upload' => $value]);
@@ -347,8 +347,8 @@ try {
     check(count($ran) === 5 && count(preg_grep('/_adopt_[a-z_]+_tables\z/', $ran)) === 5, 'migrate runs the five adopt migrations and nothing else');
     $expected = array_map(fn (string $to): string => 'renamed', array_flip(array_filter(PAIRS, fn (string $to, string $from): bool => $from !== $to, ARRAY_FILTER_USE_BOTH))) + ['entitlements' => 'left', 'complimentary_grants' => 'left'];
     ksort($expected);
-    $deliverKey = Schema::getConnection()->table('kit_meta')->where('key', 'like', 'adopt:%:deliveries')->value('key');
-    check(records() === $expected && preg_match('/\Aadopt:\d{4}_\d{2}_\d{2}_\d{6}_adopt_deliver_tables:deliveries\z/', (string) $deliverKey) === 1, 'kit_meta records, per adopt migration and table, each renamed table as renamed and the access tables the kit created as left');
+    $deliverKey = Schema::getConnection()->table('app_meta')->where('key', 'like', 'adopt:%:deliveries')->value('key');
+    check(records() === $expected && preg_match('/\Aadopt:\d{4}_\d{2}_\d{2}_\d{6}_adopt_deliver_tables:deliveries\z/', (string) $deliverKey) === 1, 'app_meta records, per adopt migration and table, each renamed table as renamed and the access tables the kit created as left');
     $renamedRows = array_filter(PAIRS, fn (string $to, string $from): bool => rows($to) !== $before[$from] || ($from !== $to && Schema::hasTable($from)), ARRAY_FILTER_USE_BOTH);
     check($renamedRows === [], 'every row of every domain table is there under the app\'s name, column for column, and no kit name is left ('.count(PAIRS).' tables)');
     $stale = array_filter(PAIRS, fn (string $to, string $from): bool => $from !== $to && preg_grep('/\A'.$from.'_/', keyNames($to)) !== [], ARRAY_FILTER_USE_BOTH);
@@ -397,7 +397,7 @@ try {
     $baselines = array_filter($ran, fn (string $migration): bool => in_array(preg_replace('/\A\d{4}_\d{2}_\d{2}_(?:\d{6}_)+/', '', $migration), BASELINES, true));
     check($baselines === [] && count(preg_grep('/_adopt_[a-z_]+_tables\z/', $ran)) === 5, 'a fresh database runs the adopt migrations and none of the kit\'s migrations for those tables');
     check(array_filter(PAIRS, fn (string $to, string $from): bool => ! Schema::hasTable($to) || ($from !== $to && Schema::hasTable($from)), ARRAY_FILTER_USE_BOTH) === [], 'and has every domain table under the app\'s name only');
-    check(array_values(array_unique(records())) === ['created'] && count(records()) === count(PAIRS), 'kit_meta records every table as created');
+    check(array_values(array_unique(records())) === ['created'] && count(records()) === count(PAIRS), 'app_meta records every table as created');
     $drift = [];
     foreach (DomainModels::COLUMNS as $key => $expected) {
         if ($key !== 'media_upload' && columns(tableOf($key, true)) !== sorted($expected)) {
@@ -421,7 +421,7 @@ try {
     $kept = fn (string $table): bool => Schema::hasTable($table) && rows($table) === [['id' => 42]];
     check($code === 0 && $kept('notes') && $kept('entitlements') && ! Schema::hasTable('note_intents') && ! Schema::hasTable('complimentary_grants') && ! Schema::hasTable('deliveries'), 'an app table that was there before adoption (notes, entitlements) survives the rollback with its rows; the tables up() created are dropped');
     migrate($fresh);
-    Schema::getConnection()->table('kit_meta')->where('key', 'like', 'adopt:%_adopt_notes_tables:%')->delete();
+    Schema::getConnection()->table('app_meta')->where('key', 'like', 'adopt:%_adopt_notes_tables:%')->delete();
     [$code] = artisan($fresh, 'migrate:rollback', $adoptPaths);
     check($code === 0 && $kept('notes') && Schema::hasTable('note_intents') && ! Schema::hasTable('deliveries') && ! Schema::hasTable('complimentary_grants') && records() === [], 'without a record, down() leaves the table as it is (notes, and the note_intents up() created); the tables with a record are undone');
 
@@ -452,7 +452,7 @@ try {
     Schema::drop('delivery_recipients');
 
     // An index name the rename would give is already on another table: migrate refuses before renaming any table or key, and records nothing.
-    $deliverRecords = fn (): int => Schema::getConnection()->table('kit_meta')->where('key', 'like', 'adopt:%_adopt_deliver_tables:%')->count();
+    $deliverRecords = fn (): int => Schema::getConnection()->table('app_meta')->where('key', 'like', 'adopt:%_adopt_deliver_tables:%')->count();
     $index = array_values(preg_grep('/\Akit_delivery_recipients_.+_unique\z/', keyNames('kit_delivery_recipients')) ?: [])[0] ?? throw new RuntimeException('no unique index on kit_delivery_recipients');
     $clash = 'delivery_recipients'.substr($index, strlen('kit_delivery_recipients'));
     Schema::create('unrelated_codes', fn ($t) => $t->string('code')->index($clash));
@@ -461,10 +461,10 @@ try {
     Schema::drop('unrelated_codes');
     $deliverFile = (string) (glob($rootC.'/database/migrations/*_adopt_deliver_tables.php') ?: [''])[0];
     if ($pgsql) {
-        // On PostgreSQL up() is one transaction with its kit_meta record, even outside the migrator: a record it cannot write undoes every rename.
-        Schema::getConnection()->statement("alter table kit_meta add constraint adopt_blocked check (key not like 'adopt:%') not valid");
+        // On PostgreSQL up() is one transaction with its app_meta record, even outside the migrator: a record it cannot write undoes every rename.
+        Schema::getConnection()->statement("alter table app_meta add constraint adopt_blocked check (key not like 'adopt:%') not valid");
         $refused = refusal(fn () => (require $deliverFile)->up());
-        Schema::getConnection()->statement('alter table kit_meta drop constraint adopt_blocked');
+        Schema::getConnection()->statement('alter table app_meta drop constraint adopt_blocked');
         check($refused !== null && Schema::hasTable('kit_deliveries') && Schema::hasTable('kit_delivery_events') && ! Schema::hasTable('deliveries') && $deliverRecords() === 0, 'PostgreSQL: when up() fails after renaming (its record refused), the transaction puts every table back and records nothing');
     }
     migrate($app);

@@ -15,7 +15,7 @@ use Tey\Kit\Features\Core\Registry;
 /**
  * The hands-free deploy: when migrations end (or there was nothing to migrate), the roles and then the permissions are synced, but only when the catalog they come from changed.
  * `php artisan migrate --force` is therefore the whole database step of a deploy. The catalog's fingerprint (the configured roles and every registered permission with its default
- * roles) is kept in `kit_meta`; the same fingerprint is a no-op, a fresh database has none and always syncs. Only a migrate "up" syncs (a rollback does not), unit tests skip it
+ * roles) is kept in `app_meta`; the same fingerprint is a no-op, a fresh database has none and always syncs. Only a migrate "up" syncs (a rollback does not), unit tests skip it
  * unless a test opts in (`kit.deploy.sync_in_tests`), and a failing sync throws, so the migrate fails loudly and the deploy stops.
  */
 final class CatalogSync
@@ -57,12 +57,12 @@ final class CatalogSync
         if (app()->runningUnitTests() && ! config('kit.deploy.sync_in_tests', false)) {
             return;
         }
-        if (! Schema::hasTable('kit_meta')) {
+        if (! Schema::hasTable('app_meta')) {
             return;
         }
         $current = self::fingerprint();
         // The same catalog is a no-op only while the database still holds every declared permission: a missing one syncs again, so a deploy heals it.
-        if (DB::table('kit_meta')->where('key', self::KEY)->value('value') === $current && self::unsynced() === []) {
+        if (DB::table('app_meta')->where('key', self::KEY)->value('value') === $current && self::unsynced() === []) {
             return;
         }
         // Run the commands directly: Artisan::call() would replace the output the migrate command that triggered this has (a caller reads `Artisan::output()` after it).
@@ -79,6 +79,6 @@ final class CatalogSync
                 throw new RuntimeException('The deploy sync "'.$name.'" failed; migrations are done but the roles and permissions are not synced. '.trim($output->fetch()));
             }
         }
-        DB::table('kit_meta')->updateOrInsert(['key' => self::KEY], ['value' => $current, 'updated_at' => now()]);
+        DB::table('app_meta')->updateOrInsert(['key' => self::KEY], ['value' => $current, 'updated_at' => now()]);
     }
 }

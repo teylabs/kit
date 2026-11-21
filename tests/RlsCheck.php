@@ -140,9 +140,9 @@ final class RlsFlagJob implements ShouldQueue, TenantAware
     {
         self::$seen = [
             'scope' => Tag::query()->pluck('workspace_id')->map(fn ($id) => $id === null ? null : (int) $id)->unique()->sort()->values()->all(),
-            'tags' => DB::table('kit_tags')->pluck('workspace_id')->map(fn ($id) => $id === null ? null : (int) $id)->unique()->sort()->values()->all(),
-            'taggables' => DB::table('kit_taggables')->distinct()->pluck('workspace_id')->map(fn ($id) => (int) $id)->all(),
-            'dismissals' => DB::table('kit_flag_dismissals')->distinct()->pluck('workspace_id')->map(fn ($id) => (int) $id)->all(),
+            'tags' => DB::table('tags')->pluck('workspace_id')->map(fn ($id) => $id === null ? null : (int) $id)->unique()->sort()->values()->all(),
+            'taggables' => DB::table('taggables')->distinct()->pluck('workspace_id')->map(fn ($id) => (int) $id)->all(),
+            'dismissals' => DB::table('flag_dismissals')->distinct()->pluck('workspace_id')->map(fn ($id) => (int) $id)->all(),
         ];
     }
 }
@@ -394,31 +394,47 @@ try {
     rlsCheck(DB::transactionLevel() === 0 && Rls::current() === null && DB::table('rls_notes')->count() === 0, 'after within(), the transaction is closed and nothing is set on the connection (SET LOCAL only)');
     rlsCheck(DB::selectOne("select setting from pg_settings where name = 'kit.workspace_id'") === null || DB::selectOne("select current_setting('kit.workspace_id', true) as v")->v === '', 'no session-level value of kit.workspace_id is left behind');
 
+    // The flag and tag tables lose the kit prefix and carry workspace_isolation alone; run again over an app's own kit_workspace policy (as Hubcommons
+    // added), the migration leaves one policy per table.
+    $policies = fn (): array => collect(array_map(fn (object $row): string => $row->t.':'.$row->p, $admin->select("select c.relname as t, p.polname as p from pg_policy p join pg_class c on c.oid = p.polrelid where c.relname in ('tags', 'taggables', 'flag_dismissals')")))->sort()->values()->all();
+    $isolated = ['flag_dismissals:workspace_isolation', 'taggables:workspace_isolation', 'tags:workspace_isolation'];
+    rlsCheck($policies() === $isolated && ! $admin->getSchemaBuilder()->hasTable('kit_tags'), 'tags, taggables and flag_dismissals are renamed and carry the workspace_isolation policy');
+    $unprefix = require dirname(__DIR__).'/database/migrations/workspaces/0001_01_02_000212_unprefix_and_protect_tags_tables.php';
+    $runtime = DB::getDefaultConnection();
+    DB::setDefaultConnection('pgsql_admin');
+    $unprefix->down();
+    foreach (['kit_tags', 'kit_taggables', 'kit_flag_dismissals'] as $table) {
+        $admin->statement('create policy kit_workspace on '.$table.' using (true)');
+    }
+    $unprefix->up();
+    DB::setDefaultConnection($runtime);
+    rlsCheck($policies() === $isolated, 'over an app\'s own kit_workspace policies, the migration ends with workspace_isolation alone');
+
     // The flag and tag tables: a workspace sees its own rows and the shared flags (workspace_id null), never another's.
-    $tagRow = fn (?int $ws, ?string $type, string $name): int => (int) $admin->table('kit_tags')->insertGetId(['workspace_id' => $ws, 'type' => $type, 'name' => json_encode(['en' => $name]), 'slug' => json_encode(['en' => $name])]);
+    $tagRow = fn (?int $ws, ?string $type, string $name): int => (int) $admin->table('tags')->insertGetId(['workspace_id' => $ws, 'type' => $type, 'name' => json_encode(['en' => $name]), 'slug' => json_encode(['en' => $name])]);
     $shared = $tagRow(null, 'flag', 'duplicate');
     $tagRow($a, null, 'a-label');
     $tagRow($b, null, 'b-label');
     foreach ([$a, $b] as $ws) {
-        $admin->table('kit_taggables')->insert(['tag_id' => $shared, 'taggable_type' => 'note', 'taggable_id' => $ws, 'workspace_id' => $ws]);
-        $admin->table('kit_flag_dismissals')->insert(['workspace_id' => $ws, 'flaggable_type' => 'note', 'flaggable_id' => $ws, 'flag' => 'duplicate', 'dismissed_at' => now()]);
+        $admin->table('taggables')->insert(['tag_id' => $shared, 'taggable_type' => 'note', 'taggable_id' => $ws, 'workspace_id' => $ws]);
+        $admin->table('flag_dismissals')->insert(['workspace_id' => $ws, 'flaggable_type' => 'note', 'flaggable_id' => $ws, 'flag' => 'duplicate', 'dismissed_at' => now()]);
     }
     $seenIn = fn (int $ws): array => Rls::within($ws, fn () => [
-        'tags' => DB::table('kit_tags')->orderBy('id')->pluck('workspace_id')->map(fn ($id) => $id === null ? null : (int) $id)->all(),
-        'taggables' => DB::table('kit_taggables')->pluck('workspace_id')->map(fn ($id) => (int) $id)->all(),
-        'dismissals' => DB::table('kit_flag_dismissals')->pluck('workspace_id')->map(fn ($id) => (int) $id)->all(),
+        'tags' => DB::table('tags')->orderBy('id')->pluck('workspace_id')->map(fn ($id) => $id === null ? null : (int) $id)->all(),
+        'taggables' => DB::table('taggables')->pluck('workspace_id')->map(fn ($id) => (int) $id)->all(),
+        'dismissals' => DB::table('flag_dismissals')->pluck('workspace_id')->map(fn ($id) => (int) $id)->all(),
     ]);
-    rlsCheck($seenIn($a) === ['tags' => [null, $a], 'taggables' => [$a], 'dismissals' => [$a]], 'kit_tags, kit_taggables and kit_flag_dismissals show a workspace only its own rows and the shared flags');
-    rlsCheck(DB::table('kit_tags')->count() === 1 && DB::table('kit_taggables')->count() === 0 && DB::table('kit_flag_dismissals')->count() === 0, 'with no workspace set, only the shared flags are visible');
-    $refused = Rls::within($a, fn () => rlsRefusal(fn () => DB::table('kit_tags')->insert(['workspace_id' => null, 'type' => 'label', 'name' => '{}', 'slug' => '{}'])));
+    rlsCheck($seenIn($a) === ['tags' => [null, $a], 'taggables' => [$a], 'dismissals' => [$a]], 'tags, taggables and flag_dismissals show a workspace only its own rows and the shared flags');
+    rlsCheck(DB::table('tags')->count() === 1 && DB::table('taggables')->count() === 0 && DB::table('flag_dismissals')->count() === 0, 'with no workspace set, only the shared flags are visible');
+    $refused = Rls::within($a, fn () => rlsRefusal(fn () => DB::table('tags')->insert(['workspace_id' => null, 'type' => 'label', 'name' => '{}', 'slug' => '{}'])));
     rlsCheck($refused !== null && str_contains($refused, 'row-level security'), 'a null-workspace tag that is not a flag is refused');
-    $refused = Rls::within($a, fn () => rlsRefusal(fn () => DB::table('kit_tags')->insert(['workspace_id' => $b, 'type' => 'label', 'name' => '{}', 'slug' => '{}'])));
+    $refused = Rls::within($a, fn () => rlsRefusal(fn () => DB::table('tags')->insert(['workspace_id' => $b, 'type' => 'label', 'name' => '{}', 'slug' => '{}'])));
     rlsCheck($refused !== null && str_contains($refused, 'row-level security'), 'a tag for another workspace is refused');
-    $refused = Rls::within($a, fn () => rlsRefusal(fn () => DB::table('kit_taggables')->insert(['tag_id' => $shared, 'taggable_type' => 'note', 'taggable_id' => 9, 'workspace_id' => $b])));
-    $refusedToo = Rls::within($a, fn () => rlsRefusal(fn () => DB::table('kit_flag_dismissals')->insert(['workspace_id' => $b, 'flaggable_type' => 'note', 'flaggable_id' => 9, 'flag' => 'duplicate', 'dismissed_at' => now()])));
+    $refused = Rls::within($a, fn () => rlsRefusal(fn () => DB::table('taggables')->insert(['tag_id' => $shared, 'taggable_type' => 'note', 'taggable_id' => 9, 'workspace_id' => $b])));
+    $refusedToo = Rls::within($a, fn () => rlsRefusal(fn () => DB::table('flag_dismissals')->insert(['workspace_id' => $b, 'flaggable_type' => 'note', 'flaggable_id' => 9, 'flag' => 'duplicate', 'dismissed_at' => now()])));
     rlsCheck($refused !== null && $refusedToo !== null, 'a tagging or dismissal for another workspace is refused');
-    Rls::within($a, fn () => DB::table('kit_tags')->insert(['workspace_id' => null, 'type' => 'flag', 'name' => json_encode(['en' => 'stale']), 'slug' => json_encode(['en' => 'stale'])]));
-    rlsCheck($admin->table('kit_tags')->whereNull('workspace_id')->count() === 2, 'a workspace may add a shared flag');
+    Rls::within($a, fn () => DB::table('tags')->insert(['workspace_id' => null, 'type' => 'flag', 'name' => json_encode(['en' => 'stale']), 'slug' => json_encode(['en' => 'stale'])]));
+    rlsCheck($admin->table('tags')->whereNull('workspace_id')->count() === 2, 'a workspace may add a shared flag');
 
     // Nested: an inner workspace inside an open transaction, then the outer one back, also after a throw.
     $nested = Rls::within($a, function () use ($b): array {

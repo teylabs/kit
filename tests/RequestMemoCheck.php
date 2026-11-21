@@ -226,7 +226,7 @@ try {
     }
     DB::table('concierge_ownerships')->insert(['workspace_id' => $spaces['acme']->id, 'membership_id' => $memberships['ada']['acme']->id, 'created_at' => now(), 'updated_at' => now()]);
     $avatar = function (MemoUser $user, string $token): void {
-        DB::table('media')->insert(['model_type' => 'kit-user-avatar', 'model_id' => (string) $user->id, 'collection_name' => 'avatar', 'name' => 'photo', 'file_name' => 'photo.jpg', 'disk' => 'local', 'size' => 1,
+        DB::table('media')->insert(['model_type' => 'user-avatar', 'model_id' => (string) $user->id, 'collection_name' => 'avatar', 'name' => 'photo', 'file_name' => 'photo.jpg', 'disk' => 'local', 'size' => 1,
             'manipulations' => '[]', 'custom_properties' => json_encode(['token' => $token]), 'generated_conversions' => '[]', 'responsive_images' => '[]', 'created_at' => now(), 'updated_at' => now()]);
     };
     $avatar($people['ada'], str_repeat('a', 40));

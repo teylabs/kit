@@ -82,7 +82,7 @@ final class Kit
     }
 
     /**
-     * Registers each key's stable morph alias (`note` is `kit-note`, `delivery_recipient` is `kit-delivery-recipient`) against whichever class config
+     * Registers each key's stable morph alias (`note` is `note`, `delivery_recipient` is `delivery-recipient`) against whichever class config
      * names, so stored rows (media, audit, an app's own morphs) never orphan when an app adopts. Once the app names its own model, a row stored under the
      * kit's class name, before the alias existed, resolves to the app's model too.
      */
@@ -92,7 +92,10 @@ final class Kit
         foreach ($keys as $key) {
             $default = self::$models[$key] ?? throw new RuntimeException('Unknown kit model: '.$key);
             $class = self::model($key);
-            $map['kit-'.str_replace('_', '-', $key)] = $class;
+            $alias = str_replace('_', '-', $key);
+            // The plain alias first, so it is the one stored; the 0.42 `kit-` alias still resolves rows not yet rewritten (000102 rewrites them).
+            $map[$alias] = $class;
+            $map['kit-'.$alias] = $class;
             if (ltrim($class, '\\') !== $default) {
                 $map[$default] = $class;
             }

@@ -22,8 +22,11 @@ final class Rls
     /** The transaction setting the policies read. */
     public const SETTING = 'kit.workspace_id';
 
-    /** The policy's name on every protected table. */
+    /** The policy's name on the protected tables. */
     public const POLICY = 'kit_workspace';
+
+    /** The policy's name on the flag and tag tables (`tags`, `taggables`, `flag_dismissals`), which carry no kit name in the schema. */
+    public const ISOLATION = 'workspace_isolation';
 
     /** Whether RLS is on and the runtime connection is PostgreSQL. */
     public static function enabled(): bool
@@ -93,7 +96,7 @@ final class Rls
      * Migration helper, run after the table exists: enables and forces row-level security on `$table` and (re)creates the workspace policy. Idempotent.
      * A no-op while RLS is off or the migration connection is not PostgreSQL. Run migrations as the owner (the migrator/admin connection).
      */
-    public static function protect(string $table, string $column = 'workspace_id'): void
+    public static function protect(string $table, string $column = 'workspace_id', string $policy = self::POLICY): void
     {
         $db = DB::connection();
         if (! config('kit.tenancy.rls.enabled', false) || $db->getDriverName() !== 'pgsql') {
@@ -104,19 +107,19 @@ final class Rls
         $match = $c.' = nullif(current_setting(\''.self::SETTING.'\', true), \'\')::bigint';
         $db->statement('alter table '.$t.' enable row level security');
         $db->statement('alter table '.$t.' force row level security');
-        $db->statement('drop policy if exists '.self::POLICY.' on '.$t);
-        $db->statement('create policy '.self::POLICY.' on '.$t.' using ('.$match.') with check ('.$match.')');
+        $db->statement('drop policy if exists '.self::identifier($policy).' on '.$t);
+        $db->statement('create policy '.self::identifier($policy).' on '.$t.' using ('.$match.') with check ('.$match.')');
     }
 
     /** The reverse of protect(), for a migration's down(). */
-    public static function unprotect(string $table): void
+    public static function unprotect(string $table, string $policy = self::POLICY): void
     {
         $db = DB::connection();
         if ($db->getDriverName() !== 'pgsql') {
             return;
         }
         $t = self::identifier($table);
-        $db->statement('drop policy if exists '.self::POLICY.' on '.$t);
+        $db->statement('drop policy if exists '.self::identifier($policy).' on '.$t);
         $db->statement('alter table '.$t.' no force row level security');
         $db->statement('alter table '.$t.' disable row level security');
     }
@@ -136,9 +139,9 @@ final class Rls
             select c.relname as name from pg_class c join pg_namespace n on n.oid = c.relnamespace
             where c.relkind in ('r', 'p') and n.nspname = current_schema()
               and exists (select 1 from pg_attribute a where a.attrelid = c.oid and a.attname = ? and not a.attisdropped)
-              and not (c.relrowsecurity and c.relforcerowsecurity and exists (select 1 from pg_policy p where p.polrelid = c.oid and p.polname = ?))
+              and not (c.relrowsecurity and c.relforcerowsecurity and exists (select 1 from pg_policy p where p.polrelid = c.oid and p.polname in (?, ?)))
             order by c.relname
-            SQL, [$column, self::POLICY]);
+            SQL, [$column, self::POLICY, self::ISOLATION]);
         $except = (array) config('kit.tenancy.rls.except', []);
 
         return array_values(array_filter(array_map(fn (object $row): string => (string) $row->name, $rows), fn (string $name): bool => ! in_array($name, $except, true)));
