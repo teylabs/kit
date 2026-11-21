@@ -54,6 +54,7 @@ use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Core\Tables\TableQuery;
 use Tey\Kit\Features\FeaturesServiceProvider;
 use Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests;
+use Tey\Kit\Features\Core\Kit;
 use Tey\Kit\Features\Workspaces\Concerns\BelongsToWorkspace;
 use Tey\Kit\Features\Workspaces\Concerns\HasFlags;
 use Tey\Kit\Features\Workspaces\Concerns\HasWorkspaces;
@@ -206,11 +207,11 @@ try {
         $a = Ticket::create(['title' => 'A']);
         $b = Ticket::create(['title' => 'B']);
         check($a->flag('possible-duplicate', reason: 'Looks like A-1042', link: '/cases/1042') && $a->flagged('possible-duplicate') && ! $b->flagged('possible-duplicate'), 'flag() raises a flag on that record only');
-        $pivot = DB::table('kit_taggables')->where('taggable_id', $a->id)->first();
+        $pivot = DB::table('taggables')->where('taggable_id', $a->id)->first();
         check((int) $pivot->workspace_id === (int) $workspace->id && json_decode($pivot->meta, true) === ['reason' => 'Looks like A-1042', 'link' => '/cases/1042'], 'the flag carries the record\'s workspace and its reason and link');
         $a->flag('possible-duplicate', reason: 'Looks like A-1043');
-        check(DB::table('kit_taggables')->where('taggable_id', $a->id)->count() === 1 && json_decode(DB::table('kit_taggables')->where('taggable_id', $a->id)->value('meta'), true) === ['reason' => 'Looks like A-1043'], 'raising it again updates it in place, never a second row');
-        check(DB::table('kit_tags')->where('type', 'flag')->count() === 1 && DB::table('kit_tags')->where('type', 'flag')->value('workspace_id') === null, 'a flag is one vocabulary entry with no workspace');
+        check(DB::table('taggables')->where('taggable_id', $a->id)->count() === 1 && json_decode(DB::table('taggables')->where('taggable_id', $a->id)->value('meta'), true) === ['reason' => 'Looks like A-1043'], 'raising it again updates it in place, never a second row');
+        check(DB::table('tags')->where('type', 'flag')->count() === 1 && DB::table('tags')->where('type', 'flag')->value('workspace_id') === null, 'a flag is one vocabulary entry with no workspace');
         check($b->flag('unpaid', when: true) && ! $b->flag('unpaid', when: false) && ! $b->fresh()->flagged('unpaid'), 'flag(when: false) removes it');
         $b->flag('stalled');
         $b->unflag('stalled');
@@ -220,9 +221,9 @@ try {
         check(Ticket::query()->flagged('never-raised')->count() === 0, 'a flag never raised matches nothing');
 
         $a->dismissFlag('possible-duplicate', by: 7);
-        check(! $a->fresh()->flagged('possible-duplicate') && DB::table('kit_flag_dismissals')->where(['flaggable_id' => $a->id, 'flag' => 'possible-duplicate', 'dismissed_by' => 7])->exists(), 'dismissFlag() removes it and records who');
+        check(! $a->fresh()->flagged('possible-duplicate') && DB::table('flag_dismissals')->where(['flaggable_id' => $a->id, 'flag' => 'possible-duplicate', 'dismissed_by' => 7])->exists(), 'dismissFlag() removes it and records who');
         check(! $a->fresh()->flag('possible-duplicate', reason: 'Looks like A-1042') && ! $a->fresh()->flagged('possible-duplicate'), 'a dismissed flag is not raised again');
-        check($a->fresh()->flag('possible-duplicate', reason: 'Looks like A-2001', force: true) && $a->fresh()->flagged('possible-duplicate') && ! DB::table('kit_flag_dismissals')->where('flaggable_id', $a->id)->exists(), 'force: true raises it again and clears the dismissal');
+        check($a->fresh()->flag('possible-duplicate', reason: 'Looks like A-2001', force: true) && $a->fresh()->flagged('possible-duplicate') && ! DB::table('flag_dismissals')->where('flaggable_id', $a->id)->exists(), 'force: true raises it again and clears the dismissal');
         $refused = null;
         try {
             $b->dismissFlag('unpaid');
@@ -253,14 +254,55 @@ try {
     $in($other, function () {
         $theirs = Ticket::create(['title' => 'Theirs']);
         $theirs->attachTag('VIP');
-        check(DB::table('kit_tags')->where('type', null)->count() === 2 && Tag::query()->whereNull('type')->count() === 1, 'a person\'s tag belongs to its workspace: another workspace makes and sees its own');
+        check(DB::table('tags')->where('type', null)->count() === 2 && Tag::query()->whereNull('type')->count() === 1, 'a person\'s tag belongs to its workspace: another workspace makes and sees its own');
         check(Ticket::query()->flagged('unpaid')->count() === 0, 'flags are read in the current workspace only');
     });
 
-    $rows = fn (int $id) => DB::table('kit_taggables')->where('workspace_id', $id)->count() + DB::table('kit_tags')->where('workspace_id', $id)->count();
+    // Fail closed (#1190): a tag that is not a flag, made with no current workspace (a job, a command, a seeder), is refused, never saved as shared.
+    $refused = null;
+    try {
+        Tag::findOrCreate('Orphan');
+    } catch (RuntimeException $error) {
+        $refused = $error->getMessage();
+    }
+    check(str_contains((string) $refused, 'tag_workspace_required') && DB::table('tags')->where('slug', 'like', '%orphan%')->count() === 0, 'a non-flag tag with no current workspace is refused, not saved with a null workspace');
+    $nullable = collect(Schema::getColumns('taggables'))->firstWhere('name', 'workspace_id')['nullable'] ?? true;
+    check($nullable === false && (collect(Schema::getColumns('flag_dismissals'))->firstWhere('name', 'workspace_id')['nullable'] ?? true) === false, 'kit_taggables and kit_flag_dismissals require a workspace_id');
+
+    // Upgrading: 000212 fills a missing workspace_id from the record's own, and refuses, naming the rows, when the record gives none (it never guesses).
+    $protect = require dirname(__DIR__).'/database/migrations/workspaces/0001_01_02_000212_unprefix_and_protect_tags_tables.php';
+    $protect->down();
+    $ticket = (int) DB::table('tickets')->insertGetId(['workspace_id' => $other->id, 'title' => 'legacy']);
+    $flagTag = (int) DB::table('kit_tags')->where('type', 'flag')->value('id');
+    DB::table('kit_taggables')->insert([['tag_id' => $flagTag, 'taggable_type' => Ticket::class, 'taggable_id' => $ticket, 'workspace_id' => null], ['tag_id' => $flagTag, 'taggable_type' => Ticket::class, 'taggable_id' => 999999, 'workspace_id' => null]]);
+    $refused = null;
+    try {
+        $protect->up();
+    } catch (RuntimeException $error) {
+        $refused = $error->getMessage();
+    }
+    check(str_contains((string) $refused, 'taggables') && str_contains((string) $refused, Ticket::class.' #999999') && ! str_contains((string) $refused, '#'.$ticket.','), 'the upgrade refuses, naming the row whose record has no workspace');
+    DB::table('taggables')->where('taggable_id', 999999)->delete();
+    $protect->up();
+    check((int) DB::table('taggables')->where('taggable_id', $ticket)->value('workspace_id') === (int) $other->id && (collect(Schema::getColumns('taggables'))->firstWhere('name', 'workspace_id')['nullable'] ?? true) === false, 'then fills the rest from the record\'s workspace and makes the column NOT NULL');
+    DB::table('taggables')->where('taggable_id', $ticket)->delete();
+    DB::table('tickets')->where('id', $ticket)->delete();
+
+    // Plain morph aliases (0.43): 000102 rewrites a stored `kit-` alias to the plain one, and the old alias still resolves.
+    $flagId = (int) DB::table('tags')->where('type', 'flag')->value('id');
+    DB::table('taggables')->insert(['tag_id' => $flagId, 'taggable_type' => 'kit-note', 'taggable_id' => 424242, 'workspace_id' => $other->id]);
+    (require dirname(__DIR__).'/database/migrations/core/0001_01_02_000102_unprefix_kit_tables.php')->up();
+    check(DB::table('taggables')->where('taggable_id', 424242)->value('taggable_type') === 'note', 'a stored kit- morph alias is rewritten to the plain one');
+    DB::table('taggables')->where('taggable_id', 424242)->delete();
+    \Illuminate\Database\Eloquent\Relations\Relation::morphMap(['kit-ticket-probe' => Ticket::class]);
+    Kit::defaults(['ticket_probe' => Ticket::class], []);
+    Kit::aliases('ticket_probe');
+    check((new Ticket)->getMorphClass() === 'ticket-probe' && \Illuminate\Database\Eloquent\Relations\Relation::getMorphedModel('kit-ticket-probe') === Ticket::class, 'Kit::aliases stores the plain alias and still resolves the kit- one');
+
+    $rows = fn (int $id) => DB::table('taggables')->where('workspace_id', $id)->count() + DB::table('tags')->where('workspace_id', $id)->count();
     $before = $rows((int) $other->id);
     (new DeleteWorkspace)->deleteRows((int) $other->id);
-    check($before > 0 && $rows((int) $other->id) === 0 && DB::table('kit_tags')->where('type', 'flag')->count() === 4, 'deleting a workspace deletes its tag rows and keeps the flag vocabulary');
+    check($before > 0 && $rows((int) $other->id) === 0 && DB::table('tags')->where('type', 'flag')->count() === 4, 'deleting a workspace deletes its tag rows and keeps the flag vocabulary');
 
     echo "Flags and tags on SQLite (or PostgreSQL with DB_CONNECTION=pgsql); no browser, Inertia page or RLS run.\n";
 } catch (Throwable $error) {

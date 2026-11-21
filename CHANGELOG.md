@@ -1,5 +1,24 @@
 # Changelog
 
+## Unreleased
+
+Features affected: core (bookkeeping tables, morph aliases), workspaces (flags and tags), media (uploads table), mail (tests only). Run `php artisan migrate`; with `kit.tenancy.rls` on, run it as the admin connection.
+
+### Changed
+
+- **No `kit` in the schema.** `kit_meta` becomes `app_meta`, `kit_adoptions` becomes `app_adoptions` (where an adoption made it), `kit_media_uploads` becomes `media_uploads` (the new default of `kit.media.uploads_table`), and `kit_tags`, `kit_taggables` and `kit_flag_dismissals` become `tags`, `taggables` and `flag_dismissals`. The migrations refuse, naming the table, when the app already has one of the new names. Raw queries on the old names need updating. (#1190)
+- **Plain morph aliases.** `kit-note`, `kit-delivery`, `kit-user-avatar` and the rest are stored as `note`, `delivery`, `user-avatar`, …; the migration rewrites stored `*_type` values, and the `kit-` aliases still resolve. (#1190)
+
+### Fixed
+
+- **Kit mail keeps Laravel's fallback line, once.** Tests now cover the generic, `action()`, invite, reset and verify mails: one "having trouble clicking" line in each part, and no hand-rolled fallback paragraph. (#1192)
+
+### Security
+
+- **Row-level security for the flag and tag tables.** `tags`, `taggables` and `flag_dismissals` get the `workspace_isolation` policy. `tags` reads its own workspace's rows plus the shared flags, and writes a null workspace only for a flag. The migration is idempotent and replaces a `kit_workspace` policy an app already added to these tables. (#1190)
+- **`taggables` and `flag_dismissals` require a workspace.** The migration fills a missing `workspace_id` from the record, and refuses, naming the rows, when the record has none. (#1190)
+- **A tag that isn't a flag needs a workspace.** Created with no current workspace (a job, command or seeder) it now throws `tag_workspace_required` instead of saving as shared vocabulary every workspace reads. (#1190)
+
 ## v0.42.3
 
 Features affected: Avatar (Layout), workspace-ui (Dashboard You widget). Take the widget with `php artisan kit:scaffold workspace-ui --diff --only=resources/js/pages/Workspace/Dashboard`.

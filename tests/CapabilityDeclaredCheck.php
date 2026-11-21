@@ -331,7 +331,7 @@ try {
     $permissionModel = app(PermissionRegistrar::class)->getPermissionClass();
     $permissionModel::query()->delete();
     DB::table('permission_defaults')->delete();
-    DB::table('kit_meta')->where('key', CatalogSync::KEY)->delete();
+    DB::table('app_meta')->where('key', CatalogSync::KEY)->delete();
     httpCheck(in_array('workspace.members.manage', CatalogSync::unsynced(), true) && in_array('workspace.connections.manage', CatalogSync::unsynced(), true), 'unsynced lists the declared permissions the database lacks');
     // The console kernel would bootstrap the app again and reload its config: marked bootstrapped, it only collects the providers' commands.
     $app->bootstrapWith([]);

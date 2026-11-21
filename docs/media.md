@@ -9,7 +9,7 @@ Create the upload ledger in one of the app's own migrations:
 ```php
 use Tey\Kit\Media\MediaUploads;
 
-Schema::create(MediaUploads::table(), MediaUploads::schema(...)); // `kit.media.uploads_table`, default kit_media_uploads
+Schema::create(MediaUploads::table(), MediaUploads::schema(...)); // `kit.media.uploads_table`, default media_uploads
 ```
 
 Point Media Library at the kit's path generator and file remover (`config/media-library.php`):

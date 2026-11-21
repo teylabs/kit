@@ -267,14 +267,14 @@ try {
     });
     MultipartUploads::fake('bucket', $store);
     check(RequestMultipartUpload::run('ws:1', $rules, 'image/png', $bytes, $sha, 'legacy', true)->method === 'PUT' && $store->calls === [], 'an uploads table without the multipart column keeps multipart off');
-    config(['kit.media.uploads_table' => 'kit_media_uploads']);
+    config(['kit.media.uploads_table' => 'media_uploads']);
     MultipartUploads::fake('bucket', $store);
 
     // The column check is remembered per connection and database, so switching to a tenant database without the column turns multipart off there.
     check(MultipartUploads::hasColumn(), 'the current database has the column');
     config(['database.connections.tenant_b' => ['driver' => 'sqlite', 'database' => $base.'/tenant-b.sqlite', 'prefix' => '']]);
     touch($base.'/tenant-b.sqlite');
-    Schema::connection('tenant_b')->create('kit_media_uploads', fn ($table) => $table->ulid('id')->primary());
+    Schema::connection('tenant_b')->create('media_uploads', fn ($table) => $table->ulid('id')->primary());
     config(['database.default' => 'tenant_b']);
     check(! MultipartUploads::hasColumn(), 'another database without the column is checked afresh, not read from the first one');
     config(['database.default' => 'testing']);

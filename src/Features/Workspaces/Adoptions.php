@@ -7,13 +7,13 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * The host tables the kit's migrations adopted in place rather than created, recorded when the adoption happens in `kit_adoptions` (made by the
+ * The host tables the kit's migrations adopted in place rather than created, recorded when the adoption happens in `app_adoptions` (made by the
  * first adoption; a fresh kit install never has it). Each row names the table and the columns the kit added to it. A down() migration reads the
  * record: an adopted table is never dropped, and only the columns the record says the kit added are.
  */
 final class Adoptions
 {
-    public const TABLE = 'kit_adoptions';
+    public const TABLE = 'app_adoptions';
 
     /** Records that the kit adopted $table, adding $columns (merged with what an earlier kit migration added). */
     public static function record(string $table, array $columns = []): void
