@@ -2,7 +2,11 @@
 
 ## Unreleased
 
-Features affected: workspaces (flags and tags). Run `php artisan migrate`; with `kit.tenancy.rls` on, run it as the admin connection.
+Features affected: workspaces (flags and tags), mail (every kit mail). Run `php artisan migrate`; with `kit.tenancy.rls` on, run it as the admin connection.
+
+### Changed
+
+- **Kit mail has no fallback line.** Laravel's "If you're having trouble clicking…" subcopy is gone from every kit mail, HTML and text; the button carries the link, once. (#1192)
 
 ### Security
 

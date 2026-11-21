@@ -114,22 +114,17 @@ try {
     $html = (string) (new FluentMailMessage)->subject('Hi')->paragraph('x')->render();
     mailCheck(! str_contains($html, 'HOST HEADER') && str_contains($html, '<td class="header" align="center"') && ! str_contains($html, 'border-bottom: 2px solid'), 'with no host views the kit\'s centred header applies');
 
-    // Laravel's standard subcopy for the primary action, in both parts: the first filled button, or action(); none without a button.
-    $subcopy = static fn (FluentMailMessage $m): array => [(string) preg_replace('/ style="[^"]*"/', '', (string) $m->render()), (string) app(Markdown::class)->renderText($m->markdown, $m->data())];
-    [$html, $text] = $subcopy((new FluentMailMessage)->subject('Report')->paragraph('Ready.')->button('Download the report', 'https://example.test/r/1')->button('Later', 'https://example.test/later'));
-    mailCheck(str_contains($html, 'If you\'re having trouble clicking the "Download the report" button') && str_contains($html, '<span class="break-all"><a href="https://example.test/r/1">https://example.test/r/1</a></span>') && ! str_contains($html, '"Later" button'), 'the html part has Laravel\'s subcopy for the first button only');
-    mailCheck(str_contains($text, 'If you\'re having trouble clicking the "Download the report" button') && str_contains($text, 'https://example.test/r/1'), 'the text part has the same subcopy');
-    [$html, $text] = $subcopy((new FluentMailMessage)->subject('Preview')->paragraph('Ready.')->button('Open the report', '#'));
-    mailCheck(! str_contains($html, 'having trouble clicking') && ! str_contains($text, 'having trouble clicking') && ! str_contains($html, '>#</a>'), 'a button with no real URL yet ("#", as a preview or test send has) gets no fallback line, never a bare "#"');
-    [$html] = $subcopy((new FluentMailMessage)->subject('Hi')->button('Plain', 'https://example.test/p')->action('Open it', 'https://example.test/o'));
-    mailCheck(str_contains($html, '"Open it" button') && ! str_contains($html, '"Plain" button'), 'action() is the primary action when set');
-    [$html, $text] = $subcopy((new FluentMailMessage)->subject('Hi')->paragraph('No buttons.')->button('Docs', 'https://example.test/d', 'secondary'));
-    mailCheck(! str_contains($html, 'having trouble clicking') && ! str_contains($text, 'having trouble clicking'), 'no subcopy without a filled button');
-    app('translator')->addLines(['*.If you\'re having trouble clicking the ":actionText" button, copy and paste the URL below'."\n".'into your web browser:' => 'Klappt der Knopf ":actionText" nicht? Diese Adresse öffnen:'], 'de');
-    app()->setLocale('de');
-    [$html] = $subcopy((new FluentMailMessage)->subject('Hi')->button('Öffnen', 'https://example.test/o'));
-    app()->setLocale('en');
-    mailCheck(str_contains($html, 'Klappt der Knopf &quot;Öffnen&quot; nicht?') || str_contains($html, 'Klappt der Knopf "Öffnen" nicht?'), 'the subcopy uses Laravel\'s lang key, so a translation applies');
+    // No subcopy (#1192): no "If you're having trouble clicking…" line in either part, and each button's URL appears once, in the button.
+    $parts = static fn (FluentMailMessage $m): array => [(string) $m->render(), (string) app(Markdown::class)->renderText($m->markdown, $m->data())];
+    $once = static function (FluentMailMessage $m, string $url) use ($parts): bool {
+        [$html, $text] = $parts($m);
+        $visible = html_entity_decode(strip_tags($html));
+
+        return ! str_contains($html, 'trouble clicking') && ! str_contains($text, 'trouble clicking') && ! str_contains($html, 'class="subcopy"')
+            && substr_count($html, 'href="'.$url.'"') === 1 && substr_count($visible, $url) === 0 && substr_count($text, $url) === 1;
+    };
+    mailCheck($once((new FluentMailMessage)->subject('Report')->paragraph('Ready.')->button('Download the report', 'https://example.test/r/1'), 'https://example.test/r/1'), 'a fluent mail has no subcopy, and its button URL appears once in each part');
+    mailCheck($once((new FluentMailMessage)->subject('Hi')->action('Open it', 'https://example.test/o'), 'https://example.test/o'), 'so does one built with action()');
 
     $invite = new InviteNotification('Ada', 'Acme', 'Synthetic', 'https://example.test/i/1', CarbonImmutable::parse('2026-01-02'), 'Come & see');
     $mail = $invite->toMail(new stdClass);
@@ -137,21 +132,13 @@ try {
     mailCheck($mail instanceof FluentMailMessage && $mail->preheaderText === 'Come & see' && str_contains($html, 'Ada invited you to Acme') && str_contains($html, 'Come &amp; see') && str_contains($html, 'href="https://example.test/i/1"'), 'the kit\'s invitation is composed with FluentMailMessage');
     mailCheck(MailConformance::offenders(dirname(__DIR__).'/src') === [], 'the kit\'s own src conforms to the mail rules');
 
-    // The fallback link shows once (#1179): the layout's subcopy, never a kit paragraph repeating it, in the HTML and the text part.
-    $fallback = static function (FluentMailMessage $m, string $url) use ($subcopy): array {
-        [$html, $text] = $subcopy($m);
-        $visible = html_entity_decode(strip_tags($html));
-        // The text part's button line ("Label: url") is the button itself, not a fallback.
-        $text = (string) preg_replace('/^.*: '.preg_quote($url, '/').'$/m', '', $text, 1);
-
-        return [substr_count($visible, $url), substr_count($text, $url)];
-    };
+    // The kit's own mails: no subcopy, and the link once, in the button (#1192; replaces #1179's one-fallback-line expectation).
     foreach ([
         'invite' => [$invite->toMail(new stdClass), 'https://example.test/i/1'],
         'reset' => [(static function () { \Illuminate\Auth\Notifications\ResetPassword::createUrlUsing(fn () => 'https://example.test/reset/tok'); $m = AccountMail::resetPassword(new stdClass, 'tok'); \Illuminate\Auth\Notifications\ResetPassword::$createUrlCallback = null; return $m; })(), 'https://example.test/reset/tok'],
         'verify' => [AccountMail::verifyEmail('https://example.test/verify/1'), 'https://example.test/verify/1'],
     ] as $name => [$m, $url]) {
-        mailCheck($fallback($m, $url) === [1, 1], "the {$name} mail shows its link once in the fallback, HTML and text (".implode(', ', $fallback($m, $url)).')');
+        mailCheck($once($m, $url), "the {$name} mail has no subcopy and shows its link once, in the button, in HTML and text");
     }
 
     // The invitation's button stays neutral (#1182): a long workspace name lives in the heading and paragraph, which wrap, never the fixed-width button.

@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
@@ -45,7 +46,7 @@ return new class extends Migration
         }
         foreach (DB::table($table)->whereNull('workspace_id')->distinct()->pluck($morph.'_type') as $type) {
             $class = Relation::getMorphedModel($type) ?? $type;
-            if (! class_exists($class)) {
+            if (! is_subclass_of($class, Model::class)) {
                 continue;
             }
             $model = new $class;
