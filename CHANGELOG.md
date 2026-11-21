@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+Features affected: workspaces (migration `000212`).
+
+### Fixed
+
+- **`000212` migrates tag tables that already carry a policy.** On PostgreSQL with RLS on, it drops every policy on `tags`, `taggables` and `flag_dismissals` (any name, such as an app's own `kit_workspace`) before changing `workspace_id`, then protects them as `workspace_isolation`. Before, an app that had protected them itself failed with "cannot alter type of a column used in a policy definition" and rolled back. `down()` mirrors the order. (#1204)
+
 ## v0.43.2
 
 Features affected: mcp (Connections page). Take it with `php artisan kit:scaffold mcp --diff --only=resources/js/pages/Workspace/Settings/Connections`.
