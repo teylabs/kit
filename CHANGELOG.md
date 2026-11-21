@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+Features affected: shell (Workspace Layout). Take it with `php artisan kit:scaffold shell --diff --only=resources/js/pages/Workspace/Layout.vue`.
+
+### Fixed
+
+- **Shell bar: a long workspace name gives way before search.** At lg and up the switcher now shrinks first (down to `min-w-24`), so the name ellipsizes, with the full name in `title`, while search keeps its width. Short names render as before. (#1177)
+
 ## v0.42.0
 
 Features affected: ItemStack (Media).
