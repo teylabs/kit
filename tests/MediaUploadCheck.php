@@ -219,6 +219,44 @@ try {
     (new UserAvatar)->forceFill(['id' => 7])->media()->get();
     check(count($bound) === 3 && array_filter($bound, fn (array $bindings): bool => ! in_array('7', $bindings, true)) === [], 'avatar lookups and the avatar holder\'s media relation bind model_id as a string');
 
+    // A dead avatar (#1184): its original or its 2x conversion gone from disk is a 404, not a 500, and the avatar it resolved to is deleted, so the
+    // shared avatar prop is null and the UI shows initials. Rows and files are written directly (no image driver needed).
+    config(['auth.providers.users.model' => \Illuminate\Foundation\Auth\User::class]);
+    Schema::create('users', fn ($table) => $table->id());
+    $dead = function (int $user, string $missing) use ($base): string {
+        DB::table('users')->insert(['id' => $user]);
+        $holder = (new UserAvatar)->forceFill(['id' => $user]);
+        $holder->exists = true;
+        $token = 'tok'.$user.bin2hex(random_bytes(8));
+        $media = $holder->media()->create(['collection_name' => 'avatar', 'name' => 'a', 'file_name' => 'a.png', 'mime_type' => 'image/png', 'disk' => 'bucket', 'conversions_disk' => 'bucket', 'size' => 1, 'manipulations' => [], 'custom_properties' => ['token' => $token], 'generated_conversions' => ['thumb' => true, 'thumb2x' => true], 'responsive_images' => []]);
+        foreach (['', 'thumb', 'thumb2x'] as $c) {
+            $path = $media->getPathRelativeToRoot($c);
+            if ($c !== $missing) {
+                Storage::disk('bucket')->put($path, png(2, 2));
+            }
+        }
+
+        return $token;
+    };
+    $controller = new \Tey\Kit\Features\SessionUi\Http\AvatarImageController;
+    $status = function (string $token, ?string $size) use ($controller): int {
+        try {
+            $controller->show(\Illuminate\Http\Request::create('/avatars/'.$token), $token, $size);
+
+            return 200;
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpExceptionInterface $e) {
+            return $e->getStatusCode();
+        }
+    };
+    $keep = $dead(30, 'none');
+    foreach ([[31, '', null], [32, 'thumb2x', '2x']] as [$user, $missing, $size]) {
+        $token = $dead($user, $missing);
+        check($status($token, $size) === 404, "a missing ".($missing ?: 'original')." is a 404, not a 500");
+        \Tey\Kit\Features\Core\RequestMemo::instance()->flush();
+        check(Avatars::find($token) === null && Avatars::urls($user) === null, 'the dead avatar is gone, so the shared avatar prop is null');
+    }
+    check(Avatars::find($keep) !== null && Avatars::find('nothing') === null && $status('nothing', null) === 404, 'only the dead item is removed; an unknown token is a plain 404');
+
     echo "OK media uploads\n";
 } catch (Throwable $error) {
     fwrite(STDERR, 'FAIL '.$error->getMessage()."\n".$error->getTraceAsString()."\n");

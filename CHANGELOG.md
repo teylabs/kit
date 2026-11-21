@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+Features affected: session-ui (avatar images).
+
+### Fixed
+
+- **A missing avatar file is a 404, not a 500.** When an avatar's original or conversion is gone from its disk, `/avatars/{token}` answers 404 and deletes that one avatar, so the UI shows initials. (#1184)
+
 ## v0.42.1
 
 Features affected: shell (Workspace Layout), session-ui (mail; Login, Register and ResetPassword pages), workspace-ui (Invitation page), PasswordRules. Take the layout with `php artisan kit:scaffold shell --diff --only=resources/js/pages/Workspace/Layout.vue`.
