@@ -1,13 +1,17 @@
 # Changelog
 
-## Unreleased
+## v0.42.1
 
-Features affected: shell (Workspace Layout), session-ui (invite, password reset and email verification mail). Take the layout with `php artisan kit:scaffold shell --diff --only=resources/js/pages/Workspace/Layout.vue`.
+Features affected: shell (Workspace Layout), session-ui (mail; Login, Register and ResetPassword pages), workspace-ui (Invitation page), PasswordRules. Take the layout with `php artisan kit:scaffold shell --diff --only=resources/js/pages/Workspace/Layout.vue`.
 
 ### Fixed
 
 - **Shell bar: a long workspace name gives way before search.** At lg and up the switcher now shrinks first (down to `min-w-24`), so the name ellipsizes, with the full name in `title`, while search keeps its width. Short names render as before. (#1177)
 - **Invite, password reset and verification mail show the fallback link once.** The kit's own "If the button does not work, open this link" paragraph is gone; the layout's standard subcopy already carries the link in the HTML and text parts. (#1179)
+- **Invitation mail: a neutral "Accept invitation" button.** A long workspace name no longer fills the fixed-width button; the name stays in the heading and paragraph. (#1182)
+- **Password managers save the right username.** Sign-in, register, reset and invitation forms expose the email as a real input with `autocomplete="username"` (read-only, never disabled, where the address is fixed) beside `current-password` or `new-password` fields. (#1182)
+- **The breach check is a neutral note.** PasswordRules shows "Checked against known breaches when you submit" with an info icon instead of a checklist circle that never ticks; the server checks on submit. (#1182)
+- **A long workspace name in the invitation heading wraps** with no overflow. (#1182)
 
 ## v0.42.0
 
