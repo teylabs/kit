@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.43.2
 
 Features affected: mcp (Connections page). Take it with `php artisan kit:scaffold mcp --diff --only=resources/js/pages/Workspace/Settings/Connections`.
 
