@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+Features affected: core (migration `000102`).
+
+### Fixed
+
+- **The 0.43 alias rewrite leaves detached features alone.** `000102` rewrites a stored `kit-` morph alias only when its feature (notes, finalize, deliver, session-ui) is on at migrate time, in `up()` and `down()`. Rows under a feature that is off keep their `kit-` value, and the migration prints how many it left. (#1195)
+
+### Upgrading
+
+- An app that detached a feature (deliver or finalize, say) and registers the `kit-` aliases itself keeps them: its rows are not rewritten, and nothing orphans. Rename them yourself only if you change your own morph map.
+
 ## v0.43.0
 
 Features affected: core (bookkeeping tables, morph aliases), workspaces (flags and tags), media (uploads table), mail (tests only). Run `php artisan migrate`; with `kit.tenancy.rls` on, run it as the admin connection.
