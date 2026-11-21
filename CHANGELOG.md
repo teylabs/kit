@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+Features affected: Avatar (Layout), workspace-ui (Dashboard You widget). Take the widget with `php artisan kit:scaffold workspace-ui --diff --only=resources/js/pages/Workspace/Dashboard`.
+
+### Fixed
+
+- **Avatar: a photo that fails to load shows the initials.** No more broken-image icon in the disc on a stale page or a lost file; a new `src` tries again. Applies to the header, the user menu and the dashboard. (#1187)
+- **Dashboard You card: the avatar matches its text.** It uses the `lg` step (40px) instead of `xl`, in every state. (#1187)
+
 ## v0.42.2
 
 Features affected: session-ui (avatar images).
