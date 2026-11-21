@@ -3782,6 +3782,26 @@
       "reason": "Form primitive: the composer for a comment, reply or edit, an Inertia <Form> rendered inside a host page or CommentItem."
     },
     {
+      "ref": "@/components/Kit:SettingsSection",
+      "reason": "Layout primitive: one block of a settings page on its own card, with footer actions, rendered inside a host page."
+    },
+    {
+      "ref": "@/components/Kit:ConnectionCard",
+      "reason": "Layout primitive: one external connection with its status, facts, last error and connect or disconnect actions, rendered inside a host page."
+    },
+    {
+      "ref": "@/components/Kit:DetailSection",
+      "reason": "Layout primitive: one part of a record's detail page, heading on the ground and body on a card, rendered inside a host page."
+    },
+    {
+      "ref": "@/components/Kit:List",
+      "reason": "Layout primitive: divided rows, bordered only when straight on the page ground, rendered inside a host page."
+    },
+    {
+      "ref": "@/components/Kit:ListRow",
+      "reason": "Layout primitive: one row of a List, rendered inside a host page."
+    },
+    {
       "ref": "@/components/Kit:CommentThread",
       "reason": "Display primitive: a titled discussion (composer and comments) in a PageSection, rendered inside a host page."
     },

@@ -23,28 +23,91 @@ const props = withDefaults(
         actions?: ActionDescriptor[];
         level?: 2 | 3;
     }>(),
-    { description: null, account: null, connectedAt: null, lastCheckedAt: null, error: null, actions: () => [], level: 2 },
+    {
+        description: null,
+        account: null,
+        connectedAt: null,
+        lastCheckedAt: null,
+        error: null,
+        actions: () => [],
+        level: 2,
+    },
 );
 defineEmits<{ action: [action: ActionDescriptor] }>();
 provideCard();
-const badge = computed(() => ({ connected: ['success', 'Connected'], disconnected: ['neutral', 'Not connected'], checking: ['info', 'Checking…'], error: ['danger', 'Failed'] } as const)[props.status]);
+const badge = computed(
+    () =>
+        (
+            ({
+                connected: ['success', 'Connected'],
+                disconnected: ['neutral', 'Not connected'],
+                checking: ['info', 'Checking…'],
+                error: ['danger', 'Failed'],
+            }) as const
+        )[props.status],
+);
 </script>
 <template>
-    <section :aria-label="title" :aria-busy="status === 'checking' || undefined" class="bg-card text-card-foreground divide-border divide-y rounded-xl border shadow-xs" :data-connection="status">
+    <section
+        :aria-label="title"
+        :aria-busy="status === 'checking' || undefined"
+        class="bg-card text-card-foreground divide-border divide-y rounded-xl border shadow-xs"
+        :data-connection="status"
+    >
         <div class="flex flex-wrap items-start justify-between gap-3 px-6 py-4">
-            <SectionHeader :title="title" :description="description" :level="level" class="min-w-0 flex-1" />
+            <SectionHeader
+                :title="title"
+                :description="description"
+                :level="level"
+                class="min-w-0 flex-1"
+            />
             <Badge :tone="badge[0]" dot>{{ badge[1] }}</Badge>
         </div>
         <div class="flex flex-col gap-3 p-6">
-            <dl v-if="account || connectedAt || lastCheckedAt" class="text-muted-foreground grid gap-1 text-sm" data-connection-facts>
-                <div v-if="account" class="flex gap-2"><dt>Connected to</dt><dd class="text-foreground">{{ account }}</dd></div>
-                <div v-if="connectedAt" class="flex gap-2"><dt>Since</dt><dd class="text-foreground"><DateTime :value="connectedAt" format="date" /></dd></div>
-                <div v-if="lastCheckedAt" class="flex gap-2"><dt>Last check</dt><dd class="text-foreground"><DateTime :value="lastCheckedAt" /></dd></div>
+            <dl
+                v-if="account || connectedAt || lastCheckedAt"
+                class="text-muted-foreground grid gap-1 text-sm"
+                data-connection-facts
+            >
+                <div v-if="account" class="flex gap-2">
+                    <dt>Connected to</dt>
+                    <dd class="text-foreground">{{ account }}</dd>
+                </div>
+                <div v-if="connectedAt" class="flex gap-2">
+                    <dt>Since</dt>
+                    <dd class="text-foreground">
+                        <DateTime :value="connectedAt" format="date" />
+                    </dd>
+                </div>
+                <div v-if="lastCheckedAt" class="flex gap-2">
+                    <dt>Last check</dt>
+                    <dd class="text-foreground">
+                        <DateTime :value="lastCheckedAt" />
+                    </dd>
+                </div>
             </dl>
-            <p v-else-if="status === 'disconnected'" class="text-muted-foreground text-sm" data-connection-empty>Not connected yet.</p>
-            <p v-if="error" role="alert" class="text-destructive text-sm" data-connection-error>{{ error }}</p>
+            <p
+                v-else-if="status === 'disconnected'"
+                class="text-muted-foreground text-sm"
+                data-connection-empty
+            >
+                Not connected yet.
+            </p>
+            <p
+                v-if="error"
+                role="alert"
+                class="text-destructive text-sm"
+                data-connection-error
+            >
+                {{ error }}
+            </p>
             <slot />
-            <ActionBar v-if="actions.length" :actions="actions" :busy="status === 'checking'" @action="(a: ActionDescriptor) => $emit('action', a)" />
+            <ActionBar
+                v-if="actions.length"
+                :actions="actions"
+                :busy="status === 'checking'"
+                @action="(a: ActionDescriptor) => $emit('action', a)"
+            />
         </div>
     </section>
 </template>

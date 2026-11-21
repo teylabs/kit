@@ -9,7 +9,10 @@ const inCard = useInCard();
 <template>
     <ul
         :aria-label="label"
-        :class="['divide-border divide-y', !inCard && 'bg-card text-card-foreground rounded-xl border']"
+        :class="[
+            'divide-border divide-y',
+            !inCard && 'bg-card text-card-foreground rounded-xl border',
+        ]"
         :data-list="inCard ? 'in-card' : 'surface'"
     >
         <slot />
