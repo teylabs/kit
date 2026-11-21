@@ -6383,6 +6383,30 @@ test('CommentItem: Reply opens a composer below the comment, focused, that posts
     });
 });
 
+// ── The You card's avatar (dashboard.html&avatar=…): one scale step (lg) in every state, and a photo that fails to load shows the initials ───────────
+test('the You card avatar: the lg step with initials, a photo and a broken photo; a broken src shows the initials with no image left', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    try {
+        for (const state of ['initials', 'photo', 'broken']) {
+            const tab = await context.newPage();
+            await tab.goto(`${authUrl}dashboard.html${state === 'initials' ? '' : `?avatar=${state}`}`);
+            const avatar = tab.locator('[data-widget-you] [data-slot="avatar"]');
+            await avatar.waitFor();
+            assert.equal(await avatar.getAttribute('data-avatar-size'), 'lg', `${state}: the lg step`);
+            if (state === 'photo') {
+                await tab.waitForFunction(() => document.querySelector('[data-widget-you] [data-slot="avatar"] img')?.complete);
+                assert.equal(await avatar.locator('img').count(), 1, 'photo: the image shows');
+            } else {
+                await tab.waitForFunction(() => !document.querySelector('[data-widget-you] [data-slot="avatar"] img'));
+                assert.equal((await avatar.innerText()).trim(), 'AE', `${state}: the initials show`);
+            }
+            await tab.close();
+        }
+    } finally {
+        await context.close();
+    }
+});
+
 // ── The dashboard grid with every kit widget on (dashboard.html): axe-clean (WCAG 2.2 AA, color-contrast, landmark-unique), light and dark ────────────────
 for (const [mode, query] of [['light', ''], ['dark', '?dark']]) {
     test(`the dashboard with every kit widget (${mode}): no axe violations, and no two landmarks share a name`, async () => {
@@ -9255,6 +9279,8 @@ test('Profile photo: Remove photo asks first, then deletes it; the initials show
     profile.store.avatar = { token: 'a'.repeat(40), bytes: photo.buffer, type: 'image/png' };
     await accountPage(profile, async ({ tab, posts, reload, confirm, settle }) => {
         await servePhoto(tab, profile.store);
+        // The page loaded before the photo route existed, so its image failed and Avatar fell back to the initials (#1187): load it again with the route on.
+        await reload();
         assert.equal(await avatarSrc(tab), `/avatars/${'a'.repeat(40)}`);
         await confirm(tab.locator('main'), 'Remove photo');
         await settle(1);

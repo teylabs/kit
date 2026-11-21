@@ -38,7 +38,7 @@ const open = computed(() => (props.widget.checklist ?? []).some((item) => item.s
 <template>
     <div class="grid gap-4">
         <div class="flex min-w-0 items-center gap-3" data-widget-you>
-            <Avatar :initials="widget.person.initials" :src="widget.person.avatar?.url" :src2x="widget.person.avatar?.url_2x" :color="widget.person.avatar_color" large />
+            <Avatar :initials="widget.person.initials" :src="widget.person.avatar?.url" :src2x="widget.person.avatar?.url_2x" :color="widget.person.avatar_color" size="lg" />
             <div class="grid min-w-0 flex-1">
                 <p class="truncate font-semibold" data-widget-you-name>{{ widget.person.name }}</p>
                 <p class="text-sm text-pretty wrap-anywhere text-muted-foreground" data-widget-you-time><span v-if="time">{{ time }}</span><template v-if="time"> · </template>{{ zone.replace(/_/g, ' ') }}</p>
