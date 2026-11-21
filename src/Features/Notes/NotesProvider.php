@@ -50,7 +50,7 @@ final class NotesProvider extends ServiceProvider implements Contributes
     public function boot(): void
     {
         // Stored rows name these models by alias, never by class, whichever class config names (kit.models).
-        Kit::aliases('note');
+        Kit::aliases(...Kit::MORPH_ALIASES['notes']);
         $this->commands([ImportNotesCommand::class]);
     }
 }

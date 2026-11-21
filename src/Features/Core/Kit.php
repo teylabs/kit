@@ -22,6 +22,19 @@ final class Kit
     /** @var array<string, class-string<Model>> key => the kit's own model */
     private static array $models = [];
 
+    /**
+     * Each feature's morph alias keys (`delivery_recipient` is stored as `delivery-recipient`, and `kit-delivery-recipient` before 0.43). The providers
+     * register them from here and core's 000102 rewrites stored values from here, only for the features on at migrate time.
+     *
+     * @var array<string, list<string>>
+     */
+    public const MORPH_ALIASES = [
+        'notes' => ['note'],
+        'finalize' => ['finalization', 'finalization_confirmation'],
+        'deliver' => ['delivery', 'delivery_recipient', 'delivery_event'],
+        'session-ui' => ['security_event', 'user_avatar'],
+    ];
+
     /** @var array<string, string> key => the kit's own table, for a table read without a model */
     private static array $tables = [];
 

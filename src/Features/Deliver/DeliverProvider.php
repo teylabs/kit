@@ -67,7 +67,7 @@ final class DeliverProvider extends ServiceProvider implements Contributes
     public function boot(): void
     {
         // Stored rows name these models by alias, never by class, whichever class config names (kit.models).
-        Kit::aliases('delivery', 'delivery_recipient', 'delivery_event');
+        Kit::aliases(...Kit::MORPH_ALIASES['deliver']);
         Event::listen(MessageSent::class, fn (MessageSent $event) => $this->app->make(SentMessages::class)->record($event));
         // Un-finalizing a subject cancels its scheduled sends; what was already delivered stays as it is.
         Event::listen(Unfinalized::class, fn (Unfinalized $event) => $this->app->make(DeliveryDesk::class)->cancelForUnfinalized($event->flow, $event->subject));

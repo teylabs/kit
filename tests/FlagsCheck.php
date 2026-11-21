@@ -288,11 +288,22 @@ try {
     DB::table('taggables')->where('taggable_id', $ticket)->delete();
     DB::table('tickets')->where('id', $ticket)->delete();
 
-    // Plain morph aliases (0.43): 000102 rewrites a stored `kit-` alias to the plain one, and the old alias still resolves.
+    // Plain morph aliases (0.43): 000102 rewrites a stored `kit-` alias only for a feature on at migrate time (#1195). Here deliver is off and the app
+    // registers kit-delivery itself (a detached feature): its rows keep it and still resolve. With deliver on, they are rewritten.
+    $unprefix = static fn () => (require dirname(__DIR__).'/database/migrations/core/0001_01_02_000102_unprefix_kit_tables.php')->up();
     $flagId = (int) DB::table('tags')->where('type', 'flag')->value('id');
-    DB::table('taggables')->insert(['tag_id' => $flagId, 'taggable_type' => 'kit-note', 'taggable_id' => 424242, 'workspace_id' => $other->id]);
-    (require dirname(__DIR__).'/database/migrations/core/0001_01_02_000102_unprefix_kit_tables.php')->up();
-    check(DB::table('taggables')->where('taggable_id', 424242)->value('taggable_type') === 'note', 'a stored kit- morph alias is rewritten to the plain one');
+    \Illuminate\Database\Eloquent\Relations\Relation::morphMap(['kit-delivery' => Ticket::class]);
+    DB::table('taggables')->insert(['tag_id' => $flagId, 'taggable_type' => 'kit-delivery', 'taggable_id' => 424242, 'workspace_id' => $other->id]);
+    check(! Kit::enabled('deliver') && ! Kit::enabled('finalize'), 'deliver and finalize are off here');
+    $unprefix();
+    $stored = DB::table('taggables')->where('taggable_id', 424242)->value('taggable_type');
+    check($stored === 'kit-delivery' && \Illuminate\Database\Eloquent\Relations\Relation::getMorphedModel($stored) === Ticket::class, 'with deliver off, rows under the app\'s own kit-delivery alias are left alone and still resolve');
+    $features = new ReflectionProperty(Registry::class, 'features');
+    $before = $features->getValue($registry);
+    $features->setValue($registry, [...$before, 'deliver']);
+    $unprefix();
+    $features->setValue($registry, $before);
+    check(DB::table('taggables')->where('taggable_id', 424242)->value('taggable_type') === 'delivery', 'with deliver on, a stored kit-delivery is rewritten to delivery');
     DB::table('taggables')->where('taggable_id', 424242)->delete();
     \Illuminate\Database\Eloquent\Relations\Relation::morphMap(['kit-ticket-probe' => Ticket::class]);
     Kit::defaults(['ticket_probe' => Ticket::class], []);
