@@ -35,8 +35,7 @@ final class AccountMail
             ->headline(__('Reset your password'))
             ->paragraph(__('Someone asked to reset the password for your :product account. Choose a new one with the button below. The link works for :count minutes.', ['product' => $product, 'count' => $minutes]))
             ->button(__('Reset password'), $url)
-            ->paragraph(__('If you did not ask for this, you can ignore this email. Your password stays as it is.'))
-            ->paragraph(__('If the button does not work, open this link: :url', ['url' => $url]));
+            ->paragraph(__('If you did not ask for this, you can ignore this email. Your password stays as it is.'));
     }
 
     public static function verifyEmail(string $url): FluentMailMessage
@@ -50,7 +49,6 @@ final class AccountMail
             ->headline(__('Verify your email address'))
             ->paragraph(__('Confirm that this is your email address for :product with the button below.', ['product' => $product]))
             ->button(__('Verify email address'), $url)
-            ->paragraph(__('If you did not create an account, you can ignore this email.'))
-            ->paragraph(__('If the button does not work, open this link: :url', ['url' => $url]));
+            ->paragraph(__('If you did not create an account, you can ignore this email.'));
     }
 }

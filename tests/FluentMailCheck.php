@@ -13,6 +13,7 @@ use Illuminate\Mail\Markdown;
 use Illuminate\Support\Facades\Facade;
 use Illuminate\Translation\TranslationServiceProvider;
 use Illuminate\View\ViewServiceProvider;
+use Tey\Kit\Features\SessionUi\Notifications\AccountMail;
 use Tey\Kit\Features\SessionUi\Notifications\InviteNotification;
 use Tey\Kit\Mail\FluentMailMessage;
 use Tey\Kit\Mail\MailConformance;
@@ -135,6 +136,23 @@ try {
     $html = tidy($mail);
     mailCheck($mail instanceof FluentMailMessage && $mail->preheaderText === 'Come & see' && str_contains($html, 'Ada invited you to Acme') && str_contains($html, 'Come &amp; see') && str_contains($html, 'href="https://example.test/i/1"'), 'the kit\'s invitation is composed with FluentMailMessage');
     mailCheck(MailConformance::offenders(dirname(__DIR__).'/src') === [], 'the kit\'s own src conforms to the mail rules');
+
+    // The fallback link shows once (#1179): the layout's subcopy, never a kit paragraph repeating it, in the HTML and the text part.
+    $fallback = static function (FluentMailMessage $m, string $url) use ($subcopy): array {
+        [$html, $text] = $subcopy($m);
+        $visible = html_entity_decode(strip_tags($html));
+        // The text part's button line ("Label: url") is the button itself, not a fallback.
+        $text = (string) preg_replace('/^.*: '.preg_quote($url, '/').'$/m', '', $text, 1);
+
+        return [substr_count($visible, $url), substr_count($text, $url)];
+    };
+    foreach ([
+        'invite' => [$invite->toMail(new stdClass), 'https://example.test/i/1'],
+        'reset' => [(static function () { \Illuminate\Auth\Notifications\ResetPassword::createUrlUsing(fn () => 'https://example.test/reset/tok'); $m = AccountMail::resetPassword(new stdClass, 'tok'); \Illuminate\Auth\Notifications\ResetPassword::$createUrlCallback = null; return $m; })(), 'https://example.test/reset/tok'],
+        'verify' => [AccountMail::verifyEmail('https://example.test/verify/1'), 'https://example.test/verify/1'],
+    ] as $name => [$m, $url]) {
+        mailCheck($fallback($m, $url) === [1, 1], "the {$name} mail shows its link once in the fallback, HTML and text (".implode(', ', $fallback($m, $url)).')');
+    }
 
     echo "Fluent mail checks passed.\n";
 } catch (Throwable $error) {
