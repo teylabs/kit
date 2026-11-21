@@ -154,6 +154,13 @@ try {
         mailCheck($fallback($m, $url) === [1, 1], "the {$name} mail shows its link once in the fallback, HTML and text (".implode(', ', $fallback($m, $url)).')');
     }
 
+    // The invitation's button stays neutral (#1182): a long workspace name lives in the heading and paragraph, which wrap, never the fixed-width button.
+    $long = '10C Shared Space for the Northern Regional Appraisal Cooperative';
+    $mail = (new InviteNotification('Ada', $long, 'Synthetic', 'https://example.test/i/2', CarbonImmutable::parse('2026-01-02'), null))->toMail(new stdClass);
+    $html = tidy($mail);
+    $label = (string) preg_replace('/\s+/', ' ', trim(strip_tags((string) preg_replace('/^.*?<a[^>]*href="https:\/\/example\.test\/i\/2"[^>]*>(.*?)<\/a>.*$/s', '$1', $html))));
+    mailCheck($label === 'Accept invitation' && substr_count(html_entity_decode(strip_tags($html)), $long) >= 2, "a long workspace name stays out of the invitation's button and in its body (button: {$label})");
+
     echo "Fluent mail checks passed.\n";
 } catch (Throwable $error) {
     fwrite(STDERR, 'FAIL '.$error->getMessage()."\n");

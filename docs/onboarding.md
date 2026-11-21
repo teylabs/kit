@@ -28,7 +28,7 @@ The kit's default follows NIST 800-63B: **at least 8 characters, and not found i
 
 ### The rules under the field
 
-`<PasswordInput rules />` shows the rules under a new-password field before anything is typed (`PasswordRules`): "At least 8 characters", ticked as soon as it is met, and "Not found in a known data breach (checked when you submit)". The numbers come from the rule in force (`kitPassword`, shared on every page from `Password::defaults()`), so an app's own minimum shows correctly. The list is joined to the input's `aria-describedby`.
+`<PasswordInput rules />` shows the rules under a new-password field before anything is typed (`PasswordRules`): "At least 8 characters", ticked as soon as it is met, and a neutral note, "Checked against known breaches when you submit" (an info icon, not a checklist item; the server checks on submit, with no live third-party fetch). The numbers come from the rule in force (`kitPassword`, shared on every page from `Password::defaults()`), so an app's own minimum shows correctly. The list is joined to the input's `aria-describedby`.
 
 ## Password reset
 

@@ -1771,8 +1771,7 @@ test('Register (Fortify\'s /register): name focused on load, novalidate, the fou
 
 test('Register, an invited account (view model): the address is text with its hint, no email input, posted through `submit`; the heading and lead are the view model\'s; a name error refocuses name; an `email` or `invitation` error is one top alert', async () => {
     await authPage('Register', async ({ tab, submit, count, text, posted }) => {
-        assert.equal(await count('input[name=email], input[type=email]'), 0, 'no email input');
-        assert.equal(await text('[data-register-email]'), 'ada@example.com');
+        assert.deepEqual(await tab.locator('[data-register-email]').evaluate(el => [el.tagName, el.readOnly, el.disabled, el.type, el.autocomplete, el.name, el.value]), ['INPUT', true, false, 'email', 'username', '', 'ada@example.com'], 'a read-only username field for password managers, not posted by name');
         assert.equal(await text('#register-email-hint'), 'The invitation was sent to this address.');
         assert.equal(await text('h1'), 'Create your account');
         assert.equal(await text('[data-register-lead]'), 'You have been invited to join Northwind Farms.');
@@ -1805,10 +1804,32 @@ test('Register, an invited account (view model): the address is text with its hi
     }, '&flow=invited');
 });
 
+test('password managers: sign-in, register, reset and invitation forms carry username and current/new-password tokens on real inputs in a form with a submit', async () => {
+    const tokens = (tab) => tab.evaluate(() => [...document.querySelectorAll('form input:not([type=hidden])')].filter(i => ['email', 'password'].includes(i.type)).map(i => `${i.type}:${i.autocomplete}:${i.readOnly ? 'ro' : 'rw'}:${i.disabled}`).concat(document.querySelector('form button[type=submit]') ? ['submit'] : []));
+    await authPage('Login', async ({ tab }) => assert.deepEqual(await tokens(tab), ['email:username:rw:false', 'password:current-password:rw:false', 'submit']));
+    await authPage('Register', async ({ tab }) => assert.deepEqual(await tokens(tab), ['email:username:rw:false', 'password:new-password:rw:false', 'password:new-password:rw:false', 'submit']));
+    await authPage('ResetPassword', async ({ tab }) => assert.deepEqual(await tokens(tab), ['email:username:ro:false', 'password:new-password:rw:false', 'password:new-password:rw:false', 'submit']));
+});
+
+test('Invitation, new account: the address is a read-only username field (posted as email) beside new-password fields; a long workspace name in the heading wraps with no overflow', async () => {
+    const long = 'Join 10C Shared Space for the Northern Regional Appraisal Cooperative on Hubcommons';
+    await authPage('Auth/Invitation/Show', async ({ tab }) => {
+        const email = await tab.locator('#invite-email').evaluate(el => [el.readOnly, el.disabled, el.type, el.autocomplete, el.name, el.value, getComputedStyle(el).borderStyle]);
+        assert.deepEqual(email, [true, false, 'email', 'username', 'email', 'ada@example.com', 'dashed']);
+        assert.deepEqual(await tab.evaluate(() => [...document.querySelectorAll('form input[type=password]')].map(i => [i.name, i.autocomplete])), [['password', 'new-password'], ['password_confirmation', 'new-password']]);
+        assert.equal(await tab.locator('form button[type=submit]').count(), 1);
+        for (const width of [1280, 390]) {
+            await tab.setViewportSize({ width, height: 800 });
+            const fit = await tab.evaluate(() => { const h = document.querySelector('[data-invitation-title]'); return { lines: Math.round(h.getBoundingClientRect().height / parseFloat(getComputedStyle(h).lineHeight)), overflow: h.scrollWidth - h.clientWidth, page: document.documentElement.scrollWidth - innerWidth }; });
+            assert.ok(fit.lines >= 2 && fit.overflow <= 0 && fit.page <= 0, `${width}: the heading wraps inside the card (${JSON.stringify(fit)})`);
+        }
+    }, `&state=register_required&title=${encodeURIComponent(long)}`);
+});
+
 test('Register, an invite that creates the invitee\'s workspace: the address is shown and not posted; the button is the view model\'s; a network failure is in the card', async () => {
     await authPage('Register', async ({ tab, submit, count, text, posted }) => {
-        assert.equal(await count('input[name=email], input[type=email]'), 0);
-        assert.equal(await text('[data-register-email]'), 'ada@example.com');
+        assert.equal(await count('input[name=email]'), 0);
+        assert.equal(await tab.inputValue('[data-register-email]'), 'ada@example.com');
         assert.equal(await text('[data-guest-card] form button[type=submit]'), 'Create account and workspace');
         assert.equal(await count('[data-register-lead]'), 0, 'no lead line when the view model gives none');
         await tab.fill('input[name=name]', 'Ada');
@@ -5247,7 +5268,8 @@ test('PasswordRules: the shared length rule and the breach check show before typ
     await a11y3(async tab => {
         const text = await tab.locator('#password').evaluate(el => el.closest('[data-field], div').parentElement.textContent);
         assert.match(text, /At least 10 characters/);
-        assert.match(text, /Not found in a known data breach \(checked when you submit\)/);
+        assert.match(text, /Checked against known breaches when you submit/);
+        assert.equal(await tab.locator('[data-password-rule="breach"] svg.lucide-circle, [data-password-rule="breach"] [data-met]').count(), 0, 'the breach line is a neutral note, not a checklist circle');
         assert.equal(await tab.locator('[data-met]').count(), 0);
         await tab.fill('#password', '😀😀😀😀😀😀😀😀😀😀');
         assert.equal(await tab.locator('[data-met]').count(), 1, 'ten emoji are ten characters');
