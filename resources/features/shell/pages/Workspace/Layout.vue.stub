@@ -129,8 +129,8 @@ onBeforeUnmount(() => {
                     <!-- The workspace switcher is always there: with one workspace its menu is just Workspace settings (when the server sends it), with two or more it lists them too. -->
                     <!-- The `workspace-switcher` slot replaces it; its props are the switcher's own, plus the bar's sizing `class`. -->
                     <template v-if="app.workspace || app.switcher">
-                        <slot name="workspace-switcher" :workspace="app.workspace" :switcher="app.switcher" :account="app.account" :class="['flex-1 lg:max-w-72 lg:flex-[0_10000000_auto]', $slots.bar ? 'min-w-24' : 'min-w-0 lg:min-w-24']">
-                            <WorkspaceSwitcher :workspace="app.workspace" :switcher="app.switcher" :account="app.account" :class="['flex-1 lg:max-w-72 lg:flex-[0_10000000_auto]', $slots.bar ? 'min-w-24' : 'min-w-0 lg:min-w-24']" />
+                        <slot name="workspace-switcher" :workspace="app.workspace" :switcher="app.switcher" :account="app.account" :class="['flex-1 lg:max-w-72', $slots.bar ? 'min-w-24 lg:flex-none' : 'min-w-0 lg:min-w-24 lg:flex-[0_10000000_auto]']">
+                            <WorkspaceSwitcher :workspace="app.workspace" :switcher="app.switcher" :account="app.account" :class="['flex-1 lg:max-w-72', $slots.bar ? 'min-w-24 lg:flex-none' : 'min-w-0 lg:min-w-24 lg:flex-[0_10000000_auto]']" />
                         </slot>
                     </template>
                     <!-- The nav slot replaces PrimaryNav at every width (an app's own module switcher): one live copy, and the drawer then lists no pages. -->

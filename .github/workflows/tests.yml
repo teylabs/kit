@@ -60,7 +60,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: shivammathur/setup-php@v2
         with:
-          php: '8.4'
+          php-version: '8.4'
           extensions: pdo_pgsql
           coverage: none
       - run: composer update --prefer-dist --no-interaction --no-progress
@@ -217,7 +217,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: shivammathur/setup-php@v2
         with:
-          php: ${{ matrix.php }}
+          php-version: ${{ matrix.php }}
           # gd: test:mail-render plates the mail lockup. imagick: test:images (the kit-imagick image driver).
           extensions: gd, imagick
           coverage: none
