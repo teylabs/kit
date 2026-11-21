@@ -299,8 +299,6 @@ return [
     // /mcp) and which cards it offers, in order (claude-ai, chatgpt, claude-code, cursor, vscode), and how long, in seconds, a call's result is replayed for a retry with its intent_key.
     'mcp' => [
         'connection_ability' => 'settings.read',
-        // What a person sees an MCP client called, [singular, plural]: the Connections page, its nav and settings title, and the consent refusal.
-        'assistant_label' => ['AI assistant', 'AI assistants'],
         // Seeing and revoking other members' connections (the workspace.connections.manage permission: owners and admins); a person may always revoke their own.
         'manage_ability' => 'connections.manage',
         'ui' => filter_var(env('KIT_MCP_UI', false), FILTER_VALIDATE_BOOL),
