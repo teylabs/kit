@@ -1,7 +1,7 @@
 <?php
 
 // MCP authorize: Passport's consent screen as the kit's Inertia page, the workspace chosen there, deny and approve through Passport's real routes, the code exchange binding the
-// connection, and revoking from the AI assistants page (own, another member's, an owner's), with real Passport, Concierge and kit tables, on SQLite memory with synthetic users.
+// connection, and revoking from the Agent Integration page (own, another member's, an owner's), with real Passport, Concierge and kit tables, on SQLite memory with synthetic users.
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Http\Request;
@@ -264,7 +264,7 @@ try {
     httpCheck(json_decode((string) $page->getContent(), true)['component'] === 'Mcp/Authorize/Page' && $props['client'] === 'Assistant', 'the consent page is the kit Inertia page and names the client');
     httpCheck($props['scopes'] === [['key' => 'mcp:use', 'label' => 'Act as you in the workspaces you approve, with what your role there allows']], 'the requested scope is shown in plain words');
 
-    // kit.mcp.assistant_label (#1198): with the label 'assistant', no visible "AI" text is left on the consent page or the Connections page. Visible means
+    // Neutral agent wording (#1198): no visible "AI" text on the consent page or the Connections page, with no config set. Visible means
     // every string prop but tokens, ids, keys and URLs, plus the page stub's own template text (its comments are not shown).
     $visible = function (array $props) use (&$visible): array {
         $out = [];
@@ -279,11 +279,9 @@ try {
     };
     $stubText = fn (string $stub): string => (string) preg_replace(['#^\s*//.*$#m', '#<!--.*?-->#s'], '', (string) file_get_contents(dirname(__DIR__).'/resources/features/mcp/pages/'.$stub.'/Page.vue.stub'));
     $noAi = fn (array $strings): array => array_values(array_filter($strings, fn (string $text): bool => preg_match('/\bAI\b/', $text) === 1));
-    $app['config']->set('kit.mcp.assistant_label', ['assistant', 'assistants']);
     $labelled = json_decode((string) $send($people['owner'], 'GET', $authorize(), [], $inertia)->getContent(), true)['props'] ?? [];
-    httpCheck($labelled !== [] && $noAi($visible($labelled)) === [] && $noAi([$stubText('Mcp/Authorize')]) === [], 'with assistant_label "assistant", the consent page shows no "AI" text ('.implode(' | ', $noAi($visible($labelled))).')');
-    httpCheck(str_contains(Tey\Kit\Features\Mcp\Http\Middleware\RefuseCookieSessions::message(), 'Connecting an assistant needs'), 'the cookie-session refusal uses the label');
-    $app['config']->set('kit.mcp.assistant_label', ['AI assistant', 'AI assistants']);
+    httpCheck($labelled !== [] && $noAi($visible($labelled)) === [] && $noAi([$stubText('Mcp/Authorize')]) === [], 'the consent page shows no "AI" text ('.implode(' | ', $noAi($visible($labelled))).')');
+    httpCheck(str_contains(Tey\Kit\Features\Mcp\Http\Middleware\RefuseCookieSessions::MESSAGE, 'Connecting an agent needs'), 'the cookie-session refusal says "agent"');
     httpCheck(array_column($props['workspaces'], 'name') === ['Acme', 'Globex'] && in_array($props['workspace'], [$workspace->id, $globex->id], true), "the workspace choice lists the person's active workspaces only (not Initech) with a default");
     httpCheck(is_string($props['auth_token']) && $props['auth_token'] !== '' && is_string($props['csrf_token']) && $props['csrf_token'] !== '', 'the page carries Passport\'s auth token and the CSRF token for its plain posts');
     // Passport refuses an undefined scope before the view, so the view itself is called with one: it is listed as it was asked for.
@@ -373,7 +371,7 @@ try {
     httpCheck(DB::table('connections')->where('id', '!=', $pending->id)->pluck('oauth_token_id', 'id')->all() === $others, 'the refresh moves no other connection');
     $token = $afterRefresh;
 
-    // Revoking. The member and the admin each have a connection in Acme; revoke runs as the AI assistants page's DELETE does.
+    // Revoking. The member and the admin each have a connection in Acme; revoke runs as the Agent Integration page's DELETE does.
     $connectAs = function (HttpUser $user) use ($client, $workspace): array {
         $token = Token::query()->forceCreate(['id' => bin2hex(random_bytes(40)), 'user_id' => $user->id, 'client_id' => $client->id, 'name' => null, 'scopes' => ['mcp:use'], 'revoked' => false, 'expires_at' => now()->addHour()]);
         $id = DB::table('connections')->insertGetId(['workspace_id' => $workspace->id, 'actor_id' => $user->id, 'oauth_token_id' => $token->id, 'oauth_client_id' => (string) $client->id, 'scopes' => json_encode(['mcp:act']), 'expires_at' => $token->expires_at]);
@@ -424,15 +422,11 @@ try {
 
         return json_decode((string) Tey\Kit\Features\Workspaces\Workspaces::run($workspace->id, fn () => $app->make(Tey\Kit\Features\Mcp\Http\ConnectionController::class)->index($request, $workspace->id))->getContent(), true);
     };
-    $default = $connectionsProps();
-    httpCheck($default['title'] === 'AI assistants' && $default['assistant_label'] === 'AI assistant', 'by default the Connections page is "AI assistants", as before');
-    $app['config']->set('kit.mcp.assistant_label', ['assistant', 'assistants']);
     $relabelled = $connectionsProps();
-    $app['config']->set('kit.mcp.assistant_label', ['AI assistant', 'AI assistants']);
-    httpCheck($relabelled['title'] === 'assistants' && $relabelled['assistant_label'] === 'assistant' && $noAi($visible($relabelled)) === [] && $noAi([$stubText('Workspace/Settings/Connections')]) === [], 'with assistant_label "assistant", the Connections page shows no "AI" text ('.implode(' | ', $noAi($visible($relabelled))).')');
-    httpCheck($serverUrl() === 'https://kit.test/mcp', 'the AI assistants page props carry the one server URL, /mcp');
-    httpCheck(array_unique(array_values($listed($people['member']))) === ['Member'] && ! isset($listed($people['member'])[$adminConnection]), "a member's AI assistants page lists their own connections only, never another member's");
-    httpCheck(isset($listed($people['owner'])[$memberConnection], $listed($people['owner'])[$adminConnection]), "an owner's AI assistants page lists every member's connection in the workspace");
+    httpCheck($relabelled['title'] === 'Agent Integration' && $noAi($visible($relabelled)) === [] && $noAi([$stubText('Workspace/Settings/Connections')]) === [], 'the Connections page is "Agent Integration" and shows no "AI" text ('.implode(' | ', $noAi($visible($relabelled))).')');
+    httpCheck($serverUrl() === 'https://kit.test/mcp', 'the Agent Integration page props carry the one server URL, /mcp');
+    httpCheck(array_unique(array_values($listed($people['member']))) === ['Member'] && ! isset($listed($people['member'])[$adminConnection]), "a member's Agent Integration page lists their own connections only, never another member's");
+    httpCheck(isset($listed($people['owner'])[$memberConnection], $listed($people['owner'])[$adminConnection]), "an owner's Agent Integration page lists every member's connection in the workspace");
 
     httpCheck($revoke($people['member'], $adminConnection) === 'permission_denied' && $app->make(Registry::class)->status('permission_denied') === 403, "a member revoking another member's connection is refused with permission_denied (403)");
     httpCheck(DB::table('connections')->where('id', $adminConnection)->value('revoked_at') === null && ! Token::query()->findOrFail($adminToken->id)->revoked, 'the refused revoke changes nothing');
@@ -440,7 +434,7 @@ try {
     httpCheck(Token::query()->findOrFail($memberToken->id)->revoked && $mcp($people['member'], $memberToken, $memberConnection) === 403, 'the revoked connection\'s token is revoked and no longer opens MCP');
     httpCheck($revoke($people['owner'], $adminConnection) === 'ok' && Token::query()->findOrFail($adminToken->id)->revoked && $mcp($people['admin'], $adminToken, $adminConnection) === 403, "an owner revokes another member's connection, and its token no longer opens MCP");
     [, $adminTarget] = $connectAs($people['member']);
-    httpCheck(isset($listed($people['admin'])[$adminTarget]), "an admin's AI assistants page lists other members' connections (connections.manage)");
+    httpCheck(isset($listed($people['admin'])[$adminTarget]), "an admin's Agent Integration page lists other members' connections (connections.manage)");
     httpCheck($revoke($people['admin'], $adminTarget) === 'ok' && DB::table('connections')->where('id', $adminTarget)->value('revoked_at') !== null, "an admin revokes another member's connection (connections.manage)");
     httpCheck(WorkspaceConnection::manageAbility() === 'connections.manage' && $app->make(Registry::class)->permissionFor('connections.manage') === 'workspace.connections.manage', 'the manage ability is connections.manage, backed by the workspace.connections.manage permission');
     httpCheck($revoke($people['owner'], $spareConnection) === 'ok' && $revoke($people['member'], $spareConnection) === 'ok', 'revoking an already revoked connection is a no-op for its owner');
