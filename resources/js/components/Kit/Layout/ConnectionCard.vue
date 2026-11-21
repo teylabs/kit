@@ -64,7 +64,7 @@ const badge = computed(
                 <p
                     v-if="!description"
                     aria-hidden="true"
-                    class="invisible mt-0.5 text-sm"
+                    class="mt-0.5 text-sm opacity-0"
                     data-description-placeholder
                 >
                     &#8203;
