@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { usePage } from '@inertiajs/vue3';
-import { Check, Circle } from '@lucide/vue';
+import { Check, Circle, Info } from '@lucide/vue';
 import { computed } from 'vue';
 
 /*
  * The password rules, shown under a new-password field before anything is typed: the length (ticked as soon as it is met) and, when the policy checks for it,
- * that the password isn't in a known data breach, which only the server can check on submit. The numbers come from the rule in force (`kitPassword`, shared
+ * a neutral note (not a checklist item) that the server checks known breaches on submit; no live check, which would be a third-party fetch. The numbers come from the rule in force (`kitPassword`, shared
  * by session-ui from Password::defaults()), so the field and the server never disagree; without it, the kit's default (8, breach-checked) is shown.
  */
 const props = defineProps<{ id: string; value?: string | null }>();
@@ -51,9 +51,8 @@ const long = computed(
             class="flex items-center gap-1.5"
             data-password-rule="breach"
         >
-            <Circle class="size-3.5" aria-hidden="true" /><span
-                >Not found in a known data breach (checked when you
-                submit)</span
+            <Info class="size-3.5" aria-hidden="true" /><span
+                >Checked against known breaches when you submit</span
             >
         </li>
     </ul>
