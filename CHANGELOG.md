@@ -2,13 +2,16 @@
 
 ## Unreleased
 
-Features affected: core (bookkeeping tables, morph aliases), workspaces (flags and tags), media (uploads table), mail (every kit mail). Run `php artisan migrate`; with `kit.tenancy.rls` on, run it as the admin connection.
+Features affected: core (bookkeeping tables, morph aliases), workspaces (flags and tags), media (uploads table), mail (tests only). Run `php artisan migrate`; with `kit.tenancy.rls` on, run it as the admin connection.
 
 ### Changed
 
 - **No `kit` in the schema.** `kit_meta` becomes `app_meta`, `kit_adoptions` becomes `app_adoptions` (where an adoption made it), `kit_media_uploads` becomes `media_uploads` (the new default of `kit.media.uploads_table`), and `kit_tags`, `kit_taggables` and `kit_flag_dismissals` become `tags`, `taggables` and `flag_dismissals`. The migrations refuse, naming the table, when the app already has one of the new names. Raw queries on the old names need updating. (#1190)
 - **Plain morph aliases.** `kit-note`, `kit-delivery`, `kit-user-avatar` and the rest are stored as `note`, `delivery`, `user-avatar`, …; the migration rewrites stored `*_type` values, and the `kit-` aliases still resolve. (#1190)
-- **Kit mail has no fallback line.** Laravel's "If you're having trouble clicking…" subcopy is gone from every kit mail, HTML and text; the button carries the link, once. (#1192)
+
+### Fixed
+
+- **Kit mail keeps Laravel's fallback line, once.** Tests now cover the generic, `action()`, invite, reset and verify mails: one "having trouble clicking" line in each part, and no hand-rolled fallback paragraph. (#1192)
 
 ### Security
 

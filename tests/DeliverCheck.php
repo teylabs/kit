@@ -410,7 +410,7 @@ try {
     $email = $messages[0]->getOriginalMessage();
     $record = $in($workspace, fn () => DeliveryRecord::query()->sole());
     $html = (string) $email->getHtmlBody();
-    // The customer link differs between preview (`#`) and send: in the button's href, the only place it appears.
+    // The customer link differs between preview (`#`) and send: in the button's href and in the subcopy's visible fallback link.
     // Links differ, and so does the fallback line under the button: the sent email has one for its real link, the preview ("#") has none.
     $strip = fn (string $h): string => preg_replace(['/<table class="subcopy"[\s\S]*?<\/table>/', '/href="[^"]*"/', '/>(?:https?:\/\/[^<]*|#)<\/a>/'], ['', 'href=""', '></a>'], $h);
     check(count($messages) === 1 && array_map(fn ($a) => $a->getAddress(), $email->getTo()) === ['robin@client.test'] && array_map(fn ($a) => $a->getAddress(), $email->getCc()) === ['sam@client.test'] && array_map(fn ($a) => $a->getAddress(), $email->getBcc()) === ['office@example.test'], 'one email: To and Cc are the chosen contacts, the internal copy is Bcc');
