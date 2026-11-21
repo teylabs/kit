@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.42.3
 
 Features affected: Avatar (Layout), workspace-ui (Dashboard You widget). Take the widget with `php artisan kit:scaffold workspace-ui --diff --only=resources/js/pages/Workspace/Dashboard`.
 
