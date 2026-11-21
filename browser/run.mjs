@@ -13992,6 +13992,11 @@ test('section shapes: each is a named section; a List inside a kit card draws no
         });
         assert.deepEqual(shape.named, ['Accounts', 'Square', 'Xero', 'QuickBooks', 'Stripe', 'Bookings', 'Invoices'], 'each section is named by its title');
         assert.deepEqual(shape.lists, [{ mode: 'in-card', bordered: false, rows: 3 }, { mode: 'in-card', bordered: false, rows: 2 }, { mode: 'surface', bordered: true, rows: 2 }], 'inside a card a List has only dividers; on the ground it draws its own bordered card');
+        const flush = await tab.evaluate(() => [...document.querySelectorAll('[data-list="in-card"]')].map(l => {
+            const row = l.querySelector('[data-list-row]'); const body = l.parentElement;
+            return { inset: row.getBoundingClientRect().left - (body.getBoundingClientRect().left + body.clientLeft + parseFloat(getComputedStyle(body).paddingLeft)), fill: getComputedStyle(l).backgroundColor };
+        }));
+        assert.ok(flush.every(f => Math.abs(f.inset) < 1 && /rgba\(0, 0, 0, 0\)|transparent/.test(f.fill)), 'inside a card, rows sit flush with the card padding, with no inset or fill: '+JSON.stringify(flush));
         assert.ok(shape.headings >= 7 && shape.footer, 'titles are real headings, and SettingsSection renders its footer action');
     });
 });
@@ -14006,6 +14011,22 @@ test('ConnectionCard states: connected, not connected (empty), checking (busy) a
         assert.equal(states.connected.facts && !states.connected.empty && states.connected.error === null && states.connected.busy === null, true, 'connected: facts, no error, not busy');
         assert.equal(states.disconnected.empty && !states.disconnected.facts, true, 'not connected: the empty line, no facts');
         assert.equal(states.checking.busy, 'true', 'checking: aria-busy');
+        const look = await tab.evaluate(() => {
+            const strip = (c) => c.split(/\s+/).filter(x => x && !/^(bg|text|border|ring)-/.test(x) && !/(success|danger|info|neutral|warning)/.test(x)).sort().join(' ');
+            const badges = [...document.querySelectorAll('[data-connection]')].map(c => c.querySelector('header ~ *, *') && [...c.querySelectorAll('span')].find(sp => /^(Connected|Not connected|Checking…|Failed)$/.test(sp.textContent.trim())));
+            const heads = [...document.querySelectorAll('[data-connection]')].map(c => c.firstElementChild.getBoundingClientRect().height);
+            const checking = document.querySelector('[data-case="checking"]');
+            return {
+                shapes: [...new Set(badges.map(b => strip(b.className)))].length,
+                heads: Math.max(...heads) - Math.min(...heads),
+                checkingLine: checking.querySelector('[data-connection-checking]')?.textContent.trim(),
+                disconnectEnabled: [...checking.querySelectorAll('button, a')].some(b => b.textContent.includes('Disconnect') && !b.disabled && b.getAttribute('aria-disabled') !== 'true'),
+            };
+        });
+        assert.equal(look.shapes, 1, 'every status badge has the same shape and fill classes; only the tone differs');
+        assert.ok(look.heads < 1, 'headers keep one height with or without a description: '+look.heads);
+        assert.equal(look.checkingLine, 'Checking the connection…', 'checking says so in a status line');
+        assert.ok(look.disconnectEnabled, 'checking keeps Disconnect usable, not dimmed without a reason');
         assert.equal(states.error.error, 'alert', 'failed: the error is an alert');
         for (const [name, text] of [['connected', 'Connected'], ['disconnected', 'Not connected'], ['checking', 'Checking…'], ['error', 'Failed']]) {
             assert.ok((await tab.locator(`[data-case="${name}"]`).textContent()).includes(text), `${name} shows "${text}" in text, not colour alone`);

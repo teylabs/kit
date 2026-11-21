@@ -33,12 +33,15 @@ const save = [{ label: 'Save', url: '/@acme/settings/accounting', method: 'post'
                 <ListRow title="Hot desk" description="Wed 19 Nov, all day" />
             </List>
         </DetailSection>
-        <DetailSection title="Invoices" data-case="detail-empty">
+        <DetailSection title="Invoices" description="An empty example: nothing raised yet." data-case="detail-empty">
             <EmptyState title="No invoices yet" body="Invoices show here once one is raised." compact />
         </DetailSection>
-        <List label="Recent imports" data-case="ground-list">
+        <section aria-label="Recent imports" class="flex flex-col gap-3">
+            <h2 class="text-base font-semibold">Recent imports (a List on the page ground)</h2>
+            <List label="Recent imports" data-case="ground-list">
             <ListRow title="Import 14" description="12 sales" />
             <ListRow title="Import 13" description="9 sales" />
         </List>
+        </section>
     </main>
 </template>

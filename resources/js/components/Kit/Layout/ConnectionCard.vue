@@ -9,7 +9,7 @@ import { provideCard } from '@/components/Kit/Surface/surface';
 
 // One external connection on a settings page (docs/connection-card.md), the shape of an accounting, payments or agent provider: its name, a status badge
 // (connected, not connected, checking, failed), what it is connected to and since when, the last check, the last error, and the connect or disconnect
-// `actions`. `status` checking marks it aria-busy. The `#default` slot holds extra settings (a FormCard stays outside, as its own section). Its own card.
+// `actions`. `status` checking marks it aria-busy and says so; its actions stay usable (Disconnect cancels a stuck check). The header keeps one height with or without `description`, so a row of cards aligns. Every state is the same Badge with a dot; only the tone changes. The `#default` slot holds extra settings (a FormCard stays outside, as its own section). Its own card.
 type Status = 'connected' | 'disconnected' | 'checking' | 'error';
 const props = withDefaults(
     defineProps<{
@@ -55,12 +55,21 @@ const badge = computed(
         :data-connection="status"
     >
         <div class="flex flex-wrap items-start justify-between gap-3 px-6 py-4">
-            <SectionHeader
-                :title="title"
-                :description="description"
-                :level="level"
-                class="min-w-0 flex-1"
-            />
+            <div class="flex min-w-0 flex-1 flex-col">
+                <SectionHeader
+                    :title="title"
+                    :description="description"
+                    :level="level"
+                />
+                <p
+                    v-if="!description"
+                    aria-hidden="true"
+                    class="invisible mt-0.5 text-sm"
+                    data-description-placeholder
+                >
+                    &#8203;
+                </p>
+            </div>
             <Badge :tone="badge[0]" dot>{{ badge[1] }}</Badge>
         </div>
         <div class="flex flex-col gap-3 p-6">
@@ -87,7 +96,15 @@ const badge = computed(
                 </div>
             </dl>
             <p
-                v-else-if="status === 'disconnected'"
+                v-if="status === 'checking'"
+                class="text-muted-foreground text-sm"
+                role="status"
+                data-connection-checking
+            >
+                Checking the connection…
+            </p>
+            <p
+                v-else-if="status === 'disconnected' && !account"
                 class="text-muted-foreground text-sm"
                 data-connection-empty
             >
@@ -105,7 +122,6 @@ const badge = computed(
             <ActionBar
                 v-if="actions.length"
                 :actions="actions"
-                :busy="status === 'checking'"
                 @action="(a: ActionDescriptor) => $emit('action', a)"
             />
         </div>

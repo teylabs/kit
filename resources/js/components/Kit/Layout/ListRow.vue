@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useInCard } from '@/components/Kit/Surface/surface';
 import ActionBar from '@/components/Kit/Action/ActionBar.vue';
 import type { ActionDescriptor } from '@/components/Kit/Action/actionPlacement';
 
@@ -12,10 +13,15 @@ withDefaults(
     { title: undefined, description: null, actions: () => [] },
 );
 defineEmits<{ action: [action: ActionDescriptor] }>();
+// Inside a card the row is flush with the card's padding; on the ground the List's own card gives it a side inset.
+const inCard = useInCard();
 </script>
 <template>
     <li
-        class="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
+        :class="[
+            'flex flex-wrap items-center justify-between gap-3 py-3',
+            inCard ? 'px-0 first:pt-0 last:pb-0' : 'px-4',
+        ]"
         data-list-row
     >
         <div class="flex min-w-0 flex-1 flex-col gap-0.5">
