@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.46.0
 
 Features affected: core (NavGroup, PageLayout, Registry), session-ui, shell (re-pinned), kit components (Page, PageTabs, SettingsFrame).
 
