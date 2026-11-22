@@ -133,7 +133,7 @@ const segment =
                     'focus-within:border-ring focus-within:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 flex h-9 w-full min-w-0 items-center rounded-md border px-1.5 text-base transition-[color,box-shadow] focus-within:ring-[3px] data-disabled:cursor-not-allowed data-disabled:opacity-50 md:text-sm',
                     locked
                         ? 'border-border bg-muted shadow-none'
-                        : 'dark:bg-input/30 border-(color:--kit-field-edge) bg-(--kit-field) shadow-(--kit-elevation-1)',
+                        : 'dark:bg-input/30 border-[color:var(--kit-field-edge,var(--input))] bg-[var(--kit-field,var(--card))] shadow-(--kit-elevation-1)',
                 ]"
                 @update:model-value="update"
             >

@@ -80,7 +80,7 @@ foreach ($themes as $theme => $tokens) {
 $tinted = file_get_contents(__DIR__.'/fixtures/tinted-ground-theme.css');
 $tintedLight = [...$light, ...block($tinted, ':root')];
 $grounds = [...$themes, 'tinted sample' => $tintedLight, 'tinted sample dark' => [...$themes['dark'], ...$tintedLight, ...block($tinted, '.dark')]];
-check(($light['kit-ground'] ?? null) === 'tinted' && $light['background'] === '#fafaf9' && $light['card'] === 'hsl(0 0% 100%)', 'kit.css declares the near-white ground (#fafaf9, --kit-ground: tinted) with white cards by default (v0.48.0)');
+check(($light['kit-ground'] ?? null) === 'tinted' && $light['background'] === 'hsl(60 9.1% 97.8%)' && $light['card'] === 'hsl(0 0% 100%)', 'kit.css declares the near-white ground (#fafaf9, --kit-ground: tinted) with white cards by default (v0.48.0)');
 check(($tintedLight['kit-ground'] ?? null) === 'tinted', 'the sample theme declares --kit-ground: tinted');
 check($tintedLight['background'] === '#f3f5e7', 'the sample tinted ground is #f3f5e7');
 $surface = file_get_contents(__DIR__.'/../resources/js/components/Kit/Surface/surface.ts');

@@ -8285,7 +8285,7 @@ const axeClean = async (tab, name) => {
 // ── The shell bar under each brand preset (light and dark, 1280px, where the search shows its ⌘K hint): the kit's own Brand::css for each, axe-clean ──────
 // with contrast inside the bar. An ink header paints the bar dark; the hint sits on `bg-muted`, which must be the bar's own wash, not the page's (HC #1721).
 // Brand::css's output for each preset, as test:brand pins it (the browser job has no PHP): neutral prints nothing; an ink header prints the bar block.
-const inkBar = (ink, accent) => `[data-shell-bar]{--background:${ink};--foreground:#ffffff;--muted:#27272a;--muted-foreground:#a1a1aa;--accent:#27272a;--accent-foreground:#ffffff;--border:#27272a;--ring:${accent};--brand-marker:${accent}}`;
+const inkBar = (ink, accent) => `[data-shell-bar]{--background:${ink};--foreground:#ffffff;--muted:#27272a;--muted-foreground:#a1a1aa;--accent:#27272a;--accent-foreground:#ffffff;--border:#27272a;--shell-bar-field:#27272a;--shell-bar-field-edge:#71717a;--kit-field:#27272a;--kit-field-edge:#71717a;--ring:${accent};--brand-marker:${accent}}`;
 test('the shell bar\'s ⌘K hint and the rest of the bar pass axe contrast under every brand preset (neutral, fill, mono ink, ink with gold), light and dark', async () => {
     const presets = {
         neutral: '',
@@ -8305,6 +8305,45 @@ test('the shell bar\'s ⌘K hint and the rest of the bar pass axe contrast under
                 const violations = await tab.evaluate(async () => (await window.axe.run({ include: [['[data-shell-bar]']] }, { runOnly: ['color-contrast'] })).violations.map(v => `${v.id}: ${v.nodes.map(n => `${n.target.join(' ')} ${n.any[0]?.data?.contrastRatio ?? ''}`).join(', ')}`));
                 assert.deepEqual(violations, [], `${scheme}: no contrast failure in the bar`);
                 assert.deepEqual(errors, []);
+            } finally { await context.close(); }
+        }
+    }
+});
+
+// The global search field in the shell bar takes the bar's own fill and edge (--shell-bar-field, --shell-bar-field-edge), not the page's (AppraisalBench #1817:
+// on a dark bar the page's field went see-through in light and drew a bright edge in dark). Its edge reaches 3:1 against the bar and its placeholder 4.5:1 on
+// its fill, under each preset, light and dark.
+test('the shell bar\'s search field has the bar\'s own fill and edge: a 3:1 edge against the bar and a 4.5:1 placeholder, under neutral, ink and ink-gold, light and dark', async () => {
+    // The last is an app that updated the package but not its kit.css copy (no field tokens, as AppraisalBench's preview): Brand::css still prints the bar's field.
+    // An ink header's bar is painted ink (the app maps --shell-bar to it, as the starter's app.css does).
+    const ink = (colour, accent) => inkBar(colour, accent) + `:root{--shell-bar:${colour}}[data-shell-bar]{--shell-bar-foreground:#ffffff}`;
+    const presets = { neutral: '', ink: ink('#050505', '#16a34a'), 'ink-gold': ink('#1a181b', '#c9a227'), 'ink, stale kit.css': ink('#1a181b', '#c9a227') + ':root{--kit-field:initial;--kit-field-edge:initial;--shell-bar-field:initial;--shell-bar-field-edge:initial}' };
+    for (const [name, css] of Object.entries(presets)) {
+        for (const dark of [false, true]) {
+            const scheme = `${name} ${dark ? 'dark' : 'light'}`;
+            const { context, tab } = await openShell('', 1280, dark);
+            try {
+                if (css) await tab.addStyleTag({ content: css });
+                const seen = await tab.evaluate(() => {
+                    const rgba = (value) => { const probe = document.createElement('canvas').getContext('2d'); probe.fillStyle = '#000'; probe.fillStyle = value; probe.fillRect(0, 0, 1, 1); return [...probe.getImageData(0, 0, 1, 1).data]; };
+                    const over = (top, under) => { const a = top[3] / 255; return [0, 1, 2].map(i => top[i] * a + under[i] * (1 - a)); };
+                    const lum = (c) => { const [r, g, b] = c.map(v => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+                    const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m); return (x + 0.05) / (y + 0.05); };
+                    const ground = getComputedStyle(document.body).backgroundColor;
+                    const page = over(rgba(getComputedStyle(document.documentElement).backgroundColor), [255, 255, 255]);
+                    const barEl = document.querySelector('[data-shell-bar]');
+                    const bar = over(rgba(getComputedStyle(barEl).backgroundColor), over(rgba(ground), page));
+                    const input = document.querySelector('[data-shell-bar] [data-search-input]');
+                    const style = getComputedStyle(input);
+                    const fill = over(rgba(style.backgroundColor), bar);
+                    const edge = over(rgba(style.borderTopColor), bar);
+                    const placeholder = over(rgba(getComputedStyle(input, '::placeholder').color), fill);
+                    return { fillAlpha: rgba(style.backgroundColor)[3], edge: ratio(edge, bar), placeholder: ratio(placeholder, fill) };
+                });
+                assert.equal(seen.fillAlpha, 255, `${scheme}: the field is filled, not see-through`);
+                assert.ok(seen.edge >= 3, `${scheme}: the field's edge is ${seen.edge.toFixed(2)}:1 against the bar (3:1)`);
+                assert.ok(seen.placeholder >= 4.5, `${scheme}: the placeholder is ${seen.placeholder.toFixed(2)}:1 on the field (4.5:1)`);
+                if (process.env.KIT_BAR_FIELD_SHOTS) await tab.screenshot({ path: `${process.env.KIT_BAR_FIELD_SHOTS}/bar-${name}-${dark ? 'dark' : 'light'}.png`, clip: { x: 0, y: 0, width: 1280, height: 72 } });
             } finally { await context.close(); }
         }
     }

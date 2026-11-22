@@ -188,8 +188,7 @@
 }
 
 :where(:root) {
-    --kit-ground: tinted;
-    --background: #fafaf9;
+    --background: hsl(60 9.1% 97.8%);
     --foreground: hsl(0 0% 3.9%);
     --card: hsl(0 0% 100%);
     --card-foreground: hsl(0 0% 3.9%);
@@ -197,11 +196,11 @@
     --popover-foreground: hsl(0 0% 3.9%);
     --primary: hsl(0 0% 9%);
     --primary-foreground: hsl(0 0% 98%);
-    --secondary: #e9e9e6;
+    --secondary: hsl(60 6.4% 90.8%);
     --secondary-foreground: hsl(0 0% 9%);
-    --muted: #f2f2f0;
+    --muted: hsl(60 7.1% 94.5%);
     --muted-foreground: hsl(0 0% 41%);
-    --accent: #ededeb;
+    --accent: hsl(60 5.3% 92.5%);
     --accent-foreground: hsl(0 0% 9%);
     --destructive: hsl(0 74% 42%);
     --destructive-foreground: hsl(0 0% 98%);
@@ -209,25 +208,26 @@
     --success-text: hsl(142 76% 26%);
     --warning-text: hsl(26 90% 33%);
     --info-text: hsl(201 90% 32%);
-    --border: #e4e4e1;
+    --border: hsl(60 5.3% 88.8%);
     --input: hsl(0 0% 56%);
     --ring: hsl(0 0% 3.9%);
+    --kit-ground: tinted;
 }
 /* A subtree that stays light under .dark (the PublicShell's theme="light": a page with no dark styling yet). It restates the neutral surface tokens with their light
    values, not the brand's primary, so a host's own brand colours stand. */
 .kit-theme-light {
     color-scheme: light;
-    --background: #fafaf9;
+    --background: hsl(60 9.1% 97.8%);
     --foreground: hsl(0 0% 3.9%);
     --card: hsl(0 0% 100%);
     --card-foreground: hsl(0 0% 3.9%);
     --popover: hsl(0 0% 100%);
     --popover-foreground: hsl(0 0% 3.9%);
-    --muted: #f2f2f0;
+    --muted: hsl(60 7.1% 94.5%);
     --muted-foreground: hsl(0 0% 41%);
-    --accent: #ededeb;
+    --accent: hsl(60 5.3% 92.5%);
     --accent-foreground: hsl(0 0% 9%);
-    --border: #e4e4e1;
+    --border: hsl(60 5.3% 88.8%);
     --input: hsl(0 0% 56%);
     --kit-elevation-1: 0 1px 2px rgb(28 25 23 / 0.06), 0 1px 3px rgb(28 25 23 / 0.1);
     --kit-elevation-2: 0 1px 2px rgb(28 25 23 / 0.06), 0 3px 6px rgb(28 25 23 / 0.1);
@@ -392,6 +392,18 @@
 
 :where(:root) {
     --shell-bar-foreground: var(--foreground);
+    --shell-bar-field: var(--card);
+    --shell-bar-field-edge: var(--input);
+}
+
+/*
+ * A field in the shell bar (the global search) takes the bar's own fill and edge, not the page's: `--shell-bar-field` and `--shell-bar-field-edge`, the card
+ * and --input by default (white and 3:1 on a light bar), which an ink header sets for its dark bar (Brand::css). The edge needs 3:1 against the bar, and the
+ * placeholder (--muted-foreground) 4.5:1 on the fill.
+ */
+[data-shell-bar] {
+    --kit-field: var(--shell-bar-field);
+    --kit-field-edge: var(--shell-bar-field-edge);
 }
 
 /*
