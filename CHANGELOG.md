@@ -15,6 +15,11 @@ Features affected: core (NavGroup, PageLayout, Registry), session-ui, shell (re-
 - **A nested module's row is now pills, not a second row of tabs.** For example, HC's Admin › Billing second row changes look; its pages, order and current state are unchanged. This follows the nested-navigation rule (tabs, then pills, then a sidebar). (#1219)
 - **SettingsFrame** takes a `label` and `select`, spaces its content column like a page, and draws a section icon only for items that carry one. Settings pages look the same. (#1219)
 
+### Fixed
+
+- **A module still draws its row under a current primary link that has no pages of its own.** A primary link whose `active` covers another module's pages (Admin over `billing/*`) left that module, tabs or sidebar, with no row; it now falls through to the module's own. Also released in v0.45.1. (#1222)
+
+
 ## v0.45.0
 
 Features affected: core (Breakout, NavigationHeader, Card, CollectionCard, Composer, kit.css; re-pinned), session-ui, shell (re-pinned), notes (composer; re-pinned), kit components (SectionIcon).

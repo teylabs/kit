@@ -153,8 +153,10 @@ final class PageShell implements ShellSource
             if (! $link['current'] && $row['match'] === null) {
                 continue;
             }
+            // A current primary link with no pages of its own (an `active` that covers another module's pages, Admin over billing/*) draws no row: the
+            // module those pages belong to may still draw its own, below.
             if ($row['items'] === []) {
-                return null;
+                break;
             }
 
             return self::withWidth($registry, $link['suffix'], ['label' => $link['label'], 'items' => $row['items']] + ($row['child'] === null ? [] : ['child' => $row['child']]));
