@@ -225,6 +225,9 @@ try {
     $app->make(Registry::class)->modulePage('', 'dashboard.read', 'Settings', 'settings', active: ['settings', 'settings/*']);
     $placed = $settingsLinks($shell('settings'));
     check(count($placed) === 1 && $placed[0]['current'] === true, 'with false and an app\'s own Settings tab (Admin › Settings), exactly one Settings link renders, current on settings/*');
+    $sectionNav = $shell('settings/general')['navigation'];
+    check(array_map(fn (array $link): array => [$link['label'], $link['current']], $sectionNav) === [['Dashboard', true]], 'the section\'s primary link is current on settings/* through its Settings page\'s own `active`, with no `active` on the primary link');
+    check(array_column($shell('settings')['navigation'], 'current') === [true] && array_column($shell()['navigation'], 'current') === [true], 'and on the section\'s own pages, as before');
     $app['config']->set('kit.shell.settings_link', 'primary');
 
     echo "Module tab checks on SQLite memory with real Concierge, spatie teams and Pennant; Inertia JSON through router dispatch without the global middleware stack. No browser here: <Page> drawing the tabs is browser/run.mjs's.\n";
