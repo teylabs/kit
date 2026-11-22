@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.47.1
 
 Features affected: core (Page, PageTabs, Breadcrumbs, Collapsible) and shell (SubNav, re-pinned `sha256:060a565931df` → `sha256:eac4d0ccb0c8`). Run `kit:update plan|apply` for `shell`.
 
