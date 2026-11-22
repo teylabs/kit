@@ -2,7 +2,11 @@
 
 ## Unreleased
 
-Features affected: workspaces (migration `000212`).
+Features affected: workspaces (migration `000212`), kit components (Layout).
+
+### Added
+
+- **Section shapes for settings, connection and detail pages.** `SettingsSection`, `ConnectionCard` (connected, not connected, checking, failed), `DetailSection`, and `List` with `ListRow`, which draws only dividers inside a kit card and its own card on the page ground, in place of a hand-bordered list. Docs: settings-section.md, connection-card.md, detail-section.md, list.md. (#1203)
 
 ### Fixed
 

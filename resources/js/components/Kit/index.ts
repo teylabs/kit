@@ -98,6 +98,12 @@ export { default as Stack } from './Layout/Stack.vue';
 // Deprecated: BlockStack renders a Stack and is removed in the next release.
 export { default as BlockStack } from './Layout/BlockStack.vue';
 export { default as PageSection } from './Layout/PageSection.vue';
+// Section shapes for settings, connection and detail pages, and divided rows (docs/settings-section.md, connection-card.md, detail-section.md, list.md).
+export { default as SettingsSection } from './Layout/SettingsSection.vue';
+export { default as ConnectionCard } from './Layout/ConnectionCard.vue';
+export { default as DetailSection } from './Layout/DetailSection.vue';
+export { default as List } from './Layout/List.vue';
+export { default as ListRow } from './Layout/ListRow.vue';
 export { default as PageGrid } from './Layout/PageGrid.vue';
 export { default as PageGridItem } from './Layout/PageGridItem.vue';
 // A page's aside column: sections spaced with the page's gap, sticky only while it fits the viewport (docs/page-rhythm.md).

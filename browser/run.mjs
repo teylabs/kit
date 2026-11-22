@@ -13960,3 +13960,92 @@ test('PasswordInput secret tells password managers to leave it alone, autofill t
         assert.deepEqual(await axeWithContrast(tab), [], 'axe, colour contrast included');
     });
 });
+
+// ── Section shapes (?section-shapes, docs/settings-section.md, connection-card.md, detail-section.md, list.md): structure, states, no card in a card, axe light
+// and dark. KIT_SECTION_SHAPES_SCREENSHOT=<path prefix> saves each scheme at 1440 and 390px.
+async function sectionShapes(dark, check, viewport = { width: 1440, height: 1800 }) {
+    const context = await browser.newContext({ viewport });
+    try {
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        await tab.goto(`${url}?section-shapes${dark ? '&dark' : ''}`);
+        await tab.waitForSelector('[data-case="ground-list"]');
+        await check(tab);
+        assert.deepEqual(errors, []);
+    } finally {
+        await context.close();
+    }
+}
+
+test('section shapes: each is a named section; a List inside a kit card draws no border, on the ground it draws its own card', async () => {
+    await sectionShapes(false, async (tab) => {
+        const shape = await tab.evaluate(() => {
+            const bordered = (el) => getComputedStyle(el).borderTopWidth !== '0px';
+            const lists = [...document.querySelectorAll('[data-list]')].map(l => ({ mode: l.dataset.list, bordered: bordered(l), rows: l.querySelectorAll('[data-list-row]').length }));
+            return {
+                named: [...document.querySelectorAll('[data-settings-section], [data-connection], [data-detail-section]')].map(s => s.getAttribute('aria-label')),
+                lists,
+                headings: [...document.querySelectorAll('section h2')].length,
+                footer: !!document.querySelector('[data-case="settings"] [data-settings-footer] button, [data-case="settings"] [data-settings-footer] a'),
+            };
+        });
+        assert.deepEqual(shape.named, ['Accounts', 'Square', 'Xero', 'QuickBooks', 'Stripe', 'Bookings', 'Invoices'], 'each section is named by its title');
+        assert.deepEqual(shape.lists, [{ mode: 'in-card', bordered: false, rows: 3 }, { mode: 'in-card', bordered: false, rows: 2 }, { mode: 'surface', bordered: true, rows: 2 }], 'inside a card a List has only dividers; on the ground it draws its own bordered card');
+        const flush = await tab.evaluate(() => [...document.querySelectorAll('[data-list="in-card"]')].map(l => {
+            const row = l.querySelector('[data-list-row]'); const body = l.parentElement;
+            return { inset: row.getBoundingClientRect().left - (body.getBoundingClientRect().left + body.clientLeft + parseFloat(getComputedStyle(body).paddingLeft)), fill: getComputedStyle(l).backgroundColor };
+        }));
+        assert.ok(flush.every(f => Math.abs(f.inset) < 1 && /rgba\(0, 0, 0, 0\)|transparent/.test(f.fill)), 'inside a card, rows sit flush with the card padding, with no inset or fill: '+JSON.stringify(flush));
+        assert.ok(shape.headings >= 7 && shape.footer, 'titles are real headings, and SettingsSection renders its footer action');
+    });
+});
+
+test('ConnectionCard states: connected, not connected (empty), checking (busy) and failed (error, announced)', async () => {
+    await sectionShapes(false, async (tab) => {
+        const states = await tab.evaluate(() => Object.fromEntries([...document.querySelectorAll('[data-connection]')].map(c => [c.dataset.case, {
+            status: c.dataset.connection, badge: c.querySelector('[data-slot="badge"], span[class*="rounded"]')?.textContent.trim() ?? c.textContent.match(/Connected|Not connected|Checking…|Failed/)?.[0],
+            busy: c.getAttribute('aria-busy'), facts: !!c.querySelector('[data-connection-facts]'), empty: !!c.querySelector('[data-connection-empty]'),
+            error: c.querySelector('[data-connection-error]')?.getAttribute('role') ?? null,
+        }])));
+        assert.equal(states.connected.facts && !states.connected.empty && states.connected.error === null && states.connected.busy === null, true, 'connected: facts, no error, not busy');
+        assert.equal(states.disconnected.empty && !states.disconnected.facts, true, 'not connected: the empty line, no facts');
+        assert.equal(states.checking.busy, 'true', 'checking: aria-busy');
+        const look = await tab.evaluate(() => {
+            const strip = (c) => c.split(/\s+/).filter(x => x && !/^(bg|text|border|ring)-/.test(x) && !/(success|danger|info|neutral|warning)/.test(x)).sort().join(' ');
+            const badges = [...document.querySelectorAll('[data-connection]')].map(c => c.querySelector('header ~ *, *') && [...c.querySelectorAll('span')].find(sp => /^(Connected|Not connected|Checking…|Failed)$/.test(sp.textContent.trim())));
+            const heads = [...document.querySelectorAll('[data-connection]')].map(c => c.firstElementChild.getBoundingClientRect().height);
+            const checking = document.querySelector('[data-case="checking"]');
+            return {
+                shapes: [...new Set(badges.map(b => strip(b.className)))].length,
+                heads: Math.max(...heads) - Math.min(...heads),
+                placeholders: [...document.querySelectorAll('[data-description-placeholder]')].map(p => p.getAttribute('aria-hidden')),
+                checkingLine: checking.querySelector('[data-connection-checking]')?.textContent.trim(),
+                disconnectEnabled: [...checking.querySelectorAll('button, a')].some(b => b.textContent.includes('Disconnect') && !b.disabled && b.getAttribute('aria-disabled') !== 'true'),
+            };
+        });
+        assert.equal(look.shapes, 1, 'every status badge has the same shape and fill classes; only the tone differs');
+        assert.ok(look.heads < 1, 'headers keep one height with or without a description: '+look.heads);
+        assert.ok(look.placeholders.length > 0 && look.placeholders.every(v => v === 'true'), 'the description placeholder is hidden from assistive tech: '+look.placeholders);
+        assert.equal(look.checkingLine, 'Checking the connection…', 'checking says so in a status line');
+        assert.ok(look.disconnectEnabled, 'checking keeps Disconnect usable, not dimmed without a reason');
+        assert.equal(states.error.error, 'alert', 'failed: the error is an alert');
+        for (const [name, text] of [['connected', 'Connected'], ['disconnected', 'Not connected'], ['checking', 'Checking…'], ['error', 'Failed']]) {
+            assert.ok((await tab.locator(`[data-case="${name}"]`).textContent()).includes(text), `${name} shows "${text}" in text, not colour alone`);
+        }
+    });
+});
+
+test('section shapes pass axe with contrast, light and dark, at 1440 and 390px', async () => {
+    for (const dark of [false, true]) {
+        for (const width of [1440, 390]) {
+            await sectionShapes(dark, async (tab) => {
+                await tab.addScriptTag({ path: axeSource });
+                const violations = await tab.evaluate(async () => (await window.axe.run(document)).violations.map(v => `${v.id}: ${v.nodes.map(n => n.target).join(' ')}`));
+                assert.deepEqual(violations, [], `axe ${dark ? 'dark' : 'light'} ${width}`);
+                assert.ok(await tab.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'no page overflow');
+                if (process.env.KIT_SECTION_SHAPES_SCREENSHOT) await tab.screenshot({ path: `${process.env.KIT_SECTION_SHAPES_SCREENSHOT}-${dark ? 'dark' : 'light'}-${width}.png`, fullPage: true });
+            }, { width, height: 1800 });
+        }
+    }
+});
