@@ -8280,6 +8280,34 @@ const axeClean = async (tab, name) => {
     assert.deepEqual(violations, [], `${name}: axe`);
 };
 
+// ── The shell bar under each brand preset (light and dark, 1280px, where the search shows its ⌘K hint): the kit's own Brand::css for each, axe-clean ──────
+// with contrast inside the bar. An ink header paints the bar dark; the hint sits on `bg-muted`, which must be the bar's own wash, not the page's (HC #1721).
+// Brand::css's output for each preset, as test:brand pins it (the browser job has no PHP): neutral prints nothing; an ink header prints the bar block.
+const inkBar = (ink, accent) => `[data-shell-bar]{--background:${ink};--foreground:#ffffff;--muted:#27272a;--muted-foreground:#a1a1aa;--accent:#27272a;--accent-foreground:#ffffff;--border:#27272a;--ring:${accent};--brand-marker:${accent}}`;
+test('the shell bar\'s ⌘K hint and the rest of the bar pass axe contrast under every brand preset (neutral, fill, mono ink, ink with gold), light and dark', async () => {
+    const presets = {
+        neutral: '',
+        fill: ':root{--primary:#2563eb;--primary-foreground:#ffffff;--ring:#1d4ed8;--brand-marker:#1d4ed8}',
+        'mono-ink': ':root{--primary:#050505;--primary-foreground:#ffffff;--ring:#15803d;--brand-marker:#16a34a}' + inkBar('#050505', '#16a34a'),
+        'ink-gold': inkBar('#1a181b', '#c9a227'),
+    };
+    for (const [name, css] of Object.entries(presets)) {
+        for (const dark of [false, true]) {
+            const scheme = `${name} ${dark ? 'dark' : 'light'}`;
+            const { context, tab, errors } = await openShell('', 1280, dark);
+            try {
+                if (css) await tab.addStyleTag({ content: css });
+                const kbd = tab.locator('[data-global-search] kbd');
+                assert.equal(await kbd.isVisible(), true, `${scheme}: the ⌘K hint shows at 1280px`);
+                await tab.addScriptTag({ path: axeSource });
+                const violations = await tab.evaluate(async () => (await window.axe.run({ include: [['[data-shell-bar]']] }, { runOnly: ['color-contrast'] })).violations.map(v => `${v.id}: ${v.nodes.map(n => `${n.target.join(' ')} ${n.any[0]?.data?.contrastRatio ?? ''}`).join(', ')}`));
+                assert.deepEqual(violations, [], `${scheme}: no contrast failure in the bar`);
+                assert.deepEqual(errors, []);
+            } finally { await context.close(); }
+        }
+    }
+});
+
 test('pills: a nested module (Front desk › Sales) is a pill row under the tabs, one current, icons only where a page has one, a select on phones, axe-clean light and dark', async () => {
     for (const dark of [false, true]) {
         for (const width of [1280, 390]) {
