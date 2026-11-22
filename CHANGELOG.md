@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+Features affected: core (Registry boot check), kit components (SectionIcon).
+
+### Fixed
+
+- **An app with a settings section icon outside the list boots again.** v0.46.1's boot check also threw for `settingsSection()` icons, so an app that booted on v0.46.0 failed in local and testing. A settings section's unknown icon now logs a warning and draws the gear, as before; only a module page's unknown icon (new in v0.46.1) fails the boot. `globe` and `store` join the allow-list. Every name SectionIcon drew in v0.46.0 is still listed.
+
 ## v0.46.1
 
 Features affected: core (Registry, boot check), session-ui (module navigation, dashboard widgets), kit components (SectionIcon, PageTabs, Page, SettingsFrame), workspace-ui (re-pinned).

@@ -21,6 +21,7 @@ import {
     Files,
     Frame,
     Gauge,
+    Globe,
     HandHeart,
     Inbox,
     KeyRound,
@@ -42,6 +43,7 @@ import {
     ShieldCheck,
     ShoppingCart,
     SlidersHorizontal,
+    Store,
     Sparkles,
     TabletSmartphone,
     Tags,
@@ -110,6 +112,8 @@ const icons = {
     'user-check': UserCheck,
     'user-plus': UserPlus,
     users: Users,
+    globe: Globe,
+    store: Store,
 } as const;
 const props = defineProps<{ name?: string; small?: boolean }>();
 const icon =
