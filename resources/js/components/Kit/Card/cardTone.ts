@@ -13,3 +13,6 @@ export const CARD_TONES: Record<CardTone, string> = {
 
 /** A card's gutters, shared by its header, body and footer so their edges line up. */
 export const CARD_GUTTER = 'px-4 sm:px-5';
+
+/** A card's named look (docs/cards.md, Variants): `ruled` (the default) or `open`. A new one is a token block in kit.css and a name here. */
+export type CardVariant = 'ruled' | 'open';

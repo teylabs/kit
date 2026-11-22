@@ -52,6 +52,7 @@ export { seeAllPlacement, type SeeAll } from '@/components/Kit/Action/seeAll';
 export { default as Surface } from '@/components/Kit/Surface/Surface.vue';
 // The settings forms' (forms.html).
 export { default as FormCard } from '@/components/Kit/Form/FormCard.vue';
+export { default as Composer } from '@/components/Kit/Form/Composer.vue';
 export { default as RadioCardGroup } from '@/components/Kit/Form/RadioCardGroup.vue';
 export { default as TimezoneSelect } from '@/components/Kit/Form/TimezoneSelect.vue';
 // The account and session forms' (forms.html): Account › Profile, Password, Security and Delete, the welcome steps and the notes wall.

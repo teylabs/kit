@@ -140,6 +140,8 @@ export { default as Breadcrumbs } from './Layout/Breadcrumbs.vue';
 export { default as FileInput } from './Form/FileInput.vue';
 export { default as FormActions } from './Form/FormActions.vue';
 export { default as FormCard } from './Form/FormCard.vue';
+// A seamless composer: one quiet field that opens in place to write, with its tools and Post (docs/composer.md).
+export { default as Composer } from './Form/Composer.vue';
 export { default as FormFieldset } from './Form/FormFieldset.vue';
 export { default as FormStatus } from './Form/FormStatus.vue';
 // A download or new-tab submit by a native hidden form on <body>, which outlives a closing modal (docs/form-link.md): the control, the function, and validate-then-open.
@@ -438,7 +440,7 @@ export type {
     CollectionSort,
 } from './Layout/collectionSection';
 export { default as ActionCard } from './Card/ActionCard.vue';
-export { CARD_TONES, type CardTone } from './Card/cardTone';
+export { CARD_TONES, type CardTone, type CardVariant } from './Card/cardTone';
 export type { MenuSubject } from './Menu/menuSubject';
 export {
     normalAction,

@@ -5974,7 +5974,7 @@ async function notesPage(query, run) {
             await route.fulfill({ status: 200, headers: { 'Content-Type': 'application/json', 'X-Inertia': 'true', Vary: 'X-Inertia' }, body: JSON.stringify(page) });
         });
         await tab.goto(`${authUrl}notes.html${query}`);
-        await tab.waitForSelector('[data-note-composer] [data-dropzone]');
+        await tab.waitForSelector('[data-note-composer] [data-composer]');
         await run({ tab, posts });
         assert.deepEqual(errors, []);
     } finally {
@@ -5990,7 +5990,10 @@ for (const [mode, query] of [['light', ''], ['dark', '?dark']]) {
     test(`the notes composer (${mode}): no native file chooser or select, and no axe violations (WCAG 2.2 AA, color-contrast included) empty and with files chosen`, async () => {
         await notesPage(query, async ({ tab }) => {
             assert.equal(await tab.locator('[data-note-composer] select:visible, [data-note-composer] input[type=file]:not(.sr-only)').count(), 0, 'no visible native select or file input');
-            assert.deepEqual(await notesAxe(tab), [], 'empty composer');
+            assert.deepEqual(await notesAxe(tab), [], 'empty composer, closed');
+            await tab.focus('textarea[name=body]');
+            await tab.waitForSelector('[data-composer="open"] [data-composer-toolbar]');
+            assert.deepEqual(await notesAxe(tab), [], 'open composer');
             await tab.setInputFiles('[data-dropzone-input]', [{ name: 'plan.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4') }]);
             await tab.waitForSelector('[aria-label="Files to attach"] li');
             assert.deepEqual(await notesAxe(tab), [], 'with a file chosen');
@@ -5998,28 +6001,19 @@ for (const [mode, query] of [['light', ''], ['dark', '?dark']]) {
     });
 }
 
-test('the notes composer by keyboard: the colour select and the dropzone are labelled and operable, Remove works, and a save posts the files once then clears them', async () => {
+test('the notes composer by keyboard: one quiet line that opens on focus, labelled colour radios and Attach a file, Remove works, and a save posts the files once then clears them', async () => {
     await notesPage('', async ({ tab, posts }) => {
-        const colour = tab.getByRole('combobox', { name: 'Colour' });
-        assert.equal(await colour.count(), 1, 'the colour select is a combobox named by its label');
-        await colour.focus();
-        await tab.keyboard.press('ArrowDown');
-        await tab.getByRole('option', { name: 'Blue' }).waitFor();
-        await tab.keyboard.press('ArrowDown');
-        await tab.keyboard.press('Enter');
-        assert.match(await colour.evaluate(el => el.closest('[data-note-composer]').querySelector('input[name=colour]')?.value ?? ''), /blue/, 'the keyboard picked Blue');
-        const zone = tab.getByRole('button', { name: 'browse' });
-        const named = tab.locator('[data-dropzone][aria-label="Add files to this note: drop, paste or browse"]');
-        assert.equal(await named.count(), 1, 'the dropzone is named');
-        assert.equal(await named.getAttribute('tabindex'), '0', 'the dropzone takes focus (paste target)');
-        // The select hands focus back to its trigger once its listbox has closed; wait for that, so it can't take focus from the dropzone after we move it.
-        await tab.getByRole('listbox').waitFor({ state: 'detached' });
-        await tab.waitForFunction(() => document.activeElement?.getAttribute('role') === 'combobox');
-        await zone.focus();
-        await tab.waitForFunction(el => document.activeElement === el, await zone.elementHandle());
-        // Enter must open the picker: the kit's part is calling click() on its hidden file input, with the keypress's user activation. That is what is
-        // asserted. Playwright's own 'filechooser' event is not: it switches interception on asynchronously when the first listener is added, and under
-        // CPU load the click could land first, so the chooser was missed though the kit had opened it (seen under 6x throttling).
+        assert.equal(await tab.getAttribute('[data-composer]', 'data-composer'), 'closed', 'closed, the composer is one line with no toolbar');
+        assert.equal(await tab.locator('[data-composer-toolbar]').count(), 0);
+        await tab.keyboard.press('Tab');
+        for (let i = 0; i < 30 && !(await tab.evaluate(() => document.activeElement?.matches('textarea[name=body]'))); i++) await tab.keyboard.press('Tab');
+        await tab.waitForSelector('[data-composer="open"] [data-composer-toolbar]');
+        assert.equal(await tab.getByRole('textbox', { name: 'New note' }).count(), 1, 'the field is named');
+        const blue = tab.getByRole('radio', { name: 'Blue' });
+        assert.equal(await tab.getByRole('radiogroup', { name: 'Colour' }).count(), 1, 'the colours are a named radio group');
+        await tab.getByRole('radio', { checked: true }).focus();
+        for (let i = 0; i < 4 && !(await blue.isChecked()); i++) await tab.keyboard.press('ArrowRight');
+        assert.ok(await blue.isChecked(), 'arrow keys pick Blue');
         await tab.evaluate(() => {
             window.kitPickerOpens = [];
             const click = HTMLInputElement.prototype.click;
@@ -6031,22 +6025,25 @@ test('the notes composer by keyboard: the colour select and the dropzone are lab
                 return click.call(this);
             };
         });
+        await tab.getByRole('button', { name: 'Attach a file' }).focus();
         await tab.keyboard.press('Enter');
-        assert.deepEqual(await tab.evaluate(() => window.kitPickerOpens), [true], 'Enter on the focused browse button opens the file picker once, as a user gesture');
+        assert.deepEqual(await tab.evaluate(() => window.kitPickerOpens), [true], 'Enter on Attach a file opens the file picker once, as a user gesture');
         await tab.setInputFiles('[data-note-composer] [data-dropzone-input]', [{ name: 'a.png', mimeType: 'image/png', buffer: Buffer.from('png') }, { name: 'b.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF') }]);
-        await tab.getByRole('button', { name: 'Remove a.png' }).waitFor();
         await tab.getByRole('button', { name: 'Remove a.png' }).focus();
         await tab.keyboard.press('Enter');
         await tab.waitForFunction(() => document.querySelectorAll('[aria-label="Files to attach"] li').length === 1);
+        assert.equal(await tab.getAttribute('[data-composer]', 'data-composer'), 'open', 'files chosen keep it open');
         await tab.fill('textarea[name=body]', 'Call the supplier');
         await tab.click('[data-note-composer] button[type=submit]');
         for (let i = 0; i < 100 && posts.length === 0; i++) await tab.waitForTimeout(20);
         assert.equal(posts.length, 1, 'one save');
         assert.equal((posts[0].match(/filename="b\.pdf"/g) ?? []).length, 1, 'the remaining file is sent once');
         assert.ok(!posts[0].includes('filename="a.png"') && !posts[0].includes('filename=""'), 'the removed file and no empty file part are sent');
+        assert.match(posts[0], /name="colour"\r\n\r\nblue/, 'the colour picked is sent');
         assert.match(posts[0], /name="intent_key"/);
         await tab.waitForFunction(() => document.querySelectorAll('[aria-label="Files to attach"] li').length === 0);
-        assert.equal(await tab.evaluate(() => document.querySelector('[data-dropzone-input]').files.length), 0, 'the dropzone is cleared after the save');
+        assert.equal(await tab.evaluate(() => document.querySelector('[data-dropzone-input]').files.length), 0, 'the files are cleared after the save');
+        assert.equal(await tab.inputValue('textarea[name=body]'), '', 'and the text');
     });
 });
 
@@ -10216,9 +10213,8 @@ test('Notes, add: a person writes a note, picks Blue, pins it and presses Add no
     const wall = { ...notesWall(), seed: 1 };
     await accountPage(wall, async ({ tab, posts, toast, reload, settle }) => {
         await tab.getByRole('textbox', { name: 'New note', exact: true }).fill('Order more seed trays');
-        await tab.getByRole('combobox', { name: 'Colour' }).click();
-        await tab.getByRole('option', { name: 'Blue' }).click();
-        await tab.getByLabel('Pin to the top').check();
+        await tab.locator('[data-note-colours] label[title="Blue"]').click();
+        await tab.locator('[data-note-composer]').getByRole('checkbox', { name: 'Pin', exact: true }).check();
         await tab.getByRole('button', { name: 'Add note', exact: true }).click();
         assert.equal(await toast('Note added'), 1);
         await settle(1);
@@ -10237,14 +10233,14 @@ test('Notes, add: a person writes a note, picks Blue, pins it and presses Add no
     });
 });
 
-test('Notes, add: a blank note is refused with the error inline on the note field, and nothing is added', async () => {
+test('Notes, add: a blank note cannot be sent (the Composer keeps Add note disabled), and nothing is added', async () => {
     const wall = notesWall();
     await accountPage(wall, async ({ tab, posts }) => {
         await tab.getByRole('textbox', { name: 'New note', exact: true }).fill(' ');
-        await tab.getByRole('button', { name: 'Add note', exact: true }).click();
-        await tab.waitForSelector('#note-body-error');
-        assert.equal(posts.length, 1);
-        assert.equal(await tab.textContent('#note-body-error'), 'The body field is required.');
+        assert.equal(await tab.getByRole('button', { name: 'Add note', exact: true }).isDisabled(), true, 'Add note stays disabled for a blank body');
+        await tab.getByRole('textbox', { name: 'New note', exact: true }).press('Meta+Enter');
+        await tab.getByRole('textbox', { name: 'New note', exact: true }).press('Control+Enter');
+        assert.equal(posts.length, 0, 'nothing is posted');
         assert.equal(wall.store.notes.length, 0);
         assert.equal(await tab.locator('[data-sonner-toast]').count(), 0, 'no success toast');
     });
@@ -14109,6 +14105,46 @@ test('PasswordInput secret tells password managers to leave it alone, autofill t
         assert.ok(['saved', 'idle'].includes(await bar.getAttribute('data-state')));
         assert.deepEqual(await axeWithContrast(tab), [], 'axe, colour contrast included');
     });
+});
+
+// ── Card variants (?card-variants, `&theme=open`, docs/cards.md): ruled by default; the theme's tokens make every card open; a card's `variant` overrides the
+// theme either way. Rules (header, footer, between parts) and the title against the body's size; axe light and dark. KIT_CARD_VARIANTS_SCREENSHOT saves each.
+test('card variants: ruled by default, open from the theme, a card variant overrides it; axe-clean light and dark', async () => {
+    const shots = process.env.KIT_CARD_VARIANTS_SCREENSHOT;
+    for (const dark of [false, true]) for (const theme of ['', 'open']) for (const width of [1280, 390]) {
+        const context = await browser.newContext({ viewport: { width, height: 900 }, deviceScaleFactor: 2 });
+        try {
+            const tab = await context.newPage();
+            const errors = [];
+            tab.on('pageerror', error => errors.push(error.message));
+            await tab.goto(`${url}?card-variants${theme ? `&theme=${theme}` : ''}${dark ? '&dark' : ''}`);
+            await tab.waitForSelector('[data-case="open"] [data-plain]');
+            const seen = await tab.evaluate(() => Object.fromEntries([...document.querySelectorAll('[data-case]')].map(column => {
+                const collection = column.querySelector('[data-collection]');
+                const plain = column.querySelector('[data-plain]');
+                const px = (el, prop) => parseFloat(getComputedStyle(el)[prop]);
+                return [column.dataset.case, {
+                    header: px(collection.querySelector('[data-collection-header]'), 'borderBottomWidth'),
+                    footer: px(collection.querySelector('[data-collection-footer]'), 'borderTopWidth'),
+                    title: px(collection.querySelector('h2'), 'fontSize'),
+                    body: px([...collection.querySelectorAll('li *')].find(el => el.childElementCount === 0 && el.textContent.trim() === 'New enquiries'), 'fontSize'),
+                    between: Math.min(px(plain.querySelector('[data-card-header]'), 'borderBottomWidth'), px(plain.querySelector('[data-card-body]'), 'borderBottomWidth')),
+                    plainTitle: px(plain.querySelector('h2'), 'fontSize'),
+                }];
+            })));
+            const name = `${theme || 'default'} ${dark ? 'dark' : 'light'} ${width}`;
+            const ruled = (c, label) => { assert.ok(c.header > 0 && c.footer > 0 && c.between > 0, `${name} ${label}: ruled draws its rules`); assert.equal(c.title, 14, `${name} ${label}: ruled keeps the compact 14px title`); };
+            const open = (c, label) => { assert.equal(c.header + c.footer + c.between, 0, `${name} ${label}: open draws no rules`); assert.ok(c.title > c.body, `${name} ${label}: open's title is larger than the body`); assert.equal(c.plainTitle, 16, `${name} ${label}: 16px titles`); };
+            (theme === 'open' ? open : ruled)(seen.theme, 'theme default');
+            ruled(seen.ruled, 'variant="ruled"');
+            open(seen.open, 'variant="open"');
+            if (shots) await tab.screenshot({ path: `${shots}-${theme || 'default'}-${width}-${dark ? 'dark' : 'light'}.png`, fullPage: true });
+            await tab.addScriptTag({ path: axeSource });
+            const violations = await tab.evaluate(async () => (await window.axe.run(document)).violations.map(v => `${v.id}: ${v.nodes.map(n => n.target.join(' ')).join(', ')}`));
+            assert.deepEqual(violations, [], `${name}: axe`);
+            assert.deepEqual(errors, []);
+        } finally { await context.close(); }
+    }
 });
 
 // ── Section shapes (?section-shapes, docs/settings-section.md, connection-card.md, detail-section.md, list.md): structure, states, no card in a card, axe light

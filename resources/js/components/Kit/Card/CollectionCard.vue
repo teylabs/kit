@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, getCurrentInstance, provide } from 'vue';
 import Card from '@/components/Kit/Card/Card.vue';
+import type { CardVariant } from '@/components/Kit/Card/cardTone';
 import CollectionSection from '@/components/Kit/Layout/CollectionSection.vue';
 import {
     collectionFrameKey,
@@ -24,11 +25,18 @@ const props = withDefaults(
         headless?: boolean;
         minHeight?: string | null;
         size?: 'compact' | 'section';
+        variant?: CardVariant | null;
     }>(),
-    { level: 3, headless: false, minHeight: null, size: 'compact' },
+    {
+        level: 3,
+        headless: false,
+        minHeight: null,
+        size: 'compact',
+        variant: null,
+    },
 );
 const sectionProps = computed(() => {
-    const { size: _, ...rest } = props;
+    const { size: _, variant: __, ...rest } = props;
     return rest;
 });
 const emit = defineEmits<{ action: [action: CollectionAction] }>();
@@ -42,21 +50,21 @@ const relay = computed(() =>
 const frames: Record<'compact' | 'section', CollectionFrame> = {
     compact: {
         root: 'h-full gap-0',
-        header: 'min-h-12 border-b px-4 py-2',
-        title: '',
+        header: 'min-h-12 border-b-[length:var(--kit-card-rule,1px)] px-4 py-2',
+        title: 'text-[length:var(--kit-card-title,0.875rem)] leading-5',
         description: '',
         filters: 'border-b px-4 py-2',
         body: 'flex-1 p-4',
-        footer: 'border-t px-4 py-2',
+        footer: 'border-t-[length:var(--kit-card-rule,1px)] px-4 py-2',
     },
     section: {
         root: 'h-full gap-0',
-        header: 'border-b px-6 py-4',
-        title: 'text-base',
+        header: 'border-b-[length:var(--kit-card-rule,1px)] px-6 py-4',
+        title: 'text-[length:var(--kit-card-title,1rem)] leading-6',
         description: 'text-sm',
         filters: 'border-b px-6 py-3',
         body: 'flex-1 p-6',
-        footer: 'border-t px-6 py-3',
+        footer: 'border-t-[length:var(--kit-card-rule,1px)] px-6 py-3',
     },
 };
 provide(
@@ -67,6 +75,7 @@ provide(
 <template>
     <Card
         as="div"
+        :variant="variant"
         class="flex min-w-0 flex-col"
         data-collection-card
         :data-state="section.state ?? 'ready'"

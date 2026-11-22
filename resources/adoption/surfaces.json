@@ -1959,6 +1959,7 @@
       "uses": {
         "imports": [
           "@/components/Kit:FormCard",
+          "@/components/Kit:Composer",
           "@/components/Kit:FormFieldset",
           "@/components/Kit:FormActions",
           "@/components/Kit:ScriptForm",

@@ -367,3 +367,17 @@
 :where(:root) {
     --shell-bar-foreground: var(--foreground);
 }
+
+/*
+ * Card variants (docs/cards.md, Variants): each is a set of card tokens. A theme picks its default by setting them on :root in app.css (open:
+ * `--kit-card-rule: 0px; --kit-card-title: 1rem;`); unset, cards are `ruled`. A card's `variant` sets them for it and its parts. A new variant is a block here.
+ */
+[data-card-variant='ruled'] {
+    --kit-card-rule: 1px;
+    --kit-card-title: initial;
+}
+
+[data-card-variant='open'] {
+    --kit-card-rule: 0px;
+    --kit-card-title: 1rem;
+}
