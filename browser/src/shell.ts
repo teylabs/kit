@@ -48,8 +48,6 @@ const items = record
 // of plain pages and a nested module (Sales) with a plain page current, one row. Both mark the section's primary link current.
 const twoLevel = query.has('nested') ? 'nested' : query.has('mixed') ? 'mixed' : null;
 if (twoLevel) {
-    // A host sets the bar's foreground in its app.css; the harness does not, which leaves the primary link's current mark (tint and underline) transparent.
-    document.documentElement.style.setProperty('--shell-bar-foreground', 'var(--foreground)');
     const tabs = twoLevel === 'nested' ? [['Overview', 'admin'], ['Billing', 'billing'], ['Users', 'admin/users'], ['Settings', 'settings']] : [['Today', 'frontdesk'], ['Sales', 'sales'], ['Check-in', 'frontdesk/checkin'], ['Till', 'frontdesk/till']];
     const at = twoLevel === 'nested' ? 1 : 2;
     items.splice(0, items.length, ...tabs.map(([label, suffix], index) => ({ label, url: `/@acme/${suffix}`, current: index === at })));
