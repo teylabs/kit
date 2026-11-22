@@ -107,7 +107,7 @@ const position = computed(() =>
 );
 const panelClasses = computed(() =>
     [
-        'overflow-hidden border border-border bg-background text-foreground [--avatar-ring:var(--background)] shadow-lg sm:rounded-xl',
+        'overflow-hidden border border-border bg-card text-card-foreground [--avatar-ring:var(--card)] shadow-(--kit-modal-shadow) sm:rounded-xl',
         fullScreen.value
             ? 'max-sm:-m-4 max-sm:w-[calc(100%+2rem)] max-sm:rounded-none max-sm:border-0'
             : 'max-sm:-mx-4 max-sm:-mb-4 max-sm:w-[calc(100%+2rem)] max-sm:rounded-t-xl max-sm:border-b-0',

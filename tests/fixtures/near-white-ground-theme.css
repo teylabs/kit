@@ -1,6 +1,6 @@
 /*
  * A sample near-white tinted ground with lifted cards (invented values; the ground is #fafaf9), for test:token-contrast. The card stands off the ground by its
- * edge and its shadow (--kit-card-shadow), so it needs only 1.04:1 against the ground, not the flat card's 1.1:1.
+ * edge and its shadow (--kit-card-shadow), so it needs only 1.04:1 against the ground (not the flat card's 1.1:1) and a 1.25:1 border (not 1.5:1).
  */
 :root {
     --kit-ground: tinted;
@@ -10,6 +10,6 @@
     --card: #ffffff;
     --card-foreground: #1c1b18;
     --muted-foreground: #5c5a52;
-    --border: #d3d1c6;
+    --border: #e2e0d6;
     --input: #858377;
 }

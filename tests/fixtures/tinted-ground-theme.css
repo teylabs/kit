@@ -11,6 +11,7 @@
     --muted-foreground: #5a5f4b;
     --border: #c4c8b4;
     --input: #7f8570;
+    --kit-field-edge: #7f8570;
 }
 
 .dark {
@@ -21,4 +22,5 @@
     --muted-foreground: #a9ae98;
     --border: #4a5039;
     --input: #80876d;
+    --kit-field-edge: #80876d;
 }

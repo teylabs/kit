@@ -326,7 +326,7 @@ function firstControl(row: Element | null | undefined): HTMLElement | null {
                               rowClass,
                           ]
                         : flush
-                          ? 'border-border bg-card text-card-foreground grid min-w-0 overflow-hidden rounded-lg border shadow-xs'
+                          ? 'border-border bg-card text-card-foreground grid min-w-0 overflow-hidden rounded-lg border shadow-(--kit-card-shadow)'
                           : 'border-border bg-card text-card-foreground grid min-w-0 gap-4 rounded-lg border p-4'
                 "
             >

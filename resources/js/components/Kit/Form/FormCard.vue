@@ -72,7 +72,7 @@ provideCard();
         :is="own ? 'form' : 'section'"
         ref="card"
         :novalidate="own || undefined"
-        class="bg-card text-card-foreground rounded-xl border shadow-xs"
+        class="bg-card text-card-foreground rounded-xl border shadow-(--kit-card-shadow)"
         data-form-card
         @submit="onSubmit"
     >

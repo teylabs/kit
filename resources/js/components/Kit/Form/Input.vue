@@ -36,7 +36,7 @@ onMounted(() => {
         :class="
             locked
                 ? 'border-border bg-muted text-foreground dark:bg-muted cursor-default shadow-none'
-                : 'read-only:not-disabled:bg-muted read-only:not-disabled:text-muted-foreground read-only:not-disabled:focus-visible:border-input read-only:not-disabled:cursor-default read-only:not-disabled:border-dashed read-only:not-disabled:shadow-none read-only:not-disabled:focus-visible:ring-0'
+                : 'dark:bg-input/30 read-only:not-disabled:bg-muted read-only:not-disabled:text-muted-foreground read-only:not-disabled:focus-visible:border-input border-(color:--kit-field-edge) bg-(--kit-field) shadow-xs read-only:not-disabled:cursor-default read-only:not-disabled:border-dashed read-only:not-disabled:shadow-none read-only:not-disabled:focus-visible:ring-0'
         "
     />
 </template>
