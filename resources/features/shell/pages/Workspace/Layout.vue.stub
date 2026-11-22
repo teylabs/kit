@@ -186,6 +186,8 @@ onBeforeUnmount(() => {
         <div v-if="props.subNav === 'strip' && app.user && app.subNavigation?.items.length" class="border-b border-shell-subbar-border bg-shell-subbar text-foreground">
             <div :class="['mx-auto min-w-0 px-4 sm:px-6 lg:px-8', props.widthClass]">
                 <SubNav :label="app.subNavigation.label" :items="app.subNavigation.items" />
+                <!-- A nested module's pages (a section's module): a second strip under the first, while one of them is current. -->
+                <SubNav v-if="app.subNavigation.child" :label="app.subNavigation.child.label" :items="app.subNavigation.child.items" class="border-t border-shell-subbar-border" data-shell-subnav-child />
             </div>
         </div>
         <!-- A nested page's way up one level (the page's `layout.navigationHeader`: a breakout page or an account page): a strip under the header that scrolls with the page, in place of the trail, tinted from --shell-band. -->

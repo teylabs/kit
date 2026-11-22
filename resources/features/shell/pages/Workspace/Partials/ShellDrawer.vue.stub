@@ -46,7 +46,20 @@ onBeforeUnmount(stop);
             <!-- The nav slot (the Layout's drawer-nav) replaces the kit's pages with the app's own list. -->
             <div v-if="$slots.nav" class="px-2 pt-4" data-shell-drawer-nav><slot name="nav" /></div>
             <nav v-else-if="pages && shell.navigation.length" :aria-label="shell.workspace?.name ?? shell.product.name" class="grid gap-1 px-2 pt-4">
-                <Link v-for="item in shell.navigation" :key="item.url" :href="item.url" :aria-current="item.current ? 'page' : undefined" :class="['flex min-h-11 items-center rounded-md px-3 text-sm font-medium focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none', item.current ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent hover:text-foreground']">{{ item.label }}</Link>
+                <template v-for="item in shell.navigation" :key="item.url">
+                    <Link :href="item.url" :aria-current="item.current && !(item.label === shell.subNavigation?.label && shell.subNavigation.child) ? 'page' : undefined" :class="['flex min-h-11 items-center rounded-md px-3 text-sm font-medium focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none', item.current ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent hover:text-foreground']">{{ item.label }}</Link>
+                    <!-- A section whose current tab is a nested module: the section's tabs under it, and that module's pages expanded in place under its tab. -->
+                    <ul v-if="item.current && shell.subNavigation?.child && item.label === shell.subNavigation.label" :aria-label="shell.subNavigation.label" class="ml-4 grid gap-1 border-l border-border pl-2" data-shell-drawer-section>
+                        <li v-for="tab in shell.subNavigation.items" :key="tab.url">
+                            <Link :href="tab.url" :aria-current="tab.current && !shell.subNavigation.child ? 'page' : undefined" :class="['flex min-h-11 items-center rounded-md px-3 text-sm font-medium focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none', tab.current ? 'text-foreground' : 'text-muted-foreground hover:bg-accent hover:text-foreground']">{{ tab.label }}</Link>
+                            <ul v-if="tab.current" :aria-label="shell.subNavigation.child.label" class="ml-4 grid gap-1 border-l border-border pl-2" data-shell-drawer-child>
+                                <li v-for="page in shell.subNavigation.child.items" :key="page.url">
+                                    <Link :href="page.url" :aria-current="page.current ? 'page' : undefined" :class="['flex min-h-11 items-center rounded-md px-3 text-sm font-medium focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none', page.current ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent hover:text-foreground']">{{ page.label }}</Link>
+                                </li>
+                            </ul>
+                        </li>
+                    </ul>
+                </template>
             </nav>
             <div class="mt-auto border-t border-border px-2 py-4">
                 <div class="flex items-center gap-3 px-3 pb-3">

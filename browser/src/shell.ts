@@ -44,6 +44,19 @@ const record = query.has('record');
 const items = record
     ? ['Summary', 'Files', 'History'].map((label, index) => ({ label, url: `/@acme/projects/p-17${index ? `/${label.toLowerCase()}` : ''}`, current: index === 0 }))
     : moduleLabels.map((label, index) => ({ label, url: `/@acme/projects${moduleSuffixes[index]}`, current: index === modulePage }));
+// `&nested` (with `module`): a section (Admin) whose current tab is a nested module (Billing), so its pages are a second row; `&mixed`: a section (Front desk)
+// of plain pages and a nested module (Sales) with a plain page current, one row. Both mark the section's primary link current.
+const twoLevel = query.has('nested') ? 'nested' : query.has('mixed') ? 'mixed' : null;
+if (twoLevel) {
+    // A host sets the bar's foreground in its app.css; the harness does not, which leaves the primary link's current mark (tint and underline) transparent.
+    document.documentElement.style.setProperty('--shell-bar-foreground', 'var(--foreground)');
+    const tabs = twoLevel === 'nested' ? [['Overview', 'admin'], ['Billing', 'billing'], ['Users', 'admin/users'], ['Settings', 'settings']] : [['Today', 'frontdesk'], ['Sales', 'sales'], ['Check-in', 'frontdesk/checkin'], ['Till', 'frontdesk/till']];
+    const at = twoLevel === 'nested' ? 1 : 2;
+    items.splice(0, items.length, ...tabs.map(([label, suffix], index) => ({ label, url: `/@acme/${suffix}`, current: index === at })));
+    navigation[1].label = twoLevel === 'nested' ? 'Admin' : 'Front desk';
+}
+const child = twoLevel === 'nested' ? { label: 'Billing', items: [['Summary', 'billing'], ['Invoices', 'billing/invoices'], ['Payouts', 'billing/payouts'], ['Plans', 'billing/plans']].map(([label, suffix], index) => ({ label, url: `/@acme/${suffix}`, current: index === 1 })) } : null;
+const sectionLabel = twoLevel === 'nested' ? 'Admin' : twoLevel === 'mixed' ? 'Front desk' : 'Projects';
 const shell = {
     kind: 'app',
     account: { label: 'Account', url: '/account', current: false },
@@ -54,14 +67,14 @@ const shell = {
     user: { name: 'Ada Example', email: 'ada@example.test', initials: 'AE', avatar_url: null, avatar_url_2x: null, avatar_color: query.get('avatar-color') ?? null, items: [] },
     links: { home: '/', switcher: '/workspaces', sign_in: '/login', sign_out: '/logout' },
     footer: { identity: 'Example Product', credit: '', links: [] },
-    subNavigation: module !== null && !record ? { label: 'Projects', items } : null,
+    subNavigation: module !== null && !record ? { label: sectionLabel, items, ...(child ? { child } : {}) } : null,
     search: { url: '/@acme/search', label: 'Search', placeholder: 'Search…' } as { url: string; label: string; placeholder: string } | null,
 };
-const title = record ? 'Harbour refit' : moduleLabels[modulePage];
+const title = record ? 'Harbour refit' : twoLevel === 'nested' ? 'Invoices' : twoLevel === 'mixed' ? 'Check-in' : moduleLabels[modulePage];
 const breadcrumbs = [
     { label: 'Acme Workshop', url: '/@acme', home: true, current: false },
-    ...(record || modulePage > 0 ? [{ label: 'Projects', url: '/@acme/projects', home: false, current: false }] : []),
-    { label: record ? title : modulePage === 0 ? 'Projects' : title, url: record ? items[0].url : items[modulePage].url, home: false, current: true },
+    ...(record || modulePage > 0 ? [{ label: sectionLabel, url: '/@acme/projects', home: false, current: false }] : []),
+    { label: record ? title : modulePage === 0 ? sectionLabel : title, url: record ? items[0].url : items[modulePage].url, home: false, current: true },
 ];
 const recordTabs = ref(true);
 (window as unknown as { kitRecordTabs: (shown: boolean) => void }).kitRecordTabs = (shown) => { recordTabs.value = shown; };
@@ -120,8 +133,8 @@ const fonts = appBar
     ? Promise.all(([[400, inter400], [500, inter500], [600, inter600]] as const).map(([weight, url]) => { const face = new FontFace('Inter', `url(${url})`, { weight: String(weight) }); document.fonts.add(face); return face.load(); })).then(() => { document.documentElement.style.fontFamily = 'Inter, sans-serif'; })
     : Promise.resolve();
 const Shown = { render: () => h(Layout, { shell: state, subNav: query.has('strip') ? 'strip' : undefined, breadcrumbs: trail.value }, slots) };
-const layout = module === null ? { documentTitle: 'Shell' } : { documentTitle: title, title, breadcrumbs, navigation: [{ label: record ? null : 'Projects', items }], navigationHeader: null };
-(window as unknown as { kitInitialPage: unknown }).kitInitialPage = { component: 'Shell', props: { errors: {}, layout }, url: module === null ? navigation[current].url : items.find((item) => item.current)!.url, version: null, flash: {}, clearHistory: false, encryptHistory: false };
+const layout = module === null ? { documentTitle: 'Shell' } : { documentTitle: title, title, breadcrumbs, navigation: [{ label: record ? null : sectionLabel, items }, ...(child ? [{ label: child.label, items: child.items, nested: true }] : [])], navigationHeader: null };
+(window as unknown as { kitInitialPage: unknown }).kitInitialPage = { component: 'Shell', props: { errors: {}, layout }, url: module === null ? navigation[current].url : (child?.items.find((item) => item.current) ?? items.find((item) => item.current)!).url, version: null, flash: {}, clearHistory: false, encryptHistory: false };
 void fonts.then(() => createInertiaApp({
     page: (window as unknown as { kitInitialPage: never }).kitInitialPage,
     resolve: () => Shown,

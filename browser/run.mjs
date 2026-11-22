@@ -8160,6 +8160,88 @@ test('the shell bar given its pages after mount: the split follows the window as
     }
 });
 
+// ── Two-level module navigation (shell.html?module=1&nested|&mixed): a section's nested module as a second row of tabs, in the strip and in the drawer ──
+test('two-level module navigation: a nested module is a second row (tabs and strip), a mixed section one row, the drawer expands it in place, axe-clean light and dark', async () => {
+    const shots = process.env.KIT_MODULE_NAV_SCREENSHOT;
+    const open = async (query, width, dark = false) => {
+        const context = await browser.newContext({ viewport: { width, height: 800 }, deviceScaleFactor: 2 });
+        const tab = await context.newPage();
+        const errors = [];
+        tab.on('pageerror', error => errors.push(error.message));
+        await tab.goto(`${authUrl}shell.html?module=1&${query}${dark ? '&dark' : ''}`);
+        await tab.waitForSelector('[data-slot="page"]');
+        return { context, tab, errors };
+    };
+    const axe = async (tab, name) => {
+        await tab.addScriptTag({ path: axeSource });
+        const violations = await tab.evaluate(async () => (await window.axe.run(document)).violations.map(v => `${v.id}: ${v.nodes.map(n => n.target.join(' ')).join(', ')}`));
+        assert.deepEqual(violations, [], `${name}: axe`);
+    };
+    for (const dark of [false, true]) {
+        const scheme = dark ? 'dark' : 'light';
+        // Two rows: the section's tabs with the nested module's tab current, its pages under them with the right one current.
+        let { context, tab, errors } = await open('nested', 1280, dark);
+        try {
+            const seen = await tab.evaluate(() => {
+                const row = (selector) => { const nav = document.querySelector(selector); return nav && { label: nav.getAttribute('aria-label'), links: [...nav.querySelectorAll('ul a')].map(a => a.textContent.trim()), current: [...nav.querySelectorAll('ul a[aria-current="page"]')].map(a => a.textContent.trim()) }; };
+                const first = document.querySelector('[data-page-module-tabs]');
+                const second = document.querySelector('[data-page-module-child-tabs]');
+                return { first: row('[data-page-module-tabs]'), second: row('[data-page-module-child-tabs]'), rows: document.querySelectorAll('[data-page-tabs]').length, below: second && second.getBoundingClientRect().top >= first.getBoundingClientRect().bottom - 0.5, overflow: document.documentElement.scrollWidth - window.innerWidth };
+            });
+            assert.deepEqual(seen.first, { label: 'Admin', links: ['Overview', 'Billing', 'Users', 'Settings'], current: ['Billing'] }, `${scheme}: the section's row, the nested module's tab current`);
+            assert.deepEqual(seen.second, { label: 'Billing', links: ['Summary', 'Invoices', 'Payouts', 'Plans'], current: ['Invoices'] }, `${scheme}: the nested module's row, its page current`);
+            assert.equal(seen.rows, 2, `${scheme}: two rows, never merged`);
+            assert.ok(seen.below, `${scheme}: the second row sits under the first`);
+            assert.ok(seen.overflow <= 0, `${scheme}: no page overflow`);
+            if (shots) await tab.screenshot({ path: `${shots}-two-rows-${scheme}.png`, clip: { x: 0, y: 0, width: 1280, height: 320 } });
+            await axe(tab, `${scheme} two rows`);
+            assert.deepEqual(errors, []);
+        } finally { await context.close(); }
+        // A mixed section with a plain page current: one row, exactly one current tab.
+        ({ context, tab, errors } = await open('mixed', 1280, dark));
+        try {
+            const seen = await tab.evaluate(() => ({ links: [...document.querySelectorAll('[data-page-module-tabs] ul a')].map(a => a.textContent.trim()), current: [...document.querySelectorAll('[data-page-module-tabs] ul a[aria-current="page"]')].map(a => a.textContent.trim()), rows: document.querySelectorAll('[data-page-tabs]').length }));
+            assert.deepEqual(seen, { links: ['Today', 'Sales', 'Check-in', 'Till'], current: ['Check-in'], rows: 1 }, `${scheme}: a mixed section, one row, one current tab`);
+            const primary = await tab.evaluate(() => { const a = [...document.querySelectorAll('header nav a[aria-current="page"]')]; return { current: a.map(x => x.textContent.trim()), mark: a[0] && getComputedStyle(a[0], '::after').backgroundColor }; });
+            assert.deepEqual(primary.current, ['Front desk'], `${scheme}: the section's primary link is current while one of its pages is`);
+            assert.notEqual(primary.mark, 'rgba(0, 0, 0, 0)', `${scheme}: and draws its current mark`);
+            if (shots) await tab.screenshot({ path: `${shots}-mixed-${scheme}.png`, clip: { x: 0, y: 0, width: 1280, height: 280 } });
+            await axe(tab, `${scheme} mixed`);
+        } finally { await context.close(); }
+        // The strip: a second strip under the first.
+        ({ context, tab } = await open('nested&strip', 1280, dark));
+        try {
+            const strips = await tab.evaluate(() => [...document.querySelectorAll('[data-shell-subnav]')].map(nav => ({ label: nav.getAttribute('aria-label'), current: nav.querySelector('[aria-current="page"]')?.textContent.trim() })));
+            assert.deepEqual(strips, [{ label: 'Admin', current: 'Billing' }, { label: 'Billing', current: 'Invoices' }], `${scheme}: two strips, each with its current page`);
+            assert.equal(await tab.locator('[data-page-tabs]').count(), 0, `${scheme}: the strip replaces the tabs`);
+        } finally { await context.close(); }
+        // The drawer below lg: the section's tabs under its link, the nested module's pages expanded under its tab, one aria-current.
+        ({ context, tab } = await open('nested', 390, dark));
+        try {
+            await tab.click('[data-shell-menu-button]');
+            await tab.waitForSelector('[data-shell-drawer-child]');
+            const drawer = await tab.evaluate(() => {
+                const sheet = document.querySelector('[data-shell-sheet]');
+                return { section: [...sheet.querySelectorAll('[data-shell-drawer-section] > li > a')].map(a => a.textContent.trim()), child: [...sheet.querySelectorAll('[data-shell-drawer-child] a')].map(a => a.textContent.trim()), current: [...sheet.querySelectorAll('nav [aria-current="page"]')].map(a => a.textContent.trim()), under: sheet.querySelector('[data-shell-drawer-child]').closest('li').querySelector('a').textContent.trim() };
+            });
+            assert.deepEqual(drawer.section, ['Overview', 'Billing', 'Users', 'Settings'], `${scheme}: the drawer lists the section's tabs under it`);
+            assert.deepEqual(drawer.child, ['Summary', 'Invoices', 'Payouts', 'Plans'], `${scheme}: and the nested module's pages`);
+            assert.equal(drawer.under, 'Billing', `${scheme}: expanded under the nested module's tab`);
+            assert.deepEqual(drawer.current, ['Invoices'], `${scheme}: only Invoices carries aria-current in the drawer; its ancestors (Admin, Billing) do not`);
+            await tab.waitForTimeout(400);
+            if (shots) await tab.screenshot({ path: `${shots}-drawer-${scheme}.png` });
+            await axe(tab, `${scheme} drawer`);
+        } finally { await context.close(); }
+    }
+    // One level is unchanged: no second row, no expanded drawer.
+    const { context, tab } = await open('', 390);
+    try {
+        await tab.click('[data-shell-menu-button]');
+        await tab.waitForSelector('[data-shell-sheet]');
+        assert.equal(await tab.locator('[data-page-module-child-tabs], [data-shell-drawer-section], [data-shell-subnav-child]').count(), 0, 'a one-level module draws no second row and no expanded drawer');
+    } finally { await context.close(); }
+});
+
 // ── Navigation (shell.html?module=N): the trail as a bar by default, a module's sibling pages as <Page>'s tabs from `layout.navigation`, no SubNav strip ──
 test('a module page at 1280 and 375: the trail bar on its top page and a sub-page, its pages as tabs with the right one current, no strip, no overflow, axe-clean', async () => {
     for (const width of [1280, 375]) {

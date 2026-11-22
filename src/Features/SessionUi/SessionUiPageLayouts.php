@@ -53,8 +53,8 @@ final class SessionUiPageLayouts implements PageLayouts
     }
 
     /**
-     * The active module's pages (Registry::modulePage()), ability-filtered on the server, as one group named for the module; empty unless one of them is
-     * current. A ViewModel that sets its own navigation (a record's sections) replaces it.
+     * The active module's pages (Registry::modulePage()), ability-filtered on the server, as one group named for the module, and a nested module's pages as a second, `nested` group while one of
+     * them is current; empty unless one of the module's pages is current. A ViewModel that sets its own navigation (a record's sections) replaces it.
      *
      * @return list<NavGroup>
      */
@@ -63,7 +63,12 @@ final class SessionUiPageLayouts implements PageLayouts
         // Built directly, not resolved: the container resolves ShellSource (PageShell) once per page, for the shared `shell` prop.
         $module = (new PageShell)->moduleTabs($this->request);
 
-        return $module === null ? [] : [new NavGroup($module['label'], array_map(fn (array $item): NavItem => new NavItem($item['label'], $item['url'], $item['current']), $module['items']))];
+        if ($module === null) {
+            return [];
+        }
+        $items = fn (array $items): array => array_map(fn (array $item): NavItem => new NavItem($item['label'], $item['url'], $item['current']), $items);
+
+        return [new NavGroup($module['label'], $items($module['items'])), ...(isset($module['child']) ? [new NavGroup($module['child']['label'], $items($module['child']['items']), true)] : [])];
     }
 
     /** @return list<Breadcrumb> */

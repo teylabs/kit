@@ -91,6 +91,69 @@ try {
     $byRoute = fn (string $path, ?string $route): Closure => fn (array $page): bool => PageShell::matches($page, $path, $route);
     shellCheck(array_column(PageShell::moduleNavigation($mixed, [['label' => 'Trips', 'suffix' => 'trips', 'current' => false]], fn (): bool => true, $url, $byRoute('elsewhere/1', 'trips.entries.show'))['items'], 'current') === [true, false], 'a module page lists its route-named page as current and the module as active');
 
+    shellCheck(! array_key_exists('child', PageShell::moduleNavigation($registry, $primary, $may, $url, $at('orders/invoices'))), 'a one-level module has no second row');
+
+    // Two levels: a section's page whose suffix is a module id nests that module; its pages are a second row while one of them is current.
+    $sections = (new Registry)
+        ->modulePage('admin', 'admin.read', 'Overview', 'admin')
+        ->modulePage('admin', 'admin.read', 'Billing', 'billing')
+        ->modulePage('admin', 'admin.read', 'Users', 'admin/users')
+        ->modulePage('admin', 'admin.read', 'Settings', 'settings', active: ['settings', 'settings/*'])
+        ->modulePage('billing', 'billing.read', 'Summary', 'billing')
+        ->modulePage('billing', 'billing.read', 'Invoices', 'billing/invoices')
+        ->modulePage('billing', 'billing.payouts', 'Payouts', 'billing/payouts')
+        ->modulePage('frontdesk', 'frontdesk.read', 'Today', 'frontdesk')
+        ->modulePage('frontdesk', 'frontdesk.read', 'Sales', 'sales')
+        ->modulePage('frontdesk', 'frontdesk.read', 'Check-in', 'frontdesk/checkin')
+        ->modulePage('frontdesk', 'frontdesk.read', 'Till', 'frontdesk/till', active: ['frontdesk/till*', 'sales/till*'])
+        ->modulePage('sales', 'sales.read', 'Orders', 'sales')
+        ->modulePage('sales', 'sales.read', 'Refunds', 'sales/refunds');
+    $sectionLinks = [['label' => 'Admin', 'suffix' => 'admin', 'current' => false], ['label' => 'Front desk', 'suffix' => 'frontdesk', 'current' => false]];
+    $all = fn (): bool => true;
+    $two = PageShell::moduleNavigation($sections, $sectionLinks, $all, $url, $at('billing/invoices/3'));
+    shellCheck($two['label'] === 'Admin' && array_column($two['items'], 'label') === ['Overview', 'Billing', 'Users', 'Settings'] && array_column($two['items'], 'current') === [false, true, false, false] && $two['items'][1]['url'] === '/@acme/billing', 'a nested module\'s page makes its section active and its own tab the one current tab, URLs unchanged');
+    shellCheck($two['child']['label'] === 'Billing' && array_column($two['child']['items'], 'label') === ['Summary', 'Invoices', 'Payouts'] && array_column($two['child']['items'], 'current') === [false, true, false], 'the nested module\'s pages are the second row, its most specific page current');
+    $settings = PageShell::moduleNavigation($sections, $sectionLinks, $all, $url, $at('settings/team'));
+    shellCheck(array_column($settings['items'], 'current') === [false, false, false, true] && ! isset($settings['child']), 'a page outside the prefix with its own `active` is current on each page it names, with no second row');
+    $desk = fn (string $path): array => PageShell::moduleNavigation($sections, $sectionLinks, $all, $url, $at($path));
+    shellCheck(array_column($desk('frontdesk/checkin')['items'], 'label') === ['Today', 'Sales', 'Check-in', 'Till'] && array_column($desk('frontdesk/checkin')['items'], 'current') === [false, false, true, false] && ! isset($desk('frontdesk/checkin')['child']), 'a mixed section: plain pages and a nested tab in modulePage order, a plain page current with no second row');
+    shellCheck(array_column($desk('frontdesk')['items'], 'current') === [true, false, false, false], 'a mixed section\'s landing marks only its own page current');
+    shellCheck(array_column($desk('sales/refunds')['items'], 'current') === [false, true, false, false] && array_column($desk('sales/refunds')['child']['items'], 'current') === [false, true], 'a mixed section: the nested tab current, with its row, when one of its pages matched');
+    shellCheck(array_column($desk('sales/till/2')['items'], 'current') === [false, false, false, true] && ! isset($desk('sales/till/2')['child']), 'the most specific match wins: a plain page naming sales/till* beats the nested Sales, whose page matched less');
+    $noAdmin = fn (string $ability): bool => $ability !== 'admin.read';
+    shellCheck(PageShell::moduleNavigation($sections, $sectionLinks, $noAdmin, $url, $at('billing/invoices')) === null, 'abilities are inherited: billing.read without the section\'s ability shows no Billing through Admin');
+    $noPayouts = PageShell::moduleNavigation($sections, $sectionLinks, fn (string $ability): bool => $ability !== 'billing.payouts', $url, $at('billing'));
+    shellCheck(array_column($noPayouts['child']['items'], 'label') === ['Summary', 'Invoices'] && $noPayouts['items'][1]['current'], 'a nested module\'s own abilities still filter its row');
+    shellCheck(array_column(PageShell::moduleNavigation($sections, $sectionLinks, fn (string $ability): bool => ! str_starts_with($ability, 'billing.'), $url, $at('admin'))['items'], 'label') === ['Overview', 'Users', 'Settings'], 'a nested module whose pages are all forbidden has no tab');
+
+    // Registry::checkModulePages(): the shape, at boot in development.
+    $warnings = function (Registry $registry): array {
+        $logged = [];
+        $registry->checkModulePages(function (string $message) use (&$logged): void {
+            $logged[] = $message;
+        });
+
+        return $logged;
+    };
+    $sectionWarnings = $warnings($sections);
+    shellCheck(count($sectionWarnings) === 2 && str_contains($sectionWarnings[0], "module 'admin' nests module 'billing'") && str_contains($sectionWarnings[1], "module 'frontdesk' nests module 'sales'"), 'each nesting is a warning naming both modules; a nested page and a page with `active` give no prefix warning');
+    $outside = $warnings((new Registry)->modulePage('admin', 'admin.read', 'Settings', 'settings'));
+    shellCheck(count($outside) === 1 && str_contains($outside[0], "the page 'settings' of module 'admin' is outside the module's prefix"), 'the same page without `active` warns that it is outside the prefix');
+    $collision = $warnings((new Registry)->modulePage('orders', 'orders.read', 'Overview', 'orders')->modulePage('orders', 'orders.read', 'Customers', 'customers')->modulePage('customers', 'customers.read', 'All customers', 'customers'));
+    shellCheck(count($collision) === 1 && str_contains($collision[0], "module 'orders' nests module 'customers' through its page 'customers'"), 'a one-level app whose page suffix matches an unrelated module id gets a warning naming both');
+    shellCheck($warnings($registry) === [], 'a one-level app with every page under its prefix logs nothing');
+    $throws = function (Registry $registry): bool {
+        try {
+            $registry->checkModulePages(fn () => null);
+        } catch (RuntimeException) {
+            return true;
+        }
+
+        return false;
+    };
+    shellCheck($throws((new Registry)->modulePage('a', 'x', 'B', 'b')->modulePage('b', 'x', 'C', 'c')->modulePage('c', 'x', 'C', 'c/one')), 'a third level throws');
+    shellCheck($throws((new Registry)->modulePage('a', 'x', 'B', 'b')->modulePage('b', 'x', 'A', 'a')), 'a cycle throws');
+
     // The bar slot: once, in the bar, never in the drawer; no Teleport.
     $layout = stub('Layout');
     shellCheck(substr_count($layout, '<slot name="bar" />') === 1 && ! str_contains(stub('Partials/ShellDrawer'), 'name="bar"') && ! str_contains($layout, 'Teleport'), 'the bar slot renders once, never in the drawer, with no Teleport');
@@ -112,7 +175,7 @@ try {
     shellCheck(str_contains($subnav, '<nav v-if="props.items.length" :aria-label="props.label"') && str_contains($subnav, ':aria-current="item.current ? \'page\' : undefined"') && ! preg_match('/role="tab|aria-selected|aria-pressed|@keydown/', $subnav), 'SubNav is a labelled nav of links with aria-current, no tab roles or arrow keys');
     shellCheck(str_contains($subnav, 'border-b-2') && str_contains($subnav, 'min-h-11') && str_contains($subnav, 'overflow-x-auto') && str_contains($subnav, 'prefers-reduced-motion: reduce'), 'SubNav marks the current page with a border, keeps 44px targets, scrolls sideways and honours reduced motion');
     shellCheck(str_contains($subnav, 'list.scrollTo(') && ! str_contains($subnav, 'scrollIntoView') && ! preg_match('/\.focus\(/', $subnav), 'revealing a link scrolls the strip only, never the page, and never moves focus');
-    shellCheck(substr_count($layout, '<SubNav ') === 1 && str_contains($layout, 'app.subNavigation?.items.length') && str_contains($layout, 'data-navigation-header'), 'the Layout renders SubNav from ShellData only, beside the NavigationHeader');
+    shellCheck(substr_count($layout, '<SubNav ') === 2 && str_contains($layout, '<SubNav v-if="app.subNavigation.child"') && str_contains($layout, 'app.subNavigation?.items.length') && str_contains($layout, 'data-navigation-header'), 'the Layout renders SubNav from ShellData only (a second strip for a nested module), beside the NavigationHeader');
 
     // The replaceable parts: the Layout takes UserMenu and WorkspaceSwitcher only through `@kit/shell`, whose default barrel exports the kit's own.
     shellCheck(str_contains($layout, "import { UserMenu, WorkspaceSwitcher } from '@kit/shell';") && ! preg_match("#from '\./Partials/(UserMenu|WorkspaceSwitcher)(\.vue)?'#", $layout), 'the Layout imports UserMenu and WorkspaceSwitcher through @kit/shell, never by relative path');

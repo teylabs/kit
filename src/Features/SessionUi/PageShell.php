@@ -144,28 +144,63 @@ final class PageShell implements ShellSource
      * @param  Closure(string): bool  $may  whether the viewer holds an ability
      * @param  Closure(array): string  $url  a page's URL
      * @param  Closure(array): bool  $current  whether a page's `active` pattern matches the path
-     * @return ?array{label: string, items: list<array{label: string, url: string, current: bool}>}
+     * @return ?array{label: string, items: list<array{label: string, url: string, current: bool}>, child?: array{label: string, items: list<array{label: string, url: string, current: bool}>}}
      */
     public static function moduleNavigation(Registry $registry, array $primary, Closure $may, Closure $url, Closure $current): ?array
     {
         foreach ($primary as $link) {
-            $pages = $registry->modulePages($link['suffix']);
-            $matching = array_filter($pages, $current);
-            if (! $link['current'] && $matching === []) {
+            $row = self::moduleRow($registry, $link['suffix'], $may, $url, $current, true);
+            if (! $link['current'] && $row['match'] === null) {
                 continue;
             }
-            $specific = $matching === [] ? null : array_reduce(array_keys($matching), fn (?int $best, int $index): int => $best === null || strlen($pages[$index]['suffix']) > strlen($pages[$best]['suffix']) ? $index : $best);
-            $items = [];
-            foreach ($pages as $index => $page) {
-                if ($may($page['ability'])) {
-                    $items[] = ['label' => $page['label'], 'url' => $url($page), 'current' => $index === $specific];
-                }
+            if ($row['items'] === []) {
+                return null;
             }
 
-            return $items === [] ? null : ['label' => $link['label'], 'items' => $items];
+            return ['label' => $link['label'], 'items' => $row['items']] + ($row['child'] === null ? [] : ['child' => $row['child']]);
         }
 
         return null;
+    }
+
+    /**
+     * One module's tab row. A page whose suffix is another module's id (at the first level only) is that module's tab: it matches through its own pages,
+     * so it beats a plain page only when one of them matched, and the viewer sees it only with its ability (the section's, gating everything under it)
+     * and at least one of its pages they may open. The most specific match (longest suffix) is the one current tab; the current nested module is `child`.
+     *
+     * @return array{items: list<array{label: string, url: string, current: bool}>, match: ?int, child: ?array{label: string, items: list<array{label: string, url: string, current: bool}>}}
+     */
+    private static function moduleRow(Registry $registry, string $module, Closure $may, Closure $url, Closure $current, bool $nest): array
+    {
+        $pages = $registry->modulePages($module);
+        $rows = [];
+        $best = null;
+        $length = null;
+        foreach ($pages as $index => $page) {
+            $matched = null;
+            if ($nest && $page['suffix'] !== $module && $registry->modulePages($page['suffix']) !== []) {
+                $rows[$index] = self::moduleRow($registry, $page['suffix'], $may, $url, $current, false);
+                $matched = $rows[$index]['match'];
+            } elseif ($current($page)) {
+                $matched = strlen($page['suffix']);
+            }
+            if ($matched !== null && ($length === null || $matched > $length)) {
+                [$best, $length] = [$index, $matched];
+            }
+        }
+        $items = [];
+        $child = null;
+        foreach ($pages as $index => $page) {
+            if (! $may($page['ability']) || (isset($rows[$index]) && $rows[$index]['items'] === [])) {
+                continue;
+            }
+            $items[] = ['label' => $page['label'], 'url' => $url($page), 'current' => $index === $best];
+            if ($index === $best && isset($rows[$index])) {
+                $child = ['label' => $page['label'], 'items' => $rows[$index]['items']];
+            }
+        }
+
+        return ['items' => $items, 'match' => $length, 'child' => $child];
     }
 
     /**
