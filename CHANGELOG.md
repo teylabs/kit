@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.43.3
 
 Features affected: workspaces (migration `000212`).
 
