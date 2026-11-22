@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+Features affected: core (NavGroup, PageLayout, Registry), session-ui, shell (re-pinned), kit components (Page, PageTabs, SettingsFrame).
+
+### Added
+
+- **Pills, the secondary navigation tier.** `PageTabs` takes `variant="secondary"`, a pill row under the page tabs, and `<Page>` draws a nested module's row with it. On phones it's a select. It's never a third row. Docs: shell.md (Levels). (#1219)
+- **Sidebar modules.** A `group` on `Registry::modulePage()` makes the module a sidebar module: `<Page>` frames it with SettingsFrame's grouped sidebar instead of tabs, a select with option groups on phones, and grouped pages in the drawer below `lg`. A nested module's groups are ignored, with a boot warning. Docs: shell.md (Levels). (#1219)
+- **`Registry::moduleWidth()`.** A module declares its page width once. Its tab pages' `<Page>` takes it through `layout.width` unless the page sets its own width. Docs: shell.md (Module width). (#1219)
+
+### Changed
+
+- **A nested module's row is now pills, not a second row of tabs.** For example, HC's Admin › Billing second row changes look; its pages, order and current state are unchanged. This follows the nested-navigation rule (tabs, then pills, then a sidebar). (#1219)
+- **SettingsFrame** takes a `label` and `select`, spaces its content column like a page, and draws a section icon only for items that carry one. Settings pages look the same. (#1219)
+
 ## v0.45.0
 
 Features affected: core (Breakout, NavigationHeader, Card, CollectionCard, Composer, kit.css; re-pinned), session-ui, shell (re-pinned), notes (composer; re-pinned), kit components (SectionIcon).

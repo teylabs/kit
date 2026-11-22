@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { Link, usePage } from '@inertiajs/vue3';
-import { provide } from 'vue';
+import { Link, router, usePage } from '@inertiajs/vue3';
+import { computed, provide } from 'vue';
+import InputSelect from '@/components/Kit/Form/InputSelect.vue';
 import SectionIcon from './SectionIcon.vue';
 
 /*
@@ -17,6 +18,30 @@ type Item = {
 };
 type Group = { label: string | null; items: Item[] };
 const page = usePage<{ layout?: { navigation: Group[] } }>();
+// `label` names the sidebar (a module's, when <Page> frames a sidebar module); `select` makes it one select on phones with the groups as option groups (a
+// module's sidebar, per the nested-navigation rule), in place of the list at the top that settings keep.
+const props = withDefaults(
+    defineProps<{ label?: string; select?: boolean }>(),
+    { label: 'Settings sections', select: false },
+);
+const options = computed(() =>
+    (page.props.layout?.navigation ?? []).map((group) => ({
+        label: group.label ?? '',
+        options: group.items.map((item) => ({
+            value: item.url,
+            label: item.label,
+        })),
+    })),
+);
+const current = computed(
+    () =>
+        (page.props.layout?.navigation ?? [])
+            .flatMap((group) => group.items)
+            .find((item) => item.current)?.url ?? null,
+);
+const go = (url: unknown) => {
+    if (typeof url === 'string' && url !== current.value) router.visit(url);
+};
 // The sidebar is this page's navigation: the <Page> inside draws no tabs of it.
 provide('kit.navigation.framed', true);
 </script>
@@ -33,14 +58,23 @@ provide('kit.navigation.framed', true);
     >
         <nav
             v-if="page.props.layout?.navigation.length"
-            aria-label="Settings sections"
+            :aria-label="props.label"
             class="md:pt-1"
             data-settings-sidebar
         >
+            <div v-if="props.select" class="sm:hidden" data-sidebar-select>
+                <InputSelect
+                    :aria-label="props.label"
+                    :model-value="current"
+                    :options="options"
+                    :clearable="false"
+                    @update:model-value="go"
+                />
+            </div>
             <div
                 v-for="(group, index) in page.props.layout.navigation"
                 :key="index"
-                class="mb-4 last:mb-0"
+                :class="['mb-4 last:mb-0', props.select && 'max-sm:hidden']"
             >
                 <p
                     v-if="group.label"
@@ -60,6 +94,7 @@ provide('kit.navigation.framed', true);
                             class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring aria-[current=page]:bg-accent aria-[current=page]:text-foreground flex min-h-9 items-center gap-2 rounded-md px-2 text-sm focus-visible:ring-2 focus-visible:outline-none aria-[current=page]:font-medium"
                         >
                             <SectionIcon
+                                v-if="item.icon !== undefined"
                                 :name="item.icon ?? undefined"
                                 class="size-4"
                             />
@@ -75,6 +110,6 @@ provide('kit.navigation.framed', true);
                 </ul>
             </div>
         </nav>
-        <div class="min-w-0"><slot /></div>
+        <div class="flex min-w-0 flex-col gap-6"><slot /></div>
     </div>
 </template>

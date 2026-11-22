@@ -8225,6 +8225,119 @@ test('SectionIcon draws each allow-listed name as its own lucide icon, and the S
     }
 });
 
+// ── v0.46 nested navigation: pills under the tabs, a sidebar module (HC's Billing), and a module's declared width ──────────────────────────────────────
+const navShots = process.env.KIT_MODULE_NAV_SCREENSHOT;
+const openShell = async (query, width, dark = false) => {
+    const context = await browser.newContext({ viewport: { width, height: 800 }, deviceScaleFactor: 2 });
+    const tab = await context.newPage();
+    const errors = [];
+    tab.on('pageerror', error => errors.push(error.message));
+    await tab.goto(`${authUrl}shell.html?${query.startsWith('module=') ? '' : 'module=1&'}${query}${dark ? '&dark' : ''}`);
+    await tab.waitForSelector('[data-slot="page"]');
+    return { context, tab, errors };
+};
+const axeClean = async (tab, name) => {
+    await tab.addScriptTag({ path: axeSource });
+    const violations = await tab.evaluate(async () => (await window.axe.run(document)).violations.map(v => `${v.id}: ${v.nodes.map(n => n.target.join(' ')).join(', ')}`));
+    assert.deepEqual(violations, [], `${name}: axe`);
+};
+
+test('pills: a nested module (Front desk › Sales) is a pill row under the tabs, one current, a select on phones, axe-clean light and dark', async () => {
+    for (const dark of [false, true]) {
+        for (const width of [1280, 390]) {
+            const scheme = `${dark ? 'dark' : 'light'}-${width}`;
+            const { context, tab, errors } = await openShell('pills', width, dark);
+            try {
+                const seen = await tab.evaluate(() => {
+                    const pills = document.querySelector('[data-page-pills]');
+                    return {
+                        rows: document.querySelectorAll('[data-page-tabs]').length,
+                        pills: pills && [...pills.querySelectorAll('ul a')].map(a => [a.textContent.trim(), a.getAttribute('aria-current') === 'page']),
+                        label: pills?.getAttribute('aria-label'),
+                        selects: [...document.querySelectorAll('[data-page-tabs] .sm\\:hidden')].filter(el => el.offsetParent !== null).length,
+                    };
+                });
+                assert.equal(seen.rows, 2, `${scheme}: tabs and pills, never a third row`);
+                assert.deepEqual(seen.pills, [['Sales', false], ['Café menu', true]], `${scheme}: Sales' own pages as pills, exactly one current`);
+                assert.equal(seen.label, 'Sales', `${scheme}: the pill row is named for the module`);
+                assert.equal(seen.selects, width < 640 ? 2 : 0, `${scheme}: on phones each level is a select`);
+                if (navShots && !dark) await tab.screenshot({ path: `${navShots}-pills-${scheme}.png`, clip: { x: 0, y: 0, width, height: 360 } });
+                await axeClean(tab, scheme);
+                assert.deepEqual(errors, []);
+            } finally { await context.close(); }
+        }
+    }
+});
+
+test('a sidebar module as HC has Billing (grouped, no primary link, with-trail breakout): trail, then strip, then the sidebar frame; one current page, no tab row; a grouped select on phones', async () => {
+    for (const dark of [false, true]) {
+        for (const width of [1280, 390]) {
+            const scheme = `${dark ? 'dark' : 'light'}-${width}`;
+            const { context, tab, errors } = await openShell('sidebar&breakout', width, dark);
+            try {
+                const seen = await tab.evaluate(() => {
+                    const top = selector => document.querySelector(selector)?.getBoundingClientRect().top ?? null;
+                    const sidebar = document.querySelector('[data-settings-sidebar]');
+                    return {
+                        order: [top('[data-shell-breadcrumbs]'), top('[data-navigation-header]'), top('[data-settings-frame]')],
+                        groups: [...(sidebar?.querySelectorAll('p') ?? [])].map(p => p.textContent.trim()),
+                        current: [...(sidebar?.querySelectorAll('a[aria-current="page"]') ?? [])].map(a => a.textContent.trim()),
+                        tabRows: document.querySelectorAll('[data-page-tabs]').length,
+                        label: sidebar?.getAttribute('aria-label'),
+                        select: document.querySelector('[data-sidebar-select]')?.offsetParent !== null,
+                        primaryCurrent: document.querySelectorAll('header a[aria-current="page"]').length,
+                    };
+                });
+                assert.ok(seen.order.every(value => value !== null) && seen.order[0] < seen.order[1] && seen.order[1] < seen.order[2], `${scheme}: the trail, then the banded strip, then the sidebar frame (got ${seen.order})`);
+                assert.deepEqual(seen.groups, ['Invoicing', 'Catalogue', 'Setup'], `${scheme}: the module's groups, in order`);
+                assert.deepEqual(seen.current, ['Invoices'], `${scheme}: exactly one current page in the sidebar`);
+                assert.equal(seen.tabRows, 0, `${scheme}: no tab row`);
+                assert.equal(seen.label, 'Sections', `${scheme}: the sidebar is a named landmark`);
+                assert.equal(seen.primaryCurrent, 0, `${scheme}: no primary link is current`);
+                assert.equal(seen.select, width < 640, `${scheme}: on phones the sidebar is one select`);
+                if (width < 640) {
+                    await tab.click('[data-sidebar-select] [role="combobox"], [data-sidebar-select] button');
+                    const groups = await tab.$$eval('[role="listbox"] [role="group"]', nodes => nodes.length);
+                    assert.equal(groups, 3, `${scheme}: the select's options are grouped by the sidebar's groups`);
+                    await tab.keyboard.press('Escape');
+                }
+                if (navShots && !dark) await tab.screenshot({ path: `${navShots}-sidebar-${scheme}.png`, clip: { x: 0, y: 0, width, height: width < 640 ? 640 : 520 } });
+                await axeClean(tab, scheme);
+                assert.deepEqual(errors, []);
+            } finally { await context.close(); }
+        }
+    }
+    // Below lg, a sidebar module under its own current primary link: the drawer lists its pages under their group headings, only the page current.
+    const { context, tab, errors } = await openShell('sidebar&linked', 390);
+    try {
+        await tab.getByRole('button', { name: 'Menu' }).click();
+        await tab.waitForSelector('[data-shell-drawer-sidebar]');
+        const drawer = await tab.evaluate(() => ({
+            groups: [...document.querySelectorAll('[data-shell-drawer-sidebar] ul')].map(ul => ul.getAttribute('aria-label')),
+            current: [...document.querySelectorAll('[role="dialog"] a[aria-current="page"]')].map(a => a.textContent.trim()),
+        }));
+        assert.deepEqual(drawer.groups, ['Invoicing', 'Catalogue', 'Setup']);
+        assert.deepEqual(drawer.current, ['Invoices'], 'only the page is aria-current; Billing is not');
+        if (navShots) await tab.screenshot({ path: `${navShots}-sidebar-drawer-light-390.png` });
+        await axeClean(tab, 'drawer');
+        assert.deepEqual(errors, []);
+    } finally { await context.close(); }
+});
+
+test('a module\'s declared width: sibling tab pages that set none render the same width, and a page\'s own width wins', async () => {
+    const measure = async query => {
+        const { context, tab } = await openShell(query, 1280);
+        try { return await tab.$eval('[data-slot="page"]', el => Math.round(el.getBoundingClientRect().width)); } finally { await context.close(); }
+    };
+    const first = await measure('width=md');
+    const sibling = await measure('module=3&width=md');
+    const full = await measure('');
+    const own = await measure('width=md&own=sm');
+    assert.equal(first, sibling, 'sibling tab pages share the module width without setting it');
+    assert.ok(first < full, `the module width narrows the page (${first} < ${full})`);
+    assert.ok(own < first, `a page's own width wins over the module's (${own} < ${first})`);
+});
+
 // ── Two-level module navigation (shell.html?module=1&nested|&mixed): a section's nested module as a second row of tabs, in the strip and in the drawer ──
 test('two-level module navigation: a nested module is a second row (tabs and strip), a mixed section one row, the drawer expands it in place, axe-clean light and dark', async () => {
     const shots = process.env.KIT_MODULE_NAV_SCREENSHOT;
@@ -8251,11 +8364,12 @@ test('two-level module navigation: a nested module is a second row (tabs and str
                 const row = (selector) => { const nav = document.querySelector(selector); return nav && { label: nav.getAttribute('aria-label'), links: [...nav.querySelectorAll('ul a')].map(a => a.textContent.trim()), current: [...nav.querySelectorAll('ul a[aria-current="page"]')].map(a => a.textContent.trim()) }; };
                 const first = document.querySelector('[data-page-module-tabs]');
                 const second = document.querySelector('[data-page-module-child-tabs]');
-                return { first: row('[data-page-module-tabs]'), second: row('[data-page-module-child-tabs]'), rows: document.querySelectorAll('[data-page-tabs]').length, below: second && second.getBoundingClientRect().top >= first.getBoundingClientRect().bottom - 0.5, overflow: document.documentElement.scrollWidth - window.innerWidth };
+                return { first: row('[data-page-module-tabs]'), second: row('[data-page-module-child-tabs]'), rows: document.querySelectorAll('[data-page-tabs]').length, pills: [document.querySelector('[data-page-module-tabs]')?.hasAttribute('data-page-pills'), second?.hasAttribute('data-page-pills')], below: second && second.getBoundingClientRect().top >= first.getBoundingClientRect().bottom - 0.5, overflow: document.documentElement.scrollWidth - window.innerWidth };
             });
             assert.deepEqual(seen.first, { label: 'Admin', links: ['Overview', 'Billing', 'Users', 'Settings'], current: ['Billing'] }, `${scheme}: the section's row, the nested module's tab current`);
             assert.deepEqual(seen.second, { label: 'Billing', links: ['Summary', 'Invoices', 'Payouts', 'Plans'], current: ['Invoices'] }, `${scheme}: the nested module's row, its page current`);
             assert.equal(seen.rows, 2, `${scheme}: two rows, never merged`);
+            assert.deepEqual(seen.pills, [false, true], `${scheme}: the nested module's row is the pill row (PageTabs variant="secondary"); the section's stays tabs`);
             assert.ok(seen.below, `${scheme}: the second row sits under the first`);
             assert.ok(seen.overflow <= 0, `${scheme}: no page overflow`);
             if (shots) await tab.screenshot({ path: `${shots}-two-rows-${scheme}.png`, clip: { x: 0, y: 0, width: 1280, height: 320 } });
