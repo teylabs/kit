@@ -61,7 +61,10 @@ const aligns = {
                 <div class="grid min-w-0 gap-0.5">
                     <component
                         :is="heading"
-                        :class="!unstyled && 'truncate text-base font-semibold'"
+                        :class="
+                            !unstyled &&
+                            'truncate text-[length:var(--kit-card-title,1rem)] leading-6 font-semibold'
+                        "
                         ><slot>{{ title }}</slot></component
                     >
                     <div

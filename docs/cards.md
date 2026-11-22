@@ -34,6 +34,30 @@ A card is a `Surface` in parts. Use them instead of a hand-rolled bordered `div`
 - **In a Repeater**, pass a `CardHeader` (`unstyled`) through the `row-header` slot; the Repeater keeps the grip.
 - `SectionHeader` stays the header for a section, widget or pane outside a card.
 
+## Variants
+
+A variant is a card's named look. Two ship:
+
+| Variant | Look |
+| --- | --- |
+| `ruled` | The default: a rule under the header, between the parts and over the footer; a compact card's title is the body's size. |
+| `open` | No rules: the header and footer are set apart by space, and the title is 16px over the 14px body. The outer border stays. |
+
+**Pick one for the whole app in its theme.** Set the tokens on `:root` in `resources/css/app.css`:
+
+```css
+:root {
+    --kit-card-rule: 0px; /* open */
+    --kit-card-title: 1rem;
+}
+```
+
+Unset, every card is `ruled`, so an app that sets nothing sees no change. The tokens reach every card part: `Card` and its parts, `CollectionCard` (so the dashboard's widget cards), `RecordCard`, `SummaryCard` and `ActionCard`.
+
+**Override one card** with the standard `variant` prop, which scopes the tokens to that card and its parts: `<Card variant="ruled">`, `<CollectionCard variant="open">`. `tone` (colour meaning) and `size` (padding) stay separate and combine with any variant.
+
+A new variant later is one token block in kit.css and one name in `CardVariant`; no card gains a prop.
+
 ## ActionCard
 
 ```vue
@@ -63,5 +87,7 @@ v0.16 swaps the two names. The props, slots and look of each card are unchanged;
 5. Search again until no file uses an old name.
 
 A search on slots and props cannot catch a card that uses only `title` and the default slot. Check those by eye.
+
+Variants: the browser suite (`?card-variants`, `&theme=open`) checks the rules and the title against the body for the default, the theme's open and each per-card override, at 1280 and 390, axe in light and dark.
 
 Tests: the parts are typechecked with the other components. `tests/js/card-names.test.mjs` covers both cards' API and SummaryCard's empty body; the browser suite (`?card-names`, light and dark, 1280 and 390px) covers ActionCard's layout, its phone stack, SummaryCard's empty body and axe with colour contrast on the danger tone. The other parts have no rendered test yet.

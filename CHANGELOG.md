@@ -2,18 +2,21 @@
 
 ## Unreleased
 
-Features affected: core (Breakout, NavigationHeader), session-ui, shell (re-pinned), kit components (SectionIcon).
+Features affected: core (Breakout, NavigationHeader, Card, CollectionCard, Composer, kit.css; re-pinned), session-ui, shell (re-pinned), notes (composer; re-pinned), kit components (SectionIcon).
 
 ### Added
 
 - **Module tabs for a module with no primary link.** When no primary link is current, the shell resolves the module from the route (its prefix or a page's own `active`) and draws that module's row, ability-filtered, with the most specific page current. A breakout page keeps its strip as well. One-level and nested apps are unchanged. Docs: shell.md (Module navigation). (#1217)
 - **`kit.breakout` `'with-trail'`.** A breakout declared `'with-trail'` (route default or `breaksOut()`) draws the banded "Back to" strip under the whole trail instead of in place of it. `NavigationHeader` gains `trail`; plain `kit.breakout` is unchanged. Docs: shell.md (Breakout pages). (#1217)
 - **Six more section icons.** `SectionIcon` adds `receipt`, `chart-column`, `calendar`, `newspaper`, `file-signature` and `hand-heart` to its allow-list. Docs: settings-section.md (Section icons). (#1217)
+- **Card variants.** Every card takes the standard `variant` prop: `ruled` (today's look, the default) or `open` (no rule under the header, between parts or over the footer, and a 16px title over the 14px body). An app picks its default in its theme with two tokens on `:root` (`--kit-card-rule: 0px; --kit-card-title: 1rem;`); `variant` on one card overrides it. Unset, nothing changes. Docs: cards.md (Variants). (#1216)
+- **`Composer`, a seamless composer.** One quiet line that opens in place to write, with its tools, Cancel and Post (modelled on AppraisalBench's). Docs: composer.md. (#1216)
 
 ### Changed
 
 - **A breakout strip on a module's tab page goes to the landing above the module.** On `/billing` and `/billing/invoices` it reads "Back to Admin", not "Back to Billing"; a record under a tab still goes back to its tab. The app's trail is untouched. (#1217)
 - **The "Back to" strip is a labelled `nav` landmark** (`aria-label="Back"`), so axe no longer flags its link as outside any region. Shell re-pinned. (#1217)
+- **The notes composer is the seamless `Composer`.** Closed it is one line; open, "Attach a file" (or drop or paste onto it), the colours as dots (a named radio group, no longer a select), Pin, then Add note. The posted fields are unchanged (`body`, `colour`, `pinned`, `files`, `intent_key`). An app that hosts `@kit/ui` itself exports `Composer` too. (#1216)
 
 ### Fixed
 

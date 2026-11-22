@@ -1,15 +1,18 @@
 <script setup lang="ts">
 import { Form } from '@inertiajs/vue3';
-import { BulkDrop, Button, Field, FormActions, Input, InputCheckbox, InputSelect, Textarea } from '@kit/ui';
-import { computed, nextTick, ref } from 'vue';
+import { BulkDrop, Button, Composer, Input, InputCheckbox } from '@kit/ui';
+import { Paperclip } from '@lucide/vue';
+import { nextTick, ref } from 'vue';
 import { dot, intentKey } from './colours';
 
-// The quick-add composer: Inertia's <Form> (uncontrolled; every control submits a named value) ending in FormActions. Write, pick a colour, attach files (drop,
-// paste or browse, into the kit's BulkDrop), pin, then Add note. After a save the fields reset, a fresh intent key is ready, and focus returns to the box for the next note. The app's composer hooks add `options`
-// (links beside the form); a subject, when the composer sits on a record, is what it writes to.
+// The quick-add composer: Inertia's <Form> (every control submits a named value) around the kit's seamless Composer (docs/composer.md). Closed it is one quiet
+// line; focused it opens to write, attach files (the kit's compact BulkDrop around it: drop or paste onto it, or "Attach a file"), pick a colour from its
+// dots, pin, then Add note. It stays open while files are chosen. After a
+// save the text clears, a fresh intent key is ready, and focus returns to the box for the next note. The app's composer hooks add `options` (links in the
+// toolbar); a subject, when the composer sits on a record, is what it writes to.
 const props = defineProps<{ composer: Tey.Kit.Features.Notes.Data.NoteComposerData; id?: string }>();
 const uid = props.id ?? 'note';
-const field = ref<{ $el?: HTMLElement } | null>(null);
+const body = ref('');
 const drop = ref<{ remove: (index: number) => void } | null>(null);
 // BulkDrop holds the chosen files and reports them (`files`); its own named input is left out of the request, and the chosen files join it through the form's
 // transform, as does the intent key, which changes after each save and so must not be a field (a field that changes reads as an unsaved edit).
@@ -17,7 +20,6 @@ const files = ref<File[]>([]);
 const key = ref(intentKey());
 // The colour is the composer's own: bound one way to the default, the select could never move off it.
 const colour = ref(props.composer.default_colour);
-const options = computed(() => props.composer.colours.map((colour) => ({ value: colour.key, label: colour.label })));
 // Generic over Inertia's own form-data type, so the page names no @inertiajs/core type (it imports UI only from @kit/ui).
 const withFiles = <T extends Record<string, unknown>>(data: T) => {
     const rest: Record<string, unknown> = { ...data };
@@ -29,40 +31,41 @@ async function saved() {
     for (let left = files.value.length; left > 0; left--) drop.value?.remove(0);
     files.value = [];
     key.value = intentKey();
+    body.value = '';
     await nextTick();
-    field.value?.$el?.querySelector?.('textarea')?.focus();
+    document.getElementById(`${uid}-body`)?.focus();
 }
 </script>
 <template>
-    <Form v-slot="{ errors }" :action="composer.submit.url" method="post" :transform="withFiles" :options="{ preserveScroll: true }" :reset-on-success="['body', 'pinned']" set-defaults-on-success class="grid gap-4 rounded-xl border bg-card p-4 shadow-sm" data-note-composer @success="saved">
+    <Form v-slot="{ errors, processing }" :action="composer.submit.url" method="post" :transform="withFiles" :options="{ preserveScroll: true }" :reset-on-success="['pinned']" set-defaults-on-success data-note-composer @success="saved">
         <template v-if="composer.subject">
             <Input type="hidden" name="subject_type" :model-value="composer.subject.type" />
             <Input type="hidden" name="subject_id" :model-value="String(composer.subject.id)" />
         </template>
-        <Field :id="`${uid}-body`" ref="field" name="body" label="New note" :error="errors.body">
-            <Textarea :id="`${uid}-body`" name="body" rows="3" :placeholder="composer.placeholder" required maxlength="5000" :invalid="!!errors.body" :aria-describedby="`${uid}-body-error`" />
-        </Field>
-        <div class="grid gap-4 sm:max-w-xs">
-            <Field :id="`${uid}-colour`" name="colour" label="Colour" :error="errors.colour">
-                <InputSelect :id="`${uid}-colour`" name="colour" v-model="colour" :options="options" :searchable="false" :clearable="false">
-                    <template #option="{ option }"><span class="flex items-center gap-2"><span :class="['size-3 rounded-full', dot(String(option.value))]" aria-hidden="true" />{{ option.label }}</span></template>
-                </InputSelect>
-            </Field>
-        </div>
-        <div class="grid gap-2" data-note-files>
-            <BulkDrop ref="drop" name="files" label="this note" :accept="composer.media.accept" :max-bytes="composer.media.max_kb * 1024" :max-files="composer.media.max_files" :has-files="files.length > 0" multiple handle-drops :hint="`Up to ${composer.media.max_files} files.`" @files="files = $event" />
-            <p v-if="fileError(errors)" role="alert" class="text-sm text-destructive-text">{{ fileError(errors) }}</p>
-        </div>
-        <ul v-if="files.length" class="flex flex-wrap gap-2" aria-label="Files to attach">
-            <li v-for="(file, index) in files" :key="file.name + index" class="flex items-center gap-2 rounded-md border bg-background py-1 pr-1 pl-2 text-xs">
-                <span class="max-w-48 truncate">{{ file.name }}</span>
-                <Button type="button" variant="secondary" :aria-label="`Remove ${file.name}`" @click="drop?.remove(index)">Remove</Button>
-            </li>
-        </ul>
-        <div class="flex flex-wrap items-center gap-3">
-            <InputCheckbox :id="`${uid}-pinned`" name="pinned" value="1">Pin to the top</InputCheckbox>
-            <a v-for="option in composer.options" :key="option.key" :href="option.url ?? undefined" class="rounded-md px-2 py-1 text-sm text-muted-foreground hover:bg-muted hover:text-foreground" :data-note-option="option.key">{{ option.label }}</a>
-        </div>
-        <FormActions :submit-label="composer.submit.label" busy-label="Saving…" saved-label="Added" :sticky="false" :cancel="false" :warn-on-leave="false" />
+        <BulkDrop ref="drop" v-slot="{ browse }" name="files" label="this note" :accept="composer.media.accept" :max-bytes="composer.media.max_kb * 1024" :max-files="composer.media.max_files" :has-files="files.length > 0" multiple compact handle-drops @files="files = $event">
+            <Composer :open="files.length > 0" :id="`${uid}-body`" v-model="body" as="div" name="body" label="New note" :placeholder="composer.placeholder" :maxlength="5000" :submit-label="composer.submit.label" :busy="processing" :invalid="!!errors.body" :describedby="errors.body ? `${uid}-body-error` : undefined">
+                <template #below>
+                    <p v-if="errors.body" :id="`${uid}-body-error`" role="alert" class="text-sm text-destructive-text">{{ errors.body }}</p>
+                    <p v-if="fileError(errors)" role="alert" class="text-sm text-destructive-text">{{ fileError(errors) }}</p>
+                    <ul v-if="files.length" class="flex flex-wrap gap-2" aria-label="Files to attach" data-note-files>
+                        <li v-for="(file, index) in files" :key="file.name + index" class="flex items-center gap-2 rounded-md border bg-background py-1 pr-1 pl-2 text-xs">
+                            <span class="max-w-48 truncate">{{ file.name }}</span>
+                            <Button type="button" variant="secondary" :aria-label="`Remove ${file.name}`" @click="drop?.remove(index)">Remove</Button>
+                        </li>
+                    </ul>
+                </template>
+                <template #tools>
+                    <button type="button" class="inline-flex min-h-9 items-center gap-1.5 rounded-md px-2 text-sm text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none" data-note-attach @click="browse()"><Paperclip class="size-4" aria-hidden="true" />Attach a file</button>
+                    <div role="radiogroup" aria-label="Colour" class="flex items-center gap-1" data-note-colours>
+                        <label v-for="option in composer.colours" :key="option.key" class="grid size-9 cursor-pointer place-items-center rounded-full" :title="option.label">
+                            <input v-model="colour" type="radio" name="colour" :value="option.key" :aria-label="option.label" class="peer sr-only" />
+                            <span :class="['size-4 rounded-full ring-offset-2 ring-offset-card peer-checked:ring-2 peer-checked:ring-foreground peer-focus-visible:ring-2 peer-focus-visible:ring-ring', dot(option.key)]" aria-hidden="true" />
+                        </label>
+                    </div>
+                    <InputCheckbox :id="`${uid}-pinned`" name="pinned" value="1">Pin</InputCheckbox>
+                    <a v-for="option in composer.options" :key="option.key" :href="option.url ?? undefined" class="rounded-md px-2 py-1 text-sm text-muted-foreground hover:bg-muted hover:text-foreground" :data-note-option="option.key">{{ option.label }}</a>
+                </template>
+            </Composer>
+        </BulkDrop>
     </Form>
 </template>
