@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-Features affected: kit components (Layout), core (Registry), session-ui, shell (re-pinned); workspaces (migration `000212`, already released in v0.43.3).
+Features affected: kit components (Layout), core (Registry, kit.css re-pinned), session-ui, shell (re-pinned); workspaces (migration `000212`, already released in v0.43.3).
 
 ### Added
 
@@ -11,6 +11,7 @@ Features affected: kit components (Layout), core (Registry), session-ui, shell (
 
 ### Fixed
 
+- **The shell's current-tab mark no longer disappears without a host token.** `kit.css` now defaults `--shell-bar-foreground` to the theme's foreground, at the lowest precedence, so a host that never set it still sees PrimaryNav's current tint and underline; a host's own value still wins. Core re-pinned. (#1208)
 - **`000212` migrates tag tables that already carry a policy.** On PostgreSQL with RLS on, it drops every policy on `tags`, `taggables` and `flag_dismissals` (any name, such as an app's own `kit_workspace`) before changing `workspace_id`, then protects them as `workspace_isolation`. Before, an app that had protected them itself failed with "cannot alter type of a column used in a policy definition" and rolled back. `down()` mirrors the order. (#1204; already released in v0.43.3)
 
 ## v0.43.2

@@ -8204,7 +8204,7 @@ test('two-level module navigation: a nested module is a second row (tabs and str
             assert.deepEqual(seen, { links: ['Today', 'Sales', 'Check-in', 'Till'], current: ['Check-in'], rows: 1 }, `${scheme}: a mixed section, one row, one current tab`);
             const primary = await tab.evaluate(() => { const a = [...document.querySelectorAll('header nav a[aria-current="page"]')]; return { current: a.map(x => x.textContent.trim()), mark: a[0] && getComputedStyle(a[0], '::after').backgroundColor }; });
             assert.deepEqual(primary.current, ['Front desk'], `${scheme}: the section's primary link is current while one of its pages is`);
-            assert.notEqual(primary.mark, 'rgba(0, 0, 0, 0)', `${scheme}: and draws its current mark`);
+            assert.notEqual(primary.mark, 'rgba(0, 0, 0, 0)', `${scheme}: and draws its current mark, from the kit's default --shell-bar-foreground when the host sets none`);
             if (shots) await tab.screenshot({ path: `${shots}-mixed-${scheme}.png`, clip: { x: 0, y: 0, width: 1280, height: 280 } });
             await axe(tab, `${scheme} mixed`);
         } finally { await context.close(); }

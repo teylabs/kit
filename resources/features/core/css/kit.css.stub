@@ -355,3 +355,15 @@
     --kit-tone-orange-dot: #fb923c;
     --kit-tone-slate-dot: #94a3b8;
 }
+
+/*
+ * The shell bar's foreground (`--shell-bar-foreground`: its text, and PrimaryNav's current mark, tint and underline) defaults to the theme's foreground, at the
+ * lowest precedence: a host's own value (the starter's app.css) wins. Without it the current mark computed transparent and silently disappeared.
+ */
+@theme default inline {
+    --color-shell-bar-foreground: var(--shell-bar-foreground);
+}
+
+:where(:root) {
+    --shell-bar-foreground: var(--foreground);
+}
