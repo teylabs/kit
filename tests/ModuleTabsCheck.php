@@ -174,9 +174,9 @@ try {
     // Provisioning admitted the workspace on its own copy.
     $workspace->refresh();
 
-    $page = function (string $who) use ($app, $people): array {
+    $page = function (string $who, string $path = '') use ($app, $people): array {
         Auth::guard('web')->setUser($people[$who]);
-        $request = Request::create('https://kit.test/@acme', 'GET', server: ['HTTP_X_INERTIA' => 'true', 'HTTP_ACCEPT' => 'text/html, application/xhtml+xml', 'HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest']);
+        $request = Request::create('https://kit.test/@acme'.($path === '' ? '' : '/'.$path), 'GET', server: ['HTTP_X_INERTIA' => 'true', 'HTTP_ACCEPT' => 'text/html, application/xhtml+xml', 'HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest']);
         $request->setUserResolver(fn () => $people[$who]);
         $app->instance('request', $request);
         try {
@@ -212,6 +212,20 @@ try {
     $bookings->checkModulePages(fn (string $message) => $app['log']->warning($message));
     $logged = array_slice($warnings(), $before);
     check(count($logged) === 1 && str_contains($logged[0], "'bookings/calendar'"), 'the boot check warns once about the page outside its module\'s prefix, suggesting the nested suffix; nested pages do not');
+
+    // kit.shell.settings_link: where the bar shows Settings. Only the link moves; the settings pages stay reachable.
+    $shell = fn (string $path = ''): array => json_decode($page('owner', $path)[1], true)['props']['shell'];
+    $settingsLinks = fn (array $shell): array => array_values(array_filter([...$shell['navigation'], ...($shell['subNavigation']['items'] ?? []), ...$shell['user']['items']], fn (array $link): bool => $link['label'] === 'Settings'));
+    check(array_column($shell()['navigation'], 'label') === ['Dashboard', 'Settings'] && $shell()['user']['items'][0]['label'] === 'Account settings', 'by default (primary) the workspace\'s Settings is a primary link, as before');
+    $app['config']->set('kit.shell.settings_link', 'menu');
+    check(array_column($shell()['navigation'], 'label') === ['Dashboard'] && array_column($shell()['user']['items'], 'label') === ['Settings', 'Account settings'], "'menu' moves the Settings link into the account menu");
+    $app['config']->set('kit.shell.settings_link', false);
+    check(array_column($shell()['navigation'], 'label') === ['Dashboard'] && $settingsLinks($shell()) === [] && $shell()['workspace']['settings'] !== null, 'false removes the Settings link, and the switcher keeps its Workspace settings');
+    check($page('owner', 'settings')[0] === 200, 'with the link hidden, the settings landing still opens');
+    $app->make(Registry::class)->modulePage('', 'dashboard.read', 'Settings', 'settings', active: ['settings', 'settings/*']);
+    $placed = $settingsLinks($shell('settings'));
+    check(count($placed) === 1 && $placed[0]['current'] === true, 'with false and an app\'s own Settings tab (Admin › Settings), exactly one Settings link renders, current on settings/*');
+    $app['config']->set('kit.shell.settings_link', 'primary');
 
     echo "Module tab checks on SQLite memory with real Concierge, spatie teams and Pennant; Inertia JSON through router dispatch without the global middleware stack. No browser here: <Page> drawing the tabs is browser/run.mjs's.\n";
 } catch (Throwable $error) {

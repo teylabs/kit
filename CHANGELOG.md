@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+Features affected: session-ui.
+
+### Added
+
+- **`kit.shell.settings_link`.** Where the bar shows the workspace's Settings link: `'primary'` (the default, unchanged), `'menu'` (the account menu) or `false` (hidden, for an app with its own Settings tab). Only the link moves; the settings pages, the landing and the switcher's "Workspace settings" stay. Docs: shell.md (The Settings link). (#1211)
+
 ## v0.44.0
 
 Features affected: kit components (Layout), core (Registry, kit.css re-pinned), session-ui, shell (re-pinned); workspaces (migration `000212`, already released in v0.43.3).
