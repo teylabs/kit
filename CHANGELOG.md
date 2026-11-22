@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-Features affected: workspaces (migration `000212`), kit components (Layout).
+Features affected: kit components (Layout); workspaces (migration `000212`, already released in v0.43.3).
 
 ### Added
 
@@ -10,7 +10,7 @@ Features affected: workspaces (migration `000212`), kit components (Layout).
 
 ### Fixed
 
-- **`000212` migrates tag tables that already carry a policy.** On PostgreSQL with RLS on, it drops every policy on `tags`, `taggables` and `flag_dismissals` (any name, such as an app's own `kit_workspace`) before changing `workspace_id`, then protects them as `workspace_isolation`. Before, an app that had protected them itself failed with "cannot alter type of a column used in a policy definition" and rolled back. `down()` mirrors the order. (#1204)
+- **`000212` migrates tag tables that already carry a policy.** On PostgreSQL with RLS on, it drops every policy on `tags`, `taggables` and `flag_dismissals` (any name, such as an app's own `kit_workspace`) before changing `workspace_id`, then protects them as `workspace_isolation`. Before, an app that had protected them itself failed with "cannot alter type of a column used in a policy definition" and rolled back. `down()` mirrors the order. (#1204; already released in v0.43.3)
 
 ## v0.43.2
 
