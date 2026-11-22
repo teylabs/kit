@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.47.0
 
 Features affected: core (kit.css tokens, Brand, re-pinned), kit components (cards, fields, Modal, Dialog). The default theme draws what it drew before, except the two changes Jasper approved: Modal and Dialog take the top elevation level, and fields are always white-filled with a 3:1 edge.
 
