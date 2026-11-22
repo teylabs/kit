@@ -204,15 +204,14 @@ try {
     [$status, $body] = $page('outsider');
     check(! str_contains($body, 'Staff rota'), 'a non-member gets no module tabs');
 
-    // Module URL nesting: a page outside its module's prefix warns in development, and production stays silent; neither throws.
+    // Module URL nesting: checked at boot (Registry::checkModulePages(), hooked in local and testing only): a page outside its module's prefix warns, and registering never logs or throws.
     $warnings = fn (): array => array_values(array_filter(array_map(fn ($record) => (string) $record['message'], $app['log']->driver()->getLogger()->getHandlers()[0]->getRecords()), fn (string $message): bool => str_contains($message, 'Registry::modulePage()')));
-    (new Registry)->modulePage('bookings', 'bookings.read', 'Calendar', 'calendar')->modulePage('bookings', 'bookings.read', 'Rooms', 'bookings/rooms')->modulePage('bookings', 'bookings.read', 'All', 'bookings');
-    check(count($warnings()) === 1 && str_contains($warnings()[0], "'bookings/calendar'"), 'in development a page outside its module\'s prefix warns once, suggesting the nested suffix; nested pages do not');
-    $app->instance('env', 'production');
     $before = count($warnings());
-    (new Registry)->modulePage('bookings', 'bookings.read', 'Calendar', 'calendar');
-    check(count($warnings()) === $before, 'in production the same registration is silent and does not throw');
-    $app->instance('env', 'testing');
+    $bookings = (new Registry)->modulePage('bookings', 'bookings.read', 'Calendar', 'calendar')->modulePage('bookings', 'bookings.read', 'Rooms', 'bookings/rooms')->modulePage('bookings', 'bookings.read', 'All', 'bookings');
+    check(count($warnings()) === $before, 'registering a page outside the prefix logs nothing by itself');
+    $bookings->checkModulePages(fn (string $message) => $app['log']->warning($message));
+    $logged = array_slice($warnings(), $before);
+    check(count($logged) === 1 && str_contains($logged[0], "'bookings/calendar'"), 'the boot check warns once about the page outside its module\'s prefix, suggesting the nested suffix; nested pages do not');
 
     echo "Module tab checks on SQLite memory with real Concierge, spatie teams and Pennant; Inertia JSON through router dispatch without the global middleware stack. No browser here: <Page> drawing the tabs is browser/run.mjs's.\n";
 } catch (Throwable $error) {

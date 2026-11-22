@@ -113,6 +113,7 @@ const page = usePage<{
         navigation?: {
             label: string | null;
             items: { label: string; url: string; current: boolean }[];
+            nested?: boolean;
         }[];
         navigationHeader?: { label: string; url: string } | null;
     };
@@ -125,21 +126,31 @@ const drawsTrail = computed(
         shellTrail?.value !== 'bar' &&
         !page.props.layout?.navigationHeader,
 );
-const tabs = computed(() =>
+// A `nested` group is a nested module's pages (a section's module, Registry::modulePage()): a second row under the first, never merged into it.
+const rows = (nestedRow: boolean) =>
     inShell && !nested && !framed && !claimed.value && subNav?.value !== 'strip'
-        ? (page.props.layout?.navigation ?? []).flatMap((group) =>
-              group.items.map((item) => ({
-                  href: item.url,
-                  label: item.label,
-                  current: item.current,
-              })),
-          )
-        : [],
+        ? (page.props.layout?.navigation ?? [])
+              .filter((group) => Boolean(group.nested) === nestedRow)
+              .flatMap((group) =>
+                  group.items.map((item) => ({
+                      href: item.url,
+                      label: item.label,
+                      current: item.current,
+                  })),
+              )
+        : [];
+const tabs = computed(() => rows(false));
+const childTabs = computed(() => (tabs.value.length ? rows(true) : []));
+const childLabel = computed(
+    () =>
+        page.props.layout?.navigation?.find((group) => group.nested)?.label ??
+        'Sections',
 );
 const tabsLabel = computed(
     () =>
-        page.props.layout?.navigation?.find((group) => group.label)?.label ??
-        'Sections',
+        page.props.layout?.navigation?.find(
+            (group) => group.label && !group.nested,
+        )?.label ?? 'Sections',
 );
 // No visible heading but the page draws its tabs: the header's actions and status sit at the tab row's end instead of on a row of their own.
 const actionsOnTabs = computed(
@@ -173,7 +184,27 @@ const size = computed(
         data-slot="page"
     >
         <OwnTabs v-if="tabs.length"
-            ><PageTabs :tabs="tabs" :label="tabsLabel" data-page-module-tabs
+            ><div
+                v-if="childTabs.length"
+                class="flex flex-col"
+                data-page-module-rows
+            >
+                <PageTabs
+                    :tabs="tabs"
+                    :label="tabsLabel"
+                    data-page-module-tabs
+                />
+                <PageTabs
+                    :tabs="childTabs"
+                    :label="childLabel"
+                    data-page-module-child-tabs
+                />
+            </div>
+            <PageTabs
+                v-else
+                :tabs="tabs"
+                :label="tabsLabel"
+                data-page-module-tabs
                 ><template
                     v-if="
                         actionsOnTabs &&

@@ -2,11 +2,12 @@
 
 ## Unreleased
 
-Features affected: kit components (Layout); workspaces (migration `000212`, already released in v0.43.3).
+Features affected: kit components (Layout), core (Registry), session-ui, shell (re-pinned); workspaces (migration `000212`, already released in v0.43.3).
 
 ### Added
 
 - **Section shapes for settings, connection and detail pages.** `SettingsSection`, `ConnectionCard` (connected, not connected, checking, failed), `DetailSection`, and `List` with `ListRow`, which draws only dividers inside a kit card and its own card on the page ground, in place of a hand-bordered list. Docs: settings-section.md, connection-card.md, detail-section.md, list.md. (#1203)
+- **Two-level module navigation.** A module page whose suffix is another module's id nests that module: its pages show as a second row of tabs (and a second SubNav strip) while one of them is current, and the drawer expands it in place. A section's row can mix plain pages and nested modules, with one current tab (the most specific match). A section's ability gates everything under it. At boot in local and testing, each nesting logs a warning naming both modules, and a third level or a cycle throws. A page outside its module's prefix no longer warns when it gives its own `active`. One-level apps are unchanged. Docs: shell.md (Module navigation). (#1207)
 
 ### Fixed
 
