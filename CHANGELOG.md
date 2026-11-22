@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.48.0
 
 Features affected: core (kit.css tokens, about 35 components on the elevation scale, re-pinned `sha256:23188284a86e` → `sha256:8ea7c266355a`), shell (GuestShell's card, re-pinned `sha256:eac4d0ccb0c8` → `sha256:2a78630af4a8`) and notes (NoteCard, re-pinned `sha256:24e4da893152` → `sha256:9c1c18a6c967`). Take the new `kit.css` with `php artisan kit:scaffold core --diff --only=resources/css/kit.css`, then `--force` it; until you do, fields fall back to the card and `--input`, and the elevation tokens are missing (no shadows). Take GuestShell and NoteCard the same way from `shell` and `notes`. Jasper approved every look change here (Fleet Space, 21:59Z and 22:00Z, kit audit items 1–5).
 
