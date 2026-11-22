@@ -8202,6 +8202,9 @@ test('two-level module navigation: a nested module is a second row (tabs and str
         try {
             const seen = await tab.evaluate(() => ({ links: [...document.querySelectorAll('[data-page-module-tabs] ul a')].map(a => a.textContent.trim()), current: [...document.querySelectorAll('[data-page-module-tabs] ul a[aria-current="page"]')].map(a => a.textContent.trim()), rows: document.querySelectorAll('[data-page-tabs]').length }));
             assert.deepEqual(seen, { links: ['Today', 'Sales', 'Check-in', 'Till'], current: ['Check-in'], rows: 1 }, `${scheme}: a mixed section, one row, one current tab`);
+            const primary = await tab.evaluate(() => { const a = [...document.querySelectorAll('header nav a[aria-current="page"]')]; return { current: a.map(x => x.textContent.trim()), mark: a[0] && getComputedStyle(a[0], '::after').backgroundColor }; });
+            assert.deepEqual(primary.current, ['Front desk'], `${scheme}: the section's primary link is current while one of its pages is`);
+            assert.notEqual(primary.mark, 'rgba(0, 0, 0, 0)', `${scheme}: and draws its current mark`);
             if (shots) await tab.screenshot({ path: `${shots}-mixed-${scheme}.png`, clip: { x: 0, y: 0, width: 1280, height: 280 } });
             await axe(tab, `${scheme} mixed`);
         } finally { await context.close(); }
@@ -8224,7 +8227,7 @@ test('two-level module navigation: a nested module is a second row (tabs and str
             assert.deepEqual(drawer.section, ['Overview', 'Billing', 'Users', 'Settings'], `${scheme}: the drawer lists the section's tabs under it`);
             assert.deepEqual(drawer.child, ['Summary', 'Invoices', 'Payouts', 'Plans'], `${scheme}: and the nested module's pages`);
             assert.equal(drawer.under, 'Billing', `${scheme}: expanded under the nested module's tab`);
-            assert.deepEqual(drawer.current, ['Invoices'], `${scheme}: one page is current in the drawer`);
+            assert.deepEqual(drawer.current, ['Invoices'], `${scheme}: only Invoices carries aria-current in the drawer; its ancestors (Admin, Billing) do not`);
             await tab.waitForTimeout(400);
             if (shots) await tab.screenshot({ path: `${shots}-drawer-${scheme}.png` });
             await axe(tab, `${scheme} drawer`);
