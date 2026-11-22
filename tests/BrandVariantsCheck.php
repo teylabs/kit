@@ -38,7 +38,9 @@ variantCheck(Brand::contrastProblems($fill) === [] && Brand::contrastProblems($m
 // Byte-identical for what was already configurable: these are the strings the base release printed for the neutral default and the two synthetic presets.
 variantCheck(Brand::css(Brand::tokens()) === '', 'unconfigured: no CSS at all, byte for byte');
 variantCheck(Brand::css(Brand::tokens('fill-one')) === ':root{--primary:#2563eb;--primary-foreground:#ffffff;--ring:#1d4ed8;--brand-marker:#1d4ed8}.dark{--primary:#60a5fa;--primary-foreground:#09090b;--ring:#60a5fa;--brand-marker:#60a5fa}', 'a fill preset prints exactly what the base release printed');
-variantCheck(Brand::css(Brand::tokens('mono-one')) === ':root{--primary:#050505;--primary-foreground:#ffffff;--ring:#15803d;--brand-marker:#16a34a}.dark{--ring:#4ade80;--brand-marker:#4ade80}[data-shell-bar]{--background:#050505;--foreground:#ffffff;--muted-foreground:#a1a1aa;--accent:#27272a;--accent-foreground:#ffffff;--border:#27272a;--ring:#16a34a;--brand-marker:#16a34a}', 'a mono preset prints exactly what the base release printed');
+variantCheck(Brand::css(Brand::tokens('mono-one')) === ':root{--primary:#050505;--primary-foreground:#ffffff;--ring:#15803d;--brand-marker:#16a34a}.dark{--ring:#4ade80;--brand-marker:#4ade80}[data-shell-bar]{--background:#050505;--foreground:#ffffff;--muted:#27272a;--muted-foreground:#a1a1aa;--accent:#27272a;--accent-foreground:#ffffff;--border:#27272a;--ring:#16a34a;--brand-marker:#16a34a}', 'a mono preset prints what the base release printed, plus the bar\'s own --muted (v0.46.4)');
+// The ink bar's muted text sits on the bar's own wash, not the page's #f5f5f5 (HC #1721: the ⌘K hint was 2.35:1): AA on --muted and on the ink itself.
+variantCheck(Brand::contrast('#a1a1aa', '#27272a') >= 4.5 && Brand::contrast('#a1a1aa', '#050505') >= 4.5, 'the ink bar\'s muted text reaches 4.5:1 on the bar\'s --muted and on the ink');
 
 $weak = Brand::tokens('fill-one');
 $weak['accent_strong'] = '#93c5fd';

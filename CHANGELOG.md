@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+Features affected: core (Brand).
+
+### Fixed
+
+- **The search's ⌘K hint is readable under an ink header.** An ink header set the bar's muted text to `#a1a1aa` but left `--muted` at the page's `#f5f5f5`, so the hint (and anything else on `bg-muted` in the bar) was 2.35:1. The bar now sets its own `--muted` (`#27272a`): 5.81:1. A browser check runs axe contrast on the bar under neutral, fill, mono-ink and ink-with-gold brands, light and dark. (HC #1721)
+
 ## v0.46.3
 
 Features affected: core (kit.css, re-pinned), kit components (ground card).
