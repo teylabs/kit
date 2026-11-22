@@ -153,7 +153,7 @@ const segment =
                         'focus-within:border-ring focus-within:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 flex h-9 w-full min-w-0 items-center gap-1 rounded-md border px-3 text-base transition-[color,box-shadow] focus-within:ring-[3px] data-disabled:cursor-not-allowed data-disabled:opacity-50 md:text-sm',
                         locked
                             ? 'border-border bg-muted shadow-none'
-                            : 'border-input dark:bg-input/30 bg-transparent shadow-xs',
+                            : 'border-input dark:bg-input/30 bg-(--kit-field) shadow-xs',
                     ]"
                 >
                     <div class="-ml-1.5 flex min-w-0 flex-1 items-center">

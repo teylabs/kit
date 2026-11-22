@@ -38,7 +38,7 @@ const classes = computed(() => [
     props.shape === 'pill' ? 'rounded-full' : 'rounded-xl',
     props.tone === 'inverse'
         ? 'border-foreground bg-foreground text-background [--avatar-ring:var(--foreground)]'
-        : 'bg-card text-card-foreground shadow-xs [--avatar-ring:var(--card)]',
+        : 'bg-card text-card-foreground shadow-(--kit-card-shadow) [--avatar-ring:var(--card)]',
     props.translucent &&
         (props.tone === 'inverse' ? translucentInverse : translucentDefault),
     { none: 'p-0', sm: 'p-3', md: 'p-6' }[props.padding],

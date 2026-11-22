@@ -21,7 +21,7 @@ provideCard();
 <template>
     <section
         :aria-label="title"
-        class="bg-card text-card-foreground divide-border divide-y rounded-xl border shadow-xs"
+        class="bg-card text-card-foreground divide-border divide-y rounded-xl border shadow-(--kit-card-shadow)"
         data-settings-section
     >
         <div class="px-6 py-4">

@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+Features affected: core (kit.css tokens, Brand, re-pinned), kit components (cards, fields, Modal, Dialog). The default theme draws what it drew before, except the one change Jasper asked for: Modal and Dialog take the top elevation level.
+
+### Added
+
+- **One card shadow token.** `--kit-card-shadow` is now every card's shadow: Surface, FormCard, Section, a dashboard widget, SettingsSection, ConnectionCard, Composer, Repeater, PasskeyOffer and the ground card. It defaults to Tailwind's `shadow-xs`, so cards look the same. A tinted theme's ground cards now draw it too (before, they had none); a theme that sets its own still counts as lifting its cards (1.04:1 on the ground, 1.25:1 border).
+- **A field fill token.** `--kit-field` fills fields in light mode: Input-style fields, Select, InputSelect, Textarea, the date, time and number inputs, and PeriodPicker. It defaults to transparent; dark mode keeps its input wash.
+- **Brand washes and outline.** A brand prints `accent_surface` as `--accent`, `secondary` as `--secondary` and `outline` as `--kit-outline`, each with a `_dark` twin. `--kit-outline` follows the brand's `border` when `outline` is unset, so ButtonGroup's ring matches a warm or tinted brand.
+
+### Changed
+
+- **Modal and Dialog sit on the card surface** (`bg-card`), not the page ground, so on a tinted ground they're white like cards, menus and popovers. They take `--kit-modal-shadow`, the top elevation level (Refactoring UI D3, D4): `0 15px 35px rgb(0 0 0 / 0.2), 0 5px 15px rgb(0 0 0 / 0.07)`, replacing `shadow-lg`. On the default theme the fill is unchanged; the shadow is larger. (Fleet #1726)
+- **Tinted-ground border minimum.** A lifted card's border needs 1.25:1 on the card, a flat card's still 1.5:1 (Refactoring UI D5, F5, H7). README, Tinted page grounds.
+
 ## v0.46.4
 
 Features affected: core (Brand).

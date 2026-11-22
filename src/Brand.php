@@ -200,7 +200,7 @@ final class Brand
      * accent as the marker; `mono`: ink buttons and header, the accent as the marker), so a brand that sets none of them gets what it always got.
      * The optional colours (surfaces, links, the header rule) are null until set, and nothing is printed for a null.
      *
-     * @return array{accent: string, accent_foreground: string, accent_strong: string, accent_dark: string, accent_dark_foreground: string, style: string, ink: string, button: string, button_dark: string, header: string, marker: string, header_rule: ?string, background: ?string, card: ?string, border: ?string, muted: ?string, input: ?string, background_dark: ?string, card_dark: ?string, border_dark: ?string, muted_dark: ?string, input_dark: ?string, link: ?string, link_dark: ?string}
+     * @return array{accent: string, accent_foreground: string, accent_strong: string, accent_dark: string, accent_dark_foreground: string, style: string, ink: string, button: string, button_dark: string, header: string, marker: string, header_rule: ?string, background: ?string, card: ?string, border: ?string, muted: ?string, input: ?string, background_dark: ?string, card_dark: ?string, border_dark: ?string, muted_dark: ?string, input_dark: ?string, accent_surface: ?string, secondary: ?string, outline: ?string, accent_surface_dark: ?string, secondary_dark: ?string, outline_dark: ?string, link: ?string, link_dark: ?string}
      */
     public static function tokens(?string $preset = null): array
     {
@@ -219,6 +219,8 @@ final class Brand
             'header' => $role('header', ['theme', 'ink'], $mono ? 'ink' : 'theme'), 'marker' => $role('marker', ['strong', 'accent'], $mono ? 'accent' : 'strong'),
             'header_rule' => $rule,
             'background' => $optional('background'), 'card' => $optional('card'), 'border' => $optional('border'), 'muted' => $optional('muted'), 'input' => $optional('input'),
+            'accent_surface' => $optional('accent_surface'), 'secondary' => $optional('secondary'), 'outline' => $optional('outline') ?? $optional('border'),
+            'accent_surface_dark' => $optional('accent_surface_dark'), 'secondary_dark' => $optional('secondary_dark'), 'outline_dark' => $optional('outline_dark') ?? $optional('border_dark'),
             'background_dark' => $optional('background_dark'), 'card_dark' => $optional('card_dark'), 'border_dark' => $optional('border_dark'), 'muted_dark' => $optional('muted_dark'), 'input_dark' => $optional('input_dark'),
             'link' => $optional('link'), 'link_dark' => $optional('link_dark'),
         ];
@@ -237,9 +239,11 @@ final class Brand
                 .';--ring:'.$t['accent_strong'].';--brand-marker:'.($t['marker'] === 'strong' ? $t['accent_strong'] : $t['accent']);
             $dark = ($t['button_dark'] === 'accent' ? '--primary:'.$t['accent_dark'].';--primary-foreground:'.$t['accent_dark_foreground'].';' : '').'--ring:'.$t['accent_dark'].';--brand-marker:'.$t['accent_dark'];
         }
-        foreach (['background', 'card', 'border', 'input', 'muted'] as $surface) {
-            $light .= $t[$surface] !== null ? ($light === '' ? '' : ';').'--'.$surface.':'.$t[$surface] : '';
-            $dark .= $t[$surface.'_dark'] !== null ? ($dark === '' ? '' : ';').'--'.$surface.':'.$t[$surface.'_dark'] : '';
+        // Each surface prints under its token: `accent_surface` is the hover and active wash (--accent, not the brand accent), and `outline` (ButtonGroup's
+        // ring, the outline tier) follows the brand's border unless set itself.
+        foreach (['background' => 'background', 'card' => 'card', 'border' => 'border', 'input' => 'input', 'muted' => 'muted', 'accent_surface' => 'accent', 'secondary' => 'secondary', 'outline' => 'kit-outline'] as $surface => $token) {
+            $light .= ($t[$surface] ?? null) !== null ? ($light === '' ? '' : ';').'--'.$token.':'.$t[$surface] : '';
+            $dark .= ($t[$surface.'_dark'] ?? null) !== null ? ($dark === '' ? '' : ';').'--'.$token.':'.$t[$surface.'_dark'] : '';
         }
         $light .= $t['link'] !== null ? ($light === '' ? '' : ';').'--brand-link:'.$t['link'] : '';
         $dark .= $t['link_dark'] !== null ? ($dark === '' ? '' : ';').'--brand-link:'.$t['link_dark'] : '';

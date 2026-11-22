@@ -64,7 +64,7 @@ function submit() {
     <component
         :is="as"
         :class="[
-            'bg-card text-card-foreground focus-within:ring-ring rounded-xl border shadow-xs focus-within:ring-2',
+            'bg-card text-card-foreground focus-within:ring-ring rounded-xl border shadow-(--kit-card-shadow) focus-within:ring-2',
             expanded ? 'grid gap-0' : '',
         ]"
         :data-composer="expanded ? 'open' : 'closed'"

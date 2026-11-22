@@ -51,7 +51,7 @@ const badge = computed(
     <section
         :aria-label="title"
         :aria-busy="status === 'checking' || undefined"
-        class="bg-card text-card-foreground divide-border divide-y rounded-xl border shadow-xs"
+        class="bg-card text-card-foreground divide-border divide-y rounded-xl border shadow-(--kit-card-shadow)"
         :data-connection="status"
     >
         <div class="flex flex-wrap items-start justify-between gap-3 px-6 py-4">

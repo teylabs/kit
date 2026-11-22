@@ -8,7 +8,9 @@ defineProps<{ title?: string; description?: string }>();
 provideCard();
 </script>
 <template>
-    <section class="bg-card text-card-foreground rounded-xl border shadow-xs">
+    <section
+        class="bg-card text-card-foreground rounded-xl border shadow-(--kit-card-shadow)"
+    >
         <div v-if="title" class="border-b px-6 py-4">
             <SectionHeader :title="title" :description="description" />
         </div>

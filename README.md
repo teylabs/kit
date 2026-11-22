@@ -344,13 +344,15 @@ It is a CSS token rather than a config value because it belongs with the colours
 | Pair | Minimum |
 | --- | --- |
 | the surface (`--card`) against the ground | 1.1:1, and the card has a `--border` edge; 1.04:1 when the theme lifts its cards with `--kit-card-shadow` |
-| `--border` against `--card` | 1.5:1 |
+| `--border` against `--card` | 1.5:1 for a flat card; 1.25:1 for a lifted one (a `--kit-card-shadow` set by the theme), whose shadow carries the edge (Refactoring UI index D5 and F5, with H7: a soft shadow separates better than a darker border) |
 | a control's edge (`--input`) against its surface (`--card`) | 3:1 |
 | `--foreground` on the ground, `--card-foreground` on the surface, and `--muted-foreground` on both | 4.5:1 |
 
 A brand can set the edge with the others it prints: `kit.brand.input` (`input` in `config/brand.php`) prints `--input` next to `--border`, and `input_dark` its dark twin, so an app on a tinted ground need not print it itself. Unset prints nothing. `Brand::contrastProblems()` reads a configured edge against the brand's card, else its page, at 3:1, light and dark.
 
-The first three apply to a tinted ground; the shipped themes are white grounds, where only the text pairs do. White against `#f3f5e7` is 1.10:1, so a ground that pale needs a white card. A near-white ground (`#fafaf9` is 1.04:1 under white) works only with lifted cards: set `--kit-card-shadow` (none by default) to a small two-part shadow, and the ground cards draw it (`tests/fixtures/near-white-ground-theme.css`). The browser check `?tinted` renders a DataTable, a FormCard, an EmptyState and PageSections on the sample ground at 1280px (light and dark), checks each card's edge and background and that none is nested, runs axe, and checks the white ground draws no card.
+The first three apply to a tinted ground; the shipped themes are white grounds, where only the text pairs do. White against `#f3f5e7` is 1.10:1, so a ground that pale needs a white card. A near-white ground (`#fafaf9` is 1.04:1 under white) works only with lifted cards: set `--kit-card-shadow` (Tailwind's `shadow-xs` by default) to a small two-part shadow, and every kit card draws it (`tests/fixtures/near-white-ground-theme.css`).
+
+**Surface tokens.** Set any of these in the theme; the defaults draw what the kit always drew. `--kit-card-shadow`: every card's shadow (Surface, Card, FormCard, Section, a dashboard widget, SettingsSection, ConnectionCard, Composer, Repeater, PasskeyOffer and the ground card). `--kit-field`: a field's fill in light mode (transparent by default; on a tinted ground set it to the card colour so fields don't read as see-through). `--kit-modal-shadow`: Modal's and Dialog's, which sit on the card surface (`--card`), not the ground. A brand prints `--accent` (`accent_surface`), `--secondary` and `--kit-outline` (`outline`, else its `border`) with its other surfaces. The browser check `?tinted` renders a DataTable, a FormCard, an EmptyState and PageSections on the sample ground at 1280px (light and dark), checks each card's edge and background and that none is nested, runs axe, and checks the white ground draws no card.
 
 ## Auth-only session-ui and workspace-ui
 

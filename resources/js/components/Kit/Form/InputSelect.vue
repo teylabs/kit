@@ -637,7 +637,7 @@ const fieldClass = computed(() => [
     readOnly.value
         ? 'border-border bg-muted shadow-none focus-within:ring-2 focus-within:ring-ring'
         : [
-              'bg-transparent dark:bg-input/30',
+              'bg-(--kit-field) dark:bg-input/30',
               aria.value['aria-invalid']
                   ? 'border-destructive focus-within:ring-2 focus-within:ring-destructive'
                   : 'border-input hover:border-ring/60 focus-within:ring-2 focus-within:ring-ring',

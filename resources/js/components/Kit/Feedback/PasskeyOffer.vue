@@ -94,7 +94,7 @@ async function add(): Promise<void> {
     <section
         v-if="shown"
         aria-labelledby="passkey-offer-title"
-        class="border-border bg-card relative flex flex-wrap items-start gap-3 rounded-lg border p-4 pr-12 shadow-xs"
+        class="border-border bg-card relative flex flex-wrap items-start gap-3 rounded-lg border p-4 pr-12 shadow-(--kit-card-shadow)"
         data-passkey-offer
     >
         <KeyRound

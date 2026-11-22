@@ -120,6 +120,14 @@ return [
         'border_dark' => null,
         'muted_dark' => null,
         'input_dark' => null,
+        // The washes and the outline tier, each a #rrggbb with a `_dark` twin: `accent_surface` (--accent: hover and active items), `secondary` (--secondary)
+        // and `outline` (--kit-outline: ButtonGroup's ring and the outline buttons), which follows `border` when unset. Null prints nothing.
+        'accent_surface' => null,
+        'secondary' => null,
+        'outline' => null,
+        'accent_surface_dark' => null,
+        'secondary_dark' => null,
+        'outline_dark' => null,
         'link' => null,
         'link_dark' => null,
         // Named variants to compare side by side: a JSON object of name => the keys above (any colour or role key above). Only in a local environment, `?brand=<name>` previews one for the session (`?brand=` clears it);

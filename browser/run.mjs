@@ -10760,6 +10760,52 @@ test('People, Change role: a role refused on save comes back inline on the Role 
     });
 });
 
+// ── v0.47.0 surface tokens under a tinted theme: every card draws --kit-card-shadow, a field fills with --kit-field, and Dialog and Modal sit on the card
+// surface with --kit-modal-shadow, not on the ground. The default theme draws what it always drew (shadow-xs, transparent fields); the dialog's fill is --card.
+const surfaceTheme = ':root{--kit-ground:tinted;--background:#f3f5e7;--card:#ffffff;--kit-card-shadow:0 1px 2px 0 rgb(60 64 30 / 0.1);--kit-field:#fefefe;--kit-modal-shadow:0 5px 15px 0 rgb(50 52 39 / 0.07)}';
+const surfaceOf = (tab, selector) => tab.locator(selector).first().evaluate(el => ({ fill: getComputedStyle(el).backgroundColor, shadow: getComputedStyle(el).boxShadow }));
+test('surface tokens on a tinted theme: a FormCard draws --kit-card-shadow, a field fills with --kit-field, and a Dialog sits on --card with --kit-modal-shadow; the default theme is unchanged', async () => {
+    for (const themed of [false, true]) {
+        const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+        try {
+            const tab = await context.newPage();
+            await tab.goto(`${url}?form-submit`);
+            await tab.waitForSelector('[data-form-card]');
+            if (themed) await tab.addStyleTag({ content: surfaceTheme });
+            const card = await surfaceOf(tab, '[data-form-card]');
+            assert.match(card.shadow, themed ? /rgba\(60, 64, 30, 0\.1\) 0px 1px 2px 0px$/ : /rgba\(0, 0, 0, 0\.05\) 0px 1px 2px 0px$/, `${themed ? 'tinted' : 'default'}: the card's shadow is --kit-card-shadow (shadow-xs by default)`);
+            await tab.goto(`${url}?confirm`);
+            if (themed) await tab.addStyleTag({ content: surfaceTheme });
+            await tab.click('[data-open-confirm]');
+            const dialog = await surfaceOf(tab, '[role="alertdialog"]');
+            assert.equal(dialog.fill, 'rgb(255, 255, 255)', `${themed ? 'tinted' : 'default'}: the Dialog is on --card, not the ground`);
+            assert.match(dialog.shadow, themed ? /rgba\(50, 52, 39, 0\.07\) 0px 5px 15px 0px/ : /rgba\(0, 0, 0, 0\.2\) 0px 15px 35px 0px/, 'the Dialog draws --kit-modal-shadow');
+        } finally { await context.close(); }
+    }
+    // A field's fill, on its own: the default is transparent, a theme's --kit-field fills it.
+    for (const themed of [false, true]) {
+        const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+        try {
+            const tab = await context.newPage();
+            await tab.goto(`${url}?textarea`);
+            if (themed) await tab.addStyleTag({ content: surfaceTheme });
+            const fill = await tab.locator('textarea').first().evaluate(el => getComputedStyle(el).backgroundColor);
+            assert.equal(fill, themed ? 'rgb(254, 254, 254)' : 'rgba(0, 0, 0, 0)', `${themed ? 'tinted' : 'default'}: a field fills with --kit-field`);
+        } finally { await context.close(); }
+    }
+});
+test('surface tokens on a tinted theme: Modal (People, Invite member) sits on --card with --kit-modal-shadow, not on the ground', async () => {
+    const store = peopleStore();
+    await peoplePage(store, peopleAt(), async ({ tab }) => {
+        await tab.addStyleTag({ content: surfaceTheme });
+        await tab.getByRole('link', { name: 'Invite member' }).click();
+        await tab.getByRole('dialog', { name: 'Invite member' }).waitFor();
+        const panel = await surfaceOf(tab, '[class*="kit-modal-shadow"]');
+        assert.equal(panel.fill, 'rgb(255, 255, 255)', 'the Modal is on --card (white), not the ground (#f3f5e7)');
+        assert.match(panel.shadow, /rgba\(50, 52, 39, 0\.07\) 0px 5px 15px 0px/, 'the Modal draws --kit-modal-shadow');
+    });
+});
+
 test('People, Invite member: a person opens Invite member, fills the address, role and message and presses Send invitation; the modal closes, the link shows once, and the invitation is listed, also after a reload', async () => {
     const store = peopleStore();
     await peoplePage(store, peopleAt(), async ({ tab, posts, reload }) => {
