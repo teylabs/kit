@@ -263,6 +263,15 @@ final class PageShell implements ShellSource
             // The SubNav, for the workspace being viewed only: the active module's pages the viewer may open.
             if ((string) $request->route('workspace') === (string) $workspace->id) {
                 $allowed['module'] = self::moduleNavigation(app(Registry::class), $primary, fn (string $ability): bool => $this->may($user, $ability), fn (array $page): string => WorkspaceUrl::to($workspace, $page['suffix'], null, $request), fn (array $page): bool => $this->active($request, $workspace, $page));
+                // A section is current whenever one of its pages is, including a page matched only through its own `active` (Admin › Settings on settings/*).
+                if ($allowed['module'] !== null && in_array(true, array_column($allowed['module']['items'], 'current'), true)) {
+                    foreach ($allowed['primary'] as $index => $link) {
+                        if ($link['label'] === $allowed['module']['label']) {
+                            $allowed['primary'][$index]['current'] = true;
+                            break;
+                        }
+                    }
+                }
             }
 
             // Global search, for the workspace being viewed only, while the viewer may search it (workspace.search on).

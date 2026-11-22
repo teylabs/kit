@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+Features affected: session-ui.
+
+### Fixed
+
+- **A section's primary link is current whenever one of its pages is.** That includes a page matched only through its own `active` outside the section's prefix (Admin › Settings with `active: ['settings', 'settings/*']`), so an app no longer repeats those patterns in the primary link's `active`. (#1214)
+
 ## v0.44.1
 
 Features affected: session-ui.
