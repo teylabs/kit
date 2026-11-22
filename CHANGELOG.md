@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.44.0
 
 Features affected: kit components (Layout), core (Registry, kit.css re-pinned), session-ui, shell (re-pinned); workspaces (migration `000212`, already released in v0.43.3).
 
