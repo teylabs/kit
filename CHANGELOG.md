@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.46.1
 
 Features affected: core (Registry, boot check), session-ui (module navigation, dashboard widgets), kit components (SectionIcon, PageTabs, Page, SettingsFrame), workspace-ui (re-pinned).
 
