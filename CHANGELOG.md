@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+Features affected: core (kit.css, re-pinned), kit components (ground card).
+
+### Added
+
+- **Near-white grounds with lifted cards.** A new token, `--kit-card-shadow` (none by default), is drawn by the ground card (DataTable, EmptyState, PageSection, Workbench, Widget on a tinted ground). A tinted theme that sets it may put its cards as close as 1.04:1 to the ground (such as `#fafaf9` under white); flat cards keep 1.1:1. `test:token-contrast` checks a near-white sample. No look change for an app that doesn't set it. Docs: README, Tinted page grounds.
+
 ## v0.46.2
 
 Features affected: core (Registry boot check), kit components (SectionIcon).

@@ -343,14 +343,14 @@ It is a CSS token rather than a config value because it belongs with the colours
 
 | Pair | Minimum |
 | --- | --- |
-| the surface (`--card`) against the ground | 1.1:1, and the card has a `--border` edge |
+| the surface (`--card`) against the ground | 1.1:1, and the card has a `--border` edge; 1.04:1 when the theme lifts its cards with `--kit-card-shadow` |
 | `--border` against `--card` | 1.5:1 |
 | a control's edge (`--input`) against its surface (`--card`) | 3:1 |
 | `--foreground` on the ground, `--card-foreground` on the surface, and `--muted-foreground` on both | 4.5:1 |
 
 A brand can set the edge with the others it prints: `kit.brand.input` (`input` in `config/brand.php`) prints `--input` next to `--border`, and `input_dark` its dark twin, so an app on a tinted ground need not print it itself. Unset prints nothing. `Brand::contrastProblems()` reads a configured edge against the brand's card, else its page, at 3:1, light and dark.
 
-The first three apply to a tinted ground; the shipped themes are white grounds, where only the text pairs do. White against `#f3f5e7` is 1.10:1, so a ground that pale needs a white card. The browser check `?tinted` renders a DataTable, a FormCard, an EmptyState and PageSections on the sample ground at 1280px (light and dark), checks each card's edge and background and that none is nested, runs axe, and checks the white ground draws no card.
+The first three apply to a tinted ground; the shipped themes are white grounds, where only the text pairs do. White against `#f3f5e7` is 1.10:1, so a ground that pale needs a white card. A near-white ground (`#fafaf9` is 1.04:1 under white) works only with lifted cards: set `--kit-card-shadow` (none by default) to a small two-part shadow, and the ground cards draw it (`tests/fixtures/near-white-ground-theme.css`). The browser check `?tinted` renders a DataTable, a FormCard, an EmptyState and PageSections on the sample ground at 1280px (light and dark), checks each card's edge and background and that none is nested, runs axe, and checks the white ground draws no card.
 
 ## Auth-only session-ui and workspace-ui
 
