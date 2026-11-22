@@ -282,13 +282,13 @@ const itemLabel = (item: MediaItem, index: number) =>
                         </button>
                         <span
                             v-if="badges[item.id]"
-                            class="bg-primary text-primary-foreground pointer-events-none absolute top-1.5 left-1.5 z-10 rounded-sm px-1.5 text-xs leading-5 font-medium shadow-sm"
+                            class="bg-primary text-primary-foreground pointer-events-none absolute top-1.5 left-1.5 z-10 rounded-sm px-1.5 text-xs leading-5 font-medium shadow-(--kit-elevation-1)"
                             data-media-badge
                             >{{ badges[item.id] }}</span
                         >
                         <span
                             v-if="selectedIds.includes(item.id)"
-                            class="bg-primary text-primary-foreground pointer-events-none absolute top-1.5 right-1.5 inline-flex size-5 items-center justify-center rounded-full shadow-sm"
+                            class="bg-primary text-primary-foreground pointer-events-none absolute top-1.5 right-1.5 inline-flex size-5 items-center justify-center rounded-full shadow-(--kit-elevation-1)"
                             data-media-selected
                             ><Check class="size-3.5" aria-hidden="true" /><span
                                 class="sr-only"

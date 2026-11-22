@@ -123,7 +123,7 @@ const nounFor = (n: number) => (n === 1 ? props.noun[0] : props.noun[1]);
 const layers = computed(() => Math.min(3, Math.max(0, count.value - 1)));
 // Each layer sits 0.5rem lower and 0.5rem narrower a side than the one above it; the top item leaves room for all of them.
 const layerClass = (depth: number) => [
-    'border-foreground/20 bg-card absolute rounded-md border shadow-sm',
+    'border-foreground/20 bg-card absolute rounded-md border shadow-(--kit-elevation-1)',
     ['inset-x-2', 'inset-x-4', 'inset-x-6'][depth - 1],
     ['top-2', 'top-4', 'top-6'][depth - 1],
     ['bottom-0', 'bottom-2', 'bottom-4'][layers.value - depth],
@@ -198,7 +198,7 @@ const itemLabel = (item: StackItem, at: number) =>
                 <button
                     type="button"
                     :class="[
-                        'border-border bg-card focus-visible:outline-ring relative z-10 block w-full overflow-hidden rounded-md border shadow-sm transition-shadow focus-visible:outline-2 focus-visible:outline-offset-2',
+                        'border-border bg-card focus-visible:outline-ring relative z-10 block w-full overflow-hidden rounded-md border shadow-(--kit-elevation-1) transition-shadow focus-visible:outline-2 focus-visible:outline-offset-2',
                         fill && 'h-full',
                     ]"
                     :aria-label="`Open ${itemLabel(current, index)}`"
@@ -233,7 +233,7 @@ const itemLabel = (item: StackItem, at: number) =>
                     <span
                         v-if="showBadge"
                         aria-hidden="true"
-                        class="bg-background/90 text-foreground absolute top-1.5 right-1.5 rounded px-1.5 py-0.5 text-xs font-medium tabular-nums shadow-sm"
+                        class="bg-background/90 text-foreground absolute top-1.5 right-1.5 rounded px-1.5 py-0.5 text-xs font-medium tabular-nums shadow-(--kit-elevation-1)"
                         data-item-stack-count
                         >{{ index + 1 }} of {{ count }}</span
                     >

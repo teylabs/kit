@@ -297,7 +297,7 @@ function remove() {
                 </button>
                 <span
                     v-if="badge"
-                    class="bg-primary text-primary-foreground pointer-events-none absolute top-1.5 left-1.5 z-10 rounded-sm px-1.5 text-xs leading-5 font-medium shadow-sm"
+                    class="bg-primary text-primary-foreground pointer-events-none absolute top-1.5 left-1.5 z-10 rounded-sm px-1.5 text-xs leading-5 font-medium shadow-(--kit-elevation-1)"
                     data-photo-field-badge
                     >{{ badge }}</span
                 >

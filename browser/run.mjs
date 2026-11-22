@@ -3259,9 +3259,9 @@ for (const scheme of ['light', 'dark']) {
                 document.body.append(probe);
                 const card = getComputedStyle(probe).backgroundColor;
                 probe.remove();
-                return { card, table: getComputedStyle(document.querySelector('[data-table-card]')).backgroundColor, ground: getComputedStyle(document.querySelector('main')).backgroundColor };
+                return { card, table: getComputedStyle(document.querySelector('[data-ground-surface]') ?? document.querySelector('[data-table-card]')).backgroundColor, ground: getComputedStyle(document.querySelector('main')).backgroundColor };
             });
-            assert.equal(surface.table, surface.card, 'the table card paints the card colour');
+            assert.equal(surface.table, surface.card, 'the table card (on the default near-white ground, its ground card) paints the card colour');
             assert.notEqual(surface.table, surface.ground, 'not the page ground');
             assert.deepEqual(await tab.$$eval('[data-table] thead th', els => [...new Set(els.map(el => getComputedStyle(el).whiteSpace))]), ['nowrap']);
             assert.equal(await tab.$eval('[data-column="connectedBy"]', el => el.getBoundingClientRect().height < 40), true, '"Connected by" stays on one line');
@@ -3343,7 +3343,7 @@ for (const scheme of ['light', 'dark']) {
     });
 }
 
-test('White ground (?tinted=white, 1280px): the default draws no ground card and keeps each component as it was', async () => {
+test('White ground (?tinted=white, 1280px): an app that opts out of the near-white default (--kit-ground: white) draws no ground card and keeps each component as it was', async () => {
     const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
     try {
         const tab = await context.newPage();
@@ -4237,7 +4237,7 @@ test('a non-filling Workbench docked at the viewport\'s foot: its bar is pinned 
     const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
     try {
         const tab = await context.newPage();
-        await tab.goto(`${url}?sticky-toast&docked&position=bottom-right`);
+        await tab.goto(`${url}?sticky-toast&docked&position=bottom-right&white`); // on the white ground, where the Workbench draws no ground card around its bar
         await tab.locator('[data-workbench-actions] button').first().waitFor();
         const bar = await tab.$eval('[data-workbench-actions]', el => ({ bottom: el.getBoundingClientRect().bottom, pinned: el.getAttribute('data-pinned') }));
         assert.ok(Math.abs(bar.bottom - 900) <= 12, `the bar ends at the viewport's foot, give or take its container's gap (${bar.bottom})`);
@@ -4805,7 +4805,7 @@ test('DescriptionList: a value copies through a button named for its term and th
 test('EmptyState: align start sits at the start edge, first-use draws a dashed border, a named icon renders, an unknown name draws none; the default stays centred', async () => {
     await a11yPage(async tab => {
         const read = sel => tab.locator(sel).evaluate(el => ({ items: getComputedStyle(el).justifyItems, text: getComputedStyle(el).textAlign, border: getComputedStyle(el).borderTopWidth === '0px' ? 'none' : getComputedStyle(el).borderTopStyle, icon: Boolean(el.querySelector('[data-empty-state-icon] svg')) }));
-        assert.deepEqual(await read('[data-empty]'), { items: 'center', text: 'center', border: 'none', icon: false });
+        assert.deepEqual(await read('[data-empty]'), { items: 'center', text: 'center', border: 'solid', icon: false }, 'the default, on the default near-white ground, sits in its own ground card');
         assert.deepEqual(await read('[data-empty-start]'), { items: 'start', text: 'start', border: 'dashed', icon: true });
         assert.equal(await tab.getAttribute('[data-empty-start]', 'data-variant'), 'first-use');
         assert.equal(await tab.locator('[data-empty-unknown] [data-empty-state-icon]').count(), 0, 'an unknown icon name draws no icon box');
@@ -8285,7 +8285,7 @@ const axeClean = async (tab, name) => {
 // ── The shell bar under each brand preset (light and dark, 1280px, where the search shows its ⌘K hint): the kit's own Brand::css for each, axe-clean ──────
 // with contrast inside the bar. An ink header paints the bar dark; the hint sits on `bg-muted`, which must be the bar's own wash, not the page's (HC #1721).
 // Brand::css's output for each preset, as test:brand pins it (the browser job has no PHP): neutral prints nothing; an ink header prints the bar block.
-const inkBar = (ink, accent) => `[data-shell-bar]{--background:${ink};--foreground:#ffffff;--muted:#27272a;--muted-foreground:#a1a1aa;--accent:#27272a;--accent-foreground:#ffffff;--border:#27272a;--ring:${accent};--brand-marker:${accent}}`;
+const inkBar = (ink, accent) => `[data-shell-bar]{--background:${ink};--foreground:#ffffff;--muted:#27272a;--muted-foreground:#a1a1aa;--accent:#27272a;--accent-foreground:#ffffff;--border:#27272a;--shell-bar-field:#27272a;--shell-bar-field-edge:#71717a;--kit-field:#27272a;--kit-field-edge:#71717a;--ring:${accent};--brand-marker:${accent}}`;
 test('the shell bar\'s ⌘K hint and the rest of the bar pass axe contrast under every brand preset (neutral, fill, mono ink, ink with gold), light and dark', async () => {
     const presets = {
         neutral: '',
@@ -8305,6 +8305,45 @@ test('the shell bar\'s ⌘K hint and the rest of the bar pass axe contrast under
                 const violations = await tab.evaluate(async () => (await window.axe.run({ include: [['[data-shell-bar]']] }, { runOnly: ['color-contrast'] })).violations.map(v => `${v.id}: ${v.nodes.map(n => `${n.target.join(' ')} ${n.any[0]?.data?.contrastRatio ?? ''}`).join(', ')}`));
                 assert.deepEqual(violations, [], `${scheme}: no contrast failure in the bar`);
                 assert.deepEqual(errors, []);
+            } finally { await context.close(); }
+        }
+    }
+});
+
+// The global search field in the shell bar takes the bar's own fill and edge (--shell-bar-field, --shell-bar-field-edge), not the page's (AppraisalBench #1817:
+// on a dark bar the page's field went see-through in light and drew a bright edge in dark). Its edge reaches 3:1 against the bar and its placeholder 4.5:1 on
+// its fill, under each preset, light and dark.
+test('the shell bar\'s search field has the bar\'s own fill and edge: a 3:1 edge against the bar and a 4.5:1 placeholder, under neutral, ink and ink-gold, light and dark', async () => {
+    // The last is an app that updated the package but not its kit.css copy (no field tokens, as AppraisalBench's preview): Brand::css still prints the bar's field.
+    // An ink header's bar is painted ink (the app maps --shell-bar to it, as the starter's app.css does).
+    const ink = (colour, accent) => inkBar(colour, accent) + `:root{--shell-bar:${colour}}[data-shell-bar]{--shell-bar-foreground:#ffffff}`;
+    const presets = { neutral: '', ink: ink('#050505', '#16a34a'), 'ink-gold': ink('#1a181b', '#c9a227'), 'ink, stale kit.css': ink('#1a181b', '#c9a227') + ':root{--kit-field:initial;--kit-field-edge:initial;--shell-bar-field:initial;--shell-bar-field-edge:initial}' };
+    for (const [name, css] of Object.entries(presets)) {
+        for (const dark of [false, true]) {
+            const scheme = `${name} ${dark ? 'dark' : 'light'}`;
+            const { context, tab } = await openShell('', 1280, dark);
+            try {
+                if (css) await tab.addStyleTag({ content: css });
+                const seen = await tab.evaluate(() => {
+                    const rgba = (value) => { const probe = document.createElement('canvas').getContext('2d'); probe.fillStyle = '#000'; probe.fillStyle = value; probe.fillRect(0, 0, 1, 1); return [...probe.getImageData(0, 0, 1, 1).data]; };
+                    const over = (top, under) => { const a = top[3] / 255; return [0, 1, 2].map(i => top[i] * a + under[i] * (1 - a)); };
+                    const lum = (c) => { const [r, g, b] = c.map(v => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+                    const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m); return (x + 0.05) / (y + 0.05); };
+                    const ground = getComputedStyle(document.body).backgroundColor;
+                    const page = over(rgba(getComputedStyle(document.documentElement).backgroundColor), [255, 255, 255]);
+                    const barEl = document.querySelector('[data-shell-bar]');
+                    const bar = over(rgba(getComputedStyle(barEl).backgroundColor), over(rgba(ground), page));
+                    const input = document.querySelector('[data-shell-bar] [data-search-input]');
+                    const style = getComputedStyle(input);
+                    const fill = over(rgba(style.backgroundColor), bar);
+                    const edge = over(rgba(style.borderTopColor), bar);
+                    const placeholder = over(rgba(getComputedStyle(input, '::placeholder').color), fill);
+                    return { fillAlpha: rgba(style.backgroundColor)[3], edge: ratio(edge, bar), placeholder: ratio(placeholder, fill) };
+                });
+                assert.equal(seen.fillAlpha, 255, `${scheme}: the field is filled, not see-through`);
+                assert.ok(seen.edge >= 3, `${scheme}: the field's edge is ${seen.edge.toFixed(2)}:1 against the bar (3:1)`);
+                assert.ok(seen.placeholder >= 4.5, `${scheme}: the placeholder is ${seen.placeholder.toFixed(2)}:1 on the field (4.5:1)`);
+                if (process.env.KIT_BAR_FIELD_SHOTS) await tab.screenshot({ path: `${process.env.KIT_BAR_FIELD_SHOTS}/bar-${name}-${dark ? 'dark' : 'light'}.png`, clip: { x: 0, y: 0, width: 1280, height: 72 } });
             } finally { await context.close(); }
         }
     }
@@ -10778,13 +10817,13 @@ test('surface tokens on a tinted theme: a FormCard draws --kit-card-shadow, a fi
             await tab.waitForSelector('[data-form-card]');
             if (themed) await tab.addStyleTag({ content: surfaceTheme });
             const card = await surfaceOf(tab, '[data-form-card]');
-            assert.match(card.shadow, themed ? /rgba\(60, 64, 30, 0\.1\) 0px 1px 2px 0px$/ : /rgba\(0, 0, 0, 0\.05\) 0px 1px 2px 0px$/, `${themed ? 'tinted' : 'default'}: the card's shadow is --kit-card-shadow (shadow-xs by default)`);
+            assert.match(card.shadow, themed ? /rgba\(60, 64, 30, 0\.1\) 0px 1px 2px 0px$/ : /rgba\(28, 25, 23, 0\.1\) 0px 1px 3px 0px$/, `${themed ? 'tinted' : 'default'}: the card's shadow is --kit-card-shadow (elevation level 1 by default)`);
             await tab.goto(`${url}?confirm`);
             if (themed) await tab.addStyleTag({ content: surfaceTheme });
             await tab.click('[data-open-confirm]');
             const dialog = await surfaceOf(tab, '[role="alertdialog"]');
             assert.equal(dialog.fill, 'rgb(255, 255, 255)', `${themed ? 'tinted' : 'default'}: the Dialog is on --card, not the ground`);
-            assert.match(dialog.shadow, themed ? /rgba\(50, 52, 39, 0\.07\) 0px 5px 15px 0px/ : /rgba\(0, 0, 0, 0\.2\) 0px 15px 35px 0px/, 'the Dialog draws --kit-modal-shadow');
+            assert.match(dialog.shadow, themed ? /rgba\(50, 52, 39, 0\.07\) 0px 5px 15px 0px/ : /rgba\(28, 25, 23, 0\.2\) 0px 15px 35px 0px/, 'the Dialog draws --kit-modal-shadow (elevation level 5 by default)');
         } finally { await context.close(); }
     }
     // A field's fill and edge, on their own: by default white-filled with a 3:1 edge (#8f8f8f on white) and shadow-xs; a theme's --kit-field and --kit-field-edge set them.
@@ -10797,10 +10836,37 @@ test('surface tokens on a tinted theme: a FormCard draws --kit-card-shadow, a fi
             const field = await tab.locator('textarea').first().evaluate(el => (el.blur(), { fill: getComputedStyle(el).backgroundColor, edge: getComputedStyle(el).borderTopColor, shadow: getComputedStyle(el).boxShadow }));
             assert.equal(field.fill, themed ? 'rgb(254, 254, 254)' : 'rgb(255, 255, 255)', `${themed ? 'tinted' : 'default'}: a field fills with --kit-field (the card's white by default)`);
             assert.equal(field.edge, themed ? 'rgb(122, 128, 96)' : 'rgb(143, 143, 143)', `${themed ? 'tinted' : 'default'}: a field's edge is --kit-field-edge (3:1 on white by default)`);
-            assert.match(field.shadow, /0px 1px 2px 0px$/, 'a field keeps the smallest shadow');
+            assert.match(field.shadow, /rgba\(28, 25, 23, 0\.1\) 0px 1px 3px 0px$/, 'a field draws the smallest shadow, elevation level 1');
         } finally { await context.close(); }
     }
 });
+// ── v0.48.0 defaults: the near-white ground with lifted white cards, the five-level elevation scale, and --kit-outline following --border ──
+test('defaults (v0.48.0): a near-white ground (#fafaf9) with lifted white cards at elevation 1, menus at elevation 3, dark cards lighter than the ground, and --kit-outline is --border', async () => {
+    for (const scheme of ['light', 'dark']) {
+        const context = await browser.newContext({ viewport: { width: 1024, height: 700 }, timezoneId: 'UTC', locale: 'en-US' });
+        try {
+            const tab = await context.newPage();
+            await tab.goto(`${url}?datatable${scheme === 'dark' ? '=dark' : ''}`);
+            await tab.waitForSelector('[data-ground-surface]');
+            const seen = await tab.evaluate(() => {
+                const root = getComputedStyle(document.documentElement);
+                const card = getComputedStyle(document.querySelector('[data-ground-surface]'));
+                const probe = Object.assign(document.createElement('div'), { className: 'bg-background' }); document.body.append(probe); const ground = getComputedStyle(probe).backgroundColor; probe.remove();
+                return { ground, kitGround: root.getPropertyValue('--kit-ground').trim(), card: card.backgroundColor, shadow: card.boxShadow, outline: root.getPropertyValue('--kit-outline').trim(), border: root.getPropertyValue('--border').trim() };
+            });
+            assert.equal(seen.kitGround, 'tinted', `${scheme}: the default declares a tinted ground`);
+            assert.deepEqual([seen.ground, seen.card], scheme === 'dark' ? ['rgb(10, 10, 10)', 'rgb(23, 23, 23)'] : ['rgb(250, 250, 249)', 'rgb(255, 255, 255)'], `${scheme}: the page is the ground, the card stands off it`);
+            assert.match(seen.shadow, scheme === 'dark' ? /rgba\(0, 0, 0, 0\.4\) 0px 1px 3px 0px$/ : /rgba\(28, 25, 23, 0\.1\) 0px 1px 3px 0px$/, `${scheme}: a card is lifted at elevation level 1`);
+            const outline = await tab.evaluate(() => { const probe = Object.assign(document.createElement('div'), { style: 'color: var(--kit-outline); border-color: var(--border)' }); document.body.append(probe); const c = getComputedStyle(probe); const r = [c.color, c.borderTopColor]; probe.remove(); return r; });
+            assert.equal(outline[0], outline[1], `${scheme}: --kit-outline follows --border`);
+            await tab.click('button[aria-label="Actions for Acme Assistant"]');
+            const menu = tab.getByRole('menu');
+            await menu.waitFor();
+            assert.match(await menu.evaluate(el => getComputedStyle(el).boxShadow), scheme === 'dark' ? /rgba\(0, 0, 0, 0\.45\) 0px 10px 20px 0px$/ : /rgba\(28, 25, 23, 0\.12\) 0px 10px 20px 0px$/, `${scheme}: a menu sits at elevation level 3`);
+        } finally { await context.close(); }
+    }
+});
+
 test('surface tokens on a tinted theme: Modal (People, Invite member) sits on --card with --kit-modal-shadow, not on the ground', async () => {
     const store = peopleStore();
     await peoplePage(store, peopleAt(), async ({ tab }) => {

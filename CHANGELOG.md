@@ -1,8 +1,31 @@
 # Changelog
 
+## Unreleased
+
+Features affected: core (kit.css tokens, about 35 components on the elevation scale, re-pinned `sha256:23188284a86e` → `sha256:8ea7c266355a`), shell (GuestShell's card, re-pinned `sha256:eac4d0ccb0c8` → `sha256:2a78630af4a8`) and notes (NoteCard, re-pinned `sha256:24e4da893152` → `sha256:9c1c18a6c967`). Take the new `kit.css` with `php artisan kit:scaffold core --diff --only=resources/css/kit.css`, then `--force` it; until you do, fields fall back to the card and `--input`, and the elevation tokens are missing (no shadows). Take GuestShell and NoteCard the same way from `shell` and `notes`. Jasper approved every look change here (Fleet Space, 21:59Z and 22:00Z, kit audit items 1–5).
+
+Released notes corrected: v0.47.1, v0.26.0
+
+Those two named `kit:update`, which 0.18 removed; the command is `kit:scaffold`.
+
+### Changed
+
+- **The default page ground is near-white, with lifted white cards.** `--background` is `#fafaf9` and the kit declares `--kit-ground: tinted` itself, so DataTable, EmptyState, Workbench and PageSection draw their own card on it (README, "Tinted page grounds"). A white card is 1.04:1 on the ground and stands off it by its edge and elevation level 1 (Refactoring UI D1, D5, F5). The washes move with the ground: `--muted` `#f2f2f0`, `--accent` `#ededeb`, `--secondary` `#e9e9e6`, `--border` `#e4e4e1` (1.27:1 on a card). In dark mode the cards are lighter than the page: card `hsl(0 0% 9%)`, popover `hsl(0 0% 11%)` and border `hsl(0 0% 18%)` on the `hsl(0 0% 3.9%)` page. **To keep the white ground**, set `--kit-ground: white` and `--background: #fff` in your theme. An app that sets its own tint is unaffected beyond the items below.
+- **One elevation scale.** `--kit-elevation-1` to `-5`, each a tight layer and a soft one (Refactoring UI D3, D4), replace the components' `shadow-xs`, `shadow-sm`, `shadow-md` and `shadow-lg`: 1 for cards, buttons and fields, 2 for raised controls (InputSwitch's thumb, SegmentedToggle, AppearanceChoice, PaneTabs, a chosen RadioCardGroup card), 3 for menus, popovers, selects, the date and period pickers, SearchBox's results and ButtonGroup's menu, 4 for Toaster, StageNotice and FloatingToolbar, and 5 for Modal and Dialog. `--kit-card-shadow` defaults to level 1 and `--kit-modal-shadow` to level 5. Dark mode has its own, stronger values. The sticky bars' upward shadows are unchanged.
+- **Field edges are 3:1 in both modes, from `--input`.** `--input` is `hsl(0 0% 56%)` in light (3.24:1 on a card, 3.10:1 on the ground) and `hsl(0 0% 40%)` in dark (3.47:1 on a card), and `--kit-field-edge` defaults to it, so a theme's own `--input` reaches every field again. Outline buttons and other `border-input` edges darken with it (WCAG 1.4.11).
+- **`--kit-outline` follows `--border`** (ButtonGroup's ring and the outline tier), so it takes a warm or tinted brand's border instead of a cool grey.
+
+### Fixed
+
+- **A field in the shell bar has the bar's own fill and edge** (AppraisalBench #1817). The global search took the page's field tokens, so on a dark bar it drew the card's white with the bar's light placeholder (2.6:1) and, in an app whose `kit.css` copy predates v0.47.0, no fill at all and a `currentColor` edge. The bar now sets `--kit-field` and `--kit-field-edge` from `--shell-bar-field` and `--shell-bar-field-edge` (the card and `--input` by default), an ink header prints `#27272a` and `#71717a` for them in `Brand::css` (the edge 3.4:1 or more against the ink, the placeholder 5.7:1), and every field's classes fall back to `--card` and `--input` when the tokens are missing. SearchBox fills with `--kit-field` in dark mode too. A browser check measures the search field under neutral, ink and ink-gold and an ink bar over a stale `kit.css`, light and dark: filled, an edge at 3:1 against the bar, a placeholder at 4.5:1.
+
+### Added
+
+- `test:token-contrast` checks the kit's own near-white defaults (card on ground, lifted border, field edge on card and ground), and a browser check covers the ground, the card's level-1 shadow, a menu's level-3 shadow, dark cards lighter than the ground and `--kit-outline` following `--border`, light and dark. The browser harness takes `?white` for checks written against the white ground.
+
 ## v0.47.1
 
-Features affected: core (Page, PageTabs, Breadcrumbs, Collapsible) and shell (SubNav, re-pinned `sha256:060a565931df` → `sha256:eac4d0ccb0c8`). Run `kit:update plan|apply` for `shell`.
+Features affected: core (Page, PageTabs, Breadcrumbs, Collapsible) and shell (SubNav, re-pinned `sha256:060a565931df` → `sha256:eac4d0ccb0c8`). To take the SubNav change, run `php artisan kit:scaffold shell --diff --only=resources/js/pages/Workspace/Partials/SubNav.vue`, then `--force` that path (or apply the one-class change by hand).
 
 ### Changed
 
@@ -831,7 +854,7 @@ A minor: every kit menu shows an action's description under its label, wrapping,
 
 ## v0.26.0
 
-Features affected: core. Run `php artisan kit:update core` for the new tone tokens in kit.css.
+Features affected: core. Run `php artisan kit:scaffold core --diff --only=resources/css/kit.css` for the new tone tokens in kit.css, then `--force` that path.
 
 A minor: the kit has one fixed set of ten named tones. Badge takes the five new ones and a `dot`, and ColourDot and ToneLabel are new. Existing badges look the same. The new tone tokens live in `kit.css`, so run `php artisan kit:update core` to use them (#1042).
 

@@ -253,7 +253,7 @@ final class Brand
         $light .= $t['link'] !== null ? ($light === '' ? '' : ';').'--brand-link:'.$t['link'] : '';
         $dark .= $t['link_dark'] !== null ? ($dark === '' ? '' : ';').'--brand-link:'.$t['link_dark'] : '';
         if ($t['header'] === 'ink') {
-            $bar = '[data-shell-bar]{--background:'.$t['ink'].';--foreground:#ffffff;--muted:#27272a;--muted-foreground:#a1a1aa;--accent:#27272a;--accent-foreground:#ffffff;--border:#27272a;--ring:'.$t['accent'].';--brand-marker:'.$t['accent'].'}';
+            $bar = '[data-shell-bar]{--background:'.$t['ink'].';--foreground:#ffffff;--muted:#27272a;--muted-foreground:#a1a1aa;--accent:#27272a;--accent-foreground:#ffffff;--border:#27272a;--shell-bar-field:#27272a;--shell-bar-field-edge:#71717a;--kit-field:#27272a;--kit-field-edge:#71717a;--ring:'.$t['accent'].';--brand-marker:'.$t['accent'].'}';
         }
         $css = ($light === '' ? '' : ':root{'.$light.'}').($dark === '' ? '' : '.dark{'.$dark.'}').$bar;
         if ($t['header_rule'] !== null) {

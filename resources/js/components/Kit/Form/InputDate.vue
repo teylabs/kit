@@ -153,7 +153,7 @@ const segment =
                         'focus-within:border-ring focus-within:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 flex h-9 w-full min-w-0 items-center gap-1 rounded-md border px-3 text-base transition-[color,box-shadow] focus-within:ring-[3px] data-disabled:cursor-not-allowed data-disabled:opacity-50 md:text-sm',
                         locked
                             ? 'border-border bg-muted shadow-none'
-                            : 'dark:bg-input/30 border-(color:--kit-field-edge) bg-(--kit-field) shadow-xs',
+                            : 'dark:bg-input/30 border-[color:var(--kit-field-edge,var(--input))] bg-[var(--kit-field,var(--card))] shadow-(--kit-elevation-1)',
                     ]"
                 >
                     <div class="-ml-1.5 flex min-w-0 flex-1 items-center">
@@ -188,7 +188,7 @@ const segment =
                     :side-offset="4"
                     :collision-padding="8"
                     align="start"
-                    class="border-border bg-popover text-popover-foreground data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 z-[100] rounded-md border p-3 shadow-lg motion-reduce:animate-none"
+                    class="border-border bg-popover text-popover-foreground data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 z-[100] rounded-md border p-3 shadow-(--kit-elevation-3) motion-reduce:animate-none"
                 >
                     <DatePickerCalendar
                         v-slot="{ weekDays, grid }"

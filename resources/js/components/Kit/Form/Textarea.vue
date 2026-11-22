@@ -49,7 +49,7 @@ const locked = computed(
             'placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 w-full rounded-md border px-3 py-2 text-base transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 md:text-sm',
             locked
                 ? 'border-border bg-muted text-foreground field-sizing-content max-h-80 cursor-default shadow-none'
-                : 'dark:bg-input/30 border-(color:--kit-field-edge) bg-(--kit-field) shadow-xs',
+                : 'dark:bg-input/30 border-[color:var(--kit-field-edge,var(--input))] bg-[var(--kit-field,var(--card))] shadow-(--kit-elevation-1)',
         ]"
     />
 </template>

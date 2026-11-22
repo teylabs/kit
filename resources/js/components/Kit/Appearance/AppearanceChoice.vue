@@ -28,7 +28,7 @@ function choose(value: unknown) {
             v-for="option in options"
             :key="option.value"
             :value="option.value"
-            class="text-muted-foreground hover:text-foreground focus-visible:ring-ring data-[state=on]:bg-background data-[state=on]:text-foreground rounded-md px-2 py-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none data-[state=on]:shadow-xs"
+            class="text-muted-foreground hover:text-foreground focus-visible:ring-ring data-[state=on]:bg-background data-[state=on]:text-foreground rounded-md px-2 py-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none data-[state=on]:shadow-(--kit-elevation-2)"
         >
             {{ option.label }}
         </ToggleGroupItem>

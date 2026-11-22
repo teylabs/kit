@@ -190,7 +190,7 @@ defineExpose({ focus: () => input.value?.focus() });
             :aria-activedescendant="options[active]?.optionId"
             aria-autocomplete="list"
             maxlength="100"
-            class="dark:bg-background text-foreground placeholder:text-muted-foreground focus-visible:outline-ring h-9 w-full rounded-md border border-(color:--kit-field-edge) bg-(--kit-field) px-3 text-sm shadow-xs focus-visible:outline-2 focus-visible:outline-offset-2"
+            class="text-foreground placeholder:text-muted-foreground focus-visible:outline-ring h-9 w-full rounded-md border border-[color:var(--kit-field-edge,var(--input))] bg-[var(--kit-field,var(--card))] px-3 text-sm shadow-(--kit-elevation-1) focus-visible:outline-2 focus-visible:outline-offset-2"
             data-search-input
             @keydown="keydown"
             @blur="open = false"
@@ -199,7 +199,7 @@ defineExpose({ focus: () => input.value?.focus() });
         <!-- The popup: the listbox, which scrolls and owns only the results, then the see-all under it, outside the listbox and its scroll. -->
         <div
             v-show="open"
-            class="border-border bg-popover text-popover-foreground absolute inset-x-0 top-full z-50 mt-1 flex max-h-[60svh] min-w-72 flex-col rounded-md border text-sm shadow-lg"
+            class="border-border bg-popover text-popover-foreground absolute inset-x-0 top-full z-50 mt-1 flex max-h-[60svh] min-w-72 flex-col rounded-md border text-sm shadow-(--kit-elevation-3)"
             data-search-popup
             @mousedown.prevent
         >

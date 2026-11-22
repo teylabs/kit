@@ -97,7 +97,7 @@ const covered = computed(() => modals.stack.value.length > 0);
             <button
                 v-if="wb.mode === 'drawer'"
                 type="button"
-                class="border-input bg-background hover:bg-accent h-9 rounded-md border px-3 text-sm font-medium shadow-xs"
+                class="border-input bg-background hover:bg-accent h-9 rounded-md border px-3 text-sm font-medium shadow-(--kit-elevation-1)"
                 :aria-expanded="wb.drawerOpen"
                 data-workbench-open-inspector
                 @click="wb.drawerOpen = true"

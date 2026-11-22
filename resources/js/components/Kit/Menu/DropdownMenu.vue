@@ -58,7 +58,7 @@ function MenuItems() {
         <MenuPanel
             animated
             :align="alignLeft ? 'start' : 'end'"
-            content-class="z-50 w-56 divide-y divide-border rounded-md bg-popover text-popover-foreground shadow-lg ring-1 ring-border"
+            content-class="z-50 w-56 divide-y divide-border rounded-md bg-popover text-popover-foreground shadow-(--kit-elevation-3) ring-1 ring-border"
             :side-offset="8"
             :subject="subject"
         >

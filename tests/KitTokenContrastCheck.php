@@ -6,8 +6,8 @@
 // light and dark, --foreground and --muted-foreground reach 4.5:1 on the ground (--shell-ground, else --background), and --card-foreground and
 // --muted-foreground on the surface (--card), whose text is text-card-foreground. A theme
 // that declares `--kit-ground: tinted` also needs its surface to stand off the ground: --card against the ground at least 1.1:1 (and the card has a --border
-// edge), --border against --card at least 1.5:1, and a control's edge (--input) against its surface (--card) at least 3:1. The shipped themes are white
-// grounds (no declaration), where the kit draws no ground card, so those three pairs are not theirs.
+// edge), --border against --card at least 1.5:1, and a control's edge (--input) against its surface (--card) at least 3:1. Since v0.48.0 the kit's own
+// default is the near-white ground with lifted cards, so the shipped themes take those pairs too; --input is also checked against the ground.
 
 function check(bool $ok, string $message): void
 {
@@ -80,12 +80,12 @@ foreach ($themes as $theme => $tokens) {
 $tinted = file_get_contents(__DIR__.'/fixtures/tinted-ground-theme.css');
 $tintedLight = [...$light, ...block($tinted, ':root')];
 $grounds = [...$themes, 'tinted sample' => $tintedLight, 'tinted sample dark' => [...$themes['dark'], ...$tintedLight, ...block($tinted, '.dark')]];
-check(! str_contains($css, '--kit-ground'), 'kit.css declares no ground: the default is white, where no ground card is drawn');
+check(($light['kit-ground'] ?? null) === 'tinted' && $light['background'] === 'hsl(60 9.1% 97.8%)' && $light['card'] === 'hsl(0 0% 100%)', 'kit.css declares the near-white ground (#fafaf9, --kit-ground: tinted) with white cards by default (v0.48.0)');
 check(($tintedLight['kit-ground'] ?? null) === 'tinted', 'the sample theme declares --kit-ground: tinted');
 check($tintedLight['background'] === '#f3f5e7', 'the sample tinted ground is #f3f5e7');
 $surface = file_get_contents(__DIR__.'/../resources/js/components/Kit/Surface/surface.ts');
 check(preg_match("/export const groundCard =\s*'bg-card text-card-foreground rounded-xl border shadow-\\(--kit-card-shadow\\)';/", $surface) === 1, 'the ground card is bg-card text-card-foreground rounded-xl border with --kit-card-shadow: a --border edge, as a dashboard widget, and the theme\'s shadow');
-check(($light['kit-card-shadow'] ?? null) === null && str_contains($css, '--kit-card-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);'), 'kit.css defaults --kit-card-shadow to shadow-xs on :root, not on the :where(:root) tokens, so only a theme\'s own value counts as lifting its cards');
+check(($light['kit-card-shadow'] ?? null) === null && str_contains($css, '--kit-card-shadow: var(--kit-elevation-1);'), 'kit.css defaults --kit-card-shadow to shadow-xs on :root, not on the :where(:root) tokens, so only a theme\'s own value counts as lifting its cards');
 $nearWhite = [...$light, ...block(file_get_contents(__DIR__.'/fixtures/near-white-ground-theme.css'), ':root')];
 $grounds['near-white sample (lifted)'] = $nearWhite;
 $flat = contrast($nearWhite['card'], $nearWhite['background']);
@@ -105,8 +105,9 @@ foreach ($grounds as $theme => $tokens) {
         continue;
     }
     // A card the theme lifts (a --kit-card-shadow other than none) stands off the ground by its edge and shadow, so it may sit as close as 1.04:1.
-    $lifted = isset($tokens['kit-card-shadow']) && trim($tokens['kit-card-shadow']) !== '0 0 #0000' && trim($tokens['kit-card-shadow']) !== 'none';
-    foreach ([['card', $ground, 'the ground', $lifted ? 1.04 : 1.1], ['border', $tokens['card'], '--card', $lifted ? 1.25 : 1.5], ['input', $tokens['card'], '--card', 3.0]] as [$token, $on, $name, $minimum]) {
+    // The kit lifts every card by default (--kit-card-shadow is elevation level 1), so a card is flat only when the theme sets the shadow to none.
+    $lifted = ! in_array(trim($tokens['kit-card-shadow'] ?? 'var(--kit-elevation-1)'), ['0 0 #0000', 'none'], true);
+    foreach ([['card', $ground, 'the ground', $lifted ? 1.04 : 1.1], ['border', $tokens['card'], '--card', $lifted ? 1.25 : 1.5], ['input', $tokens['card'], '--card', 3.0], ['input', $ground, 'the ground', 3.0]] as [$token, $on, $name, $minimum]) {
         $ratio = contrast($tokens[$token], $on);
         check($ratio >= $minimum, sprintf('%s: --%s against %s is %.2f:1 (%.2f:1)', $theme, $token, $name, $ratio, $minimum));
     }

@@ -87,7 +87,7 @@ function key(event: KeyboardEvent, index: number): void {
                 'text-foreground focus-visible:outline-ring inline-flex items-center justify-center gap-1.5 rounded-md border font-medium whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
                 size === 'sm' ? 'h-7 px-2.5 text-xs' : 'h-8 px-3 text-sm',
                 model === option.value
-                    ? 'border-muted-foreground bg-background shadow-sm'
+                    ? 'border-muted-foreground bg-background shadow-(--kit-elevation-2)'
                     : 'hover:bg-background/60 border-transparent bg-transparent',
             ]"
             @click="choose(index)"

@@ -81,17 +81,23 @@
  */
 :root {
     /*
-     * Surface tokens a theme sets (README, "Tinted page grounds"). `--kit-card-shadow`: every card's shadow (Surface, FormCard, Section, a widget, the ground card
-     * and the rest), Tailwind's shadow-xs by default. `--kit-field` and `--kit-field-edge`: a field's fill and edge in light mode, the card's white and a
-     * grey at 3:1 on white by default, so a field reads the same on a card or on the bare ground (dark keeps its input wash and edge; Brand prints the edge from `input`).
-     * `--kit-modal-shadow`: Modal's and Dialog's, the top level of the elevation scale (Refactoring UI D3, D4).
+     * The elevation scale (Refactoring UI D3, D4): five levels, each a tight dark layer and a soft one, the tight layer fading as the level rises. 1: cards, buttons
+     * and fields. 2: raised controls (a switch's thumb, the segmented toggle). 3: menus, popovers, selects and pickers. 4: toasts and the floating toolbar.
+     * 5: dialogs and modals. A theme overrides any level. Surface tokens a theme sets (README, "Page grounds") draw from it: `--kit-card-shadow`, every card's
+     * shadow (level 1); `--kit-modal-shadow`, Modal's and Dialog's (level 5); `--kit-field` and `--kit-field-edge`, a field's fill (the card's white in light
+     * mode; dark keeps its input wash) and edge (`--input`, 3:1 on the card).
      */
-    --kit-card-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --kit-elevation-1: 0 1px 2px rgb(28 25 23 / 0.06), 0 1px 3px rgb(28 25 23 / 0.1);
+    --kit-elevation-2: 0 1px 2px rgb(28 25 23 / 0.06), 0 3px 6px rgb(28 25 23 / 0.1);
+    --kit-elevation-3: 0 3px 6px rgb(28 25 23 / 0.05), 0 10px 20px rgb(28 25 23 / 0.12);
+    --kit-elevation-4: 0 4px 8px rgb(28 25 23 / 0.05), 0 15px 25px rgb(28 25 23 / 0.14);
+    --kit-elevation-5: 0 5px 15px rgb(28 25 23 / 0.07), 0 15px 35px rgb(28 25 23 / 0.2);
+    --kit-card-shadow: var(--kit-elevation-1);
     --kit-field: var(--card);
-    --kit-field-edge: hsl(0 0% 56%);
-    --kit-modal-shadow: 0 15px 35px rgb(0 0 0 / 0.2), 0 5px 15px rgb(0 0 0 / 0.07);
+    --kit-field-edge: var(--input);
+    --kit-modal-shadow: var(--kit-elevation-5);
     --kit-paper: #fff;
-    --kit-outline: oklch(87.2% 0.01 258.338);
+    --kit-outline: var(--border);
     --kit-outline-foreground: oklch(37.3% 0.034 259.733);
     --kit-outline-muted: oklch(70.7% 0.022 261.325);
     --kit-outline-wash: oklch(98.5% 0.002 247.839);
@@ -99,9 +105,12 @@
 }
 
 .dark {
-    --kit-field-edge: var(--input);
+    --kit-elevation-1: 0 1px 2px rgb(0 0 0 / 0.3), 0 1px 3px rgb(0 0 0 / 0.4);
+    --kit-elevation-2: 0 1px 2px rgb(0 0 0 / 0.3), 0 3px 6px rgb(0 0 0 / 0.4);
+    --kit-elevation-3: 0 3px 6px rgb(0 0 0 / 0.3), 0 10px 20px rgb(0 0 0 / 0.45);
+    --kit-elevation-4: 0 4px 8px rgb(0 0 0 / 0.3), 0 15px 25px rgb(0 0 0 / 0.5);
+    --kit-elevation-5: 0 5px 15px rgb(0 0 0 / 0.35), 0 15px 35px rgb(0 0 0 / 0.55);
     --kit-paper: color-mix(in oklab, #fff 10%, transparent);
-    --kit-outline: oklch(37.3% 0.034 259.733);
     --kit-outline-foreground: oklch(92.8% 0.006 264.531);
     --kit-outline-wash: color-mix(in oklab, #fff 20%, transparent);
     --kit-scrim: rgb(0 0 0 / 0.7);
@@ -179,7 +188,7 @@
 }
 
 :where(:root) {
-    --background: hsl(0 0% 100%);
+    --background: hsl(60 9.1% 97.8%);
     --foreground: hsl(0 0% 3.9%);
     --card: hsl(0 0% 100%);
     --card-foreground: hsl(0 0% 3.9%);
@@ -187,11 +196,11 @@
     --popover-foreground: hsl(0 0% 3.9%);
     --primary: hsl(0 0% 9%);
     --primary-foreground: hsl(0 0% 98%);
-    --secondary: hsl(0 0% 92.1%);
+    --secondary: hsl(60 6.4% 90.8%);
     --secondary-foreground: hsl(0 0% 9%);
-    --muted: hsl(0 0% 96.1%);
+    --muted: hsl(60 7.1% 94.5%);
     --muted-foreground: hsl(0 0% 41%);
-    --accent: hsl(0 0% 96.1%);
+    --accent: hsl(60 5.3% 92.5%);
     --accent-foreground: hsl(0 0% 9%);
     --destructive: hsl(0 74% 42%);
     --destructive-foreground: hsl(0 0% 98%);
@@ -199,34 +208,40 @@
     --success-text: hsl(142 76% 26%);
     --warning-text: hsl(26 90% 33%);
     --info-text: hsl(201 90% 32%);
-    --border: hsl(0 0% 92.8%);
-    --input: hsl(0 0% 89.8%);
+    --border: hsl(60 5.3% 88.8%);
+    --input: hsl(0 0% 56%);
     --ring: hsl(0 0% 3.9%);
+    --kit-ground: tinted;
 }
 /* A subtree that stays light under .dark (the PublicShell's theme="light": a page with no dark styling yet). It restates the neutral surface tokens with their light
    values, not the brand's primary, so a host's own brand colours stand. */
 .kit-theme-light {
     color-scheme: light;
-    --background: hsl(0 0% 100%);
+    --background: hsl(60 9.1% 97.8%);
     --foreground: hsl(0 0% 3.9%);
     --card: hsl(0 0% 100%);
     --card-foreground: hsl(0 0% 3.9%);
     --popover: hsl(0 0% 100%);
     --popover-foreground: hsl(0 0% 3.9%);
-    --muted: hsl(0 0% 96.1%);
+    --muted: hsl(60 7.1% 94.5%);
     --muted-foreground: hsl(0 0% 41%);
-    --accent: hsl(0 0% 96.1%);
+    --accent: hsl(60 5.3% 92.5%);
     --accent-foreground: hsl(0 0% 9%);
-    --border: hsl(0 0% 92.8%);
-    --input: hsl(0 0% 89.8%);
+    --border: hsl(60 5.3% 88.8%);
+    --input: hsl(0 0% 56%);
+    --kit-elevation-1: 0 1px 2px rgb(28 25 23 / 0.06), 0 1px 3px rgb(28 25 23 / 0.1);
+    --kit-elevation-2: 0 1px 2px rgb(28 25 23 / 0.06), 0 3px 6px rgb(28 25 23 / 0.1);
+    --kit-elevation-3: 0 3px 6px rgb(28 25 23 / 0.05), 0 10px 20px rgb(28 25 23 / 0.12);
+    --kit-elevation-4: 0 4px 8px rgb(28 25 23 / 0.05), 0 15px 25px rgb(28 25 23 / 0.14);
+    --kit-elevation-5: 0 5px 15px rgb(28 25 23 / 0.07), 0 15px 35px rgb(28 25 23 / 0.2);
 }
 
 :where(.dark) {
     --background: hsl(0 0% 3.9%);
     --foreground: hsl(0 0% 98%);
-    --card: hsl(0 0% 3.9%);
+    --card: hsl(0 0% 9%);
     --card-foreground: hsl(0 0% 98%);
-    --popover: hsl(0 0% 3.9%);
+    --popover: hsl(0 0% 11%);
     --popover-foreground: hsl(0 0% 98%);
     --primary: hsl(0 0% 98%);
     --primary-foreground: hsl(0 0% 9%);
@@ -242,8 +257,8 @@
     --success-text: hsl(142 69% 58%);
     --warning-text: hsl(43 96% 56%);
     --info-text: hsl(199 89% 64%);
-    --border: hsl(0 0% 14.9%);
-    --input: hsl(0 0% 14.9%);
+    --border: hsl(0 0% 18%);
+    --input: hsl(0 0% 40%);
     --ring: hsl(0 0% 83.1%);
 }
 
@@ -377,6 +392,18 @@
 
 :where(:root) {
     --shell-bar-foreground: var(--foreground);
+    --shell-bar-field: var(--card);
+    --shell-bar-field-edge: var(--input);
+}
+
+/*
+ * A field in the shell bar (the global search) takes the bar's own fill and edge, not the page's: `--shell-bar-field` and `--shell-bar-field-edge`, the card
+ * and --input by default (white and 3:1 on a light bar), which an ink header sets for its dark bar (Brand::css). The edge needs 3:1 against the bar, and the
+ * placeholder (--muted-foreground) 4.5:1 on the fill.
+ */
+[data-shell-bar] {
+    --kit-field: var(--shell-bar-field);
+    --kit-field-edge: var(--shell-bar-field-edge);
 }
 
 /*
