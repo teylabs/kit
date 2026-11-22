@@ -258,6 +258,13 @@ try {
     check(array_column($shell('settings')['navigation'], 'current') === [true] && array_column($shell()['navigation'], 'current') === [true], 'and on the section\'s own pages, as before');
     $app['config']->set('kit.shell.settings_link', 'primary');
 
+    // A current primary link with no module pages of its own whose `active` covers another module's pages (HC's Admin over billing/*): that module still
+    // draws its own row (#1491), rather than none.
+    $app->make(Registry::class)->navigation('dashboard.read', 'Admin', 'admin', active: ['admin', 'billing', 'billing/*']);
+    $covered = $billing('owner', 'billing/invoices');
+    check($row($covered) === [['Summary', false], ['Invoices', true], ['Run', false]], 'a module under a current primary link that has no pages of its own still draws its row, one page current (got '.json_encode($row($covered)).')');
+    check(in_array(['Admin', true], array_map(fn (array $link): array => [$link['label'], $link['current']], $covered['shell']['navigation']), true), 'and the covering primary link stays current');
+
     echo "Module tab checks on SQLite memory with real Concierge, spatie teams and Pennant; Inertia JSON through router dispatch without the global middleware stack. No browser here: <Page> drawing the tabs is browser/run.mjs's.\n";
 } catch (Throwable $error) {
     fwrite(STDERR, 'FAIL '.$error->getMessage()."\n".$error->getTraceAsString()."\n");

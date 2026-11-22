@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.45.1
+
+Features affected: session-ui.
+
+### Fixed
+
+- **A module still draws its row under a current primary link that has no pages of its own.** A primary link whose `active` covers another module's pages (Admin over `billing/*`) left that module with no row; it now falls through to the module's own row. (#1222)
+
 ## v0.45.0
 
 Features affected: core (Breakout, NavigationHeader, Card, CollectionCard, Composer, kit.css; re-pinned), session-ui, shell (re-pinned), notes (composer; re-pinned), kit components (SectionIcon).
