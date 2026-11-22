@@ -52,7 +52,7 @@ const toggle = () => {
                 <button
                     :id="triggerId"
                     type="button"
-                    class="text-foreground hover:text-foreground/80 focus-visible:outline-ring flex w-full min-w-0 items-center gap-2 rounded-sm py-2 text-left focus-visible:outline-2 focus-visible:outline-offset-2"
+                    class="text-foreground hover:text-muted-foreground focus-visible:outline-ring flex w-full min-w-0 items-center gap-2 rounded-sm py-2 text-left focus-visible:outline-2 focus-visible:outline-offset-2"
                     :aria-expanded="open ? 'true' : 'false'"
                     :aria-controls="contentId"
                     data-collapsible-trigger

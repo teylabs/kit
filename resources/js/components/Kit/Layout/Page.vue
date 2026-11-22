@@ -298,7 +298,7 @@ const size = computed(() =>
                         v-if="headingText"
                         data-slot="page-heading"
                         :title="headingText"
-                        class="font-display line-clamp-1 min-w-0 text-3xl font-(weight:--font-display-weight) tracking-tight break-words sm:flex-1"
+                        class="font-display line-clamp-1 min-w-0 text-2xl font-(weight:--font-display-weight) tracking-tight break-words sm:flex-1 sm:text-3xl"
                     >
                         {{ headingText }}
                     </h1>
@@ -309,7 +309,7 @@ const size = computed(() =>
                             status ||
                             actions.length
                         "
-                        class="flex items-center gap-2 sm:shrink-0"
+                        class="flex items-center gap-2 max-sm:w-full sm:shrink-0"
                         data-slot="page-header-actions"
                     >
                         <HeaderStatus v-if="$slots.status"

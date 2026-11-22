@@ -4,7 +4,8 @@ import { computed, inject, onBeforeUnmount } from 'vue';
 import InputSelect from '@/components/Kit/Form/InputSelect.vue';
 import SectionIcon from '@/components/Kit/Layout/SectionIcon.vue';
 
-// Tabs that are pages: each is a route link in a `<nav>` landmark, the current one marked `aria-current="page"`. Phones get the kit's InputSelect, which visits the chosen page.
+// Tabs that are pages: each is a route link in a `<nav>` landmark, the current one marked `aria-current="page"`. Phones get the kit's InputSelect, which visits the chosen page,
+// except a pill row of five or fewer, which stays pills.
 // For panes inside one page use PaneTabs instead. `current` is the href of the page shown; when it is omitted, the tab flagged `current` wins.
 // A tab with an `icon` (a SectionIcon name, a module page's Registry::modulePage() `icon`) draws it before its label; one without draws none.
 // `#actions` sits at the row's end (right-aligned, never squeezed; beside the select on phones): a page with no visible heading puts its header actions there.
@@ -24,6 +25,8 @@ const props = defineProps<{
     variant?: 'primary' | 'secondary';
 }>();
 const pills = computed(() => props.variant === 'secondary');
+// Five pills or fewer stay pills on a phone (the row scrolls sideways if it must); tabs, and a longer pill row, become a select there.
+const phoneRow = computed(() => pills.value && props.tabs.length <= 5);
 const active = computed(
     () => props.current ?? props.tabs.find((tab) => tab.current)?.href ?? null,
 );
@@ -60,7 +63,7 @@ const go = (href: unknown) => {
         data-page-tabs-row
     >
         <nav :aria-label="label" class="min-w-0 flex-1" data-page-tabs>
-            <div class="sm:hidden">
+            <div v-if="!phoneRow" class="sm:hidden">
                 <InputSelect
                     :aria-label="label"
                     :model-value="active"
@@ -70,7 +73,10 @@ const go = (href: unknown) => {
                 />
             </div>
             <ul
-                class="hidden gap-6 overflow-x-auto overflow-y-hidden overscroll-x-contain sm:flex"
+                :class="[
+                    phoneRow ? 'flex' : 'hidden sm:flex',
+                    'gap-6 overflow-x-auto overflow-y-hidden overscroll-x-contain',
+                ]"
                 @focusin="reveal"
             >
                 <li v-for="tab in tabs" :key="tab.href" class="shrink-0">
@@ -101,7 +107,7 @@ const go = (href: unknown) => {
         data-page-tabs
         :data-page-pills="pills || undefined"
     >
-        <div class="sm:hidden">
+        <div v-if="!phoneRow" class="sm:hidden">
             <InputSelect
                 :aria-label="label"
                 :model-value="active"
@@ -114,7 +120,8 @@ const go = (href: unknown) => {
              overlap with -mb-px (that overlap overflowed the row by a pixel, and overflow-x forces overflow-y to scroll); the focus ring is inset so the row can't clip it. -->
         <ul
             :class="[
-                'hidden overflow-x-auto overflow-y-hidden overscroll-x-contain sm:flex',
+                phoneRow ? 'flex' : 'hidden sm:flex',
+                'overflow-x-auto overflow-y-hidden overscroll-x-contain',
                 pills
                     ? 'gap-1 py-2'
                     : 'gap-6 shadow-[inset_0_-1px_0_var(--color-border)]',
