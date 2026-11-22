@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.45.0
 
 Features affected: core (Breakout, NavigationHeader, Card, CollectionCard, Composer, kit.css; re-pinned), session-ui, shell (re-pinned), notes (composer; re-pinned), kit components (SectionIcon).
 
