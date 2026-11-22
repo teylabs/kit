@@ -31,16 +31,16 @@ abstract class PageViewModel extends ViewModel
     /**
      * Whether this page breaks out of its parent's shared layout (a full-screen bench or editor): the shell then shows "Back to <parent>", derived from the
      * trail's parent crumb, in place of the trail (Breakout). By default, the route's `kit.breakout` default. A page inside its parent's layout (a tab, a
-     * settings section) does not break out.
+     * settings section) does not break out. 'with-trail' (the route default's same value) breaks out and keeps the trail under the strip.
      */
-    protected function breaksOut(): bool
+    protected function breaksOut(): bool|string
     {
         return Breakout::routeDeclares(request());
     }
 
     public function layout(): PageLayout
     {
-        $header = $this->navigationHeader() ?? ($this->breaksOut() ? Breakout::header(request(), $this->section()) : null);
+        $header = $this->navigationHeader() ?? (($breaks = $this->breaksOut()) !== false ? Breakout::header(request(), $this->section(), $breaks === Breakout::WITH_TRAIL) : null);
 
         return app(PageLayouts::class)->layout($this->title(), $this->section(), $header);
     }

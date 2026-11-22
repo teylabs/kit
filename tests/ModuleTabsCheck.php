@@ -117,6 +117,23 @@ try {
     }
     // The module is the dashboard's primary link (suffix ''): its pages as Registry::modulePage() registers them, one behind an ability a member lacks.
     $app->make(Registry::class)->modulePage('', 'dashboard.read', 'Overview', '', active: '')->modulePage('', 'members.manage', 'Staff rota', 'staff-rota');
+    // Billing: a module with no primary link of its own (reached from a landing), one page behind an ability a member lacks, and a breakout record page.
+    file_put_contents($base.'/billing-routes.php', <<<'PHP'
+        <?php
+        use Illuminate\Support\Facades\Route;
+        use Inertia\Inertia;
+        use Tey\Kit\Features\Core\ViewModels\PageViewModel;
+        use Tey\Kit\Features\Workspaces\WorkspaceRoutes;
+        WorkspaceRoutes::define(function (bool $full): void {
+            $render = fn (bool $breaks) => fn () => Inertia::render('Billing', ['layout' => (new class extends PageViewModel {
+                public function title(): string { return 'Billing'; }
+            })->layout()]);
+            WorkspaceRoutes::page(Route::middleware('web')->get('billing', $render(false)), $full, 'billing', 'billing.index', 'Billing', ['session-ui', 'workspaces.dashboard.index']);
+            WorkspaceRoutes::page(Route::middleware('web')->get('billing/invoices', $render(false)), $full, 'billing', 'billing.invoices', 'Invoices', ['billing', 'billing.index']);
+            WorkspaceRoutes::page(Route::middleware('web')->get('billing/run', $render(true)), $full, 'billing', 'billing.run', 'Run', ['billing', 'billing.index'])->defaults('kit.breakout', true);
+        });
+        PHP);
+    $app->make(Registry::class)->routes($base.'/billing-routes.php')->modulePage('billing', 'dashboard.read', 'Summary', 'billing')->modulePage('billing', 'members.manage', 'Invoices', 'billing/invoices')->modulePage('billing', 'dashboard.read', 'Run', 'billing/run');
     // The host's `web` group, with an Inertia middleware (the kit's plain one): session-ui's props are shared by its provider, not by a middleware.
     $app->make(Kernel::class)->setMiddlewareGroups(['web' => [StartSession::class, HandleInertiaRequests::class]]);
     $app->boot();
@@ -212,6 +229,17 @@ try {
     $bookings->checkModulePages(fn (string $message) => $app['log']->warning($message));
     $logged = array_slice($warnings(), $before);
     check(count($logged) === 1 && str_contains($logged[0], "'bookings/calendar'"), 'the boot check warns once about the page outside its module\'s prefix, suggesting the nested suffix; nested pages do not');
+
+    // A module with no primary link: reached from a landing or a breakout page, its own row is drawn, ability-filtered, with exactly one page current.
+    $billing = fn (string $who, string $path): array => json_decode($page($who, $path)[1], true)['props'] ?? [];
+    $row = fn (array $props): array => array_map(fn (array $item): array => [$item['label'], $item['current']], $props['layout']['navigation'][0]['items'] ?? []);
+    $props = $billing('owner', 'billing/invoices');
+    check($row($props) === [['Summary', false], ['Invoices', true], ['Run', false]] && ($props['layout']['navigation'][0]['label'] ?? null) === 'Summary', 'a module with no primary link draws its own row on its pages, exactly one current (got '.json_encode($row($props)).')');
+    check(array_column($props['shell']['navigation'], 'current') === [false, false], 'no primary link is made current for it');
+    check($row($billing('member', 'billing')) === [['Summary', true], ['Run', false]], 'abilities still filter its row: a member without members.manage gets no Invoices tab');
+    $run = $billing('owner', 'billing/run');
+    check(($run['layout']['navigationHeader']['label'] ?? null) !== null && $row($run) === [['Summary', false], ['Invoices', false], ['Run', true]], 'a breakout page keeps its Back strip and draws the row too');
+    check($row($billing('owner', '')) === [['Overview', true], ['Staff rota', false]], 'a page under a primary link keeps that link\'s row, as before');
 
     // kit.shell.settings_link: where the bar shows Settings. Only the link moves; the settings pages stay reachable.
     $shell = fn (string $path = ''): array => json_decode($page('owner', $path)[1], true)['props']['shell'];

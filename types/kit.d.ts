@@ -127,6 +127,7 @@ badge: string | null,
 export type NavigationHeader = {
 label: string,
 url: string,
+trail: boolean,
 };
 export type PageLayout = {
 navigation: Tey.Kit.Features.Core.Data.NavGroup[],

@@ -1060,6 +1060,12 @@ final class Registry
         }
     }
 
+    /** @return list<string> Every module with pages, in registration order. */
+    public function modules(): array
+    {
+        return array_values(array_unique(array_column($this->modulePages, 'module')));
+    }
+
     /** @return list<array{module: string, ability: string, label: string, suffix: string, order: int, active: string|list<string>|null}> One module's pages, sorted by order, then registration. */
     public function modulePages(string $module): array
     {

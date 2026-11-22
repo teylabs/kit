@@ -160,7 +160,27 @@ final class PageShell implements ShellSource
             return ['label' => $link['label'], 'items' => $row['items']] + ($row['child'] === null ? [] : ['child' => $row['child']]);
         }
 
-        return null;
+        // No primary link is current: a module with no primary link of its own (reached from a landing or a breakout page) is current when one of its pages
+        // matches, through its prefix or its own `active`. The most specific match wins; a module nested in a section with a primary link was handled above.
+        // Every primary link counts, allowed or not: a module behind a primary link the viewer may not open stays hidden, as before.
+        $linked = [...array_column($primary, 'suffix'), ...array_column(array_filter($registry->navigationLinks(), fn (array $link): bool => $link['slot'] === 'primary'), 'suffix')];
+        $best = null;
+        foreach ($registry->modules() as $module) {
+            if (in_array($module, $linked, true)) {
+                continue;
+            }
+            $row = self::moduleRow($registry, $module, $may, $url, $current, true);
+            if ($row['match'] !== null && $row['items'] !== [] && ($best === null || $row['match'] > $best['row']['match'])) {
+                $best = ['module' => $module, 'row' => $row];
+            }
+        }
+        if ($best === null) {
+            return null;
+        }
+        $own = array_values(array_filter($registry->modulePages($best['module']), fn (array $page): bool => $page['suffix'] === $best['module']));
+        $label = $own[0]['label'] ?? Str::headline($best['module']);
+
+        return ['label' => $label, 'items' => $best['row']['items']] + ($best['row']['child'] === null ? [] : ['child' => $best['row']['child']]);
     }
 
     /**

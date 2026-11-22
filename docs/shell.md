@@ -34,6 +34,14 @@ In your own CSS, give it a fallback for pages outside the shell: `top: var(--she
 
 **Pages outside the prefix.** A page sits under its module's suffix (`bookings/calendar` for `bookings`); one outside it logs a warning in local and testing, unless it nests a module or gives its own `active` (`modulePage('admin', …, 'Settings', 'settings', active: ['settings', 'settings/*'])`, current on every `settings/*` page).
 
+**A module with no primary link.** A module reached from a landing page rather than the bar (Billing, linked from Admin's landing) still gets its row. When no primary link is current, the shell picks the module whose page matches the route, through its prefix or its own `active`, and draws that module's row with the most specific page current. Abilities still filter the row; the row is labelled with the module's own landing page (the page whose suffix is the module id), else its id. A module under a primary link, and nested modules, behave as above.
+
+## Breakout pages
+
+A breakout page (a route's `->defaults('kit.breakout', true)`, or a ViewModel's `breaksOut()`) shows a banded "Back to <parent>" strip, derived from its breadcrumb parent, in place of the trail. With `'with-trail'` instead of `true` (from the route default or `breaksOut()`), it keeps the whole trail as well, with the strip under it, so a deep page can still go straight to any ancestor.
+
+On a module's own tab page, the strip skips every ancestor crumb that is a page of that same module, because the tab row already says where you are. With a trail of Home › Admin › Billing › Invoices, both `/billing` and `/billing/invoices` read "Back to Admin", never "Back to Billing" or a link to the page itself. A deeper page that is not a tab (an invoice, `/billing/invoices/10C-0001`) keeps its parent: "Back to Invoices". The trail itself stays the app's own; the kit registers no crumbs.
+
 ## The Settings link
 
 The bar shows the workspace's Settings link (to the settings landing, when the viewer can open any section) where `kit.shell.settings_link` says: `'primary'` among the pages (the default), `'menu'` in the account menu, or `false` nowhere, for an app that places Settings itself, such as a module tab (`modulePage('admin', …, 'Settings', 'settings', active: ['settings', 'settings/*'])`). Only the link moves: the settings pages, the workspace landing and the switcher's "Workspace settings" stay.
