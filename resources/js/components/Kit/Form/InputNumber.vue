@@ -157,7 +157,7 @@ watch(
                 'focus-within:border-ring focus-within:ring-ring/50 has-[input[aria-invalid=true]]:border-destructive has-[input[aria-invalid=true]]:ring-destructive/20 flex h-9 w-full min-w-0 items-center gap-2 rounded-md border px-3 transition-[color,box-shadow] focus-within:ring-[3px] has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50',
                 locked
                     ? 'border-border bg-muted shadow-none'
-                    : 'dark:bg-input/30 border-(color:--kit-field-edge) bg-(--kit-field) shadow-xs',
+                    : 'dark:bg-input/30 border-(color:--kit-field-edge) bg-(--kit-field) shadow-(--kit-elevation-1)',
             ]"
             :data-locked="locked || undefined"
         >

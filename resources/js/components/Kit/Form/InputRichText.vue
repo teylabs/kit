@@ -636,7 +636,7 @@ defineExpose({
         v-bind="frameAttrs"
         :style="customProperties(attrs.style)"
         :class="[
-            'dark:bg-background focus-within:ring-ring/50 min-w-0 rounded-md border border-(color:--kit-field-edge) bg-(--kit-field) shadow-xs focus-within:ring-[3px]',
+            'dark:bg-background focus-within:ring-ring/50 min-w-0 rounded-md border border-(color:--kit-field-edge) bg-(--kit-field) shadow-(--kit-elevation-1) focus-within:ring-[3px]',
             disabled && 'opacity-50',
             readOnly && 'bg-muted',
         ]"

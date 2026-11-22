@@ -80,13 +80,13 @@ function guard(event: Event) {
                 :data-locked="locked || undefined"
                 data-slot="switch"
                 :class="[
-                    'peer border-input data-[state=checked]:bg-primary data-[state=unchecked]:bg-input dark:data-[state=unchecked]:bg-input/80 focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 disabled:data-[state=checked]:bg-muted-foreground disabled:data-[state=unchecked]:bg-muted inline-flex h-5 w-9 shrink-0 items-center rounded-full border shadow-xs transition-all outline-none focus-visible:ring-3 disabled:cursor-not-allowed disabled:shadow-none',
+                    'peer border-input data-[state=checked]:bg-primary data-[state=unchecked]:bg-input dark:data-[state=unchecked]:bg-input/80 focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 disabled:data-[state=checked]:bg-muted-foreground disabled:data-[state=unchecked]:bg-muted inline-flex h-5 w-9 shrink-0 items-center rounded-full border shadow-(--kit-elevation-1) transition-all outline-none focus-visible:ring-3 disabled:cursor-not-allowed disabled:shadow-none',
                     locked && 'cursor-default',
                 ]"
             >
                 <SwitchThumb
                     data-slot="switch-thumb"
-                    class="bg-background dark:data-[state=unchecked]:bg-foreground pointer-events-none block size-4 rounded-full shadow-sm ring-0 transition-transform data-[state=checked]:translate-x-4 data-[state=unchecked]:translate-x-0.5"
+                    class="bg-background dark:data-[state=unchecked]:bg-foreground pointer-events-none block size-4 rounded-full shadow-(--kit-elevation-2) ring-0 transition-transform data-[state=checked]:translate-x-4 data-[state=unchecked]:translate-x-0.5"
                 />
             </SwitchRoot>
             <label

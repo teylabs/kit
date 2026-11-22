@@ -17,7 +17,7 @@ const name = ref('Ada');
 </script>
 <template>
     <div class="flex flex-col gap-4">
-        <div class="bg-background p-3 [--background:hsl(0_0%_96%)] dark:[--background:hsl(0_0%_9%)]">
+        <div class="bg-background p-3 [--background:hsl(0_0%_96%)] dark:[--background:hsl(0_0%_3.9%)]">
             <div data-test-card class="bg-card grid grid-cols-2 items-start gap-4 rounded-lg border p-4 *:min-w-0">
                 <Field id="base-name" label="Name"><Input id="base-name" v-model="name" name="name" /></Field>
                 <Field id="base-room" label="Room"><InputSelect id="base-room" v-model="room" name="room" :options="rooms" /></Field>

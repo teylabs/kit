@@ -53,7 +53,7 @@ const enterFrom = computed(
             :role="live === 'polite' ? 'status' : undefined"
             :aria-live="live === 'polite' ? 'polite' : undefined"
             :class="[
-                'pointer-events-none absolute z-10 flex w-max max-w-[90cqw] items-center gap-[1cqw] rounded-[1cqw] px-[2cqw] py-[1cqw] text-[length:var(--stage-notice-size,2.5cqw)] leading-tight font-semibold shadow-lg select-none',
+                'pointer-events-none absolute z-10 flex w-max max-w-[90cqw] items-center gap-[1cqw] rounded-[1cqw] px-[2cqw] py-[1cqw] text-[length:var(--stage-notice-size,2.5cqw)] leading-tight font-semibold shadow-(--kit-elevation-4) select-none',
                 classes,
             ]"
             :data-tone="tone"

@@ -26,7 +26,7 @@ const selected = defineModel<string>({ required: true });
             :class="[
                 'text-foreground focus-visible:outline-ring inline-flex h-8 items-center justify-center rounded-md border px-3 text-sm font-medium whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-offset-2',
                 selected === tab.value
-                    ? 'border-muted-foreground bg-background shadow-sm'
+                    ? 'border-muted-foreground bg-background shadow-(--kit-elevation-2)'
                     : 'hover:bg-background/60 border-transparent bg-transparent',
             ]"
             >{{ tab.label }}</ToggleGroupItem

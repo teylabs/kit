@@ -295,7 +295,7 @@ const layerTarget = useLayerTarget();
                     :aria-labelledby="labelledBy"
                     :aria-label="hasTitle ? undefined : label"
                     :class="[
-                        'border-border bg-popover text-popover-foreground focus-visible:ring-ring z-50 max-h-[min(90dvh,var(--reka-popover-content-available-height))] min-w-0 overflow-x-hidden overflow-y-auto rounded-lg border p-4 wrap-anywhere shadow-lg [--avatar-ring:var(--popover)] focus-visible:ring-2',
+                        'border-border bg-popover text-popover-foreground focus-visible:ring-ring z-50 max-h-[min(90dvh,var(--reka-popover-content-available-height))] min-w-0 overflow-x-hidden overflow-y-auto rounded-lg border p-4 wrap-anywhere shadow-(--kit-elevation-3) [--avatar-ring:var(--popover)] focus-visible:ring-2',
                         popoverWidths[width],
                         $attrs.class,
                     ]"

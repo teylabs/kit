@@ -238,7 +238,7 @@ const navButton =
                         'focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 flex h-9 w-full min-w-0 items-center justify-between gap-2 rounded-md border px-3 text-left text-base transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed md:text-sm',
                         locked
                             ? 'border-border bg-muted shadow-none disabled:cursor-default'
-                            : 'dark:bg-input/30 border-(color:--kit-field-edge) bg-(--kit-field) shadow-xs disabled:opacity-50',
+                            : 'dark:bg-input/30 border-(color:--kit-field-edge) bg-(--kit-field) shadow-(--kit-elevation-1) disabled:opacity-50',
                     ]"
                 >
                     <span
@@ -267,7 +267,7 @@ const navButton =
                         :side-offset="4"
                         :collision-padding="8"
                         align="start"
-                        class="border-border bg-popover text-popover-foreground data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 z-[100] rounded-md border p-3 shadow-lg motion-reduce:animate-none"
+                        class="border-border bg-popover text-popover-foreground data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 z-[100] rounded-md border p-3 shadow-(--kit-elevation-3) motion-reduce:animate-none"
                         @open-auto-focus.prevent
                     >
                         <div class="mx-auto w-max">

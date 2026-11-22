@@ -314,7 +314,7 @@ None of these breaks a build; each makes the kit's components harder to read.
 
 ## Tinted page grounds
 
-The page ground is white by default. A theme whose ground is tinted (a warm paper, a pale green) declares it with **one token**, in its own `resources/css/app.css`:
+Since v0.48.0 the kit's default ground is near-white, `#fafaf9`, with white cards lifted by elevation level 1 (`--kit-ground: tinted` is in the kit's own defaults); in dark mode the cards (`hsl(0 0% 9%)`) are lighter than the page (`hsl(0 0% 3.9%)`). An app picks its own tint with the same tokens, and one that wants the old white ground sets `--kit-ground: white` and `--background: #fff`. A theme whose ground is tinted (a warm paper, a pale green) declares it with **one token**, in its own `resources/css/app.css`:
 
 ```css
 :root {
@@ -337,7 +337,7 @@ It is a CSS token rather than a config value because it belongs with the colours
 
 **What stays on the ground.** Page and PageGrid (and its cells) are transparent, and the page chrome stays on the ground: the page header and its actions, breadcrumbs, SubNav, PageTabs and section headings.
 
-**On a white ground nothing changes**: no card is added and no class differs.
+**On a white ground** (`--kit-ground: white`) no ground card is added and no class differs.
 
 **Minimums.** `composer test:token-contrast` checks every shipped theme and a sample tinted theme (`tests/fixtures/tinted-ground-theme.css`, ground `#f3f5e7`), light and dark. The ground is `--shell-ground`, else `--background`; the surface is `--card`.
 
@@ -350,9 +350,9 @@ It is a CSS token rather than a config value because it belongs with the colours
 
 A brand can set the edge with the others it prints: `kit.brand.input` (`input` in `config/brand.php`) prints `--input` next to `--border`, and `input_dark` its dark twin, so an app on a tinted ground need not print it itself. Unset prints nothing. `Brand::contrastProblems()` reads a configured edge against the brand's card, else its page, at 3:1, light and dark.
 
-The first three apply to a tinted ground; the shipped themes are white grounds, where only the text pairs do. White against `#f3f5e7` is 1.10:1, so a ground that pale needs a white card. A near-white ground (`#fafaf9` is 1.04:1 under white) works only with lifted cards: set `--kit-card-shadow` (Tailwind's `shadow-xs` by default) to a small two-part shadow, and every kit card draws it (`tests/fixtures/near-white-ground-theme.css`).
+The first three apply to a tinted ground, which the kit's own default now is (the near-white ground: card 1.04:1 on it, lifted; border 1.27:1; field edge 3.24:1 on the card and 3.10:1 on the ground). `--input` is also checked against the ground at 3:1. White against `#f3f5e7` is 1.10:1, so a ground that pale needs a white card. A near-white ground (`#fafaf9` is 1.04:1 under white) works only with lifted cards, which the kit's cards are by default (`--kit-card-shadow` is elevation level 1); a theme that sets `--kit-card-shadow: none` makes its cards flat, and they then need 1.1:1 and a 1.5:1 border.
 
-**Surface tokens.** Set any of these in the theme; the defaults draw what the kit always drew, except fields, which are now white-filled with a 3:1 edge. `--kit-card-shadow`: every card's shadow (Surface, Card, FormCard, Section, a dashboard widget, SettingsSection, ConnectionCard, Composer, Repeater, PasskeyOffer and the ground card). `--kit-field` and `--kit-field-edge`: a field's fill and edge in light mode (by default the card's white and a 3:1 grey, so a field reads as filled on a card or on the bare ground; a brand's `input` sets the edge; a theme that sets it in its own CSS sets it under `.dark` too). `--kit-modal-shadow`: Modal's and Dialog's, which sit on the card surface (`--card`), not the ground. A brand prints `--accent` (`accent_surface`), `--secondary` and `--kit-outline` (`outline`, else its `border`) with its other surfaces. The browser check `?tinted` renders a DataTable, a FormCard, an EmptyState and PageSections on the sample ground at 1280px (light and dark), checks each card's edge and background and that none is nested, runs axe, and checks the white ground draws no card.
+**Surface tokens and elevation.** Set any of these in the theme. `--kit-elevation-1` to `-5` are the elevation scale (Refactoring UI D3, D4), each a tight dark layer and a soft one: 1 for cards, buttons and fields, 2 for raised controls (a switch's thumb, the segmented toggle, the current pane tab), 3 for menus, popovers, selects and pickers, 4 for toasts, StageNotice and the floating toolbar, 5 for Modal and Dialog. `--kit-card-shadow` (every card: Surface, Card, FormCard, Section, a dashboard widget, SettingsSection, ConnectionCard, Composer, Repeater, PasskeyOffer, GuestShell's card and the ground card) is level 1, and `--kit-modal-shadow` level 5; Modal and Dialog sit on `--card`. `--kit-field` and `--kit-field-edge`: a field's fill and edge (the card's white in light mode, the input wash in dark; the edge is `--input`, 3:1 on the card in both modes). `--kit-outline` (ButtonGroup's ring and the outline tier) is `--border`. A brand prints `--accent` (`accent_surface`), `--secondary` and `--kit-outline` (`outline`, else its `border`) with its other surfaces.
 
 ## Auth-only session-ui and workspace-ui
 

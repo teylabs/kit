@@ -259,7 +259,7 @@ const percent = (option: RadioCardOption) =>
             </span>
             <span
                 v-if="tile(option) && model === option.value"
-                class="bg-primary text-primary-foreground ring-background absolute top-3 right-3 flex size-6 items-center justify-center rounded-full shadow-sm ring-2"
+                class="bg-primary text-primary-foreground ring-background absolute top-3 right-3 flex size-6 items-center justify-center rounded-full shadow-(--kit-elevation-2) ring-2"
                 aria-hidden="true"
                 data-radio-card-check
                 ><Check class="size-4"

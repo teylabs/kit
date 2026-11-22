@@ -30,7 +30,7 @@ withDefaults(
         <MenuPanel
             :align="alignLeft ? 'start' : 'end'"
             :content-class="[
-                'z-50 w-64 divide-y divide-border rounded-md bg-popover text-popover-foreground shadow-lg ring-1 ring-border',
+                'z-50 w-64 divide-y divide-border rounded-md bg-popover text-popover-foreground shadow-(--kit-elevation-3) ring-1 ring-border',
                 menuClasses,
             ]"
             flip-align
@@ -42,7 +42,7 @@ withDefaults(
                         v-if="type === 'button'"
                         v-bind="$attrs"
                         :class="[
-                            'inline-flex h-9 w-full items-center justify-center gap-x-1.5 rounded-md px-3 py-2 text-sm font-medium shadow-xs',
+                            'inline-flex h-9 w-full items-center justify-center gap-x-1.5 rounded-md px-3 py-2 text-sm font-medium shadow-(--kit-elevation-1)',
                             colorClasses ||
                                 'bg-background text-foreground ring-input hover:bg-accent hover:text-accent-foreground ring-1 ring-inset',
                         ]"

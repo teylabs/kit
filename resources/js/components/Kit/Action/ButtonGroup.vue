@@ -46,7 +46,7 @@ const text = computed(() => props.appearance === 'text');
 const trigger = computed(() =>
     text.value
         ? 'inline-flex items-center gap-1 px-2 py-1 text-sm font-medium text-primary hover:underline focus-visible:outline-2 focus-visible:outline-ring'
-        : 'inline-flex items-center gap-1 rounded-md bg-paper px-2 py-2 text-sm leading-5 text-outline-foreground shadow-xs ring-1 ring-outline ring-inset hover:bg-outline-wash focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-ring dark:shadow-none',
+        : 'inline-flex items-center gap-1 rounded-md bg-paper px-2 py-2 text-sm leading-5 text-outline-foreground shadow-(--kit-elevation-1) ring-1 ring-outline ring-inset hover:bg-outline-wash focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-ring dark:shadow-none',
 );
 // The label weight is the container's: ActionBar (a page or section header's actions) passes `semibold`; a toolbar's group keeps `medium`.
 const weights = {
@@ -97,7 +97,7 @@ function checkIcons(el: unknown): void {
             :class="[
                 'flex min-w-0 items-stretch [&>*]:min-w-0 [&>*]:truncate [&>*]:rounded-none [&>*]:border-0 [&>*]:shadow-none [&>*]:ring-0',
                 !text &&
-                    'bg-paper text-outline-foreground ring-outline overflow-hidden rounded-md shadow-xs ring-1 ring-inset dark:shadow-none',
+                    'bg-paper text-outline-foreground ring-outline overflow-hidden rounded-md shadow-(--kit-elevation-1) ring-1 ring-inset dark:shadow-none',
                 !text && $slots.menu && 'rounded-r-none',
                 children,
                 !text && dividers,
@@ -113,7 +113,7 @@ function checkIcons(el: unknown): void {
                 flip-align
                 :side-offset="offset[1]"
                 :skid="offset[0]"
-                content-class="z-50 w-64 overflow-hidden rounded-md border-0 bg-popover p-0 text-popover-foreground shadow-lg dark:ring-1 dark:ring-white/10"
+                content-class="z-50 w-64 overflow-hidden rounded-md border-0 bg-popover p-0 text-popover-foreground shadow-(--kit-elevation-3) dark:ring-1 dark:ring-white/10"
             >
                 <template #trigger>
                     <MenuTrigger>

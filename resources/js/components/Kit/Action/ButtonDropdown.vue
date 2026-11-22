@@ -26,7 +26,7 @@ defineProps({
         <div v-if="$slots.default || label" class="relative -ml-px block">
             <MenuPanel
                 :subject="subject"
-                content-class="z-50 w-64 divide-y rounded-md border-0 bg-popover p-0 text-popover-foreground shadow-lg dark:shadow-none dark:outline-1 dark:-outline-offset-1 dark:outline-white/10"
+                content-class="z-50 w-64 divide-y rounded-md border-0 bg-popover p-0 text-popover-foreground shadow-(--kit-elevation-3) dark:shadow-none dark:outline-1 dark:-outline-offset-1 dark:outline-white/10"
                 flip-align
                 :side-offset="offset[1]"
                 :skid="offset[0]"

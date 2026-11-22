@@ -191,7 +191,7 @@ const group = computed(() => [
         ? '[&>*:first-child]:rounded-l-full [&>*:last-child]:rounded-r-full'
         : '[&>*:first-child]:rounded-l-md [&>*:last-child]:rounded-r-md',
     fillAll.value &&
-        'rounded-full bg-primary text-primary-foreground shadow-xs [--kit-outline:color-mix(in_oklab,currentColor_20%,transparent)] [:where(&>*:not(:last-child))]:border-r [:where(&>*:not(:last-child))]:border-solid [:where(&>*:not(:last-child))]:border-outline',
+        'rounded-full bg-primary text-primary-foreground shadow-(--kit-elevation-1) [--kit-outline:color-mix(in_oklab,currentColor_20%,transparent)] [:where(&>*:not(:last-child))]:border-r [:where(&>*:not(:last-child))]:border-solid [:where(&>*:not(:last-child))]:border-outline',
 ]);
 function segment(filled: boolean, first = false): string[] {
     const base =
@@ -211,8 +211,8 @@ function segment(filled: boolean, first = false): string[] {
                 ? `${inverseFilled} [&+*]:border-l [&+*]:border-primary-foreground/25`
                 : inverseControl
             : filled
-              ? 'bg-primary text-primary-foreground shadow-xs hover:bg-primary/90'
-              : 'border border-input bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:hover:bg-input/50',
+              ? 'bg-primary text-primary-foreground shadow-(--kit-elevation-1) hover:bg-primary/90'
+              : 'border border-input bg-background shadow-(--kit-elevation-1) hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:hover:bg-input/50',
     ];
 }
 const filled = (index: number) =>

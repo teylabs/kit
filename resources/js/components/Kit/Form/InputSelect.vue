@@ -632,7 +632,7 @@ const autocomplete = computed(() => (searchOn.value ? 'list' : 'none'));
 // The fill is Input's (`--kit-field`, the card's white, on light; `input/30` on dark) and the edge `--kit-field-edge`; read-only keeps the muted one. Below sm, Clear and the
 // chevron keep their 32px-wide hit areas, so a field with Clear reserves more end padding there.
 const fieldClass = computed(() => [
-    'relative flex w-full min-h-9 flex-wrap items-center gap-1 rounded-md border py-0.5 ps-3 pe-14 text-base shadow-xs transition-[color,box-shadow] sm:text-sm',
+    'relative flex w-full min-h-9 flex-wrap items-center gap-1 rounded-md border py-0.5 ps-3 pe-14 text-base shadow-(--kit-elevation-1) transition-[color,box-shadow] sm:text-sm',
     canClear.value && 'max-sm:pe-[4.25rem]',
     readOnly.value
         ? 'border-border bg-muted shadow-none focus-within:ring-2 focus-within:ring-ring'
@@ -828,7 +828,7 @@ const layerTarget = useLayerTarget();
                             : {}),
                     }"
                     :class="popoverClass"
-                    class="border-border bg-popover text-popover-foreground data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 z-[100] max-h-[min(18rem,var(--reka-combobox-content-available-height),calc(var(--kit-select-viewport,100dvh)-1rem))] w-max max-w-[min(24rem,calc(100vw-1rem))] min-w-(--reka-combobox-trigger-width) overflow-hidden rounded-md border p-1 shadow-lg data-[state=closed]:duration-75 data-[state=open]:duration-100 motion-reduce:animate-none"
+                    class="border-border bg-popover text-popover-foreground data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 z-[100] max-h-[min(18rem,var(--reka-combobox-content-available-height),calc(var(--kit-select-viewport,100dvh)-1rem))] w-max max-w-[min(24rem,calc(100vw-1rem))] min-w-(--reka-combobox-trigger-width) overflow-hidden rounded-md border p-1 shadow-(--kit-elevation-3) data-[state=closed]:duration-75 data-[state=open]:duration-100 motion-reduce:animate-none"
                     @escape-key-down="onListEscape"
                 >
                     <ComboboxViewport class="max-h-[inherit] overflow-y-auto">

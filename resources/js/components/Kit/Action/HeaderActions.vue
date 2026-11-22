@@ -93,8 +93,8 @@ function button(filled: boolean): string[] {
                 ? inverseFilled
                 : inverseControl
             : filled
-              ? 'bg-primary text-primary-foreground shadow-xs hover:bg-primary/90'
-              : 'border border-input bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:hover:bg-input/50',
+              ? 'bg-primary text-primary-foreground shadow-(--kit-elevation-1) hover:bg-primary/90'
+              : 'border border-input bg-background shadow-(--kit-elevation-1) hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:hover:bg-input/50',
     ];
 }
 const holdFocus = (event: Event) => {

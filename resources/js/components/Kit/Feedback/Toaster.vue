@@ -235,7 +235,7 @@ const layer = useTopLayer();
             v-if="bubble"
             role="status"
             :class="[
-                'bg-foreground text-background pointer-events-none fixed top-(--kit-toast-top) left-(--kit-toast-left) z-50 inline-flex -translate-x-1/2 -translate-y-full items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium shadow-md',
+                'bg-foreground text-background pointer-events-none fixed top-(--kit-toast-top) left-(--kit-toast-left) z-50 inline-flex -translate-x-1/2 -translate-y-full items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium shadow-(--kit-elevation-4)',
                 bubble.animate &&
                     'motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-95',
             ]"
