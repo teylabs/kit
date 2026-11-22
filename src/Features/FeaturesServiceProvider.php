@@ -309,12 +309,12 @@ final class FeaturesServiceProvider extends ServiceProvider
             }
             $this->app->booted(fn () => $this->app->make('log')->error(implode(' ', $problems)));
         }
-        // Module navigation's shape (Registry::checkModulePages()): a third level or a cycle throws, nesting and pages outside a prefix warn; an icon SectionIcon
-        // does not draw throws (Registry::checkIcons()). In development only.
+        // Module navigation's shape (Registry::checkModulePages()): a third level or a cycle throws, nesting and pages outside a prefix warn; a module page icon
+        // SectionIcon does not draw throws, a settings section's warns (Registry::checkIcons()). In development only.
         if ($this->app->environment('local', 'testing')) {
             $this->app->booted(function (): void {
                 app(Registry::class)->checkModulePages(fn (string $message) => $this->app->make('log')->warning($message));
-                app(Registry::class)->checkIcons();
+                app(Registry::class)->checkIcons(fn (string $message) => $this->app->make('log')->warning($message));
             });
         }
         // Each feature's migrations: the app's own copies under database/migrations/kit/<feature> (what kit:add wrote) and the package's directory,

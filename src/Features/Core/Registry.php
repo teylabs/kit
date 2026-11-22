@@ -15,8 +15,8 @@ use Tey\Kit\Features\Core\Mcp\ServedBeside;
 final class Registry
 {
     /**
-     * The icon names SectionIcon draws (lucide, kebab case): its explicit allow-list, the same set. A module page's or settings section's `icon` outside it
-     * stops the boot in local and testing (checkIcons()).
+     * The icon names SectionIcon draws (lucide, kebab case): its explicit allow-list, the same set. A module page's `icon` outside it stops the boot in local
+     * and testing; a settings section's warns (checkIcons()).
      */
     public const ICONS = [
         'badge-check',
@@ -71,6 +71,8 @@ final class Registry
         'user-check',
         'user-plus',
         'users',
+        'globe',
+        'store',
     ];
 
     /** @var list<array{file: string, group: ?string, options: array{prefix: string, middleware: list<string>, name: string}}> */
@@ -448,7 +450,7 @@ final class Registry
      * ability to be listed; `personal` ones are at `/me/{key}` and belong to no workspace. The landing page lists them
      * grouped and in order (lower `order` first, then registration order). The feature registers the section's route itself,
      * with a breadcrumb under the landing page's. `icon` is a lucide icon name (kebab case, e.g. `sliders-horizontal`) shown on the landing
-     * card and in the sidebar, one of ICONS (a name outside them stops the boot in local and testing; elsewhere it draws a generic icon). Group names never repeat a lone item's label.
+     * card and in the sidebar, one of ICONS (a name outside them warns at boot in local and testing and draws a generic icon). Group names never repeat a lone item's label.
      */
     public function settingsSection(string $scope, string $key, string $label, string $description, ?string $ability = null, string $group = 'General', int $order = 0, ?string $icon = null, bool $placeholder = false): self
     {
@@ -1094,15 +1096,19 @@ final class Registry
     }
 
     /**
-     * Every registered module page's and settings section's `icon` is one SectionIcon draws (ICONS), or none: a name outside the list throws, so a typo
-     * stops the boot in local and testing instead of drawing the generic gear.
+     * Every registered module page's and settings section's `icon` is one SectionIcon draws (ICONS), or none. A module page's name outside the list throws,
+     * so a typo stops the boot in local and testing. A settings section's only warns (`$warn`) and still draws the generic gear, as before v0.46.1.
      */
-    public function checkIcons(): void
+    public function checkIcons(?Closure $warn = null): void
     {
-        foreach ([...$this->modulePages, ...$this->sections] as $entry) {
+        foreach ($this->sections as $entry) {
+            if ($entry['icon'] !== null && ! in_array($entry['icon'], self::ICONS, true) && $warn !== null) {
+                $warn("Registry::settingsSection() '{$entry['scope']}/{$entry['key']}': unknown icon '{$entry['icon']}', drawn as the generic gear. SectionIcon draws only Registry::ICONS (docs/settings-section.md).");
+            }
+        }
+        foreach ($this->modulePages as $entry) {
             if ($entry['icon'] !== null && ! in_array($entry['icon'], self::ICONS, true)) {
-                $where = isset($entry['module']) ? "Registry::modulePage() '{$entry['suffix']}'" : "Registry::settingsSection() '{$entry['scope']}/{$entry['key']}'";
-                throw new RuntimeException("{$where}: unknown icon '{$entry['icon']}'. SectionIcon draws only Registry::ICONS (docs/shell.md); add it there and in SectionIcon.vue, or pick one of them.");
+                throw new RuntimeException("Registry::modulePage() '{$entry['suffix']}': unknown icon '{$entry['icon']}'. SectionIcon draws only Registry::ICONS (docs/shell.md); add it there and in SectionIcon.vue, or pick one of them.");
             }
         }
     }

@@ -285,8 +285,15 @@ try {
     };
     $message = $threw((new Registry)->modulePage('art', 'art.read', 'Pieces', 'art/pieces', icon: 'picture-frame'));
     check($message !== null && str_contains($message, "'art/pieces'") && str_contains($message, "'picture-frame'"), 'a module page icon SectionIcon does not draw fails the boot check, naming the page and the icon');
-    $message = $threw((new Registry)->settingsSection('workspace', 'billing', 'Billing', 'Plans.', icon: 'gear'));
-    check($message !== null && str_contains($message, "'workspace/billing'"), 'so does a settings section icon outside the list');
+    $warned = [];
+    $legacy = (new Registry)->settingsSection('workspace', 'site', 'Public site', 'Site.', icon: 'not-an-icon')->settingsSection('workspace', 'square', 'Square', 'Square.', icon: 'store')->settingsSection('workspace', 'web', 'Web', 'Web.', icon: 'globe');
+    $message = $threw($legacy);
+    $legacy->checkIcons(function (string $line) use (&$warned): void {
+        $warned[] = $line;
+    });
+    check($message === null && count($warned) === 1 && str_contains($warned[0], "'workspace/site'"), 'a settings section icon outside the list still boots, as before v0.46.1: one warning naming it, the gear drawn; globe and store are listed');
+    $booted = $app->make(Registry::class)->settingsSection('workspace', 'legacy-icon', 'Legacy', 'Legacy.', icon: 'not-an-icon');
+    check($threw($booted) === null, 'the booted app registry with such a section passes the boot check');
 
     // kit.shell.settings_link: where the bar shows Settings. Only the link moves; the settings pages stay reachable.
     $shell = fn (string $path = ''): array => json_decode($page('owner', $path)[1], true)['props']['shell'];
