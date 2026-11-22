@@ -2,6 +2,7 @@
 
 namespace Tey\Kit\Features\Core;
 
+use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
@@ -365,17 +366,14 @@ final class Registry
      * A page of a module, for the shell's SubNav. The module is the primary navigation link whose suffix is `$module`; while it (or
      * one of its pages) is current, the shell lists its pages the principal may open, in `order` and then registration order. The
      * ability, suffix and `active` rules are navigation()'s. A module with no pages gets no tabs; a small app registers none. A page's suffix sits under its
-     * module's (`bookings/calendar` for module `bookings`): in local and testing an outside one logs a warning, never throws.
+     * module's (`bookings/calendar` for module `bookings`); checkModulePages() warns about one outside it. A page whose suffix is another
+     * module's id nests that module: its pages become a second tab row while one of them is current (docs/navigation.md).
      *
      * @param  string|list<string>|null  $active
      */
     public function modulePage(string $module, string $ability, string $label, string $suffix, int $order = 0, string|array|null $active = null): self
     {
         self::validateActive($active);
-        // A module owns its URL prefix (its primary link's suffix) and its pages sit under it. In development an outside page is a warning; production stays silent.
-        if ($module !== '' && $suffix !== $module && ! str_starts_with($suffix, $module.'/') && function_exists('app') && app()->bound('log') && app()->environment('local', 'testing')) {
-            app('log')->warning("Registry::modulePage(): the page '{$suffix}' of module '{$module}' is outside the module's prefix; nest it, e.g. '{$module}/".ltrim($suffix, '/')."'.");
-        }
         $this->modulePages[] = ['module' => $module, 'ability' => $ability, 'label' => $label, 'suffix' => $suffix, 'order' => $order, 'active' => $active];
 
         return $this;
@@ -1029,6 +1027,37 @@ final class Registry
         }
 
         return array_values(array_filter($this->tools, fn (string $class): bool => ! in_array(app($class)->name(), $off, true)));
+    }
+
+    /**
+     * The module pages' shape, checked once the app has booted (local and testing only). A page nests a module when its suffix is another module's id
+     * (one with pages of its own); that module may not nest a third, and a module may not nest itself back (both throw). Each nesting logs a warning naming
+     * both modules, so a suffix that only happens to match a module id is seen. A page outside its module's prefix logs a warning unless it nests a
+     * module or gives its own `active`.
+     */
+    public function checkModulePages(Closure $warn): void
+    {
+        $modules = array_unique(array_column($this->modulePages, 'module'));
+        $nested = [];
+        foreach ($this->modulePages as $page) {
+            if ($page['suffix'] !== $page['module'] && in_array($page['suffix'], $modules, true)) {
+                $nested[$page['module']][] = $page['suffix'];
+            }
+        }
+        foreach ($nested as $section => $children) {
+            foreach (array_unique($children) as $child) {
+                if (isset($nested[$child])) {
+                    throw new RuntimeException("Registry::modulePage(): module '{$section}' nests '{$child}', which nests '".implode("', '", $nested[$child])."'; module navigation has two levels at most.");
+                }
+                $warn("Registry::modulePage(): module '{$section}' nests module '{$child}' through its page '{$child}', so '{$child}''s pages show as a second tab row. If that is not intended, give the page a suffix that is not a module id.");
+            }
+        }
+        foreach ($this->modulePages as $page) {
+            ['module' => $module, 'suffix' => $suffix] = $page;
+            if ($module !== '' && $page['active'] === null && $suffix !== $module && ! str_starts_with($suffix, $module.'/') && ! in_array($suffix, $nested[$module] ?? [], true)) {
+                $warn("Registry::modulePage(): the page '{$suffix}' of module '{$module}' is outside the module's prefix; nest it, e.g. '{$module}/".ltrim($suffix, '/')."', or give it an `active`.");
+            }
+        }
     }
 
     /** @return list<array{module: string, ability: string, label: string, suffix: string, order: int, active: string|list<string>|null}> One module's pages, sorted by order, then registration. */

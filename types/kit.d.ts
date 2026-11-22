@@ -115,6 +115,7 @@ token?: string | null,
 export type NavGroup = {
 label: string | null,
 items: Tey.Kit.Features.Core.Data.NavItem[],
+nested: boolean,
 };
 export type NavItem = {
 label: string,
@@ -1159,6 +1160,14 @@ label: string,
 url: string,
 current: boolean,
 }[],
+child?: {
+label: string,
+items: {
+label: string,
+url: string,
+current: boolean,
+}[],
+},
 } | null,
 search: {
 url: string,
