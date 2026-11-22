@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.44.1
 
 Features affected: session-ui.
 
