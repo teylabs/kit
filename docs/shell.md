@@ -33,3 +33,7 @@ In your own CSS, give it a fallback for pages outside the shell: `top: var(--she
 **The rule that switches it on is implicit.** Any module page whose suffix equals another module's id nests it. So that a suffix that only happens to match a module id is noticed, each nesting logs a warning at boot in local and testing, naming both modules (`module 'orders' nests module 'customers' through its page 'customers'`). If it is not intended, give the page a suffix that is not a module id.
 
 **Pages outside the prefix.** A page sits under its module's suffix (`bookings/calendar` for `bookings`); one outside it logs a warning in local and testing, unless it nests a module or gives its own `active` (`modulePage('admin', …, 'Settings', 'settings', active: ['settings', 'settings/*'])`, current on every `settings/*` page).
+
+## The Settings link
+
+The bar shows the workspace's Settings link (to the settings landing, when the viewer can open any section) where `kit.shell.settings_link` says: `'primary'` among the pages (the default), `'menu'` in the account menu, or `false` nowhere, for an app that places Settings itself, such as a module tab (`modulePage('admin', …, 'Settings', 'settings', active: ['settings', 'settings/*'])`). Only the link moves: the settings pages, the workspace landing and the switcher's "Workspace settings" stay.

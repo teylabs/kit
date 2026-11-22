@@ -119,7 +119,7 @@ final class PageShell implements ShellSource
             // Its pages are decided inside it; the current one's are the bar's navigation.
             $allowed = $this->allowed($request, $user, MemberWorkspaces::workspace($named['id'], $user));
             if ($named['current']) {
-                $slots = $allowed;
+                $slots = self::placeSettings($allowed, config('kit.shell.settings_link', 'primary'));
             }
             $workspace = ['id' => $named['id'], 'name' => $named['name'], 'url' => self::landing($allowed), 'settings' => $allowed['settings'] === null ? null : new Action('Workspace settings', $allowed['settings'], 'get'), 'all' => new Action('All workspaces', $links['switcher'], 'get'), 'leave' => $this->leave($user, (int) $named['id'], $named['name'])];
         }
@@ -128,7 +128,7 @@ final class PageShell implements ShellSource
         if (! app(Registry::class)->adopts('workspaces')) {
             $slots = $this->rootNavigation($request, $user) + $slots;
         }
-        $identity = ['name' => $user->name, 'email' => $user->email, 'initials' => $this->initials((string) $user->name), 'avatar_url' => ($avatar = Avatars::urls((int) $user->getKey()))['url'] ?? null, 'avatar_url_2x' => $avatar['url_2x'] ?? null, 'avatar_color' => AvatarColor::of($user), 'items' => [...(app(Registry::class)->adopts('workspaces') ? [] : $slots['user-menu']), ...$this->accountItems($user, $request)]];
+        $identity = ['name' => $user->name, 'email' => $user->email, 'initials' => $this->initials((string) $user->name), 'avatar_url' => ($avatar = Avatars::urls((int) $user->getKey()))['url'] ?? null, 'avatar_url_2x' => $avatar['url_2x'] ?? null, 'avatar_color' => AvatarColor::of($user), 'items' => [...(app(Registry::class)->adopts('workspaces') ? ($slots['settings-menu'] ?? []) : $slots['user-menu']), ...$this->accountItems($user, $request)]];
 
         $account = self::isAccount($request);
 
@@ -278,6 +278,30 @@ final class PageShell implements ShellSource
 
             return $allowed;
         });
+    }
+
+    /**
+     * Where the bar shows the workspace's Settings link (`kit.shell.settings_link`): `primary` (the default) among the pages, `menu` in the account menu, or
+     * false nowhere, for an app that places Settings itself (a module tab, say). Only the link moves: the landing, the switcher's "Workspace settings" and the
+     * settings routes are unchanged.
+     *
+     * @param  array{primary: list<array{label: string, url: string, current: bool, group: string}>, settings: ?string}  $allowed
+     */
+    public static function placeSettings(array $allowed, mixed $placement): array
+    {
+        if ($placement === 'primary' || $allowed['settings'] === null) {
+            return $allowed;
+        }
+        if (! in_array($placement, ['menu', false], true)) {
+            throw new RuntimeException("kit.shell.settings_link must be 'primary', 'menu' or false.");
+        }
+        $settings = array_values(array_filter($allowed['primary'], fn (array $link): bool => $link['group'] === 'workspace' && $link['url'] === $allowed['settings']));
+        $allowed['primary'] = array_values(array_filter($allowed['primary'], fn (array $link): bool => ! ($link['group'] === 'workspace' && $link['url'] === $allowed['settings'])));
+        if ($placement === 'menu') {
+            $allowed['settings-menu'] = $settings;
+        }
+
+        return $allowed;
     }
 
     /** Landing in a workspace means its first primary page (else its first user-menu page); null when the viewer may open none. */
