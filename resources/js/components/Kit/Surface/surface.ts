@@ -75,7 +75,8 @@ export function useInCard(): ComputedRef<boolean> {
 
 // The card the ground asks a component to draw: on a tinted ground, when `enabled` (a PageSection's `surface`), and never inside a card. What is inside then
 // sits on a card. The card's look matches a dashboard widget's: `bg-card text-card-foreground rounded-xl border`.
-export const groundCard = 'bg-card text-card-foreground rounded-xl border';
+export const groundCard =
+    'bg-card text-card-foreground rounded-xl border shadow-(--kit-card-shadow)';
 
 export function useGroundSurface(
     enabled: () => boolean = () => true,
