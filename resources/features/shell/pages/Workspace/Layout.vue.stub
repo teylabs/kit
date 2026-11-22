@@ -34,7 +34,7 @@ const focus = computed((): FocusShellShape | null => (props.shell.kind === 'focu
 const app = computed(() => props.shell as Tey.Kit.Features.Shell.Data.ShellData);
 const drawer = computed(() => !focus.value && Boolean(app.value.user) && (Boolean(slots.nav) || Boolean(slots['drawer-nav']) || (app.value.navigation?.length ?? 0) > 0));
 // The document title comes from the page's `layout` (composed on the server), never set per page.
-const page = usePage<{ layout?: { documentTitle: string; navigationHeader?: { label: string; url: string } | null; breadcrumbs?: unknown[] }; environment?: { label: string; colour: string } | null }>();
+const page = usePage<{ layout?: { documentTitle: string; navigationHeader?: { label: string; url: string; trail?: boolean } | null; breadcrumbs?: unknown[] }; environment?: { label: string; colour: string } | null }>();
 // The document title is the page's `layout.documentTitle`, written by the shell itself in the same flush as the page (documentTitle.ts: Inertia's debounced
 // <Head> could otherwise land an older page's title after Back). <Head> carries it only on the server, for the first HTML.
 useDocumentTitle(() => (props.documentTitle ? page.props.layout?.documentTitle : undefined));
@@ -176,7 +176,7 @@ onBeforeUnmount(() => {
                 </div>
             </header>
             <!-- The trail as a bar, unless the page has a "Back to <parent>" strip, which replaces the trail. -->
-            <div v-if="props.breadcrumbs === 'bar' && app.user && page.props.layout?.breadcrumbs?.length && !page.props.layout?.navigationHeader" ref="subbar" :class="['border-b border-shell-subbar-border bg-shell-subbar text-foreground', subbarBlur && 'backdrop-blur-(--shell-subbar-blur)']" :data-shell-subbar-blur="subbarBlur || undefined" data-shell-breadcrumbs>
+            <div v-if="props.breadcrumbs === 'bar' && app.user && page.props.layout?.breadcrumbs?.length && (!page.props.layout?.navigationHeader || page.props.layout.navigationHeader.trail)" ref="subbar" :class="['border-b border-shell-subbar-border bg-shell-subbar text-foreground', subbarBlur && 'backdrop-blur-(--shell-subbar-blur)']" :data-shell-subbar-blur="subbarBlur || undefined" data-shell-breadcrumbs>
                 <div :class="['mx-auto flex h-10 min-w-0 items-center px-4 sm:px-6 lg:px-8', props.widthClass]">
                     <Breadcrumbs bar />
                 </div>
@@ -190,12 +190,12 @@ onBeforeUnmount(() => {
                 <SubNav v-if="app.subNavigation.child" :label="app.subNavigation.child.label" :items="app.subNavigation.child.items" class="border-t border-shell-subbar-border" data-shell-subnav-child />
             </div>
         </div>
-        <!-- A nested page's way up one level (the page's `layout.navigationHeader`: a breakout page or an account page): a strip under the header that scrolls with the page, in place of the trail, tinted from --shell-band. -->
-        <div v-if="page.props.layout?.navigationHeader" class="border-b border-shell-band-border bg-shell-band text-shell-band-foreground" data-navigation-header>
+        <!-- A nested page's way up one level (the page's `layout.navigationHeader`: a breakout page or an account page): a strip under the header that scrolls with the page, in place of the trail (or under it, when the breakout keeps its trail: `trail`), tinted from --shell-band. A labelled nav, so its link sits in a landmark. -->
+        <nav v-if="page.props.layout?.navigationHeader" aria-label="Back" class="border-b border-shell-band-border bg-shell-band text-shell-band-foreground" data-navigation-header>
             <div :class="['mx-auto flex min-h-11 min-w-0 items-center px-4 sm:px-6 lg:px-8', props.widthClass]">
                 <Link :href="page.props.layout.navigationHeader.url" class="inline-flex min-h-9 min-w-0 items-center gap-2 rounded-md text-sm font-medium hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"><ArrowLeft class="size-4 shrink-0" aria-hidden="true" /><span class="min-w-0 truncate">{{ page.props.layout.navigationHeader.label }}</span></Link>
             </div>
-        </div>
+        </nav>
         <main id="main" :class="props.fill ? 'flex min-h-0 flex-1 flex-col overflow-hidden' : 'flex-1'">
             <div :class="props.fill ? ['mx-auto flex min-h-0 w-full flex-1 flex-col gap-6', props.widthClass] : ['mx-auto flex w-full flex-col gap-6 px-4 pt-4 pb-8 sm:px-6 sm:pt-5 sm:pb-10 lg:px-8', props.widthClass]" data-shell-content>
                 <!-- After an invited sign-up, where the app has passkeys: "Add a passkey for next time" (session-ui's PasskeyOffer). -->

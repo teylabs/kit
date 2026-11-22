@@ -8160,6 +8160,74 @@ test('the shell bar given its pages after mount: the split follows the window as
     }
 });
 
+// ── A module with no primary link, as a breakout that keeps its trail (shell.html?module=1&breakout): the row, the banded strip and the trail together ──
+test('a module with no primary link draws its own row; a with-trail breakout draws the banded strip and the whole trail, axe-clean light and dark', async () => {
+    const shots = process.env.KIT_MODULE_NAV_SCREENSHOT;
+    for (const dark of [false, true]) {
+        for (const width of [1280, 390]) {
+            const scheme = `${dark ? 'dark' : 'light'}-${width}`;
+            const context = await browser.newContext({ viewport: { width, height: 800 }, deviceScaleFactor: 2 });
+            try {
+                const tab = await context.newPage();
+                const errors = [];
+                tab.on('pageerror', error => errors.push(error.message));
+                await tab.goto(`${authUrl}shell.html?module=1&breakout${dark ? '&dark' : ''}`);
+                await tab.waitForSelector('[data-slot="page"]');
+                const seen = await tab.evaluate(() => {
+                    const trail = document.querySelector('[data-shell-breadcrumbs]');
+                    const strip = document.querySelector('[data-navigation-header]');
+                    const row = document.querySelector('[data-page-module-tabs]');
+                    return {
+                        trail: trail && [...trail.querySelectorAll('li')].map(li => li.textContent.trim()).filter(Boolean),
+                        strip: strip?.textContent.trim(),
+                        stripBelowTrail: Boolean(trail && strip && strip.getBoundingClientRect().top >= trail.getBoundingClientRect().bottom - 0.5),
+                        row: row && [...row.querySelectorAll('ul a')].map(a => [a.textContent.trim(), a.getAttribute('aria-current') === 'page']),
+                        primaryCurrent: document.querySelectorAll('header a[aria-current="page"]').length,
+                    };
+                });
+                assert.deepEqual(seen.trail, ['Admin', 'Billing', 'Invoices'], `${scheme}: the app's whole trail stays (home is an icon), Billing crumb included`);
+                assert.equal(seen.strip, 'Back to Admin', `${scheme}: the banded strip goes to the section landing`);
+                assert.ok(seen.stripBelowTrail, `${scheme}: the strip sits under the trail`);
+                if (width === 1280) {
+                    assert.deepEqual(seen.row, [['Summary', false], ['Invoices', true], ['Payouts', false], ['Plans', false]], `${scheme}: the module's own row, exactly one current`);
+                    assert.equal(seen.primaryCurrent, 0, `${scheme}: no primary link is current`);
+                }
+                if (shots) await tab.screenshot({ path: `${shots}-breakout-trail-top-${scheme}.png`, clip: { x: 0, y: 0, width, height: 360 } });
+                await tab.addScriptTag({ path: axeSource });
+                const violations = await tab.evaluate(async () => (await window.axe.run(document)).violations.map(v => `${v.id}: ${v.nodes.map(n => n.target.join(' ')).join(', ')}`));
+                assert.deepEqual(violations, [], `${scheme}: axe`);
+                // For the order decision only: the same page with the strip moved above the trail (no kit change draws it this way).
+                if (shots) {
+                    await tab.evaluate(() => { const trail = document.querySelector('[data-shell-breadcrumbs]'); trail.parentNode.insertBefore(document.querySelector('[data-navigation-header]'), trail); });
+                    await tab.screenshot({ path: `${shots}-breakout-strip-top-${scheme}.png`, clip: { x: 0, y: 0, width, height: 360 } });
+                }
+                assert.deepEqual(errors, []);
+            } finally {
+                await context.close();
+            }
+        }
+    }
+});
+
+test('SectionIcon draws each allow-listed name as its own lucide icon, and the Settings gear only for an unknown name', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 400 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?section-icons`);
+        await tab.waitForSelector('[data-icon] svg');
+        const icons = await tab.$$eval('[data-icon]', items => Object.fromEntries(items.map(li => [li.dataset.icon, li.querySelector('svg').getAttribute('class')])));
+        const gear = icons.settings;
+        assert.match(gear, /lucide-settings/);
+        assert.equal(icons['no-such-icon'], gear, 'an unknown name is the gear');
+        for (const [name, own] of [['receipt', 'receipt'], ['chart-column', 'chart-column'], ['calendar', 'calendar'], ['newspaper', 'newspaper'], ['file-signature', 'file-pen-line'], ['hand-heart', 'hand-heart']]) {
+            assert.notEqual(icons[name], gear, `${name} is not the gear`);
+            assert.match(icons[name], new RegExp(`lucide-${own}\\b`), `${name} draws lucide's ${own}`);
+        }
+    } finally {
+        await context.close();
+    }
+});
+
 // ── Two-level module navigation (shell.html?module=1&nested|&mixed): a section's nested module as a second row of tabs, in the strip and in the drawer ──
 test('two-level module navigation: a nested module is a second row (tabs and strip), a mixed section one row, the drawer expands it in place, axe-clean light and dark', async () => {
     const shots = process.env.KIT_MODULE_NAV_SCREENSHOT;

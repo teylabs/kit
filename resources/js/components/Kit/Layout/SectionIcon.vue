@@ -2,11 +2,17 @@
 import {
     Bell,
     Building2,
+    Calendar,
+    ChartColumn,
     CreditCard,
+    FileSignature,
+    HandHeart,
     KeyRound,
     Mail,
+    Newspaper,
     Palette,
     Plug,
+    Receipt,
     Settings,
     ShieldCheck,
     SlidersHorizontal,
@@ -14,15 +20,21 @@ import {
     Users,
 } from '@lucide/vue';
 
-// A settings section's icon by its lucide name (kebab case), from the server's `icon`. The set is the kit's own; an unknown name is the generic Settings icon.
+// A settings section's icon by its lucide name (kebab case), from the server's `icon`. The set is the kit's own explicit allow-list (one import per name keeps the bundle bounded; docs/settings.md lists it); an unknown name is the generic Settings icon.
 const icons = {
     bell: Bell,
     'building-2': Building2,
+    calendar: Calendar,
+    'chart-column': ChartColumn,
     'credit-card': CreditCard,
+    'file-signature': FileSignature,
+    'hand-heart': HandHeart,
     'key-round': KeyRound,
     mail: Mail,
+    newspaper: Newspaper,
     palette: Palette,
     plug: Plug,
+    receipt: Receipt,
     settings: Settings,
     'shield-check': ShieldCheck,
     'sliders-horizontal': SlidersHorizontal,

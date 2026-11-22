@@ -73,7 +73,7 @@ const listeners = computed(() =>
 );
 const inShell = inject('kit.shell', false);
 // The trail is drawn once: not when the shell draws it as a bar (the Layout's `breadcrumbs="bar"`), and not by a <Page> inside another (a tabbed frame round each
-// tab), which the outer one already drew. A page with a "Back to <parent>" strip (`layout.navigationHeader`: a breakout page, or an account page) has no trail: the strip replaces it.
+// tab), which the outer one already drew. A page with a "Back to <parent>" strip (`layout.navigationHeader`: a breakout page, or an account page) has no trail: the strip replaces it, unless the breakout keeps it (`kit.breakout` 'with-trail', the header's `trail`).
 const shellTrail = inject<Ref<'page' | 'bar'> | null>(
     'kit.shell.breadcrumbs',
     null,
@@ -115,7 +115,11 @@ const page = usePage<{
             items: { label: string; url: string; current: boolean }[];
             nested?: boolean;
         }[];
-        navigationHeader?: { label: string; url: string } | null;
+        navigationHeader?: {
+            label: string;
+            url: string;
+            trail?: boolean;
+        } | null;
     };
     title?: string;
 }>();
@@ -124,7 +128,8 @@ const drawsTrail = computed(
         inShell &&
         !nested &&
         shellTrail?.value !== 'bar' &&
-        !page.props.layout?.navigationHeader,
+        (!page.props.layout?.navigationHeader ||
+            page.props.layout.navigationHeader.trail === true),
 );
 // A `nested` group is a nested module's pages (a section's module, Registry::modulePage()): a second row under the first, never merged into it.
 const rows = (nestedRow: boolean) =>

@@ -32,7 +32,10 @@ const module = query.get('module');
 const switching = query.has('switch');
 // A long workspace name (?name=…) for the bar's give-way check.
 const workspaceName = query.get('name') ?? 'Acme Workshop';
-const current = module !== null ? 1 : Number(query.get('current') ?? 0);
+// `&breakout` (with `module`): Billing, a module with no primary link, reached from a landing (Admin): its own row, the banded "Back to Admin" strip and,
+// as kit.breakout 'with-trail', the app's whole trail too. No primary link is current.
+const breakout = query.has('breakout');
+const current = breakout ? -1 : module !== null ? 1 : Number(query.get('current') ?? 0);
 const navigation = labels.map((label, index) => ({ label, url: `/@acme/${label.toLowerCase()}`, current: index === current, group: 'main' }));
 // `&billing`: the module's seven pages are billing ones instead, the row that showed a vertical scrollbar on a wide window.
 const moduleLabels = query.has('billing')
@@ -53,8 +56,9 @@ if (twoLevel) {
     items.splice(0, items.length, ...tabs.map(([label, suffix], index) => ({ label, url: `/@acme/${suffix}`, current: index === at })));
     navigation[1].label = twoLevel === 'nested' ? 'Admin' : 'Front desk';
 }
+if (breakout) items.splice(0, items.length, ...[['Summary', 'billing'], ['Invoices', 'billing/invoices'], ['Payouts', 'billing/payouts'], ['Plans', 'billing/plans']].map(([label, suffix], index) => ({ label, url: `/@acme/${suffix}`, current: index === 1 })));
 const child = twoLevel === 'nested' ? { label: 'Billing', items: [['Summary', 'billing'], ['Invoices', 'billing/invoices'], ['Payouts', 'billing/payouts'], ['Plans', 'billing/plans']].map(([label, suffix], index) => ({ label, url: `/@acme/${suffix}`, current: index === 1 })) } : null;
-const sectionLabel = twoLevel === 'nested' ? 'Admin' : twoLevel === 'mixed' ? 'Front desk' : 'Projects';
+const sectionLabel = breakout ? 'Summary' : twoLevel === 'nested' ? 'Admin' : twoLevel === 'mixed' ? 'Front desk' : 'Projects';
 const shell = {
     kind: 'app',
     account: { label: 'Account', url: '/account', current: false },
@@ -68,8 +72,10 @@ const shell = {
     subNavigation: module !== null && !record ? { label: sectionLabel, items, ...(child ? { child } : {}) } : null,
     search: { url: '/@acme/search', label: 'Search', placeholder: 'Search…' } as { url: string; label: string; placeholder: string } | null,
 };
-const title = record ? 'Harbour refit' : twoLevel === 'nested' ? 'Invoices' : twoLevel === 'mixed' ? 'Check-in' : moduleLabels[modulePage];
-const breadcrumbs = [
+const title = breakout ? 'Invoices' : record ? 'Harbour refit' : twoLevel === 'nested' ? 'Invoices' : twoLevel === 'mixed' ? 'Check-in' : moduleLabels[modulePage];
+const breadcrumbs = breakout
+    ? [['Acme Workshop', '/@acme'], ['Admin', '/@acme/admin'], ['Billing', '/@acme/billing'], ['Invoices', '/@acme/billing/invoices']].map(([label, url], index) => ({ label, url, home: index === 0, current: index === 3 }))
+    : [
     { label: 'Acme Workshop', url: '/@acme', home: true, current: false },
     ...(record || modulePage > 0 ? [{ label: sectionLabel, url: '/@acme/projects', home: false, current: false }] : []),
     { label: record ? title : modulePage === 0 ? sectionLabel : title, url: record ? items[0].url : items[modulePage].url, home: false, current: true },
@@ -131,7 +137,7 @@ const fonts = appBar
     ? Promise.all(([[400, inter400], [500, inter500], [600, inter600]] as const).map(([weight, url]) => { const face = new FontFace('Inter', `url(${url})`, { weight: String(weight) }); document.fonts.add(face); return face.load(); })).then(() => { document.documentElement.style.fontFamily = 'Inter, sans-serif'; })
     : Promise.resolve();
 const Shown = { render: () => h(Layout, { shell: state, subNav: query.has('strip') ? 'strip' : undefined, breadcrumbs: trail.value }, slots) };
-const layout = module === null ? { documentTitle: 'Shell' } : { documentTitle: title, title, breadcrumbs, navigation: [{ label: record ? null : sectionLabel, items }, ...(child ? [{ label: child.label, items: child.items, nested: true }] : [])], navigationHeader: null };
+const layout = module === null ? { documentTitle: 'Shell' } : { documentTitle: title, title, breadcrumbs, navigation: [{ label: record ? null : sectionLabel, items }, ...(child ? [{ label: child.label, items: child.items, nested: true }] : [])], navigationHeader: breakout ? { label: 'Back to Admin', url: '/@acme/admin', trail: true } : null };
 (window as unknown as { kitInitialPage: unknown }).kitInitialPage = { component: 'Shell', props: { errors: {}, layout }, url: module === null ? navigation[current].url : (child?.items.find((item) => item.current) ?? items.find((item) => item.current)!).url, version: null, flash: {}, clearHistory: false, encryptHistory: false };
 void fonts.then(() => createInertiaApp({
     page: (window as unknown as { kitInitialPage: never }).kitInitialPage,

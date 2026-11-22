@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Route;
 use Spatie\LaravelData\LaravelDataServiceProvider;
 use Tey\Kit\Features\Core\Data\NavigationHeader;
 use Tey\Kit\Features\Core\Data\PageLayout;
+use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Core\ViewModels\PageLayouts;
 use Tey\Kit\Features\Core\ViewModels\PageViewModel;
 
@@ -33,14 +34,14 @@ function breakoutCheck(bool $ok, string $message): void
 
 final class BreakoutBench extends PageViewModel
 {
-    public function __construct(private readonly ?bool $breaks = null, private readonly ?string $inSection = null, private readonly ?NavigationHeader $own = null) {}
+    public function __construct(private readonly bool|string|null $breaks = null, private readonly ?string $inSection = null, private readonly ?NavigationHeader $own = null) {}
 
     public function title(): string
     {
         return 'Bench';
     }
 
-    protected function breaksOut(): bool
+    protected function breaksOut(): bool|string
     {
         return $this->breaks ?? parent::breaksOut();
     }
@@ -89,6 +90,12 @@ try {
     Route::get('/assignments/{id}/bench', function () use (&$page) { return $page(); })->name('assignments.bench')->breadcrumb('Valuation', 'assignments.show')->defaults('kit.breakout', true);
     Route::get('/assignments/{id}/details', function () use (&$page) { return $page(); })->name('assignments.details')->breadcrumb('Details', 'assignments.show');
     Route::get('/orphan', function () use (&$page) { return $page(); })->name('orphan')->breadcrumb('Orphan')->defaults('kit.breakout', true);
+    // A module with no primary link, under a section landing (Admin): the app owns the trail, Home › Admin › Billing › Invoices › 10C-0001.
+    $app->instance(Registry::class, (new Registry)->modulePage('billing', 'billing.read', 'Summary', 'billing')->modulePage('billing', 'billing.read', 'Invoices', 'billing/invoices'));
+    Route::get('/@acme/admin', fn () => 'admin')->name('admin')->breadcrumb('Admin');
+    Route::get('/@acme/billing', function () use (&$page) { return $page(); })->name('billing')->breadcrumb('Billing', 'admin')->defaults('kit.breakout', true);
+    Route::get('/@acme/billing/invoices', function () use (&$page) { return $page(); })->name('billing.invoices')->breadcrumb('Invoices', 'billing')->defaults('kit.breakout', 'with-trail');
+    Route::get('/@acme/billing/invoices/{id}', function () use (&$page) { return $page(); })->name('billing.invoice')->breadcrumb('10C-0001', 'billing.invoices')->defaults('kit.breakout', true);
     $app['router']->getRoutes()->refreshNameLookups();
     $strip = function (string $path, Closure $make) use ($app, &$page): mixed {
         $page = fn () => new Illuminate\Http\JsonResponse(['header' => $make()->layout()->navigationHeader?->toArray()]);
@@ -103,11 +110,21 @@ try {
     };
 
     $header = $strip('/assignments/1/bench', fn () => new BreakoutBench);
-    breakoutCheck($header === ['label' => 'Back to A-0001', 'url' => 'https://kit.test/assignments/1'], 'a route with kit.breakout gets "Back to <parent crumb>", going to the parent (got '.json_encode($header).')');
+    breakoutCheck($header === ['label' => 'Back to A-0001', 'url' => 'https://kit.test/assignments/1', 'trail' => false], 'a route with kit.breakout gets "Back to <parent crumb>", going to the parent (got '.json_encode($header).')');
     breakoutCheck($strip('/assignments/1/details', fn () => new BreakoutBench) === null, 'a page inside its parent\'s layout (a tab) gets no strip: it keeps the trail');
-    breakoutCheck($strip('/assignments/1/details', fn () => new BreakoutBench(breaks: true)) === ['label' => 'Back to A-0001', 'url' => 'https://kit.test/assignments/1'], 'a ViewModel\'s breaksOut() makes a page a breakout without the route default');
+    breakoutCheck($strip('/assignments/1/details', fn () => new BreakoutBench(breaks: true)) === ['label' => 'Back to A-0001', 'url' => 'https://kit.test/assignments/1', 'trail' => false], 'a ViewModel\'s breaksOut() makes a page a breakout without the route default');
     breakoutCheck($strip('/assignments/1/bench', fn () => new BreakoutBench(breaks: false)) === null, 'a ViewModel\'s breaksOut() false overrides the route default');
-    breakoutCheck($strip('/assignments/1/bench', fn () => new BreakoutBench(own: new NavigationHeader('Back to the board', '/board'))) === ['label' => 'Back to the board', 'url' => '/board'], 'a page\'s own navigationHeader() wins over the derived one');
+    breakoutCheck($strip('/assignments/1/bench', fn () => new BreakoutBench(own: new NavigationHeader('Back to the board', '/board'))) === ['label' => 'Back to the board', 'url' => '/board', 'trail' => false], 'a page\'s own navigationHeader() wins over the derived one');
+
+    $admin = ['label' => 'Back to Admin', 'url' => 'https://kit.test/@acme/admin'];
+    breakoutCheck($strip('/@acme/billing', fn () => new BreakoutBench) === $admin + ['trail' => false], 'on a module\'s own tab page (the landing tab) the strip skips the module\'s crumbs and goes to the section landing, never to the page itself');
+    breakoutCheck($strip('/@acme/billing/invoices', fn () => new BreakoutBench) === $admin + ['trail' => true], 'on a sibling tab page the strip skips Billing too and reads "Back to Admin"; kit.breakout \'with-trail\' marks the header to keep the trail');
+    breakoutCheck($strip('/@acme/billing/invoices/7', fn () => new BreakoutBench) === ['label' => 'Back to Invoices', 'url' => 'https://kit.test/@acme/billing/invoices', 'trail' => false], 'a record page under a tab is not a tab: its strip goes to its tab');
+    breakoutCheck($strip('/assignments/1/details', fn () => new BreakoutBench(breaks: 'with-trail')) === ['label' => 'Back to A-0001', 'url' => 'https://kit.test/assignments/1', 'trail' => true], 'a ViewModel\'s breaksOut() \'with-trail\' keeps the trail, the same as the route default');
+    $app->instance('request', $trailRequest = Request::create('https://kit.test/@acme/billing/invoices'));
+    $trailRequest->setRouteResolver(fn () => $app['router']->getRoutes()->match($trailRequest));
+    $titles = array_column(json_decode((string) json_encode($trailRequest->route()->breadcrumbs()), true), 'title');
+    breakoutCheck($titles === ['Admin', 'Billing', 'Invoices'], 'the trail itself is the app\'s, unchanged: it still shows the Billing crumb (got '.json_encode($titles).')');
 
     $refused = function (Closure $call): ?string {
         try {
