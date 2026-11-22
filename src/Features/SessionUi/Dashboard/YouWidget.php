@@ -36,6 +36,11 @@ final class YouWidget extends Widget
         return 'aside';
     }
 
+    public function headless(): bool
+    {
+        return true;
+    }
+
     /** @return array{name: string, email: string, initials: string, avatar: array{url: string, url_2x: string}|null, role: string|null, workspace: string, timezone: string} the viewer, with the zone their times show in (`ClientTimezone::forViewer`) */
     public function person(): array
     {

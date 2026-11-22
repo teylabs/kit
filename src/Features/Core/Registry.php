@@ -14,6 +14,65 @@ use Tey\Kit\Features\Core\Mcp\ServedBeside;
 /** What each feature contributes to the shared seams: routes, MCP tools, navigation, token scopes, abilities, capabilities, provisioning steps, connection guards and error codes. */
 final class Registry
 {
+    /**
+     * The icon names SectionIcon draws (lucide, kebab case): its explicit allow-list, the same set. A module page's or settings section's `icon` outside it
+     * stops the boot in local and testing (checkIcons()).
+     */
+    public const ICONS = [
+        'badge-check',
+        'bell',
+        'book-user',
+        'building',
+        'building-2',
+        'calendar',
+        'calendar-check',
+        'calendar-clock',
+        'calendar-days',
+        'chart-column',
+        'chart-pie',
+        'clipboard-list',
+        'clock',
+        'coffee',
+        'contact',
+        'credit-card',
+        'door-open',
+        'file-signature',
+        'files',
+        'frame',
+        'gauge',
+        'hand-heart',
+        'inbox',
+        'key-round',
+        'landmark',
+        'layout-grid',
+        'mail',
+        'mailbox',
+        'map-pin',
+        'message-circle-question',
+        'newspaper',
+        'package-plus',
+        'palette',
+        'percent',
+        'plug',
+        'receipt',
+        'repeat',
+        'router',
+        'settings',
+        'shield-check',
+        'shopping-cart',
+        'sliders-horizontal',
+        'sparkles',
+        'tablet-smartphone',
+        'tags',
+        'ticket',
+        'timer',
+        'trending-up',
+        'user',
+        'user-check',
+        'user-plus',
+        'users',
+    ];
+
     /** @var list<array{file: string, group: ?string, options: array{prefix: string, middleware: list<string>, name: string}}> */
     private array $routes = [];
 
@@ -371,14 +430,15 @@ final class Registry
      * ability, suffix and `active` rules are navigation()'s. A module with no pages gets no tabs; a small app registers none. A page's suffix sits under its
      * module's (`bookings/calendar` for module `bookings`); checkModulePages() warns about one outside it. A page whose suffix is another
      * module's id nests that module: its pages become a second row, of pills, while one of them is current (docs/shell.md). A `group` on any of a module's
-     * pages makes it a sidebar module: its pages are drawn as a grouped sidebar (SettingsFrame's) instead of tabs; a nested module's groups are ignored.
+     * pages makes it a sidebar module: its pages are drawn as a grouped sidebar (SettingsFrame's) instead of tabs; a nested module's groups are ignored. A sidebar
+     * page's `icon` is one of ICONS: drawn in its sidebar item, tab or pill; without one the item draws none.
      *
      * @param  string|list<string>|null  $active
      */
-    public function modulePage(string $module, string $ability, string $label, string $suffix, int $order = 0, string|array|null $active = null, ?string $group = null): self
+    public function modulePage(string $module, string $ability, string $label, string $suffix, int $order = 0, string|array|null $active = null, ?string $group = null, ?string $icon = null): self
     {
         self::validateActive($active);
-        $this->modulePages[] = ['module' => $module, 'ability' => $ability, 'label' => $label, 'suffix' => $suffix, 'order' => $order, 'active' => $active, 'group' => $group];
+        $this->modulePages[] = ['module' => $module, 'ability' => $ability, 'label' => $label, 'suffix' => $suffix, 'order' => $order, 'active' => $active, 'group' => $group, 'icon' => $icon];
 
         return $this;
     }
@@ -388,7 +448,7 @@ final class Registry
      * ability to be listed; `personal` ones are at `/me/{key}` and belong to no workspace. The landing page lists them
      * grouped and in order (lower `order` first, then registration order). The feature registers the section's route itself,
      * with a breadcrumb under the landing page's. `icon` is a lucide icon name (kebab case, e.g. `sliders-horizontal`) shown on the landing
-     * card and in the sidebar; one the kit does not know falls back to a generic icon. Group names never repeat a lone item's label.
+     * card and in the sidebar, one of ICONS (a name outside them stops the boot in local and testing; elsewhere it draws a generic icon). Group names never repeat a lone item's label.
      */
     public function settingsSection(string $scope, string $key, string $label, string $description, ?string $ability = null, string $group = 'General', int $order = 0, ?string $icon = null, bool $placeholder = false): self
     {
@@ -1034,6 +1094,20 @@ final class Registry
     }
 
     /**
+     * Every registered module page's and settings section's `icon` is one SectionIcon draws (ICONS), or none: a name outside the list throws, so a typo
+     * stops the boot in local and testing instead of drawing the generic gear.
+     */
+    public function checkIcons(): void
+    {
+        foreach ([...$this->modulePages, ...$this->sections] as $entry) {
+            if ($entry['icon'] !== null && ! in_array($entry['icon'], self::ICONS, true)) {
+                $where = isset($entry['module']) ? "Registry::modulePage() '{$entry['suffix']}'" : "Registry::settingsSection() '{$entry['scope']}/{$entry['key']}'";
+                throw new RuntimeException("{$where}: unknown icon '{$entry['icon']}'. SectionIcon draws only Registry::ICONS (docs/shell.md); add it there and in SectionIcon.vue, or pick one of them.");
+            }
+        }
+    }
+
+    /**
      * The module pages' shape, checked once the app has booted (local and testing only). A page nests a module when its suffix is another module's id
      * (one with pages of its own); that module may not nest a third, and a module may not nest itself back (both throw). Each nesting logs a warning naming
      * both modules, so a suffix that only happens to match a module id is seen. A page outside its module's prefix logs a warning unless it nests a
@@ -1089,7 +1163,7 @@ final class Registry
         return array_values(array_unique(array_column($this->modulePages, 'module')));
     }
 
-    /** @return list<array{module: string, ability: string, label: string, suffix: string, order: int, active: string|list<string>|null, group: ?string}> One module's pages, sorted by order, then registration. */
+    /** @return list<array{module: string, ability: string, label: string, suffix: string, order: int, active: string|list<string>|null, group: ?string, icon: ?string}> One module's pages, sorted by order, then registration. */
     public function modulePages(string $module): array
     {
         $indexed = array_filter(array_map(null, array_keys($this->modulePages), $this->modulePages), fn (array $entry): bool => $entry[1]['module'] === $module);

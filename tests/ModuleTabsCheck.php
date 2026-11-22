@@ -136,9 +136,9 @@ try {
             WorkspaceRoutes::page(Route::middleware('web')->get('accounts/tax', $render(false)), $full, 'billing', 'accounts.tax', 'Tax', ['billing', 'accounts.index']);
         });
         PHP);
-    $app->make(Registry::class)->routes($base.'/billing-routes.php')->modulePage('billing', 'dashboard.read', 'Summary', 'billing')->modulePage('billing', 'members.manage', 'Invoices', 'billing/invoices')->modulePage('billing', 'dashboard.read', 'Run', 'billing/run')
+    $app->make(Registry::class)->routes($base.'/billing-routes.php')->modulePage('billing', 'dashboard.read', 'Summary', 'billing')->modulePage('billing', 'members.manage', 'Invoices', 'billing/invoices', icon: 'receipt')->modulePage('billing', 'dashboard.read', 'Run', 'billing/run')
         // Accounts: a sidebar module (its pages carry a `group`), one ungrouped page, one page behind an ability a member lacks, and a declared width.
-        ->modulePage('accounts', 'dashboard.read', 'Overview', 'accounts')->modulePage('accounts', 'dashboard.read', 'Plans', 'accounts/plans', group: 'Catalogue')->modulePage('accounts', 'members.manage', 'Tax', 'accounts/tax', group: 'Setup')
+        ->modulePage('accounts', 'dashboard.read', 'Overview', 'accounts')->modulePage('accounts', 'dashboard.read', 'Plans', 'accounts/plans', group: 'Catalogue', icon: 'receipt')->modulePage('accounts', 'members.manage', 'Tax', 'accounts/tax', group: 'Setup')
         ->moduleWidth('accounts', 'lg');
     // The host's `web` group, with an Inertia middleware (the kit's plain one): session-ui's props are shared by its provider, not by a middleware.
     $app->make(Kernel::class)->setMiddlewareGroups(['web' => [StartSession::class, HandleInertiaRequests::class]]);
@@ -242,6 +242,8 @@ try {
     $props = $billing('owner', 'billing/invoices');
     check($row($props) === [['Summary', false], ['Invoices', true], ['Run', false]] && ($props['layout']['navigation'][0]['label'] ?? null) === 'Summary', 'a module with no primary link draws its own row on its pages, exactly one current (got '.json_encode($row($props)).')');
     check(array_column($props['shell']['navigation'], 'current') === [false, false], 'no primary link is made current for it');
+    $tabIcons = array_column($props['layout']['navigation'][0]['items'], 'icon');
+    check($tabIcons === [null, 'receipt', null], 'a tab carries its modulePage `icon` too, and null without one (got '.json_encode($tabIcons).')');
     check($row($billing('member', 'billing')) === [['Summary', true], ['Run', false]], 'abilities still filter its row: a member without members.manage gets no Invoices tab');
     $run = $billing('owner', 'billing/run');
     check(($run['layout']['navigationHeader']['label'] ?? null) !== null && $row($run) === [['Summary', false], ['Invoices', false], ['Run', true]], 'a breakout page keeps its Back strip and draws the row too');
@@ -251,6 +253,8 @@ try {
     $groups = fn (array $props): array => array_map(fn (array $group): array => [$group['label'], $group['sidebar'], array_map(fn (array $item): array => [$item['label'], $item['current']], $group['items'])], $props['layout']['navigation'] ?? []);
     $accounts = $billing('owner', 'accounts/plans');
     check($groups($accounts) === [[null, true, [['Overview', false]]], ['Catalogue', true, [['Plans', true]]], ['Setup', true, [['Tax', false]]]], 'a module whose pages carry a `group` reaches the page as labelled sidebar groups, ungrouped first, exactly one current (got '.json_encode($groups($accounts)).')');
+    $icons = array_map(fn (array $group): array => array_column($group['items'], 'icon'), $accounts['layout']['navigation']);
+    check($icons === [[null], ['receipt'], [null]], 'a sidebar item carries its modulePage `icon`, and null without one (got '.json_encode($icons).')');
     check($groups($billing('member', 'accounts')) === [[null, true, [['Overview', true]]], ['Catalogue', true, [['Plans', false]]]], 'abilities still filter it: a group the viewer may open no page of is gone');
     check(array_column($props['layout']['navigation'], 'sidebar') === [false], 'a module with no `group` is a row of tabs, as before');
     // A module's width: declared once, every tab page of it gets it; a module without one leaves the width to the page.
@@ -262,6 +266,27 @@ try {
     $sectioned->checkModulePages(fn (string $message) => $app['log']->warning($message));
     $logged = array_slice($warnings(), $before);
     check(count(array_filter($logged, fn (string $line): bool => str_contains($line, "module 'billing' is nested in 'admin', so its pages stay a row of pills"))) === 1, 'groups on a nested module warn at boot, naming both modules');
+
+    // Icons: a module page's or section's icon is one SectionIcon draws, or the boot check (Registry::checkIcons(), local and testing) throws.
+    $vue = file_get_contents(dirname(__DIR__).'/resources/js/components/Kit/Layout/SectionIcon.vue');
+    preg_match('/const icons = \{(.*?)\} as const;/s', $vue, $map);
+    preg_match_all("/^\s+'?([a-z0-9-]+)'?: [A-Z]\w+,$/m", $map[1] ?? '', $vueNames);
+    check($vueNames[1] === Registry::ICONS && count(Registry::ICONS) === count(array_unique(Registry::ICONS)), 'SectionIcon.vue draws exactly Registry::ICONS, in the same order, each once');
+    (new Registry)->modulePage('art', 'art.read', 'Pieces', 'art/pieces', icon: 'frame')->settingsSection('workspace', 'billing', 'Billing', 'Plans.', icon: 'receipt')->checkIcons();
+    check(true, 'icons from the list, and pages and sections without one, pass the boot check');
+    $threw = function (Registry $registry): ?string {
+        try {
+            $registry->checkIcons();
+        } catch (RuntimeException $exception) {
+            return $exception->getMessage();
+        }
+
+        return null;
+    };
+    $message = $threw((new Registry)->modulePage('art', 'art.read', 'Pieces', 'art/pieces', icon: 'picture-frame'));
+    check($message !== null && str_contains($message, "'art/pieces'") && str_contains($message, "'picture-frame'"), 'a module page icon SectionIcon does not draw fails the boot check, naming the page and the icon');
+    $message = $threw((new Registry)->settingsSection('workspace', 'billing', 'Billing', 'Plans.', icon: 'gear'));
+    check($message !== null && str_contains($message, "'workspace/billing'"), 'so does a settings section icon outside the list');
 
     // kit.shell.settings_link: where the bar shows Settings. Only the link moves; the settings pages stay reachable.
     $shell = fn (string $path = ''): array => json_decode($page('owner', $path)[1], true)['props']['shell'];

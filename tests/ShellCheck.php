@@ -97,10 +97,10 @@ try {
     $sections = (new Registry)
         ->modulePage('admin', 'admin.read', 'Overview', 'admin')
         ->modulePage('admin', 'admin.read', 'Billing', 'billing')
-        ->modulePage('admin', 'admin.read', 'Users', 'admin/users')
+        ->modulePage('admin', 'admin.read', 'Users', 'admin/users', icon: 'users')
         ->modulePage('admin', 'admin.read', 'Settings', 'settings', active: ['settings', 'settings/*'])
         ->modulePage('billing', 'billing.read', 'Summary', 'billing')
-        ->modulePage('billing', 'billing.read', 'Invoices', 'billing/invoices')
+        ->modulePage('billing', 'billing.read', 'Invoices', 'billing/invoices', icon: 'receipt')
         ->modulePage('billing', 'billing.payouts', 'Payouts', 'billing/payouts')
         ->modulePage('frontdesk', 'frontdesk.read', 'Today', 'frontdesk')
         ->modulePage('frontdesk', 'frontdesk.read', 'Sales', 'sales')
@@ -120,6 +120,8 @@ try {
     shellCheck(array_column($desk('frontdesk')['items'], 'current') === [true, false, false, false], 'a mixed section\'s landing marks only its own page current');
     shellCheck(array_column($desk('sales/refunds')['items'], 'current') === [false, true, false, false] && array_column($desk('sales/refunds')['child']['items'], 'current') === [false, true], 'a mixed section: the nested tab current, with its row, when one of its pages matched');
     shellCheck(array_column($desk('sales/till/2')['items'], 'current') === [false, false, false, true] && ! isset($desk('sales/till/2')['child']), 'the most specific match wins: a plain page naming sales/till* beats the nested Sales, whose page matched less');
+    $iconRows = PageShell::moduleNavigation($sections, $sectionLinks, $all ?? fn (): bool => true, $url, $at('billing/invoices'));
+    shellCheck(array_map(fn (array $item) => $item['icon'] ?? null, $iconRows['items']) === [null, null, 'users', null] && array_map(fn (array $item) => $item['icon'] ?? null, $iconRows['child']['items']) === [null, 'receipt', null], 'a modulePage `icon` reaches its tab and its pill alike; a page without one carries none');
     $noAdmin = fn (string $ability): bool => $ability !== 'admin.read';
     shellCheck(PageShell::moduleNavigation($sections, $sectionLinks, $noAdmin, $url, $at('billing/invoices')) === null, 'abilities are inherited: billing.read without the section\'s ability shows no Billing through Admin');
     $noPayouts = PageShell::moduleNavigation($sections, $sectionLinks, fn (string $ability): bool => $ability !== 'billing.payouts', $url, $at('billing'));

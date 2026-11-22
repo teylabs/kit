@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+Features affected: core (Registry, boot check), session-ui (module navigation, dashboard widgets), kit components (SectionIcon, PageTabs, Page, SettingsFrame), workspace-ui (re-pinned).
+
+### Added
+
+- **Module page icons.** `Registry::modulePage()` takes an optional `icon`, a SectionIcon name, drawn in the page's sidebar item, tab and pill (16px in tabs and pills). A page without one draws no icon instead of the gear; tab and pill rows without icons are unchanged. Docs: shell.md. (#1226)
+- **A wider SectionIcon allow-list.** 52 lucide names, still one import each, now also `Registry::ICONS`: the kit's 18 plus `badge-check`, `book-user`, `building`, `calendar-check`, `calendar-clock`, `calendar-days`, `chart-pie`, `clipboard-list`, `clock`, `coffee`, `contact`, `door-open`, `files`, `frame`, `gauge`, `inbox`, `landmark`, `layout-grid`, `mailbox`, `map-pin`, `message-circle-question`, `package-plus`, `percent`, `repeat`, `router`, `shopping-cart`, `sparkles`, `tablet-smartphone`, `tags`, `ticket`, `timer`, `trending-up`, `user-check` and `user-plus`. Docs: settings-section.md.
+- **An unknown icon fails at boot.** In local and testing, a module page or settings section whose `icon` is outside the list stops the boot (`Registry::checkIcons()`), naming the page or section and the icon. Elsewhere a settings section still draws the gear.
+- **A seamless Composer widget.** `Widget::headless()` (default false; the You card's is true) draws a widget's card with no title bar or heading, so a widget whose body is the kit Composer looks like the seamless composer: no title above it. The title stays the card's accessible name. WidgetGrid reads it from the frame. Docs: composer.md, dashboard.md.
+
+### Fixed
+
+- **A one-group section landing no longer repeats its title.** When a landing's only group is labelled like the page (Admin, People, Community), its group heading is left out. Multi-group landings are unchanged. workspace-ui re-pinned. (#1226)
+
 ## v0.46.0
 
 Features affected: core (NavGroup, PageLayout, Registry), session-ui, shell (re-pinned), kit components (Page, PageTabs, SettingsFrame).

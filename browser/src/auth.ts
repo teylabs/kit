@@ -10,7 +10,7 @@ import PasskeyOffer from '@/components/Kit/Feedback/PasskeyOffer.vue';
 // view model; without it, Fortify's open /register. `?register` gives Login its "Create an account" link. Any other page a response names (the invitation page
 // a redirect lands on) is a stand-in that shows its `status`, unless the page under test is that page (`?auth=Auth/Invitation/Show`). `?passkey` gives Login
 // Fortify's passkey sign-in endpoints, so Sign in with a passkey shows where the browser can.
-const pages = import.meta.glob(['@/pages/Auth/*/Page.vue', '@/pages/Mcp/Authorize/Page.vue', '@/pages/Workspace/Account/Security/Page.vue'], { eager: true }) as Record<string, { default: object }>;
+const pages = import.meta.glob(['@/pages/Auth/*/Page.vue', '@/pages/Mcp/Authorize/Page.vue', '@/pages/Workspace/Account/Security/Page.vue', '@/pages/Workspace/Sections/Index/Page.vue'], { eager: true }) as Record<string, { default: object }>;
 // ?auth=PasskeyOffer: the post-sign-up passkey offer (core's PasskeyOffer) on a bare page, with the shared `passkeyOffer` as session-ui shares it: Fortify's
 // registration and its password confirmation (`&noconfirm`: the host turned that off, so no confirm_url).
 const invitationPage = Object.values(import.meta.glob('@/pages/Auth/Invitation/Show/Page.vue', { eager: true }))[0] as { default: object };
@@ -52,9 +52,15 @@ const security = {
     notice: null,
     passkeys: { options_url: '/user/passkeys/options', store_url: '/user/passkeys', confirm_url: query.has('noconfirm') ? null : '/user/confirm-password', url: '/me/security/passkeys', items: [{ id: 7, name: 'MacBook passkey', created: '2026-10-01T09:00:00+00:00', last_used: null }] },
 };
+// ?auth=Workspace/Sections/Index: a section landing titled Admin; `&groups=one` one group labelled Admin, else two (Admin and Billing).
+const card = (key: string, label: string, icon: string | null) => ({ key, label, description: `The ${label.toLowerCase()} page.`, url: `/@acme/${key}`, icon, badge: null });
+const landing = name === 'Workspace/Sections/Index'
+    ? { groups: [{ label: 'Admin', sections: [card('users', 'Users', 'users'), card('settings', 'Settings', 'settings')] }, ...(query.get('groups') === 'one' ? [] : [{ label: 'Billing', sections: [card('invoices', 'Invoices', 'receipt')] }])] }
+    : null;
 const props = {
-    title: name,
-    layout: { title: name },
+    title: landing ? 'Admin' : name,
+    layout: { title: landing ? 'Admin' : name },
+    ...(landing ?? {}),
     status: query.get('status'),
     ...(name === 'Register' ? register : {}),
     ...(name === 'Mcp/Authorize' ? consent : {}),

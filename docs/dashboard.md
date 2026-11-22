@@ -61,6 +61,10 @@ app(Registry::class)->widget('queue.mine', MyQueueWidget::class, order: 0, abili
 - **`order`** sorts the widgets within their column: lower first, then registration order. The kit's widgets sit at -30 (You), -20 (Recent activity) and -10 (People).
 - **`ability`** gates the widget. It defaults to `dashboard.read`. The viewer must pass `Access::authorize()` for it: an active member, admitted workspace, the permission, the ability's capability on, and the capability in the plan. A widget the viewer may not see is never built. An ability no feature declares hides the widget (fail closed).
 
+## Title bar
+
+A widget's card has a title bar with its `title()` unless the widget's `headless()` returns true. Then the card draws none, keeps the title as its accessible name, and the body renders any actions itself. The You card is headless, and so is a seamless Composer widget, whose body is the Composer alone (composer.md).
+
 ## Layout: main and aside
 
 The dashboard is two columns. Each widget names its column with `region()`:

@@ -67,6 +67,15 @@ abstract class Widget extends ViewModel
         return new WidgetSpanData;
     }
 
+    /**
+     * Whether the card draws without its title bar: true for a card whose body is its own header, such as You, or a Composer that opens the card
+     * (docs/composer.md). The title stays the card's accessible name, and the body renders any actions itself.
+     */
+    public function headless(): bool
+    {
+        return false;
+    }
+
     /** Whether the card shows at all for this viewer, after its ability passed: false leaves it out (the setup card once every step is done). */
     public function visible(): bool
     {

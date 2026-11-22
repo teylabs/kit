@@ -94,7 +94,11 @@ provide('kit.navigation.framed', true);
                             class="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring aria-[current=page]:bg-accent aria-[current=page]:text-foreground flex min-h-9 items-center gap-2 rounded-md px-2 text-sm focus-visible:ring-2 focus-visible:outline-none aria-[current=page]:font-medium"
                         >
                             <SectionIcon
-                                v-if="item.icon !== undefined"
+                                v-if="
+                                    props.select
+                                        ? !!item.icon
+                                        : item.icon !== undefined
+                                "
                                 :name="item.icon ?? undefined"
                                 class="size-4"
                             />

@@ -84,6 +84,8 @@ cpSync(path.join(here, '../resources/features/shell/pages'), path.join(kit, 'Pag
 cpSync(path.join(here, '../resources/features/notes/pages'), path.join(kit, 'Pages'), { recursive: true });
 // The dashboard grid (dashboard.html).
 cpSync(path.join(here, '../resources/features/workspace-ui/pages/Workspace/Dashboard'), path.join(kit, 'Pages/Workspace/Dashboard'), { recursive: true });
+// The section landing (auth.html?auth=Workspace/Sections/Index).
+cpSync(path.join(here, '../resources/features/workspace-ui/pages/Workspace/Sections'), path.join(kit, 'Pages/Workspace/Sections'), { recursive: true });
 // The workspace list (workspaces.html).
 cpSync(path.join(here, '../resources/features/workspace-ui/pages/Workspace/Index'), path.join(kit, 'Pages/Workspace/Index'), { recursive: true });
 // The error page in each shell (error.html).
@@ -6720,6 +6722,42 @@ test('the dashboard setup card at 1280 and 375, light and dark: personal steps i
     }
 });
 
+// ── A seamless Composer widget (dashboard.html?seamless): an app widget whose frame is `headless`, its body the kit Composer alone, draws no title bar or
+// heading, keeps its title as the card's name, and sits beside headed cards; light and dark, 1280 and 375, axe-clean ─────────────────────────────────────
+test('a seamless Composer widget (headless frame) draws no heading or title bar, only the Composer, and keeps its title as the card\'s name; other cards keep theirs; axe passes', async () => {
+    for (const width of [1280, 375]) {
+        for (const [mode, dark] of [['light', ''], ['dark', '&dark']]) {
+            const context = await browser.newContext({ viewport: { width, height: 900 } });
+            try {
+                const tab = await context.newPage();
+                const errors = [];
+                tab.on('pageerror', error => errors.push(error.message));
+                await tab.goto(`${authUrl}dashboard.html?seamless${dark}`);
+                await tab.waitForSelector('[data-widget="app.post"] [data-widget-post]');
+                const seen = await tab.evaluate(() => {
+                    const card = document.querySelector('[data-widget="app.post"]');
+                    const people = document.querySelector('[data-widget="kit.people"]');
+                    const headings = (el) => [...el.querySelectorAll('h1, h2, h3, h4, [role="heading"]')].filter(h => h.offsetParent !== null).map(h => h.textContent.trim());
+                    const visibleText = [...card.querySelectorAll('*')].filter(el => el.offsetParent !== null && [...el.childNodes].some(n => n.nodeType === 3 && n.textContent.includes('Post an update'))).length;
+                    const named = (card.matches('[aria-label]') ? card : card.querySelector('[aria-label]'))?.getAttribute('aria-label') ?? null;
+                    return { headings: headings(card), visibleText, named, textareas: card.querySelectorAll('textarea').length, first: document.querySelector('[data-widget-region="main"] > [data-widget]')?.dataset.widget, people: headings(people) };
+                });
+                assert.deepEqual(seen.headings, [], `${width} ${mode}: the seamless widget draws no heading`);
+                assert.equal(seen.visibleText, 0, `${width} ${mode}: its title is not drawn as text above the Composer`);
+                assert.equal(seen.named, 'Post an update', `${width} ${mode}: the card keeps its title as its accessible name`);
+                assert.equal(seen.textareas, 1, `${width} ${mode}: its body is the Composer`);
+                assert.equal(seen.first, 'app.post', 'it is first in main, where it was registered');
+                assert.equal(seen.people[0], 'People', `${width} ${mode}: a headed card beside it keeps its heading`);
+                assert.deepEqual(await notesAxe(tab), [], `${width} ${mode}: axe`);
+                assert.deepEqual(errors, []);
+                if (dashShots) await tab.screenshot({ path: `${dashShots}/dash-seamless-${width}-${mode}.png`, clip: { x: 0, y: 0, width, height: width < 768 ? 520 : 420 } });
+            } finally {
+                await context.close();
+            }
+        }
+    }
+});
+
 // ── A widget's Sort by control (dashboard.html?sorted): a labelled select at the right of the card's header, "Last touched" by default; choosing an order
 // with the keyboard PUTs it to the widget's sort URL as a partial visit for the widget's props, and the card shows the new order; a refused choice reverts.
 // At 1280 and 1600, light and dark, axe-clean, the title not truncated, nothing overflowing ──────────────────────────────────────────────────────────────────
@@ -8242,7 +8280,7 @@ const axeClean = async (tab, name) => {
     assert.deepEqual(violations, [], `${name}: axe`);
 };
 
-test('pills: a nested module (Front desk › Sales) is a pill row under the tabs, one current, a select on phones, axe-clean light and dark', async () => {
+test('pills: a nested module (Front desk › Sales) is a pill row under the tabs, one current, icons only where a page has one, a select on phones, axe-clean light and dark', async () => {
     for (const dark of [false, true]) {
         for (const width of [1280, 390]) {
             const scheme = `${dark ? 'dark' : 'light'}-${width}`;
@@ -8254,12 +8292,19 @@ test('pills: a nested module (Front desk › Sales) is a pill row under the tabs
                         rows: document.querySelectorAll('[data-page-tabs]').length,
                         pills: pills && [...pills.querySelectorAll('ul a')].map(a => [a.textContent.trim(), a.getAttribute('aria-current') === 'page']),
                         label: pills?.getAttribute('aria-label'),
+                        // Each link's icon (its lucide class) or null: drawn before the label, 16px, only where the module page has one.
+                        icons: [...document.querySelectorAll('[data-page-tabs] ul a')].map(a => {
+                            const svg = a.querySelector('[data-page-tab-icon]');
+                            const box = svg?.getBoundingClientRect();
+                            return [a.textContent.trim(), svg ? [[...svg.classList].find(c => c.startsWith('lucide-') && c !== 'lucide-icon'), Math.round(box.width), svg.getAttribute('aria-hidden'), a.firstElementChild === svg] : null];
+                        }),
                         selects: [...document.querySelectorAll('[data-page-tabs] .sm\\:hidden')].filter(el => el.offsetParent !== null).length,
                     };
                 });
                 assert.equal(seen.rows, 2, `${scheme}: tabs and pills, never a third row`);
                 assert.deepEqual(seen.pills, [['Sales', false], ['Café menu', true]], `${scheme}: Sales' own pages as pills, exactly one current`);
                 assert.equal(seen.label, 'Sales', `${scheme}: the pill row is named for the module`);
+                if (width >= 640) assert.deepEqual(seen.icons, [['Today', ['lucide-user-check', 16, 'true', true]], ['Sales', null], ['Check-in', ['lucide-badge-check', 16, 'true', true]], ['Till', null], ['Sales', null], ['Café menu', ['lucide-coffee', 16, 'true', true]]], `${scheme}: a tab or pill draws its module page's icon first, 16px and hidden from assistive tech; one without draws none`);
                 assert.equal(seen.selects, width < 640 ? 2 : 0, `${scheme}: on phones each level is a select`);
                 if (navShots && !dark) await tab.screenshot({ path: `${navShots}-pills-${scheme}.png`, clip: { x: 0, y: 0, width, height: 360 } });
                 await axeClean(tab, scheme);
@@ -8322,6 +8367,30 @@ test('a sidebar module as HC has Billing (grouped, no primary link, with-trail b
         await axeClean(tab, 'drawer');
         assert.deepEqual(errors, []);
     } finally { await context.close(); }
+});
+
+test('a module sidebar draws an item\'s own icon and none without one, never the gear; a one-group section landing named like the page has no group heading', async () => {
+    const { context, tab, errors } = await openShell('sidebar&breakout', 1280);
+    try {
+        const icons = await tab.$$eval('[data-settings-sidebar] li', items => items.map(li => [li.textContent.trim(), li.querySelector('svg')?.getAttribute('class')?.match(/lucide-[a-z-]+/g)?.find(name => name !== 'lucide-icon') ?? null]));
+        assert.deepEqual(icons.filter(([, icon]) => icon !== null), [['Invoices', 'lucide-receipt'], ['Plans', 'lucide-calendar']], 'only items with an icon draw one');
+        assert.ok(icons.every(([, icon]) => icon !== 'lucide-settings'), 'no gear fallback on a module sidebar');
+        if (navShots) await tab.screenshot({ path: `${navShots}-sidebar-icons-light-1280.png`, clip: { x: 0, y: 0, width: 1280, height: 640 } });
+        assert.deepEqual(errors, []);
+    } finally { await context.close(); }
+    const landing = async groups => {
+        const context = await browser.newContext({ viewport: { width: 1280, height: 700 }, deviceScaleFactor: 2 });
+        try {
+            const tab = await context.newPage();
+            await tab.goto(`${authUrl}auth.html?auth=Workspace/Sections/Index${groups ? `&groups=${groups}` : ''}`);
+            await tab.waitForSelector('[data-settings-card]');
+            const seen = await tab.evaluate(() => ({ headings: [...document.querySelectorAll('section h2')].map(h => h.textContent.trim()), cards: document.querySelectorAll('[data-settings-card]').length }));
+            if (navShots && groups === 'one') await tab.screenshot({ path: `${navShots}-landing-one-group-light-1280.png`, clip: { x: 0, y: 0, width: 1280, height: 420 } });
+            return seen;
+        } finally { await context.close(); }
+    };
+    assert.deepEqual(await landing('one'), { headings: [], cards: 2 }, 'one group labelled like the page: no group heading, the cards stay');
+    assert.deepEqual(await landing(null), { headings: ['Admin', 'Billing'], cards: 3 }, 'several groups keep their headings');
 });
 
 test('a module\'s declared width: sibling tab pages that set none render the same width, and a page\'s own width wins', async () => {

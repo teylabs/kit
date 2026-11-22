@@ -11,6 +11,7 @@ export { default as InputSelect } from '@/components/Kit/Form/InputSelect.vue';
 export { default as InputCheckbox } from '@/components/Kit/Form/InputCheckbox.vue';
 export { default as InputSwitch } from '@/components/Kit/Form/InputSwitch.vue';
 export { default as Page } from '@/components/Kit/Layout/Page.vue';
+export { default as SectionIcon } from '@/components/Kit/Layout/SectionIcon.vue';
 export { default as Stack } from '@/components/Kit/Layout/Stack.vue';
 export { default as PasswordInput } from '@/components/Kit/Form/PasswordInput.vue';
 export { passkeySignInSupported, signInWithPasskey } from '@/components/Kit/Feedback/passkeyOffer';
