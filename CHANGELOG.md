@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.46.2
 
 Features affected: core (Registry boot check), kit components (SectionIcon).
 
