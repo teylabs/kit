@@ -69,7 +69,7 @@ const spans = {
 } as const;
 </script>
 <template>
-    <div :class="['grid content-start gap-2', span && spans[span]]">
+    <div :class="['grid min-w-0 content-start gap-2', span && spans[span]]">
         <Label :id="`${id}-label`" :for="id">{{ label }}</Label>
         <slot />
         <p

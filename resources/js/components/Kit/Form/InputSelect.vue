@@ -752,7 +752,7 @@ const layerTarget = useLayerTarget();
                     :inputmode="selectOnly ? 'none' : undefined"
                     :data-select-only="selectOnly || undefined"
                     :class="[
-                        'text-foreground placeholder:text-muted-foreground h-7 min-w-16 flex-1 bg-transparent text-base outline-none disabled:cursor-not-allowed sm:text-sm',
+                        'text-foreground placeholder:text-muted-foreground h-7 w-0 min-w-16 flex-1 truncate bg-transparent text-base outline-none disabled:cursor-not-allowed sm:text-sm',
                         readOnly && 'cursor-default',
                         selectOnly
                             ? 'cursor-pointer caret-transparent select-none'
