@@ -2,12 +2,12 @@
 
 ## Unreleased
 
-Features affected: core (kit.css tokens, Brand, re-pinned), kit components (cards, fields, Modal, Dialog). The default theme draws what it drew before, except the one change Jasper asked for: Modal and Dialog take the top elevation level.
+Features affected: core (kit.css tokens, Brand, re-pinned), kit components (cards, fields, Modal, Dialog). The default theme draws what it drew before, except the two changes Jasper approved: Modal and Dialog take the top elevation level, and fields are always white-filled with a 3:1 edge.
 
 ### Added
 
 - **One card shadow token.** `--kit-card-shadow` is now every card's shadow: Surface, FormCard, Section, a dashboard widget, SettingsSection, ConnectionCard, Composer, Repeater, PasskeyOffer and the ground card. It defaults to Tailwind's `shadow-xs`, so cards look the same. A tinted theme's ground cards now draw it too (before, they had none); a theme that sets its own still counts as lifting its cards (1.04:1 on the ground, 1.25:1 border).
-- **A field fill token.** `--kit-field` fills fields in light mode: Input-style fields, Select, InputSelect, Textarea, the date, time and number inputs, and PeriodPicker. It defaults to transparent; dark mode keeps its input wash.
+- **Fields are always filled.** In light mode, Input, Select, InputSelect, Textarea, InputRichText, the date, time and number inputs, PeriodPicker and SearchBox fill with `--kit-field` (default `--card`, white) and draw their edge in `--kit-field-edge` (default `hsl(0 0% 56%)`, 3.2:1 on white, WCAG 1.4.11) with `shadow-xs`, on a card or on the bare ground. Before, they were transparent with a 1.3:1 edge. A brand's `input` also prints as `--kit-field-edge`. Dark mode keeps its input wash and edge.
 - **Brand washes and outline.** A brand prints `accent_surface` as `--accent`, `secondary` as `--secondary` and `outline` as `--kit-outline`, each with a `_dark` twin. `--kit-outline` follows the brand's `border` when `outline` is unset, so ButtonGroup's ring matches a warm or tinted brand.
 
 ### Changed

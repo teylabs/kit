@@ -162,7 +162,7 @@ const segment =
                     'focus-within:border-ring focus-within:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 flex h-9 w-full min-w-0 items-center rounded-md border px-1.5 text-base transition-[color,box-shadow] focus-within:ring-[3px] data-disabled:cursor-not-allowed data-disabled:opacity-50 md:text-sm',
                     locked
                         ? 'border-border bg-muted shadow-none'
-                        : 'border-input dark:bg-input/30 bg-(--kit-field) shadow-xs',
+                        : 'dark:bg-input/30 border-(color:--kit-field-edge) bg-(--kit-field) shadow-xs',
                 ]"
                 @update:model-value="update"
             >

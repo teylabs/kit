@@ -82,11 +82,13 @@
 :root {
     /*
      * Surface tokens a theme sets (README, "Tinted page grounds"). `--kit-card-shadow`: every card's shadow (Surface, FormCard, Section, a widget, the ground card
-     * and the rest), Tailwind's shadow-xs by default. `--kit-field`: a field's fill in light mode, transparent by default (dark keeps its input wash).
+     * and the rest), Tailwind's shadow-xs by default. `--kit-field` and `--kit-field-edge`: a field's fill and edge in light mode, the card's white and a
+     * grey at 3:1 on white by default, so a field reads the same on a card or on the bare ground (dark keeps its input wash and edge; Brand prints the edge from `input`).
      * `--kit-modal-shadow`: Modal's and Dialog's, the top level of the elevation scale (Refactoring UI D3, D4).
      */
     --kit-card-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-    --kit-field: transparent;
+    --kit-field: var(--card);
+    --kit-field-edge: hsl(0 0% 56%);
     --kit-modal-shadow: 0 15px 35px rgb(0 0 0 / 0.2), 0 5px 15px rgb(0 0 0 / 0.07);
     --kit-paper: #fff;
     --kit-outline: oklch(87.2% 0.01 258.338);
@@ -97,6 +99,7 @@
 }
 
 .dark {
+    --kit-field-edge: var(--input);
     --kit-paper: color-mix(in oklab, #fff 10%, transparent);
     --kit-outline: oklch(37.3% 0.034 259.733);
     --kit-outline-foreground: oklch(92.8% 0.006 264.531);

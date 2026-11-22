@@ -245,6 +245,11 @@ final class Brand
             $light .= ($t[$surface] ?? null) !== null ? ($light === '' ? '' : ';').'--'.$token.':'.$t[$surface] : '';
             $dark .= ($t[$surface.'_dark'] ?? null) !== null ? ($dark === '' ? '' : ';').'--'.$token.':'.$t[$surface.'_dark'] : '';
         }
+        // A brand's `input` is also the fields' edge; in dark it's `input_dark`, else --input (the kit's dark edge).
+        if (($t['input'] ?? null) !== null) {
+            $light .= ($light === '' ? '' : ';').'--kit-field-edge:'.$t['input'];
+            $dark .= ($dark === '' ? '' : ';').'--kit-field-edge:'.($t['input_dark'] ?? 'var(--input)');
+        }
         $light .= $t['link'] !== null ? ($light === '' ? '' : ';').'--brand-link:'.$t['link'] : '';
         $dark .= $t['link_dark'] !== null ? ($dark === '' ? '' : ';').'--brand-link:'.$t['link_dark'] : '';
         if ($t['header'] === 'ink') {

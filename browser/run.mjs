@@ -10761,8 +10761,8 @@ test('People, Change role: a role refused on save comes back inline on the Role 
 });
 
 // ── v0.47.0 surface tokens under a tinted theme: every card draws --kit-card-shadow, a field fills with --kit-field, and Dialog and Modal sit on the card
-// surface with --kit-modal-shadow, not on the ground. The default theme draws what it always drew (shadow-xs, transparent fields); the dialog's fill is --card.
-const surfaceTheme = ':root{--kit-ground:tinted;--background:#f3f5e7;--card:#ffffff;--kit-card-shadow:0 1px 2px 0 rgb(60 64 30 / 0.1);--kit-field:#fefefe;--kit-modal-shadow:0 5px 15px 0 rgb(50 52 39 / 0.07)}';
+// surface with --kit-modal-shadow, not on the ground. The default theme draws shadow-xs cards and white-filled fields with a 3:1 edge; the dialog's fill is --card.
+const surfaceTheme = ':root{--kit-ground:tinted;--background:#f3f5e7;--card:#ffffff;--kit-card-shadow:0 1px 2px 0 rgb(60 64 30 / 0.1);--kit-field:#fefefe;--kit-field-edge:#7a8060;--kit-modal-shadow:0 5px 15px 0 rgb(50 52 39 / 0.07)}';
 const surfaceOf = (tab, selector) => tab.locator(selector).first().evaluate(el => ({ fill: getComputedStyle(el).backgroundColor, shadow: getComputedStyle(el).boxShadow }));
 test('surface tokens on a tinted theme: a FormCard draws --kit-card-shadow, a field fills with --kit-field, and a Dialog sits on --card with --kit-modal-shadow; the default theme is unchanged', async () => {
     for (const themed of [false, true]) {
@@ -10782,15 +10782,17 @@ test('surface tokens on a tinted theme: a FormCard draws --kit-card-shadow, a fi
             assert.match(dialog.shadow, themed ? /rgba\(50, 52, 39, 0\.07\) 0px 5px 15px 0px/ : /rgba\(0, 0, 0, 0\.2\) 0px 15px 35px 0px/, 'the Dialog draws --kit-modal-shadow');
         } finally { await context.close(); }
     }
-    // A field's fill, on its own: the default is transparent, a theme's --kit-field fills it.
+    // A field's fill and edge, on their own: by default white-filled with a 3:1 edge (#8f8f8f on white) and shadow-xs; a theme's --kit-field and --kit-field-edge set them.
     for (const themed of [false, true]) {
         const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
         try {
             const tab = await context.newPage();
             await tab.goto(`${url}?textarea`);
             if (themed) await tab.addStyleTag({ content: surfaceTheme });
-            const fill = await tab.locator('textarea').first().evaluate(el => getComputedStyle(el).backgroundColor);
-            assert.equal(fill, themed ? 'rgb(254, 254, 254)' : 'rgba(0, 0, 0, 0)', `${themed ? 'tinted' : 'default'}: a field fills with --kit-field`);
+            const field = await tab.locator('textarea').first().evaluate(el => (el.blur(), { fill: getComputedStyle(el).backgroundColor, edge: getComputedStyle(el).borderTopColor, shadow: getComputedStyle(el).boxShadow }));
+            assert.equal(field.fill, themed ? 'rgb(254, 254, 254)' : 'rgb(255, 255, 255)', `${themed ? 'tinted' : 'default'}: a field fills with --kit-field (the card's white by default)`);
+            assert.equal(field.edge, themed ? 'rgb(122, 128, 96)' : 'rgb(143, 143, 143)', `${themed ? 'tinted' : 'default'}: a field's edge is --kit-field-edge (3:1 on white by default)`);
+            assert.match(field.shadow, /0px 1px 2px 0px$/, 'a field keeps the smallest shadow');
         } finally { await context.close(); }
     }
 });

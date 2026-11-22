@@ -190,7 +190,7 @@ defineExpose({ focus: () => input.value?.focus() });
             :aria-activedescendant="options[active]?.optionId"
             aria-autocomplete="list"
             maxlength="100"
-            class="border-input bg-background text-foreground placeholder:text-muted-foreground focus-visible:outline-ring h-9 w-full rounded-md border px-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-2"
+            class="dark:bg-background text-foreground placeholder:text-muted-foreground focus-visible:outline-ring h-9 w-full rounded-md border border-(color:--kit-field-edge) bg-(--kit-field) px-3 text-sm shadow-xs focus-visible:outline-2 focus-visible:outline-offset-2"
             data-search-input
             @keydown="keydown"
             @blur="open = false"

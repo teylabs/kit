@@ -113,7 +113,7 @@ const layerTarget = useLayerTarget();
                 'focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[placeholder]:text-muted-foreground flex h-9 w-full items-center justify-between gap-2 rounded-md border px-3 py-1 text-sm outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50',
                 locked
                     ? 'border-border bg-muted cursor-default shadow-none'
-                    : 'border-input dark:bg-input/30 bg-(--kit-field) shadow-xs',
+                    : 'dark:bg-input/30 border-(color:--kit-field-edge) bg-(--kit-field) shadow-xs',
                 attrs.class,
             ]"
             @keydown.capture="guardKey"

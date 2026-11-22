@@ -629,7 +629,7 @@ const inputAttrs = computed(() => {
 // looks typeable; only a searchable select shows a text cursor.
 const selectOnly = computed(() => interactive.value && !searchOn.value);
 const autocomplete = computed(() => (searchOn.value ? 'list' : 'none'));
-// The fill is Input's (transparent on light, `input/30` on dark), so the field shows the card it sits on; read-only keeps the muted one. Below sm, Clear and the
+// The fill is Input's (`--kit-field`, the card's white, on light; `input/30` on dark) and the edge `--kit-field-edge`; read-only keeps the muted one. Below sm, Clear and the
 // chevron keep their 32px-wide hit areas, so a field with Clear reserves more end padding there.
 const fieldClass = computed(() => [
     'relative flex w-full min-h-9 flex-wrap items-center gap-1 rounded-md border py-0.5 ps-3 pe-14 text-base shadow-xs transition-[color,box-shadow] sm:text-sm',
@@ -640,7 +640,7 @@ const fieldClass = computed(() => [
               'bg-(--kit-field) dark:bg-input/30',
               aria.value['aria-invalid']
                   ? 'border-destructive focus-within:ring-2 focus-within:ring-destructive'
-                  : 'border-input hover:border-ring/60 focus-within:ring-2 focus-within:ring-ring',
+                  : 'border-(color:--kit-field-edge) hover:border-ring/60 focus-within:ring-2 focus-within:ring-ring',
           ],
     selectOnly.value ? 'cursor-pointer' : interactive.value && 'cursor-text',
     props.disabled && 'cursor-not-allowed opacity-60',

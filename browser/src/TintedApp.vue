@@ -3,6 +3,7 @@ import { provide, reactive } from 'vue';
 import Card from '@/components/Kit/Card/Card.vue';
 import EmptyState from '@/components/Kit/Feedback/EmptyState.vue';
 import FormCard from '@/components/Kit/Form/FormCard.vue';
+import Input from '@/components/Kit/Form/Input.vue';
 import Page from '@/components/Kit/Layout/Page.vue';
 import PageSection from '@/components/Kit/Layout/PageSection.vue';
 import DataTable from '@/components/Kit/Table/DataTable.vue';
@@ -37,7 +38,7 @@ const table = {
             <DataTable data-test="table" :table="table as never" search-label="Search members" row-label="name" />
             <form @submit.prevent>
                 <FormCard data-test="form" title="Details" :form="form" :sticky="false" :warn-on-leave="false">
-                    <label class="grid gap-2 text-sm">Name <input name="name" value="Hillside Growers" class="rounded-md border border-input bg-background px-3 py-2" /></label>
+                    <label class="grid gap-2 text-sm">Name <Input name="name" model-value="Hillside Growers" /></label>
                 </FormCard>
             </form>
             <EmptyState data-test="empty" title="No harvests yet" body="Log the first harvest to see it here." />
