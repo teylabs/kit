@@ -10,6 +10,7 @@ use Tey\Kit\Features\Core\Data\NavGroup;
 use Tey\Kit\Features\Core\Data\NavigationHeader;
 use Tey\Kit\Features\Core\Data\NavItem;
 use Tey\Kit\Features\Core\Data\PageLayout;
+use Tey\Kit\Features\Core\Data\PageWidth;
 use Tey\Kit\Features\Core\ViewModels\PageLayouts;
 
 /**
@@ -42,13 +43,16 @@ final class SessionUiPageLayouts implements PageLayouts
             PageTitle::name($title, $this->request);
         }
 
+        $module = $section === null ? (new PageShell)->moduleTabs($this->request) : null;
+
         return new PageLayout(
-            $section === null ? $this->moduleTabs() : $this->nav->groups($this->request, $section),
+            $section === null ? $this->moduleTabs($module) : $this->nav->groups($this->request, $section),
             $title,
             $this->titles->forRequest($this->request),
             $breadcrumbs,
             // Every account page (/me/*) is an escape to the workspace the viewer was in; any other page has a strip only when its ViewModel declares one (a deeper nested resource). No derivation from the trail.
             $navigationHeader ?? (PageShell::isAccount($this->request) ? PageShell::backToWorkspace($this->request) : null),
+            isset($module['width']) ? PageWidth::from($module['width']) : null,
         );
     }
 
@@ -58,15 +62,25 @@ final class SessionUiPageLayouts implements PageLayouts
      *
      * @return list<NavGroup>
      */
-    private function moduleTabs(): array
+    private function moduleTabs(?array $module): array
     {
-        // Built directly, not resolved: the container resolves ShellSource (PageShell) once per page, for the shared `shell` prop.
-        $module = (new PageShell)->moduleTabs($this->request);
-
         if ($module === null) {
             return [];
         }
         $items = fn (array $items): array => array_map(fn (array $item): NavItem => new NavItem($item['label'], $item['url'], $item['current']), $items);
+
+        // A sidebar module (a page with a `group`): one labelled group per sidebar group, in page order, ungrouped pages first, drawn by <Page> as a sidebar.
+        if (! isset($module['child']) && array_filter(array_column($module['items'], 'group')) !== []) {
+            $groups = [];
+            foreach ($module['items'] as $item) {
+                $groups[$item['group'] ?? ''][] = $item;
+            }
+            if (isset($groups[''])) {
+                $groups = ['' => $groups['']] + $groups;
+            }
+
+            return array_map(fn (string $label, array $group): NavGroup => new NavGroup($label === '' ? null : $label, $items($group), sidebar: true), array_keys($groups), array_values($groups));
+        }
 
         return [new NavGroup($module['label'], $items($module['items'])), ...(isset($module['child']) ? [new NavGroup($module['child']['label'], $items($module['child']['items']), true)] : [])];
     }

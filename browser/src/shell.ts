@@ -35,7 +35,7 @@ const workspaceName = query.get('name') ?? 'Acme Workshop';
 // `&breakout` (with `module`): Billing, a module with no primary link, reached from a landing (Admin): its own row, the banded "Back to Admin" strip and,
 // as kit.breakout 'with-trail', the app's whole trail too. No primary link is current.
 const breakout = query.has('breakout');
-const current = breakout ? -1 : module !== null ? 1 : Number(query.get('current') ?? 0);
+const current = breakout ? -1 : query.has('linked') ? 1 : module !== null ? 1 : Number(query.get('current') ?? 0);
 const navigation = labels.map((label, index) => ({ label, url: `/@acme/${label.toLowerCase()}`, current: index === current, group: 'main' }));
 // `&billing`: the module's seven pages are billing ones instead, the row that showed a vertical scrollbar on a wide window.
 const moduleLabels = query.has('billing')
@@ -49,16 +49,28 @@ const items = record
     : moduleLabels.map((label, index) => ({ label, url: `/@acme/projects${moduleSuffixes[index]}`, current: index === modulePage }));
 // `&nested` (with `module`): a section (Admin) whose current tab is a nested module (Billing), so its pages are a second row; `&mixed`: a section (Front desk)
 // of plain pages and a nested module (Sales) with a plain page current, one row. Both mark the section's primary link current.
-const twoLevel = query.has('nested') ? 'nested' : query.has('mixed') ? 'mixed' : null;
+// `&pills`: Front desk with its nested Sales module current: Sales' own pages (Sales, Café menu) as the pill row under the tabs.
+const twoLevel = query.has('nested') ? 'nested' : query.has('mixed') ? 'mixed' : query.has('pills') ? 'pills' : null;
 if (twoLevel) {
     const tabs = twoLevel === 'nested' ? [['Overview', 'admin'], ['Billing', 'billing'], ['Users', 'admin/users'], ['Settings', 'settings']] : [['Today', 'frontdesk'], ['Sales', 'sales'], ['Check-in', 'frontdesk/checkin'], ['Till', 'frontdesk/till']];
-    const at = twoLevel === 'nested' ? 1 : 2;
+    const at = twoLevel === 'nested' || twoLevel === 'pills' ? 1 : 2;
     items.splice(0, items.length, ...tabs.map(([label, suffix], index) => ({ label, url: `/@acme/${suffix}`, current: index === at })));
     navigation[1].label = twoLevel === 'nested' ? 'Admin' : 'Front desk';
 }
 if (breakout) items.splice(0, items.length, ...[['Summary', 'billing'], ['Invoices', 'billing/invoices'], ['Payouts', 'billing/payouts'], ['Plans', 'billing/plans']].map(([label, suffix], index) => ({ label, url: `/@acme/${suffix}`, current: index === 1 })));
-const child = twoLevel === 'nested' ? { label: 'Billing', items: [['Summary', 'billing'], ['Invoices', 'billing/invoices'], ['Payouts', 'billing/payouts'], ['Plans', 'billing/plans']].map(([label, suffix], index) => ({ label, url: `/@acme/${suffix}`, current: index === 1 })) } : null;
-const sectionLabel = breakout ? 'Summary' : twoLevel === 'nested' ? 'Admin' : twoLevel === 'mixed' ? 'Front desk' : 'Projects';
+const child = twoLevel === 'pills' ? { label: 'Sales', items: [['Sales', 'sales'], ['Café menu', 'sales/cafe-menu']].map(([label, suffix], index) => ({ label, url: `/@acme/${suffix}`, current: index === 1 })) } : twoLevel === 'nested' ? { label: 'Billing', items: [['Summary', 'billing'], ['Invoices', 'billing/invoices'], ['Payouts', 'billing/payouts'], ['Plans', 'billing/plans']].map(([label, suffix], index) => ({ label, url: `/@acme/${suffix}`, current: index === 1 })) } : null;
+// `&sidebar`: Billing as HC has it, a sidebar module (nine pages in three groups) with no primary link, as a with-trail breakout (with `&breakout`); with
+// `&linked` instead, Billing is the current primary link, for the drawer's grouped list. `&width=<size>`: the module's declared width (layout.width) on a
+// page that sets none; `&own=<size>`: the page's own width prop, which wins.
+const sidebar = query.has('sidebar');
+const sectionLabel = sidebar ? 'Billing' : breakout ? 'Summary' : twoLevel === 'nested' ? 'Admin' : twoLevel === 'mixed' || twoLevel === 'pills' ? 'Front desk' : 'Projects';
+const billingGroups: [string, [string, string][]][] = [
+    ['Invoicing', [['Invoices', 'billing/invoices'], ['Credit notes', 'billing/credit-notes'], ['Payments', 'billing/payments']]],
+    ['Catalogue', [['Plans', 'billing/plans'], ['Add-ons', 'billing/add-ons'], ['Passes', 'billing/passes']]],
+    ['Setup', [['Billing entities', 'billing/entities'], ['Tax rates', 'billing/tax'], ['Payment methods', 'billing/methods']]],
+];
+if (sidebar) items.splice(0, items.length, ...billingGroups.flatMap(([group, pages]) => pages.map(([label, suffix]) => ({ label, url: `/@acme/${suffix}`, current: suffix === 'billing/invoices', group }))));
+if (sidebar && query.has('linked')) navigation[1].label = 'Billing';
 const shell = {
     kind: 'app',
     account: { label: 'Account', url: '/account', current: false },
@@ -72,7 +84,7 @@ const shell = {
     subNavigation: module !== null && !record ? { label: sectionLabel, items, ...(child ? { child } : {}) } : null,
     search: { url: '/@acme/search', label: 'Search', placeholder: 'Search…' } as { url: string; label: string; placeholder: string } | null,
 };
-const title = breakout ? 'Invoices' : record ? 'Harbour refit' : twoLevel === 'nested' ? 'Invoices' : twoLevel === 'mixed' ? 'Check-in' : moduleLabels[modulePage];
+const title = breakout || sidebar ? 'Invoices' : twoLevel === 'pills' ? 'Café menu' : record ? 'Harbour refit' : twoLevel === 'nested' ? 'Invoices' : twoLevel === 'mixed' ? 'Check-in' : moduleLabels[modulePage];
 const breadcrumbs = breakout
     ? [['Acme Workshop', '/@acme'], ['Admin', '/@acme/admin'], ['Billing', '/@acme/billing'], ['Invoices', '/@acme/billing/invoices']].map(([label, url], index) => ({ label, url, home: index === 0, current: index === 3 }))
     : [
@@ -107,7 +119,7 @@ const body = module === null
                   default: content,
                   actions: () => h('button', { type: 'button', class: 'rounded-md border px-3 py-1.5 text-sm', 'data-new-booking': '' }, 'New booking'),
               })
-        : () => h(Page, { full: true, title }, { default: content });
+        : () => h(Page, { ...(query.get('own') ? { [query.get('own') as string]: true } : query.get('width') ? {} : { full: true }), title }, { default: content });
 // `?bar`: the app's own search in the `bar` slot (a 13rem field) and a second icon button among the actions, in place of the kit's search.
 // `?app` (with `pages=four`): an app's real bar, rebuilt: a square tile in the `mark` slot, the field three boxes deep in the slot (a min-w-0 wrapper, the
 // 13rem box, a min-w-0 box, the input), the appearance toggle and a bell among the actions, all in Inter (the kit's own font files, so every runner measures
@@ -137,7 +149,7 @@ const fonts = appBar
     ? Promise.all(([[400, inter400], [500, inter500], [600, inter600]] as const).map(([weight, url]) => { const face = new FontFace('Inter', `url(${url})`, { weight: String(weight) }); document.fonts.add(face); return face.load(); })).then(() => { document.documentElement.style.fontFamily = 'Inter, sans-serif'; })
     : Promise.resolve();
 const Shown = { render: () => h(Layout, { shell: state, subNav: query.has('strip') ? 'strip' : undefined, breadcrumbs: trail.value }, slots) };
-const layout = module === null ? { documentTitle: 'Shell' } : { documentTitle: title, title, breadcrumbs, navigation: [{ label: record ? null : sectionLabel, items }, ...(child ? [{ label: child.label, items: child.items, nested: true }] : [])], navigationHeader: breakout ? { label: 'Back to Admin', url: '/@acme/admin', trail: true } : null };
+const layout = module === null ? { documentTitle: 'Shell' } : { documentTitle: title, title, breadcrumbs, navigation: sidebar ? billingGroups.map(([group]) => ({ label: group, items: items.filter((item) => (item as { group?: string }).group === group), nested: false, sidebar: true })) : [{ label: record ? null : sectionLabel, items }, ...(child ? [{ label: child.label, items: child.items, nested: true }] : [])], width: query.get('width'), navigationHeader: breakout ? { label: 'Back to Admin', url: '/@acme/admin', trail: true } : null };
 (window as unknown as { kitInitialPage: unknown }).kitInitialPage = { component: 'Shell', props: { errors: {}, layout }, url: module === null ? navigation[current].url : (child?.items.find((item) => item.current) ?? items.find((item) => item.current)!).url, version: null, flash: {}, clearHistory: false, encryptHistory: false };
 void fonts.then(() => createInertiaApp({
     page: (window as unknown as { kitInitialPage: never }).kitInitialPage,

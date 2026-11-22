@@ -36,6 +36,14 @@ In your own CSS, give it a fallback for pages outside the shell: `top: var(--she
 
 **A module with no primary link.** A module reached from a landing page rather than the bar (Billing, linked from Admin's landing) still gets its row. When no primary link is current, the shell picks the module whose page matches the route, through its prefix or its own `active`, and draws that module's row with the most specific page current. Abilities still filter the row; the row is labelled with the module's own landing page (the page whose suffix is the module id), else its id. A module under a primary link, and nested modules, behave as above.
 
+**Levels: tabs, pills, sidebar.** The nested-navigation rule is tabs, then pills (2 to 5 sub-pages), then a sidebar (about 8 or more pages, or any grouping), then a hub landing (about 15 or more), then a breakout. On phones, each level becomes a select.
+
+- **Pills.** A nested module's row (Front desk › Sales: Sales, Café menu) is drawn as a pill row under the tabs (`PageTabs variant="secondary"`). This is never a third row and never a filter. Every nested module is drawn this way; the data is the same `nested` group as before.
+- **Sidebar.** A module whose pages carry a `group` (`modulePage('billing', …, 'Invoices', 'billing/invoices', group: 'Invoicing')`) is a sidebar module. `<Page>` frames its content with SettingsFrame's sidebar: one labelled group per `group`, in page order, with ungrouped pages first. It draws no tab row. Abilities and "most specific page current" work as for tabs. Nothing switches automatically: an ungrouped module with many pages stays tabs, and grouping is how a module opts in. On phones the sidebar is one select, with the groups as option groups. Below `lg`, the drawer lists the pages under the module's current primary link, under their group headings. A nested module is never a sidebar, because that would make a third tier. Its `group`s are ignored, and the boot check in local and testing warns, naming both modules.
+- A sidebar module can be a with-trail breakout (HC's Billing): the trail, then the banded strip, then the sidebar frame.
+
+**Module width.** `Registry::moduleWidth('billing', 'lg')` declares a module's page width once. Each of its tab pages' `<Page>` takes it (from `layout.width`) unless the page sets a width prop, which wins. Sibling tabs therefore line up without each repeating the width. A nested module's width applies on its pages; otherwise the section's applies. With none declared, nothing changes.
+
 ## Breakout pages
 
 A breakout page (a route's `->defaults('kit.breakout', true)`, or a ViewModel's `breaksOut()`) shows a banded "Back to <parent>" strip, derived from its breadcrumb parent, in place of the trail. With `'with-trail'` instead of `true` (from the route default or `breaksOut()`), it keeps the whole trail as well, with the strip under it, so a deep page can still go straight to any ancestor.

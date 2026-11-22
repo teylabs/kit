@@ -58,6 +58,9 @@ final class Registry
     /** @var list<array{module: string, ability: string, label: string, suffix: string, order: int, active: string|list<string>|null}> */
     private array $modulePages = [];
 
+    /** @var array<string, PageWidth> */
+    private array $moduleWidths = [];
+
     /** @var list<array{scope: string, key: string, label: string, description: string, ability: ?string, group: string, order: int}> */
     private array $sections = [];
 
@@ -367,14 +370,15 @@ final class Registry
      * one of its pages) is current, the shell lists its pages the principal may open, in `order` and then registration order. The
      * ability, suffix and `active` rules are navigation()'s. A module with no pages gets no tabs; a small app registers none. A page's suffix sits under its
      * module's (`bookings/calendar` for module `bookings`); checkModulePages() warns about one outside it. A page whose suffix is another
-     * module's id nests that module: its pages become a second tab row while one of them is current (docs/navigation.md).
+     * module's id nests that module: its pages become a second row, of pills, while one of them is current (docs/shell.md). A `group` on any of a module's
+     * pages makes it a sidebar module: its pages are drawn as a grouped sidebar (SettingsFrame's) instead of tabs; a nested module's groups are ignored.
      *
      * @param  string|list<string>|null  $active
      */
-    public function modulePage(string $module, string $ability, string $label, string $suffix, int $order = 0, string|array|null $active = null): self
+    public function modulePage(string $module, string $ability, string $label, string $suffix, int $order = 0, string|array|null $active = null, ?string $group = null): self
     {
         self::validateActive($active);
-        $this->modulePages[] = ['module' => $module, 'ability' => $ability, 'label' => $label, 'suffix' => $suffix, 'order' => $order, 'active' => $active];
+        $this->modulePages[] = ['module' => $module, 'ability' => $ability, 'label' => $label, 'suffix' => $suffix, 'order' => $order, 'active' => $active, 'group' => $group];
 
         return $this;
     }
@@ -1049,7 +1053,10 @@ final class Registry
                 if (isset($nested[$child])) {
                     throw new RuntimeException("Registry::modulePage(): module '{$section}' nests '{$child}', which nests '".implode("', '", $nested[$child])."'; module navigation has two levels at most.");
                 }
-                $warn("Registry::modulePage(): module '{$section}' nests module '{$child}' through its page '{$child}', so '{$child}''s pages show as a second tab row. If that is not intended, give the page a suffix that is not a module id.");
+                $warn("Registry::modulePage(): module '{$section}' nests module '{$child}' through its page '{$child}', so '{$child}''s pages show as a second row of pills. If that is not intended, give the page a suffix that is not a module id.");
+                if (in_array(true, array_map(fn (array $page): bool => $page['group'] !== null, $this->modulePages($child)), true)) {
+                    $warn("Registry::modulePage(): module '{$child}' is nested in '{$section}', so its pages stay a row of pills: a nested module gets no sidebar, and its `group`s are ignored.");
+                }
             }
         }
         foreach ($this->modulePages as $page) {
@@ -1060,13 +1067,29 @@ final class Registry
         }
     }
 
+    /**
+     * A module's page width, declared once: its pages' <Page> takes it (through `layout.width`) unless the page sets a width of its own. Without one, a
+     * page's width is its own, as before.
+     */
+    public function moduleWidth(string $module, PageWidth|string $width): self
+    {
+        $this->moduleWidths[$module] = is_string($width) ? PageWidth::from($width) : $width;
+
+        return $this;
+    }
+
+    public function widthOf(string $module): ?PageWidth
+    {
+        return $this->moduleWidths[$module] ?? null;
+    }
+
     /** @return list<string> Every module with pages, in registration order. */
     public function modules(): array
     {
         return array_values(array_unique(array_column($this->modulePages, 'module')));
     }
 
-    /** @return list<array{module: string, ability: string, label: string, suffix: string, order: int, active: string|list<string>|null}> One module's pages, sorted by order, then registration. */
+    /** @return list<array{module: string, ability: string, label: string, suffix: string, order: int, active: string|list<string>|null, group: ?string}> One module's pages, sorted by order, then registration. */
     public function modulePages(string $module): array
     {
         $indexed = array_filter(array_map(null, array_keys($this->modulePages), $this->modulePages), fn (array $entry): bool => $entry[1]['module'] === $module);

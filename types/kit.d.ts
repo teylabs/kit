@@ -116,6 +116,7 @@ export type NavGroup = {
 label: string | null,
 items: Tey.Kit.Features.Core.Data.NavItem[],
 nested: boolean,
+sidebar: boolean,
 };
 export type NavItem = {
 label: string,
@@ -135,6 +136,7 @@ title: string,
 documentTitle: string,
 breadcrumbs: Tey.Kit.Features.Core.Data.Breadcrumb[],
 navigationHeader: Tey.Kit.Features.Core.Data.NavigationHeader | null,
+width: Tey.Kit.Features.Core.Data.PageWidth | null,
 };
 export type PageWidth = 'xs' | 'sm' | 'md' | 'lg' | 'xl' | 'full';
 export type SeeAll = {
@@ -1160,6 +1162,7 @@ items: {
 label: string,
 url: string,
 current: boolean,
+group?: string,
 }[],
 child?: {
 label: string,

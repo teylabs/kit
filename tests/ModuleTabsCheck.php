@@ -131,9 +131,15 @@ try {
             WorkspaceRoutes::page(Route::middleware('web')->get('billing', $render(false)), $full, 'billing', 'billing.index', 'Billing', ['session-ui', 'workspaces.dashboard.index']);
             WorkspaceRoutes::page(Route::middleware('web')->get('billing/invoices', $render(false)), $full, 'billing', 'billing.invoices', 'Invoices', ['billing', 'billing.index']);
             WorkspaceRoutes::page(Route::middleware('web')->get('billing/run', $render(true)), $full, 'billing', 'billing.run', 'Run', ['billing', 'billing.index'])->defaults('kit.breakout', true);
+            WorkspaceRoutes::page(Route::middleware('web')->get('accounts', $render(false)), $full, 'billing', 'accounts.index', 'Accounts', ['session-ui', 'workspaces.dashboard.index']);
+            WorkspaceRoutes::page(Route::middleware('web')->get('accounts/plans', $render(false)), $full, 'billing', 'accounts.plans', 'Plans', ['billing', 'accounts.index']);
+            WorkspaceRoutes::page(Route::middleware('web')->get('accounts/tax', $render(false)), $full, 'billing', 'accounts.tax', 'Tax', ['billing', 'accounts.index']);
         });
         PHP);
-    $app->make(Registry::class)->routes($base.'/billing-routes.php')->modulePage('billing', 'dashboard.read', 'Summary', 'billing')->modulePage('billing', 'members.manage', 'Invoices', 'billing/invoices')->modulePage('billing', 'dashboard.read', 'Run', 'billing/run');
+    $app->make(Registry::class)->routes($base.'/billing-routes.php')->modulePage('billing', 'dashboard.read', 'Summary', 'billing')->modulePage('billing', 'members.manage', 'Invoices', 'billing/invoices')->modulePage('billing', 'dashboard.read', 'Run', 'billing/run')
+        // Accounts: a sidebar module (its pages carry a `group`), one ungrouped page, one page behind an ability a member lacks, and a declared width.
+        ->modulePage('accounts', 'dashboard.read', 'Overview', 'accounts')->modulePage('accounts', 'dashboard.read', 'Plans', 'accounts/plans', group: 'Catalogue')->modulePage('accounts', 'members.manage', 'Tax', 'accounts/tax', group: 'Setup')
+        ->moduleWidth('accounts', 'lg');
     // The host's `web` group, with an Inertia middleware (the kit's plain one): session-ui's props are shared by its provider, not by a middleware.
     $app->make(Kernel::class)->setMiddlewareGroups(['web' => [StartSession::class, HandleInertiaRequests::class]]);
     $app->boot();
@@ -240,6 +246,22 @@ try {
     $run = $billing('owner', 'billing/run');
     check(($run['layout']['navigationHeader']['label'] ?? null) !== null && $row($run) === [['Summary', false], ['Invoices', false], ['Run', true]], 'a breakout page keeps its Back strip and draws the row too');
     check($row($billing('owner', '')) === [['Overview', true], ['Staff rota', false]], 'a page under a primary link keeps that link\'s row, as before');
+
+    // A sidebar module: a `group` on its pages turns its row into labelled sidebar groups (ungrouped pages first), still ability-filtered, one page current.
+    $groups = fn (array $props): array => array_map(fn (array $group): array => [$group['label'], $group['sidebar'], array_map(fn (array $item): array => [$item['label'], $item['current']], $group['items'])], $props['layout']['navigation'] ?? []);
+    $accounts = $billing('owner', 'accounts/plans');
+    check($groups($accounts) === [[null, true, [['Overview', false]]], ['Catalogue', true, [['Plans', true]]], ['Setup', true, [['Tax', false]]]], 'a module whose pages carry a `group` reaches the page as labelled sidebar groups, ungrouped first, exactly one current (got '.json_encode($groups($accounts)).')');
+    check($groups($billing('member', 'accounts')) === [[null, true, [['Overview', true]]], ['Catalogue', true, [['Plans', false]]]], 'abilities still filter it: a group the viewer may open no page of is gone');
+    check(array_column($props['layout']['navigation'], 'sidebar') === [false], 'a module with no `group` is a row of tabs, as before');
+    // A module's width: declared once, every tab page of it gets it; a module without one leaves the width to the page.
+    check(($accounts['layout']['width'] ?? null) === 'lg' && ($billing('owner', 'accounts')['layout']['width'] ?? null) === 'lg', 'Registry::moduleWidth() reaches each of the module\'s tab pages as layout.width');
+    check(array_key_exists('width', $props['layout']) && $props['layout']['width'] === null && ! array_key_exists('width', $props['shell']['subNavigation'] ?? []), 'a module without a declared width leaves layout.width null');
+    // A nested module stays pills: its groups are ignored, and the boot check says so.
+    $before = count($warnings());
+    $sectioned = (new Registry)->modulePage('admin', 'admin.read', 'Overview', 'admin')->modulePage('admin', 'admin.read', 'Billing', 'billing')->modulePage('billing', 'billing.read', 'Invoices', 'billing', group: 'Invoicing');
+    $sectioned->checkModulePages(fn (string $message) => $app['log']->warning($message));
+    $logged = array_slice($warnings(), $before);
+    check(count(array_filter($logged, fn (string $line): bool => str_contains($line, "module 'billing' is nested in 'admin', so its pages stay a row of pills"))) === 1, 'groups on a nested module warn at boot, naming both modules');
 
     // kit.shell.settings_link: where the bar shows Settings. Only the link moves; the settings pages stay reachable.
     $shell = fn (string $path = ''): array => json_decode($page('owner', $path)[1], true)['props']['shell'];

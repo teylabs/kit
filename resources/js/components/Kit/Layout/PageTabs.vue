@@ -13,7 +13,10 @@ const props = defineProps<{
     tabs: { href: string; label: string; current?: boolean }[];
     label: string;
     current?: string;
+    /** `secondary`: the pill row, a module's own small sub-navigation under the page tabs (a nested module's pages). Never a third row, never a filter. */
+    variant?: 'primary' | 'secondary';
 }>();
+const pills = computed(() => props.variant === 'secondary');
 const active = computed(
     () => props.current ?? props.tabs.find((tab) => tab.current)?.href ?? null,
 );
@@ -25,12 +28,20 @@ const reveal = (event: FocusEvent) => {
     if (event.target instanceof HTMLElement)
         event.target.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 };
-const tabClass = (href: string) => [
-    'focus-visible:outline-ring inline-flex border-b-2 px-1 py-3 text-sm font-medium whitespace-nowrap focus-visible:outline-2 focus-visible:-outline-offset-2',
-    href === active.value
-        ? 'border-primary text-foreground'
-        : 'text-muted-foreground hover:border-border hover:text-foreground border-transparent',
-];
+const tabClass = (href: string) =>
+    pills.value
+        ? [
+              'focus-visible:outline-ring inline-flex min-h-8 items-center rounded-full px-3 text-sm font-medium whitespace-nowrap focus-visible:outline-2 focus-visible:-outline-offset-2',
+              href === active.value
+                  ? 'bg-accent text-foreground'
+                  : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground',
+          ]
+        : [
+              'focus-visible:outline-ring inline-flex border-b-2 px-1 py-3 text-sm font-medium whitespace-nowrap focus-visible:outline-2 focus-visible:-outline-offset-2',
+              href === active.value
+                  ? 'border-primary text-foreground'
+                  : 'text-muted-foreground hover:border-border hover:text-foreground border-transparent',
+          ];
 const go = (href: unknown) => {
     if (typeof href === 'string' && href !== active.value) router.visit(href);
 };
@@ -72,7 +83,12 @@ const go = (href: unknown) => {
             <slot name="actions" />
         </div>
     </div>
-    <nav v-else :aria-label="label" data-page-tabs>
+    <nav
+        v-else
+        :aria-label="label"
+        data-page-tabs
+        :data-page-pills="pills || undefined"
+    >
         <div class="sm:hidden">
             <InputSelect
                 :aria-label="label"
@@ -85,7 +101,12 @@ const go = (href: unknown) => {
         <!-- Scrolls sideways only when the tabs don't fit, never up and down, with no visible scrollbar (kit.css hides it). The baseline is an inset shadow, not a border the links
              overlap with -mb-px (that overlap overflowed the row by a pixel, and overflow-x forces overflow-y to scroll); the focus ring is inset so the row can't clip it. -->
         <ul
-            class="hidden gap-6 overflow-x-auto overflow-y-hidden overscroll-x-contain shadow-[inset_0_-1px_0_var(--color-border)] sm:flex"
+            :class="[
+                'hidden overflow-x-auto overflow-y-hidden overscroll-x-contain sm:flex',
+                pills
+                    ? 'gap-1 py-2'
+                    : 'gap-6 shadow-[inset_0_-1px_0_var(--color-border)]',
+            ]"
             @focusin="reveal"
         >
             <li v-for="tab in tabs" :key="tab.href" class="shrink-0">

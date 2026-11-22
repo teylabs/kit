@@ -157,7 +157,7 @@ final class PageShell implements ShellSource
                 return null;
             }
 
-            return ['label' => $link['label'], 'items' => $row['items']] + ($row['child'] === null ? [] : ['child' => $row['child']]);
+            return self::withWidth($registry, $link['suffix'], ['label' => $link['label'], 'items' => $row['items']] + ($row['child'] === null ? [] : ['child' => $row['child']]));
         }
 
         // No primary link is current: a module with no primary link of its own (reached from a landing or a breakout page) is current when one of its pages
@@ -180,7 +180,7 @@ final class PageShell implements ShellSource
         $own = array_values(array_filter($registry->modulePages($best['module']), fn (array $page): bool => $page['suffix'] === $best['module']));
         $label = $own[0]['label'] ?? Str::headline($best['module']);
 
-        return ['label' => $label, 'items' => $best['row']['items']] + ($best['row']['child'] === null ? [] : ['child' => $best['row']['child']]);
+        return self::withWidth($registry, $best['module'], ['label' => $label, 'items' => $best['row']['items']] + ($best['row']['child'] === null ? [] : ['child' => $best['row']['child']]));
     }
 
     /**
@@ -190,6 +190,20 @@ final class PageShell implements ShellSource
      *
      * @return array{items: list<array{label: string, url: string, current: bool}>, match: ?int, child: ?array{label: string, items: list<array{label: string, url: string, current: bool}>}}
      */
+    /**
+     * The current module's declared width (Registry::moduleWidth()), the nested module's when one of its pages is current, else the section's; with none
+     * declared the module is returned as it was, and the child's module id, which only picks the width, is dropped.
+     */
+    private static function withWidth(Registry $registry, string $module, array $navigation): array
+    {
+        $width = isset($navigation['child']) ? ($registry->widthOf($navigation['child']['module']) ?? $registry->widthOf($module)) : $registry->widthOf($module);
+        if (isset($navigation['child'])) {
+            unset($navigation['child']['module']);
+        }
+
+        return $width === null ? $navigation : $navigation + ['width' => $width->value];
+    }
+
     private static function moduleRow(Registry $registry, string $module, Closure $may, Closure $url, Closure $current, bool $nest): array
     {
         $pages = $registry->modulePages($module);
@@ -214,9 +228,9 @@ final class PageShell implements ShellSource
             if (! $may($page['ability']) || (isset($rows[$index]) && $rows[$index]['items'] === [])) {
                 continue;
             }
-            $items[] = ['label' => $page['label'], 'url' => $url($page), 'current' => $index === $best];
+            $items[] = ['label' => $page['label'], 'url' => $url($page), 'current' => $index === $best] + ($nest && $page['group'] !== null ? ['group' => $page['group']] : []);
             if ($index === $best && isset($rows[$index])) {
-                $child = ['label' => $page['label'], 'items' => $rows[$index]['items']];
+                $child = ['label' => $page['label'], 'items' => $rows[$index]['items'], 'module' => $page['suffix']];
             }
         }
 

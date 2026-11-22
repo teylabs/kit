@@ -16,6 +16,7 @@ import type { HeaderStatus as HeaderStatusValue } from '@/components/Kit/Action/
 import Breadcrumbs from './Breadcrumbs.vue';
 import FocusPage from './FocusPage.vue';
 import PageTabs from './PageTabs.vue';
+import SettingsFrame from './SettingsFrame.vue';
 
 /*
  * The root of every page: in the shell, the trail to it (Breadcrumbs, a small line above the heading, drawn whether or not there is a heading; not when the shell
@@ -114,7 +115,9 @@ const page = usePage<{
             label: string | null;
             items: { label: string; url: string; current: boolean }[];
             nested?: boolean;
+            sidebar?: boolean;
         }[];
+        width?: 'xs' | 'sm' | 'md' | 'lg' | 'xl' | 'full' | null;
         navigationHeader?: {
             label: string;
             url: string;
@@ -132,8 +135,31 @@ const drawsTrail = computed(
             page.props.layout.navigationHeader.trail === true),
 );
 // A `nested` group is a nested module's pages (a section's module, Registry::modulePage()): a second row under the first, never merged into it.
+// A sidebar module's groups (`sidebar`: Registry::modulePage()'s `group`) are drawn as SettingsFrame's sidebar round the content, never as tabs.
+const sidebar = computed(
+    () =>
+        inShell &&
+        !nested &&
+        !framed &&
+        subNav?.value !== 'strip' &&
+        Boolean(page.props.layout?.navigation?.some((group) => group.sidebar)),
+);
+// Without a sidebar the page's parts stay FocusPage's own children (a pass-through), so its gaps and layout are unchanged.
+const PassThrough = (
+    _: unknown,
+    { slots }: { slots: { default?: () => unknown } },
+) => slots.default?.();
+const frame = computed(() => (sidebar.value ? SettingsFrame : PassThrough));
+const frameProps = computed(() =>
+    sidebar.value ? { label: 'Sections', select: true } : {},
+);
 const rows = (nestedRow: boolean) =>
-    inShell && !nested && !framed && !claimed.value && subNav?.value !== 'strip'
+    inShell &&
+    !nested &&
+    !framed &&
+    !claimed.value &&
+    !sidebar.value &&
+    subNav?.value !== 'strip'
         ? (page.props.layout?.navigation ?? [])
               .filter((group) => Boolean(group.nested) === nestedRow)
               .flatMap((group) =>
@@ -175,10 +201,15 @@ if (
 ) {
     console.warn('<Page>: set one width at most (xs, sm, md, lg, xl or full).');
 }
-const size = computed(
-    () =>
-        (['xs', 'sm', 'md', 'lg', 'xl'] as const).find((name) => props[name]) ??
-        'full',
+// A width prop wins; without one, a module's tab page takes its module's width (Registry::moduleWidth(), `layout.width`), so sibling tabs match.
+const size = computed(() =>
+    props.full
+        ? 'full'
+        : ((['xs', 'sm', 'md', 'lg', 'xl'] as const).find(
+              (name) => props[name],
+          ) ??
+          (inShell && !nested ? page.props.layout?.width : null) ??
+          'full'),
 );
 </script>
 <template>
@@ -188,63 +219,52 @@ const size = computed(
         :data-flush="flush || undefined"
         data-slot="page"
     >
-        <OwnTabs v-if="tabs.length"
-            ><div
-                v-if="childTabs.length"
-                class="flex flex-col"
-                data-page-module-rows
-            >
+        <component :is="frame" v-bind="frameProps">
+            <OwnTabs v-if="tabs.length"
+                ><div
+                    v-if="childTabs.length"
+                    class="flex flex-col"
+                    data-page-module-rows
+                >
+                    <PageTabs
+                        :tabs="tabs"
+                        :label="tabsLabel"
+                        data-page-module-tabs
+                    />
+                    <PageTabs
+                        :tabs="childTabs"
+                        :label="childLabel"
+                        variant="secondary"
+                        data-page-module-child-tabs
+                    />
+                </div>
                 <PageTabs
+                    v-else
                     :tabs="tabs"
                     :label="tabsLabel"
                     data-page-module-tabs
-                />
-                <PageTabs
-                    :tabs="childTabs"
-                    :label="childLabel"
-                    data-page-module-child-tabs
-                />
-            </div>
-            <PageTabs
-                v-else
-                :tabs="tabs"
-                :label="tabsLabel"
-                data-page-module-tabs
-                ><template
-                    v-if="
-                        actionsOnTabs &&
-                        ($slots.actions ||
-                            $slots.status ||
-                            status ||
-                            actions.length)
-                    "
-                    #actions
-                    ><HeaderStatus v-if="$slots.status"
-                        ><slot name="status" /></HeaderStatus
-                    ><HeaderStatus
-                        v-else-if="status"
-                        :status="status" /><HeaderActions
-                        v-if="actions.length"
-                        :actions="actions"
-                        v-bind="listeners" /><slot
-                        name="actions" /></template></PageTabs
-        ></OwnTabs>
-        <div
-            v-if="
-                drawsTrail ||
-                headingText ||
-                (!actionsOnTabs &&
-                    ($slots.actions ||
-                        $slots.status ||
-                        status ||
-                        actions.length))
-            "
-            class="flex flex-col gap-2"
-            data-slot="page-head"
-        >
-            <Breadcrumbs v-if="drawsTrail" />
+                    ><template
+                        v-if="
+                            actionsOnTabs &&
+                            ($slots.actions ||
+                                $slots.status ||
+                                status ||
+                                actions.length)
+                        "
+                        #actions
+                        ><HeaderStatus v-if="$slots.status"
+                            ><slot name="status" /></HeaderStatus
+                        ><HeaderStatus
+                            v-else-if="status"
+                            :status="status" /><HeaderActions
+                            v-if="actions.length"
+                            :actions="actions"
+                            v-bind="listeners" /><slot
+                            name="actions" /></template></PageTabs
+            ></OwnTabs>
             <div
                 v-if="
+                    drawsTrail ||
                     headingText ||
                     (!actionsOnTabs &&
                         ($slots.actions ||
@@ -252,64 +272,82 @@ const size = computed(
                             status ||
                             actions.length))
                 "
-                class="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 sm:flex-nowrap"
-                data-slot="page-header"
+                class="flex flex-col gap-2"
+                data-slot="page-head"
             >
-                <h1
-                    v-if="headingText"
-                    data-slot="page-heading"
-                    :title="headingText"
-                    class="font-display line-clamp-1 min-w-0 text-3xl font-(weight:--font-display-weight) tracking-tight break-words sm:flex-1"
-                >
-                    {{ headingText }}
-                </h1>
+                <Breadcrumbs v-if="drawsTrail" />
                 <div
                     v-if="
-                        $slots.actions ||
-                        $slots.status ||
-                        status ||
-                        actions.length
+                        headingText ||
+                        (!actionsOnTabs &&
+                            ($slots.actions ||
+                                $slots.status ||
+                                status ||
+                                actions.length))
                     "
-                    class="flex items-center gap-2 sm:shrink-0"
-                    data-slot="page-header-actions"
+                    class="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 sm:flex-nowrap"
+                    data-slot="page-header"
                 >
-                    <HeaderStatus v-if="$slots.status"
-                        ><slot name="status" /></HeaderStatus
-                    ><HeaderStatus
-                        v-else-if="status"
-                        :status="status"
-                    /><HeaderActions
-                        v-if="actions.length"
-                        :actions="actions"
-                        v-bind="listeners"
-                    /><slot name="actions" />
+                    <h1
+                        v-if="headingText"
+                        data-slot="page-heading"
+                        :title="headingText"
+                        class="font-display line-clamp-1 min-w-0 text-3xl font-(weight:--font-display-weight) tracking-tight break-words sm:flex-1"
+                    >
+                        {{ headingText }}
+                    </h1>
+                    <div
+                        v-if="
+                            $slots.actions ||
+                            $slots.status ||
+                            status ||
+                            actions.length
+                        "
+                        class="flex items-center gap-2 sm:shrink-0"
+                        data-slot="page-header-actions"
+                    >
+                        <HeaderStatus v-if="$slots.status"
+                            ><slot name="status" /></HeaderStatus
+                        ><HeaderStatus
+                            v-else-if="status"
+                            :status="status"
+                        /><HeaderActions
+                            v-if="actions.length"
+                            :actions="actions"
+                            v-bind="listeners"
+                        /><slot name="actions" />
+                    </div>
                 </div>
             </div>
-        </div>
-        <div
-            v-if="state === 'loading'"
-            role="status"
-            aria-live="polite"
-            data-slot="page-loading"
-        >
-            <slot name="loading"
-                ><p class="text-muted-foreground text-sm">Loading…</p></slot
+            <div
+                v-if="state === 'loading'"
+                role="status"
+                aria-live="polite"
+                data-slot="page-loading"
             >
-        </div>
-        <div v-else-if="state === 'empty'" data-slot="page-empty">
-            <slot name="empty"
-                ><p class="text-muted-foreground text-sm">
-                    Nothing here yet.
-                </p></slot
+                <slot name="loading"
+                    ><p class="text-muted-foreground text-sm">Loading…</p></slot
+                >
+            </div>
+            <div v-else-if="state === 'empty'" data-slot="page-empty">
+                <slot name="empty"
+                    ><p class="text-muted-foreground text-sm">
+                        Nothing here yet.
+                    </p></slot
+                >
+            </div>
+            <div
+                v-else-if="state === 'error'"
+                role="alert"
+                data-slot="page-error"
             >
-        </div>
-        <div v-else-if="state === 'error'" role="alert" data-slot="page-error">
-            <slot name="error"
-                ><p class="text-destructive-text text-sm">
-                    Something went wrong.
-                </p></slot
-            >
-        </div>
-        <slot v-else />
+                <slot name="error"
+                    ><p class="text-destructive-text text-sm">
+                        Something went wrong.
+                    </p></slot
+                >
+            </div>
+            <slot v-else />
+        </component>
     </FocusPage>
 </template>
