@@ -4294,7 +4294,9 @@ test('a <Page> nested in another draws no second trail, and with the shell\'s ba
                 line: [...document.querySelectorAll('[data-slot="breadcrumbs"] li')].map(li => li.textContent.trim() || li.querySelector('a')?.getAttribute('aria-label')),
                 bar: [...document.querySelectorAll('[data-slot="breadcrumbs-bar"] li')].map(li => li.textContent.trim() || li.querySelector('a')?.getAttribute('aria-label')),
                 current: document.querySelector('[data-slot="breadcrumbs-bar"] [aria-current="page"]')?.textContent.trim() ?? null,
+                faded: [...document.querySelectorAll('[data-slot^="breadcrumbs"] *')].filter(el => el.textContent.trim() && /[,/] 0?\.\d+\)$/.test(getComputedStyle(el).color)).map(el => el.textContent.trim()),
             }));
+            assert.deepEqual(trails.faded, [], `${mode}: the trail draws its greys as picked colours, not reduced-opacity text (Refactoring UI H3)`);
             if (mode === 'page') {
                 assert.equal(trails.lines, 1, 'one trail line, from the outer <Page>');
                 assert.deepEqual(trails.line, ['Home', 'Assignments'], 'ancestors only');
@@ -8308,7 +8310,7 @@ test('the shell bar\'s ⌘K hint and the rest of the bar pass axe contrast under
     }
 });
 
-test('pills: a nested module (Front desk › Sales) is a pill row under the tabs, one current, icons only where a page has one, a select on phones, axe-clean light and dark', async () => {
+test('pills: a nested module (Front desk › Sales) is a pill row under the tabs, one current, icons only where a page has one; on phones the tabs are a select and five pills or fewer stay pills; axe-clean light and dark', async () => {
     for (const dark of [false, true]) {
         for (const width of [1280, 390]) {
             const scheme = `${dark ? 'dark' : 'light'}-${width}`;
@@ -8327,13 +8329,15 @@ test('pills: a nested module (Front desk › Sales) is a pill row under the tabs
                             return [a.textContent.trim(), svg ? [[...svg.classList].find(c => c.startsWith('lucide-') && c !== 'lucide-icon'), Math.round(box.width), svg.getAttribute('aria-hidden'), a.firstElementChild === svg] : null];
                         }),
                         selects: [...document.querySelectorAll('[data-page-tabs] .sm\\:hidden')].filter(el => el.offsetParent !== null).length,
+                        pillsShown: pills ? [...pills.querySelectorAll('ul a')].filter(a => a.offsetParent !== null).length : 0,
                     };
                 });
                 assert.equal(seen.rows, 2, `${scheme}: tabs and pills, never a third row`);
                 assert.deepEqual(seen.pills, [['Sales', false], ['Café menu', true]], `${scheme}: Sales' own pages as pills, exactly one current`);
                 assert.equal(seen.label, 'Sales', `${scheme}: the pill row is named for the module`);
                 if (width >= 640) assert.deepEqual(seen.icons, [['Today', ['lucide-user-check', 16, 'true', true]], ['Sales', null], ['Check-in', ['lucide-badge-check', 16, 'true', true]], ['Till', null], ['Sales', null], ['Café menu', ['lucide-coffee', 16, 'true', true]]], `${scheme}: a tab or pill draws its module page's icon first, 16px and hidden from assistive tech; one without draws none`);
-                assert.equal(seen.selects, width < 640 ? 2 : 0, `${scheme}: on phones each level is a select`);
+                assert.equal(seen.selects, width < 640 ? 1 : 0, `${scheme}: on phones the tab row is a select, the pill row is not`);
+                assert.equal(seen.pillsShown, 2, `${scheme}: both pills show, on phones too`);
                 if (navShots && !dark) await tab.screenshot({ path: `${navShots}-pills-${scheme}.png`, clip: { x: 0, y: 0, width, height: 360 } });
                 await axeClean(tab, scheme);
                 assert.deepEqual(errors, []);
@@ -8490,6 +8494,7 @@ test('two-level module navigation: a nested module is a second row (tabs and str
             const strips = await tab.evaluate(() => [...document.querySelectorAll('[data-shell-subnav]')].map(nav => ({ label: nav.getAttribute('aria-label'), current: nav.querySelector('[aria-current="page"]')?.textContent.trim() })));
             assert.deepEqual(strips, [{ label: 'Admin', current: 'Billing' }, { label: 'Billing', current: 'Invoices' }], `${scheme}: two strips, each with its current page`);
             assert.equal(await tab.locator('[data-page-tabs]').count(), 0, `${scheme}: the strip replaces the tabs`);
+            assert.deepEqual(await tab.evaluate(() => [...document.querySelectorAll('[data-shell-subnav] a:not([aria-current])')].filter(el => el.textContent.trim() && /[,/] 0?\.\d+\)$/.test(getComputedStyle(el).color)).map(el => el.textContent.trim())), [], `${scheme}: the strip's other pages are a picked grey, not reduced-opacity text (Refactoring UI H3)`);
         } finally { await context.close(); }
         // The drawer below lg: the section's tabs under its link, the nested module's pages expanded under its tab, one aria-current.
         ({ context, tab } = await open('nested', 390, dark));
@@ -13685,7 +13690,7 @@ test('MediaCollection tiles share one baseline: no row above the picture; the gr
         assert.ok(overflow <= 0, `overflows a 200px container by ${overflow}px`);
     }));
 
-test('Page header (?page-title): from sm up a long title wraps in its own column and the actions stay on its row; below sm the actions may drop under it', async () => {
+test('Page header (?page-title): from sm up a long title wraps in its own column and the actions stay on its row; below sm the title is 24px and the actions take the full width under it', async () => {
     for (const width of [1280, 768, 390]) {
         const context = await browser.newContext({ viewport: { width, height: 800 } });
         try {
@@ -13696,8 +13701,11 @@ test('Page header (?page-title): from sm up a long title wraps in its own column
                 const h = document.querySelector('[data-slot="page-heading"]').getBoundingClientRect();
                 const a = document.querySelector('[data-slot="page-header-actions"]').getBoundingClientRect();
                 const header = document.querySelector('[data-slot="page-header"]');
-                return { sameRow: a.top < h.bottom - 4, actionsRight: a.left >= h.right, overflow: header.scrollWidth - header.clientWidth };
+                return { sameRow: a.top < h.bottom - 4, actionsRight: a.left >= h.right, overflow: header.scrollWidth - header.clientWidth, titleSize: getComputedStyle(document.querySelector('[data-slot="page-heading"]')).fontSize, actionsWidth: Math.round(a.width), headerWidth: Math.round(header.getBoundingClientRect().width), faded: [...document.querySelectorAll('[data-slot^="breadcrumbs"] *')].filter(el => /[,/] 0?\.\d+\)$/.test(getComputedStyle(el).color)).length };
             });
+            assert.equal(shot.titleSize, width >= 640 ? '30px' : '24px', `${width}px: the page title is 24px below sm, 30px from sm up`);
+            if (width < 640) assert.equal(shot.actionsWidth, shot.headerWidth, `${width}px: below sm the actions take the full width under the title`);
+            assert.equal(shot.faded, 0, `${width}px: the trail draws no reduced-opacity grey text`);
             assert.ok(shot.overflow <= 0, `${width}px: the header overflows by ${shot.overflow}px`);
             if (width >= 640) assert.ok(shot.sameRow && shot.actionsRight, `${width}px: ${JSON.stringify(shot)}`);
             if (process.env.SHOT_DIR) await tab.locator('[data-slot="page-header"]').screenshot({ path: `${process.env.SHOT_DIR}/page-title-${width}.png` });

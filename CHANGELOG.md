@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+Features affected: core (Page, PageTabs, Breadcrumbs, Collapsible) and shell (SubNav, re-pinned `sha256:060a565931df` → `sha256:eac4d0ccb0c8`). Run `kit:update plan|apply` for `shell`.
+
+### Changed
+
+- **Five pills or fewer stay pills on a phone.** A `PageTabs` pill row (`variant="secondary"`) with up to five pages draws its pills below `sm` too, scrolling sideways if it must, instead of turning into a select; the tab row above it, and a longer pill row, are still a select there. Approved for Hubcommons' Home pills.
+- **The page title is 24px on a phone.** The `Page` heading is `text-2xl` below `sm` and `text-3xl` (30px) from `sm` up (Refactoring UI L6).
+- **Header actions take the full width under the title on a phone**, so a picker in the `actions` slot (a location select, say) can fill the row. From `sm` up they stay beside the title.
+
+### Fixed
+
+- **No reduced-opacity grey text in the trail and the strip.** The breadcrumb bar (`text-foreground/80`), the shell's SubNav strip (`text-foreground/70`) and Collapsible's hover (`text-foreground/80`) now use `text-muted-foreground`, a picked grey that meets AA on every ground (Refactoring UI H3).
+
 ## v0.47.0
 
 Features affected: core (kit.css tokens, Brand, re-pinned), kit components (cards, fields, Modal, Dialog). The default theme draws what it drew before, except the two changes Jasper approved: Modal and Dialog take the top elevation level, and fields are always white-filled with a 3:1 edge.

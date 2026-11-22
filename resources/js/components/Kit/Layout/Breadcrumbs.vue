@@ -38,10 +38,7 @@ const ancestors = computed(() =>
         :data-slot="bar ? 'breadcrumbs-bar' : 'breadcrumbs'"
     >
         <ol
-            :class="[
-                'flex min-w-0 items-center gap-1 text-sm whitespace-nowrap',
-                bar ? 'text-foreground/80' : 'text-muted-foreground',
-            ]"
+            class="text-muted-foreground flex min-w-0 items-center gap-1 text-sm whitespace-nowrap"
         >
             <li
                 v-for="(crumb, index) in ancestors"
