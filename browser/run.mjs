@@ -84,6 +84,8 @@ cpSync(path.join(here, '../resources/features/shell/pages'), path.join(kit, 'Pag
 cpSync(path.join(here, '../resources/features/notes/pages'), path.join(kit, 'Pages'), { recursive: true });
 // The dashboard grid (dashboard.html).
 cpSync(path.join(here, '../resources/features/workspace-ui/pages/Workspace/Dashboard'), path.join(kit, 'Pages/Workspace/Dashboard'), { recursive: true });
+// The section landing (auth.html?auth=Workspace/Sections/Index).
+cpSync(path.join(here, '../resources/features/workspace-ui/pages/Workspace/Sections'), path.join(kit, 'Pages/Workspace/Sections'), { recursive: true });
 // The workspace list (workspaces.html).
 cpSync(path.join(here, '../resources/features/workspace-ui/pages/Workspace/Index'), path.join(kit, 'Pages/Workspace/Index'), { recursive: true });
 // The error page in each shell (error.html).
@@ -8322,6 +8324,30 @@ test('a sidebar module as HC has Billing (grouped, no primary link, with-trail b
         await axeClean(tab, 'drawer');
         assert.deepEqual(errors, []);
     } finally { await context.close(); }
+});
+
+test('a module sidebar draws an item\'s own icon and none without one, never the gear; a one-group section landing named like the page has no group heading', async () => {
+    const { context, tab, errors } = await openShell('sidebar&breakout', 1280);
+    try {
+        const icons = await tab.$$eval('[data-settings-sidebar] li', items => items.map(li => [li.textContent.trim(), li.querySelector('svg')?.getAttribute('class')?.match(/lucide-[a-z-]+/g)?.find(name => name !== 'lucide-icon') ?? null]));
+        assert.deepEqual(icons.filter(([, icon]) => icon !== null), [['Invoices', 'lucide-receipt'], ['Plans', 'lucide-calendar']], 'only items with an icon draw one');
+        assert.ok(icons.every(([, icon]) => icon !== 'lucide-settings'), 'no gear fallback on a module sidebar');
+        if (navShots) await tab.screenshot({ path: `${navShots}-sidebar-icons-light-1280.png`, clip: { x: 0, y: 0, width: 1280, height: 640 } });
+        assert.deepEqual(errors, []);
+    } finally { await context.close(); }
+    const landing = async groups => {
+        const context = await browser.newContext({ viewport: { width: 1280, height: 700 }, deviceScaleFactor: 2 });
+        try {
+            const tab = await context.newPage();
+            await tab.goto(`${authUrl}auth.html?auth=Workspace/Sections/Index${groups ? `&groups=${groups}` : ''}`);
+            await tab.waitForSelector('[data-settings-card]');
+            const seen = await tab.evaluate(() => ({ headings: [...document.querySelectorAll('section h2')].map(h => h.textContent.trim()), cards: document.querySelectorAll('[data-settings-card]').length }));
+            if (navShots && groups === 'one') await tab.screenshot({ path: `${navShots}-landing-one-group-light-1280.png`, clip: { x: 0, y: 0, width: 1280, height: 420 } });
+            return seen;
+        } finally { await context.close(); }
+    };
+    assert.deepEqual(await landing('one'), { headings: [], cards: 2 }, 'one group labelled like the page: no group heading, the cards stay');
+    assert.deepEqual(await landing(null), { headings: ['Admin', 'Billing'], cards: 3 }, 'several groups keep their headings');
 });
 
 test('a module\'s declared width: sibling tab pages that set none render the same width, and a page\'s own width wins', async () => {

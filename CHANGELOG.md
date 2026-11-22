@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+Features affected: core (Registry), session-ui, kit components (SettingsFrame), workspace-ui (re-pinned).
+
+### Added
+
+- **Module sidebar icons.** `Registry::modulePage()` takes an optional `icon`, a SectionIcon name. A module sidebar item without one draws no icon instead of the gear. Settings sections are unchanged. Docs: shell.md. (#1226)
+
+### Fixed
+
+- **A one-group section landing no longer repeats its title.** When a landing's only group is labelled like the page (Admin, People, Community), its group heading is left out. Multi-group landings are unchanged. workspace-ui re-pinned. (#1226)
+
 ## v0.46.0
 
 Features affected: core (NavGroup, PageLayout, Registry), session-ui, shell (re-pinned), kit components (Page, PageTabs, SettingsFrame).

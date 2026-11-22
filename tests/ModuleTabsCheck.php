@@ -138,7 +138,7 @@ try {
         PHP);
     $app->make(Registry::class)->routes($base.'/billing-routes.php')->modulePage('billing', 'dashboard.read', 'Summary', 'billing')->modulePage('billing', 'members.manage', 'Invoices', 'billing/invoices')->modulePage('billing', 'dashboard.read', 'Run', 'billing/run')
         // Accounts: a sidebar module (its pages carry a `group`), one ungrouped page, one page behind an ability a member lacks, and a declared width.
-        ->modulePage('accounts', 'dashboard.read', 'Overview', 'accounts')->modulePage('accounts', 'dashboard.read', 'Plans', 'accounts/plans', group: 'Catalogue')->modulePage('accounts', 'members.manage', 'Tax', 'accounts/tax', group: 'Setup')
+        ->modulePage('accounts', 'dashboard.read', 'Overview', 'accounts')->modulePage('accounts', 'dashboard.read', 'Plans', 'accounts/plans', group: 'Catalogue', icon: 'receipt')->modulePage('accounts', 'members.manage', 'Tax', 'accounts/tax', group: 'Setup')
         ->moduleWidth('accounts', 'lg');
     // The host's `web` group, with an Inertia middleware (the kit's plain one): session-ui's props are shared by its provider, not by a middleware.
     $app->make(Kernel::class)->setMiddlewareGroups(['web' => [StartSession::class, HandleInertiaRequests::class]]);
@@ -251,6 +251,8 @@ try {
     $groups = fn (array $props): array => array_map(fn (array $group): array => [$group['label'], $group['sidebar'], array_map(fn (array $item): array => [$item['label'], $item['current']], $group['items'])], $props['layout']['navigation'] ?? []);
     $accounts = $billing('owner', 'accounts/plans');
     check($groups($accounts) === [[null, true, [['Overview', false]]], ['Catalogue', true, [['Plans', true]]], ['Setup', true, [['Tax', false]]]], 'a module whose pages carry a `group` reaches the page as labelled sidebar groups, ungrouped first, exactly one current (got '.json_encode($groups($accounts)).')');
+    $icons = array_map(fn (array $group): array => array_column($group['items'], 'icon'), $accounts['layout']['navigation']);
+    check($icons === [[null], ['receipt'], [null]], 'a sidebar item carries its modulePage `icon`, and null without one (got '.json_encode($icons).')');
     check($groups($billing('member', 'accounts')) === [[null, true, [['Overview', true]]], ['Catalogue', true, [['Plans', false]]]], 'abilities still filter it: a group the viewer may open no page of is gone');
     check(array_column($props['layout']['navigation'], 'sidebar') === [false], 'a module with no `group` is a row of tabs, as before');
     // A module's width: declared once, every tab page of it gets it; a module without one leaves the width to the page.

@@ -69,7 +69,9 @@ const billingGroups: [string, [string, string][]][] = [
     ['Catalogue', [['Plans', 'billing/plans'], ['Add-ons', 'billing/add-ons'], ['Passes', 'billing/passes']]],
     ['Setup', [['Billing entities', 'billing/entities'], ['Tax rates', 'billing/tax'], ['Payment methods', 'billing/methods']]],
 ];
-if (sidebar) items.splice(0, items.length, ...billingGroups.flatMap(([group, pages]) => pages.map(([label, suffix]) => ({ label, url: `/@acme/${suffix}`, current: suffix === 'billing/invoices', group }))));
+// Billing's sidebar items carry a SectionIcon name or null (no icon, as the server sends it): Invoices and Plans have one, the rest none.
+const billingIcons: Record<string, string> = { 'billing/invoices': 'receipt', 'billing/plans': 'calendar' };
+if (sidebar) items.splice(0, items.length, ...billingGroups.flatMap(([group, pages]) => pages.map(([label, suffix]) => ({ label, url: `/@acme/${suffix}`, current: suffix === 'billing/invoices', group, icon: billingIcons[suffix] ?? null }))));
 if (sidebar && query.has('linked')) navigation[1].label = 'Billing';
 const shell = {
     kind: 'app',

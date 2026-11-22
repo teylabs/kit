@@ -371,14 +371,15 @@ final class Registry
      * ability, suffix and `active` rules are navigation()'s. A module with no pages gets no tabs; a small app registers none. A page's suffix sits under its
      * module's (`bookings/calendar` for module `bookings`); checkModulePages() warns about one outside it. A page whose suffix is another
      * module's id nests that module: its pages become a second row, of pills, while one of them is current (docs/shell.md). A `group` on any of a module's
-     * pages makes it a sidebar module: its pages are drawn as a grouped sidebar (SettingsFrame's) instead of tabs; a nested module's groups are ignored.
+     * pages makes it a sidebar module: its pages are drawn as a grouped sidebar (SettingsFrame's) instead of tabs; a nested module's groups are ignored. A sidebar
+     * item's `icon` is a SectionIcon name; without one the item draws none.
      *
      * @param  string|list<string>|null  $active
      */
-    public function modulePage(string $module, string $ability, string $label, string $suffix, int $order = 0, string|array|null $active = null, ?string $group = null): self
+    public function modulePage(string $module, string $ability, string $label, string $suffix, int $order = 0, string|array|null $active = null, ?string $group = null, ?string $icon = null): self
     {
         self::validateActive($active);
-        $this->modulePages[] = ['module' => $module, 'ability' => $ability, 'label' => $label, 'suffix' => $suffix, 'order' => $order, 'active' => $active, 'group' => $group];
+        $this->modulePages[] = ['module' => $module, 'ability' => $ability, 'label' => $label, 'suffix' => $suffix, 'order' => $order, 'active' => $active, 'group' => $group, 'icon' => $icon];
 
         return $this;
     }
@@ -1089,7 +1090,7 @@ final class Registry
         return array_values(array_unique(array_column($this->modulePages, 'module')));
     }
 
-    /** @return list<array{module: string, ability: string, label: string, suffix: string, order: int, active: string|list<string>|null, group: ?string}> One module's pages, sorted by order, then registration. */
+    /** @return list<array{module: string, ability: string, label: string, suffix: string, order: int, active: string|list<string>|null, group: ?string, icon: ?string}> One module's pages, sorted by order, then registration. */
     public function modulePages(string $module): array
     {
         $indexed = array_filter(array_map(null, array_keys($this->modulePages), $this->modulePages), fn (array $entry): bool => $entry[1]['module'] === $module);

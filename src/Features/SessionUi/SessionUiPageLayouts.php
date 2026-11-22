@@ -67,7 +67,7 @@ final class SessionUiPageLayouts implements PageLayouts
         if ($module === null) {
             return [];
         }
-        $items = fn (array $items): array => array_map(fn (array $item): NavItem => new NavItem($item['label'], $item['url'], $item['current']), $items);
+        $items = fn (array $items): array => array_map(fn (array $item): NavItem => new NavItem($item['label'], $item['url'], $item['current'], $item['icon'] ?? null), $items);
 
         // A sidebar module (a page with a `group`): one labelled group per sidebar group, in page order, ungrouped pages first, drawn by <Page> as a sidebar.
         if (! isset($module['child']) && array_filter(array_column($module['items'], 'group')) !== []) {

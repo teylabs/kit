@@ -21,7 +21,7 @@ final readonly class Catalog
         'settings' => 'sha256:222aa23365087ff10406af69e5481f58b5a9a691059611d51e77ce7898914757',
         'shell' => 'sha256:060a565931df4ee574dbfde4c93990a6ae3d256277f20a1e2878e9eda27ae56b',
         'session-ui' => 'sha256:bb7a6db1db38bae632b84b1659f13aa0ec122b40c3eb45eba57a4418ee370d9e',
-        'workspace-ui' => 'sha256:bef509b762edeb2e9924a86ce7d7fd79e11717a7a4228b2f187fe2d41a7cff30',
+        'workspace-ui' => 'sha256:bf07b53fc6f44ca1dbc895e346b684b946bb1cf82c152285a3dd3aecda38a261',
         'mcp' => 'sha256:d2a355b782f0f4fad876ce5d7fd5939f1c91ee97aa81ea7475907c11267dbe5a',
         'notes' => 'sha256:24e4da893152ea0734dedd3ba4255b7f78df448f4956f2bf6f8d5256ed5d85f3',
         'finalize' => 'sha256:c121af94b55eeb2b20cef7b60d28b7887c3916e7eda8b7d437c80e2ea8e445d6',
