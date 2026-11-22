@@ -154,6 +154,12 @@ final class PageShell implements ShellSource
                 continue;
             }
             if ($row['items'] === []) {
+                // A current primary link with no module pages at all (an `active` that covers another module's pages, Admin over billing/*): the module
+                // those pages belong to may still draw its own row, below. One whose pages the viewer may not open draws none (abilities are inherited).
+                if ($registry->modulePages($link['suffix']) === []) {
+                    break;
+                }
+
                 return null;
             }
 
