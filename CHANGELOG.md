@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.46.3
 
 Features affected: core (kit.css, re-pinned), kit components (ground card).
 
