@@ -113,7 +113,12 @@ const page = usePage<{
         title: string;
         navigation?: {
             label: string | null;
-            items: { label: string; url: string; current: boolean }[];
+            items: {
+                label: string;
+                url: string;
+                current: boolean;
+                icon?: string | null;
+            }[];
             nested?: boolean;
             sidebar?: boolean;
         }[];
@@ -167,6 +172,7 @@ const rows = (nestedRow: boolean) =>
                       href: item.url,
                       label: item.label,
                       current: item.current,
+                      icon: item.icon ?? null,
                   })),
               )
         : [];

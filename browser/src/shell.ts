@@ -54,11 +54,13 @@ const twoLevel = query.has('nested') ? 'nested' : query.has('mixed') ? 'mixed' :
 if (twoLevel) {
     const tabs = twoLevel === 'nested' ? [['Overview', 'admin'], ['Billing', 'billing'], ['Users', 'admin/users'], ['Settings', 'settings']] : [['Today', 'frontdesk'], ['Sales', 'sales'], ['Check-in', 'frontdesk/checkin'], ['Till', 'frontdesk/till']];
     const at = twoLevel === 'nested' || twoLevel === 'pills' ? 1 : 2;
-    items.splice(0, items.length, ...tabs.map(([label, suffix], index) => ({ label, url: `/@acme/${suffix}`, current: index === at })));
+    // `&pills` carries module-page icons on some tabs and pills (Today, Check-in; Café menu) and none on the rest, as the server sends them.
+    const tabIcons: Record<string, string> = twoLevel === 'pills' ? { frontdesk: 'user-check', 'frontdesk/checkin': 'badge-check' } : {};
+    items.splice(0, items.length, ...tabs.map(([label, suffix], index) => ({ label, url: `/@acme/${suffix}`, current: index === at, ...(tabIcons[suffix] ? { icon: tabIcons[suffix] } : {}) })));
     navigation[1].label = twoLevel === 'nested' ? 'Admin' : 'Front desk';
 }
 if (breakout) items.splice(0, items.length, ...[['Summary', 'billing'], ['Invoices', 'billing/invoices'], ['Payouts', 'billing/payouts'], ['Plans', 'billing/plans']].map(([label, suffix], index) => ({ label, url: `/@acme/${suffix}`, current: index === 1 })));
-const child = twoLevel === 'pills' ? { label: 'Sales', items: [['Sales', 'sales'], ['Café menu', 'sales/cafe-menu']].map(([label, suffix], index) => ({ label, url: `/@acme/${suffix}`, current: index === 1 })) } : twoLevel === 'nested' ? { label: 'Billing', items: [['Summary', 'billing'], ['Invoices', 'billing/invoices'], ['Payouts', 'billing/payouts'], ['Plans', 'billing/plans']].map(([label, suffix], index) => ({ label, url: `/@acme/${suffix}`, current: index === 1 })) } : null;
+const child = twoLevel === 'pills' ? { label: 'Sales', items: [['Sales', 'sales'], ['Café menu', 'sales/cafe-menu']].map(([label, suffix], index) => ({ label, url: `/@acme/${suffix}`, current: index === 1, ...(suffix === 'sales/cafe-menu' ? { icon: 'coffee' } : {}) })) } : twoLevel === 'nested' ? { label: 'Billing', items: [['Summary', 'billing'], ['Invoices', 'billing/invoices'], ['Payouts', 'billing/payouts'], ['Plans', 'billing/plans']].map(([label, suffix], index) => ({ label, url: `/@acme/${suffix}`, current: index === 1 })) } : null;
 // `&sidebar`: Billing as HC has it, a sidebar module (nine pages in three groups) with no primary link, as a with-trail breakout (with `&breakout`); with
 // `&linked` instead, Billing is the current primary link, for the drawer's grouped list. `&width=<size>`: the module's declared width (layout.width) on a
 // page that sets none; `&own=<size>`: the page's own width prop, which wins.

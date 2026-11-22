@@ -234,7 +234,7 @@ final class PageShell implements ShellSource
             if (! $may($page['ability']) || (isset($rows[$index]) && $rows[$index]['items'] === [])) {
                 continue;
             }
-            $items[] = ['label' => $page['label'], 'url' => $url($page), 'current' => $index === $best] + ($nest && $page['group'] !== null ? ['group' => $page['group']] : []) + ($nest && $page['icon'] !== null ? ['icon' => $page['icon']] : []);
+            $items[] = ['label' => $page['label'], 'url' => $url($page), 'current' => $index === $best] + ($nest && $page['group'] !== null ? ['group' => $page['group']] : []) + ($page['icon'] !== null ? ['icon' => $page['icon']] : []);
             if ($index === $best && isset($rows[$index])) {
                 $child = ['label' => $page['label'], 'items' => $rows[$index]['items'], 'module' => $page['suffix']];
             }
