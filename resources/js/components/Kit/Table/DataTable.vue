@@ -23,6 +23,7 @@ import {
     useInCard,
 } from '@/components/Kit/Surface/surface';
 import BulkBar from './BulkBar.vue';
+import FilterPopover from './FilterPopover.vue';
 import IndexToolbar from './IndexToolbar.vue';
 import RowActions from './RowActions.vue';
 import { rowName, type RowLabel } from './rowLabel';
@@ -390,6 +391,7 @@ const showToolbar = computed(
                 :filters="table.filters"
                 :choices="singleChoices"
                 :search-label="searchLabel"
+                :phone-filters="singleChoices.length > 0"
                 class="flex-1"
                 @search="(value) => visit({ search: value }, true)"
                 @filter="(name, value) => visit({ filters: { [name]: value } })"
@@ -397,6 +399,14 @@ const showToolbar = computed(
                 <slot name="toolbar" />
                 <template #end><slot name="toolbar-end" /></template>
             </IndexToolbar>
+            <!-- On a phone the filter selects sit behind one Filters button (a count of those set), which writes the same `filter[key]` params. -->
+            <div
+                v-if="singleChoices.length"
+                class="sm:hidden"
+                data-table-phone-filters
+            >
+                <FilterPopover :filters="singleChoices" scope="filter" />
+            </div>
             <DropdownMenu v-if="hideable.length">
                 <DropdownMenuTrigger as-child
                     ><Button variant="secondary" type="button" data-columns-menu

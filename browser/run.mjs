@@ -8013,6 +8013,35 @@ for (const scheme of ['light', 'dark'])
         }
     });
 
+// ── DataTable filters on a phone (shell.html?module=1&table&filters, HC #2100 item 16): one Filters button below sm; the selects from sm up ──
+test('DataTable filters: at 390 one Filters button opens them (no selects in the toolbar); at 1280 the selects show and no Filters button', async () => {
+    for (const width of [390, 1280]) {
+        const context = await browser.newContext({ viewport: { width, height: 800 } });
+        try {
+            const tab = await context.newPage();
+            await tab.goto(`${authUrl}shell.html?module=1&table&filters`);
+            await tab.waitForSelector('[data-table-toolbar]');
+            const seen = await tab.evaluate(() => {
+                const shown = (el) => !!el && el.getClientRects().length > 0;
+                return { selects: [...document.querySelectorAll('[data-table-filter]')].filter(shown).length, button: shown(document.querySelector('[data-table-phone-filters] [data-filter-popover]')) };
+            });
+            if (width === 390) {
+                assert.deepEqual(seen, { selects: 0, button: true }, '390: one Filters button, no selects in the toolbar');
+                await tab.click('[data-table-phone-filters] [data-filter-popover]');
+                const panel = tab.locator('[data-filter-popover-panel]');
+                await panel.waitFor();
+                assert.equal(await panel.locator('[data-filter]').count(), 2, 'the button opens both filters');
+                const box = await panel.boundingBox();
+                assert.ok(box.x >= 0 && box.x + box.width <= 390, `the panel fits the screen (${box.x}, ${box.width})`);
+            } else {
+                assert.deepEqual(seen, { selects: 2, button: false }, '1280: both selects, no Filters button');
+            }
+        } finally {
+            await context.close();
+        }
+    }
+});
+
 // ── A long workspace name (shell.html?name=…, #1177): the switcher gives way before search; the name ellipsizes with its full name in title ──
 for (const scheme of ['light', 'dark'])
     test(`the shell bar with a long workspace name (${scheme}): the name ellipsizes first, search keeps its width, no overflow, no axe target-size failure`, async () => {
