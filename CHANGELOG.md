@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.49.0
 
 Features affected: core (Composer), session-ui (PageShell's current primary link); pins unchanged. No default look changes.
 
