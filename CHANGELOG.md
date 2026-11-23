@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+Features affected: core (DataTable, IndexToolbar); pins unchanged. No ViewModel changes shape.
+
+### Fixed
+
+- **On a phone a DataTable's search has its own row.** Below `sm` the search box takes the toolbar's full width, with Filters and Columns side by side under it, so a long placeholder no longer clips at a quarter of the row (Hubcommons #2194). Columns stays its own button rather than folding into Filters: it shows and hides columns, a different job from narrowing rows. From `sm` up nothing changes.
+
 ## v0.49.7
 
 Features affected: core (ButtonGroup, DataTable, IndexToolbar); pins unchanged. No ViewModel changes shape.

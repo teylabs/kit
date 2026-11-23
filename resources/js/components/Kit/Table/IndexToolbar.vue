@@ -60,7 +60,7 @@ onBeforeUnmount(() => clearTimeout(timer));
     >
         <form
             v-if="searchable"
-            class="flex min-w-0 flex-1 items-center gap-2"
+            class="flex min-w-0 flex-1 items-center gap-2 max-sm:basis-full"
             role="search"
             @submit.prevent="submit"
         >
@@ -69,7 +69,7 @@ onBeforeUnmount(() => clearTimeout(timer));
                 type="search"
                 :placeholder="`${searchLabel}…`"
                 :aria-label="searchLabel"
-                class="max-w-xs"
+                class="max-w-xs max-sm:max-w-none"
                 data-table-search
                 @input="typed"
             />
