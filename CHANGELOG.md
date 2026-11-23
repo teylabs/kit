@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.49.4
 
 Features affected: core (PageTabs); pins unchanged. No ViewModel changes shape.
 
