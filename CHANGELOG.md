@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.48.1
 
 Features affected: core (Field, InputSelect, InputSwitch); pins unchanged. Brand::css output changes for brands that set `outline` or `outline_dark`.
 
