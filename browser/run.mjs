@@ -6725,7 +6725,7 @@ for (const width of [1440, 768, 767]) {
                 assert.ok(main.box.width > aside.box.width * 1.5, 'main is the wider column');
             } else {
                 assert.ok(Math.abs(main.box.left - aside.box.left) < 1 && Math.abs(main.box.width - aside.box.width) < 1, 'one column below md');
-                assert.ok(main.box.bottom <= aside.box.top, 'main comes first, then aside');
+                assert.ok(aside.box.bottom <= main.box.top, 'aside comes first, then main (HC #2100)');
             }
             for (const column of [main, aside]) {
                 for (const card of column.cards) assert.ok(Math.abs(card.left - column.box.left) < 1 && Math.abs(card.width - column.box.width) < 1, `${card.key} spans its column`);
@@ -7202,7 +7202,7 @@ test('the dashboard\'s wide aside (main-aside-wide): main and aside about 58/42 
             await tab.setViewportSize({ width: 375, height: 900 });
             await share('&wide');
             const { regions: { main, aside } } = await dashLayout(tab);
-            assert.ok(Math.abs(main.box.width - aside.box.width) < 1 && main.box.bottom <= aside.box.top, `${mode}: one column at 375, main first`);
+            assert.ok(Math.abs(main.box.width - aside.box.width) < 1 && aside.box.bottom <= main.box.top, `${mode}: one column at 375, aside first`);
             if (dashShots) await tab.screenshot({ path: `${dashShots}/dash-wide-375-${mode}.png`, fullPage: true });
         } finally {
             await context.close();
