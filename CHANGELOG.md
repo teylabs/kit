@@ -6,8 +6,8 @@ Features affected: none re-pinned; PackageMigrator (the package's migration orde
 
 ### Fixed
 
-- **A fresh database migrates with stamped workspaces copies.** A package baseline the app has no copy of now runs just after the app's stamped copy with the highest order below it, so workspaces' 000211 and 000212 follow the app's `…_000210_` copy instead of running before the workspaces table exists (InvoiceButter).
-- **A pre-0.43 adopt migration runs after the kit_meta rename.** An `*_adopt_*_tables.php` that kit:scaffold --adopt wrote before 0.43 still names kit_meta; where only app_meta exists, it now runs with app_meta named kit_meta for its run, so its records land in app_meta. A database that still has kit_meta runs it unchanged (InvoiceButter).
+- **A fresh database migrates with stamped workspaces copies.** A package baseline the app has no copy of now runs just after the app's stamped copy with the highest order below it, so workspaces' 000211 and 000212 follow the app's `…_000210_` copy instead of running before the workspaces table exists (a consumer app, 0.25 → 0.48).
+- **A pre-0.43 adopt migration runs after the kit_meta rename.** An `*_adopt_*_tables.php` that kit:scaffold --adopt wrote before 0.43 still names kit_meta; where only app_meta exists, it now runs with app_meta named kit_meta for its run, so its records land in app_meta. A database that still has kit_meta runs it unchanged (a consumer app, 0.25 → 0.48).
 
 ### Upgrading
 
