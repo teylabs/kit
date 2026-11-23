@@ -8285,7 +8285,7 @@ const axeClean = async (tab, name) => {
 // ── The shell bar under each brand preset (light and dark, 1280px, where the search shows its ⌘K hint): the kit's own Brand::css for each, axe-clean ──────
 // with contrast inside the bar. An ink header paints the bar dark; the hint sits on `bg-muted`, which must be the bar's own wash, not the page's (HC #1721).
 // Brand::css's output for each preset, as test:brand pins it (the browser job has no PHP): neutral prints nothing; an ink header prints the bar block.
-const inkBar = (ink, accent) => `[data-shell-bar]{--background:${ink};--foreground:#ffffff;--muted:#27272a;--muted-foreground:#a1a1aa;--accent:#27272a;--accent-foreground:#ffffff;--border:#27272a;--shell-bar-field:#27272a;--shell-bar-field-edge:#71717a;--kit-field:#27272a;--kit-field-edge:#71717a;--ring:${accent};--brand-marker:${accent}}`;
+const inkBar = (ink, accent) => `[data-shell-bar]{--background:${ink};--foreground:#ffffff;--muted:#27272a;--muted-foreground:#a1a1aa;--accent:#27272a;--accent-foreground:#ffffff;--border:#27272a;--shell-bar-field:#27272a;--shell-bar-field-edge:#71717a;--kit-field:#27272a;--kit-field-edge:#71717a;--secondary:#27272a;--secondary-foreground:#ffffff;${accent === '#52525b' ? '--ring:#d4d4d8' : `--ring:${accent};--brand-marker:${accent}`}}`;
 test('the shell bar\'s ⌘K hint and the rest of the bar pass axe contrast under every brand preset (neutral, fill, mono ink, ink with gold), light and dark', async () => {
     const presets = {
         neutral: '',
@@ -8306,6 +8306,55 @@ test('the shell bar\'s ⌘K hint and the rest of the bar pass axe contrast under
                 assert.deepEqual(violations, [], `${scheme}: no contrast failure in the bar`);
                 assert.deepEqual(errors, []);
             } finally { await context.close(); }
+        }
+    }
+});
+
+// The ink bar's own marker, focus ring and phone search button (starter, after v0.49.1): each reads on the bar, under the neutral accent too.
+test('the ink bar\'s current-page marker, search focus outline and phone search button read on the bar (3:1), under ink on the neutral accent, ink and ink-gold, light and dark', async () => {
+    const ink = (colour, accent) => inkBar(colour, accent) + `:root{--shell-bar:${colour}}[data-shell-bar]{--shell-bar-foreground:#ffffff}`;
+    const presets = { 'ink, neutral accent': ink('#09090b', '#52525b'), ink: ink('#050505', '#16a34a'), 'ink-gold': ink('#1a181b', '#c9a227') };
+    const measure = () => {
+        const rgba = (value) => { const c = document.createElement('canvas').getContext('2d'); c.fillStyle = '#000'; c.fillStyle = value; c.fillRect(0, 0, 1, 1); return [...c.getImageData(0, 0, 1, 1).data]; };
+        const lum = (c) => { const [r, g, b] = c.slice(0, 3).map(v => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+        const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m); return (x + 0.05) / (y + 0.05); };
+        const bar = rgba(getComputedStyle(document.querySelector('[data-shell-bar]')).backgroundColor);
+        return { rgba, ratio, bar };
+    };
+    for (const [name, css] of Object.entries(presets)) {
+        for (const dark of [false, true]) {
+            const scheme = `${name} ${dark ? 'dark' : 'light'}`;
+            const wide = await openShell('', 1280, dark);
+            try {
+                await wide.tab.addStyleTag({ content: css + '*{transition:none!important}' });
+                await wide.tab.locator('[data-shell-bar] [data-search-input]').focus();
+                await wide.tab.keyboard.press('Shift+Tab');
+                await wide.tab.keyboard.press('Tab');
+                const seen = await wide.tab.evaluate((fn) => {
+                    const { rgba, ratio, bar } = (0, eval)(`(${fn})`)();
+                    const current = document.querySelector('[data-shell-bar] [aria-current="page"]');
+                    const input = document.querySelector('[data-shell-bar] [data-search-input]');
+                    const fill = rgba(getComputedStyle(input).backgroundColor);
+                    const outline = rgba(getComputedStyle(input).outlineColor);
+                    return { marker: current ? ratio(rgba(getComputedStyle(current, '::after').backgroundColor), bar) : null, ring: ratio(outline, bar), ringOnFill: ratio(outline, fill) };
+                }, measure.toString());
+                assert.ok(seen.marker !== null && seen.marker >= 3, `${scheme}: the current-page marker is ${seen.marker?.toFixed(2)}:1 on the bar (3:1)`);
+                assert.ok(seen.ring >= 3 && seen.ringOnFill >= 3, `${scheme}: the search field's focus outline is ${seen.ring.toFixed(2)}:1 on the bar and ${seen.ringOnFill.toFixed(2)}:1 on the field (3:1)`);
+            } finally { await wide.context.close(); }
+            const phone = await openShell('', 390, dark);
+            try {
+                // The button's own transition would be read mid-way: the preset is applied after the page drew.
+                await phone.tab.addStyleTag({ content: css + '*{transition:none!important}' });
+                const seen = await phone.tab.evaluate((fn) => {
+                    const { rgba, ratio, bar } = (0, eval)(`(${fn})`)();
+                    const button = document.querySelector('[data-shell-bar] [data-search-trigger]');
+                    const fill = rgba(getComputedStyle(button).backgroundColor);
+                    const icon = rgba(getComputedStyle(button).color);
+                    return { icon: ratio(icon, bar), iconOnFill: ratio(icon, fill), fillOnBar: ratio(fill, bar) };
+                }, measure.toString());
+                assert.ok(seen.icon >= 3 && seen.iconOnFill >= 4.5, `${scheme}: the phone search icon is ${seen.icon.toFixed(2)}:1 on the bar and ${seen.iconOnFill.toFixed(2)}:1 on its button`);
+                assert.ok(seen.fillOnBar < 2, `${scheme}: the phone search button is the bar's own wash, not a light chip (${seen.fillOnBar.toFixed(2)}:1 against the bar)`);
+            } finally { await phone.context.close(); }
         }
     }
 });
