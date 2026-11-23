@@ -5972,6 +5972,41 @@ const buttonGroupDividers = async (theme) => {
         await context.close();
     }
 };
+// ── ButtonGroup focus (#2109): a focused segment shows an inset ring, 3:1 against its fill, which the group's ring reset and clip don't hide ──
+for (const scheme of ['light', 'dark'])
+    test(`ButtonGroup (${scheme}): a keyboard-focused segment shows an inset outline ring at 3:1 or better, outline and ghost alike`, async () => {
+        const context = await browser.newContext({ viewport: { width: 1280, height: 600 } });
+        try {
+            const tab = await context.newPage();
+            await tab.goto(`${url}?button-group${scheme === 'dark' ? '&dark' : ''}`);
+            await tab.waitForSelector('[data-text] [data-button-group]');
+            for (const group of ['pair', 'split', 'text']) {
+                // Tab forward, as a keyboard user does, until focus enters this group, so :focus-visible applies.
+                for (let i = 0; i < 20 && !(await tab.evaluate((g) => !!document.activeElement?.closest(`[data-${g}] [data-button-group]`), group)); i++) await tab.keyboard.press('Tab');
+                // The Button's transition-all animates its outline in (150ms): measure the settled ring.
+                await tab.waitForTimeout(300);
+                const seen = await tab.evaluate(() => {
+                    const b = document.activeElement;
+                    const st = getComputedStyle(b);
+                    const rgb = (c) => { const x = document.createElement('canvas').getContext('2d'); x.fillStyle = c; x.fillRect(0, 0, 1, 1); const d = x.getImageData(0, 0, 1, 1).data; return [d[0], d[1], d[2], d[3]]; };
+                    const lum = ([r, g, bl]) => { const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }; return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(bl); };
+                    let bg = null; for (let e = b; e && !bg; e = e.parentElement) { const c = rgb(getComputedStyle(e).backgroundColor); if (c[3] > 0) bg = c; }
+                    const ring = rgb(st.outlineColor);
+                    const [hi, lo] = [lum(ring), lum(bg)].sort((x, y) => y - x);
+                    const box = b.getBoundingClientRect(), clip = b.closest('[data-button-group] > div').getBoundingClientRect();
+                    const inside = parseFloat(st.outlineOffset) + parseFloat(st.outlineWidth) <= 0 || (box.left - parseFloat(st.outlineWidth) >= clip.left && box.right + parseFloat(st.outlineWidth) <= clip.right);
+                    return { label: b.textContent.trim(), style: st.outlineStyle, width: parseFloat(st.outlineWidth), ratio: (hi + 0.05) / (lo + 0.05), inside };
+                });
+                assert.notEqual(seen.style, 'none', `${group}: ${seen.label} shows an outline`);
+                assert.ok(seen.width >= 2, `${group}: the outline is at least 2px (${seen.width})`);
+                assert.ok(seen.inside, `${group}: the outline sits inside the group's clip`);
+                assert.ok(seen.ratio >= 3, `${group}: the ring is ${seen.ratio.toFixed(2)}:1 against its fill`);
+            }
+        } finally {
+            await context.close();
+        }
+    });
+
 test('ButtonGroup (light): a 1px outline-coloured divider between segments, none after the last, and none in appearance="text"', () => buttonGroupDividers('light'));
 test('ButtonGroup (dark): a 1px outline-coloured divider between segments, none after the last, and none in appearance="text"', () => buttonGroupDividers('dark'));
 

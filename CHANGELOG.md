@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+Features affected: core (ButtonGroup); pins unchanged. No ViewModel changes shape.
+
+### Fixed
+
+- **A focused segment in a ButtonGroup shows its focus ring.** The group strips its segments' own rings and clips, so a keyboard-focused outline or ghost Button showed no focus indicator at all (WCAG 2.4.7). Each segment now draws an inset `outline: 2px solid var(--ring)` at offset -2px, inside the clip, in every appearance (AppraisalBench #2109). With the kit's default `--ring` it measures 19.8:1 (light) and 3.82:1 (dark) on an outline segment, and 13.4:1 on a ghost one in dark. An app that added its own inset outline to buttons in a group can drop it.
+
 ## v0.49.6
 
 Features affected: session-ui (Registry::dashboardActions(), DashboardViewModel), workspace-ui (the dashboard's Page and WidgetGrid, re-pinned `sha256:fe33abcd294f` → `sha256:472e3ef070d8`). Run `kit:scaffold plan|apply` for `workspace-ui` to re-take the dashboard pages. The dashboard ViewModel gains `actions`: regenerate types (Upgrading).
