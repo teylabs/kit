@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.49.7
 
 Features affected: core (ButtonGroup, DataTable, IndexToolbar); pins unchanged. No ViewModel changes shape.
 
