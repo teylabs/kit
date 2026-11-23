@@ -82,7 +82,7 @@ final class SessionUiPageLayouts implements PageLayouts
             return array_map(fn (string $label, array $group): NavGroup => new NavGroup($label === '' ? null : $label, $items($group), sidebar: true), array_keys($groups), array_values($groups));
         }
 
-        return [new NavGroup($module['label'], $items($module['items'])), ...(isset($module['child']) ? [new NavGroup($module['child']['label'], $items($module['child']['items']), true)] : [])];
+        return [new NavGroup($module['label'], $items($module['items']), variant: $module['variant'] ?? null), ...(isset($module['child']) ? [new NavGroup($module['child']['label'], $items($module['child']['items']), true)] : [])];
     }
 
     /** @return list<Breadcrumb> */

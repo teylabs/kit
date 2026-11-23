@@ -339,6 +339,24 @@ try {
     $home = $billing('owner', '');
     check($row($home) === [['Home', true], ['Front desk', false], ['Sales', false], ['Guests', false]] && in_array(['Dashboard', true], $topBar($home), true), 'the kit\'s dashboard, with no module of its own, draws its sibling module\'s row with Home current (got '.json_encode([$row($home), $topBar($home)]).')');
 
+    // A top-level module that opts into pills (Registry::moduleVariant(), Jasper's option B on Hubcommons #1942): its own row carries `variant: secondary`
+    // on the dashboard and on a sibling page alike; a module without one carries none (underline tabs).
+    $variantOf = fn (array $props): array => array_map(fn (array $group): array => [$group['label'] ?? null, $group['nested'] ?? false, $group['variant'] ?? null], $props['layout']['navigation'] ?? []);
+    check(array_column($variantOf($billing('owner', 'desk')), 2) === [null], 'without moduleVariant() the module\'s row carries no variant (got '.json_encode($variantOf($billing('owner', 'desk'))).')');
+    check(array_column($variantOf($billing('owner', 'billing')), 2) === [null], 'and an unrelated module is unchanged');
+    $app->make(Registry::class)->moduleVariant('desk', 'secondary');
+    foreach (['' => 'the dashboard', 'desk' => 'Front desk', 'desk/sales' => 'Sales'] as $path => $where) {
+        check(array_column($variantOf($billing('owner', $path)), 2) === ['secondary'], 'with moduleVariant(\'desk\', \'secondary\') the row on '.$where.' is pills (got '.json_encode($variantOf($billing('owner', $path))).')');
+    }
+    check(array_column($variantOf($billing('owner', 'billing')), 2) === [null], 'another module keeps underline tabs');
+    $threw = null;
+    try {
+        $app->make(Registry::class)->moduleVariant('desk', 'primary');
+    } catch (InvalidArgumentException $error) {
+        $threw = $error->getMessage();
+    }
+    check($threw !== null && str_contains($threw, "'secondary'"), 'moduleVariant() refuses anything but secondary, naming it');
+
     echo "Module tab checks on SQLite memory with real Concierge, spatie teams and Pennant; Inertia JSON through router dispatch without the global middleware stack. No browser here: <Page> drawing the tabs is browser/run.mjs's.\n";
 } catch (Throwable $error) {
     fwrite(STDERR, 'FAIL '.$error->getMessage()."\n".$error->getTraceAsString()."\n");

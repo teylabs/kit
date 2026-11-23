@@ -1,5 +1,23 @@
 # Changelog
 
+## Unreleased
+
+Features affected: core (Registry::moduleVariant(), NavGroup, Page), session-ui (PageShell, Auth/Register, re-pinned `sha256:99ac1823af2e` → `sha256:ec07b4f15174`), workspace-ui (People, the dashboard's WidgetCard and WidgetGrid, re-pinned `sha256:1b23b8729b95` → `sha256:fe33abcd294f`). Run `kit:scaffold plan|apply` for `session-ui` and `workspace-ui` to re-take the pages. NavGroup gains `variant`: regenerate types (Upgrading).
+
+### Added
+
+- **A top-level module can draw its own row as pills.** `Registry::moduleVariant('home', 'secondary')` makes every page of that module, the kit dashboard included, draw the module's row as pills (`PageTabs variant="secondary"`) instead of underline tabs; `layout.navigation`'s group carries `variant`. The default stays underline tabs, and a nested module's row stays pills (Jasper's option B, Hubcommons #1942; docs/shell.md). An app that wrapped its rows in its own pill component, or overrode the dashboard component only for this, can drop that.
+
+### Fixed
+
+- **Register's invited address is a kit Field.** The read-only email was a bare `<label>` and Input; it is now `<Field id="register-email" label="Email address">` with the same read-only Input, accessible name and hint (`register-email-description`), so a no-raw-controls guard passes (AppraisalBench #1931). The Notes composer's colour swatches remain the one labelled radio group in the scaffolded pages; a browser check lists them.
+- **People's identity cell is capped on desktop.** It is at most 288px from `sm` up, so a long email truncates instead of widening the table past its card and clipping the row actions (starter review; L5).
+- **A headless widget has no frame.** A `headless()` widget other than the kit's You card is drawn with no card: no border, padding or fill, only a section named by its title, so a Composer widget is no longer a card inside a card (Hubcommons #1942; the seamless-composer ruling). The You card keeps its frame.
+
+### Upgrading
+
+- `NavGroup` gained `variant` (null or `secondary`), so the generated types changed: run `php artisan types:generate` after bumping, or a ViewModel type check (such as ViewModelStandardTest) fails.
+
 ## v0.49.2
 
 Features affected: core (Brand::css's ink bar block); pins unchanged.

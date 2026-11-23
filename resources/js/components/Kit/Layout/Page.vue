@@ -183,6 +183,13 @@ const childLabel = computed(
         page.props.layout?.navigation?.find((group) => group.nested)?.label ??
         'Sections',
 );
+// A top-level module that opts into pills (Registry::moduleVariant()) draws its own row as pills; underline tabs otherwise.
+const tabsVariant = computed(() =>
+    page.props.layout?.navigation?.find((group) => !group.nested)?.variant ===
+    'secondary'
+        ? 'secondary'
+        : undefined,
+);
 const tabsLabel = computed(
     () =>
         page.props.layout?.navigation?.find(
@@ -235,6 +242,7 @@ const size = computed(() =>
                     <PageTabs
                         :tabs="tabs"
                         :label="tabsLabel"
+                        :variant="tabsVariant"
                         data-page-module-tabs
                     />
                     <PageTabs
@@ -248,6 +256,7 @@ const size = computed(() =>
                     v-else
                     :tabs="tabs"
                     :label="tabsLabel"
+                    :variant="tabsVariant"
                     data-page-module-tabs
                     ><template
                         v-if="

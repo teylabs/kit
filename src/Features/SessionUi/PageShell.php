@@ -207,6 +207,9 @@ final class PageShell implements ShellSource
             unset($navigation['child']['module']);
         }
 
+        // A top-level module that opts into pills (Registry::moduleVariant()) carries it for its own row.
+        $navigation += $registry->variantOf($module) === null ? [] : ['variant' => $registry->variantOf($module)];
+
         return $width === null ? $navigation : $navigation + ['width' => $width->value];
     }
 

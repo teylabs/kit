@@ -2,6 +2,8 @@
 
 namespace Tey\Kit\Features\Core;
 
+use InvalidArgumentException;
+
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -121,6 +123,9 @@ final class Registry
 
     /** @var array<string, PageWidth> */
     private array $moduleWidths = [];
+
+    /** @var array<string, 'secondary'> */
+    private array $moduleVariants = [];
 
     /** @var list<array{scope: string, key: string, label: string, description: string, ability: ?string, group: string, order: int}> */
     private array $sections = [];
@@ -1161,6 +1166,26 @@ final class Registry
     public function widthOf(string $module): ?PageWidth
     {
         return $this->moduleWidths[$module] ?? null;
+    }
+
+    /**
+     * A top-level module's own row drawn as pills (`secondary`, PageTabs's variant) on every one of its pages, the dashboard included, instead of
+     * underline tabs (the default). A nested module's row is pills regardless. Only `secondary` is accepted.
+     */
+    public function moduleVariant(string $module, string $variant): self
+    {
+        if ($variant !== 'secondary') {
+            throw new InvalidArgumentException("Registry::moduleVariant(): '{$variant}' is not a row variant; the one choice is 'secondary' (pills). Leave it out for underline tabs.");
+        }
+        $this->moduleVariants[$module] = 'secondary';
+
+        return $this;
+    }
+
+    /** @return ?'secondary' */
+    public function variantOf(string $module): ?string
+    {
+        return $this->moduleVariants[$module] ?? null;
     }
 
     /** @return list<string> Every module with pages, in registration order. */
