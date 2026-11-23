@@ -180,7 +180,8 @@ const wide = ref(false);
 watch(scroller, (box, _, onCleanup) => {
     if (!box || typeof ResizeObserver === 'undefined') return;
     const table = box.firstElementChild as HTMLElement;
-    const measure = () => (wide.value = table.scrollWidth > box.clientWidth + 1);
+    const measure = () =>
+        (wide.value = table.scrollWidth > box.clientWidth + 1);
     const observer = new ResizeObserver(measure);
     observer.observe(box);
     observer.observe(table);
