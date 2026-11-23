@@ -238,7 +238,7 @@ const navButton =
                         'focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 flex h-9 w-full min-w-0 items-center justify-between gap-2 rounded-md border px-3 text-left text-base transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed md:text-sm',
                         locked
                             ? 'border-border bg-muted shadow-none disabled:cursor-default'
-                            : 'dark:bg-input/30 border-[color:var(--kit-field-edge,var(--input))] bg-[var(--kit-field,var(--card))] shadow-(--kit-elevation-1) disabled:opacity-50',
+                            : 'border-[color:var(--kit-field-edge,var(--input))] bg-[var(--kit-field,var(--card))] shadow-(--kit-elevation-1) disabled:opacity-50 dark:bg-[var(--kit-field,var(--card))]',
                     ]"
                 >
                     <span

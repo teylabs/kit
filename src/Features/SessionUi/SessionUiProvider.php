@@ -157,7 +157,7 @@ final class SessionUiProvider extends ServiceProvider implements Contributes
         // Registration is Fortify's `registration` feature (off by the kit's defaults: accounts come from invitations), gated by Concierge's registration mode
         // (closed by the kit's defaults; closed makes /register a 404). With both on, /register is the kit's Auth/Register page, posting to Fortify, which creates
         // the account with the app's CreatesNewUsers action, and sign in links to it in Concierge's open mode only (Registration::open, its answer to that question).
-        Fortify::loginView(fn () => Inertia::render('Auth/Login/Page', new LoginViewModel('Sign in', session('status'), self::localLogin(), self::registerLink(), PasskeyOffer::signIn())));
+        Fortify::loginView(fn () => Inertia::render('Auth/Login/Page', new LoginViewModel('Sign in', session('status'), self::localLogin(), self::registerLink(), PasskeyOffer::signIn(), Features::enabled(Features::resetPasswords()) ? '/forgot-password' : null)));
         Fortify::registerView(fn () => Inertia::render('Auth/Register/Page', new RegisterViewModel('Create an account', status: session('status'))));
         // Password reset by emailed link (Fortify's resetPasswords): asking for the link, then choosing the new password under the kit's policy.
         Fortify::requestPasswordResetLinkView(fn () => Inertia::render('Auth/ForgotPassword/Page', new ChallengeViewModel('Reset your password', session('status'))));

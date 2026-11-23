@@ -1,5 +1,25 @@
 # Changelog
 
+## Unreleased
+
+Features affected: session-ui (Auth/Login, re-pinned `sha256:bb7a6db1db38` → `sha256:99ac1823af2e`), workspace-ui (People, re-pinned `sha256:b1c9acb0ea15` → `sha256:1b23b8729b95`), core (DataTable, Brand::css, kit.css `--input`, the form fields' dark fill; re-pinned `sha256:8ea7c266355a` → `sha256:110b3565abeb`). Run `kit:scaffold plan|apply` for `session-ui` and `workspace-ui`.
+
+### Changed
+
+- **Field edge (c): the lightest full edge that holds 3:1.** `--input` is `hsl(60 1.3% 55.5%)` (#8f8f8c; 3.24:1 on the card, 3.10:1 on the #fafaf9 ground) in light and `hsl(60 1% 40.4%)` (#686866; 3.21:1 on the card, 3.55:1 on the ground) in dark, in the ground's hue (WCAG 1.4.11, C6).
+- **Dark fields fill with the card, as light ones do.** Input, Textarea, Select, InputSelect, InputNumber, the date and time inputs and PeriodPicker drop `dark:bg-input/30`, so a dark field is `--kit-field` (the card) and its edge is 3.21:1 against the fill too (was 2.39:1). A theme's `.dark{--kit-field:…}` now reaches every field; every field carries `bg-[var(--kit-field,var(--card))] dark:bg-[var(--kit-field,var(--card))]`, which also overrides a host input's own `dark:bg-input/30` (Hubcommons #1914).
+
+### Fixed
+
+- **"Forgot your password?" only where password reset is on.** LoginViewModel carries `forgot` (`/forgot-password`, or null while Fortify's resetPasswords feature is off), and the sign-in page draws the link from it, so it no longer links to a 404 (starter review).
+- **A long email no longer pushes a People row off a phone.** DataTable's phone cards are `minmax(0, 1fr)` and their cells `min-w-0`, so the person's email truncates and Role and Joined stay on screen; a date column never wraps (starter review; L5).
+- **Brand::css: an ink header alone leaves the buttons alone.** `header => 'ink'` on the neutral accent prints only the bar block; primary buttons, ring and marker stay the theme's (they turned #52525b).
+- **Brand::css: mono keeps the theme's primary in dark.** Its ink primary is scoped to light mode (`:root:not(.dark)`), so dark primary buttons are no longer #09090b on the dark card (1.11:1); on the neutral accent, dark mode keeps the theme's ring too (was #52525b, 2.32:1).
+
+### Upgrading
+
+- A brand or theme that sets its own `--input` (or `input`/`input_dark` in config/brand.php) keeps its value: only the kit's defaults move. A theme that relied on the dark fields' `--input` wash sets `--kit-field` in `.dark` to keep it.
+
 ## v0.49.0
 
 Features affected: core (Composer), session-ui (PageShell's current primary link); pins unchanged. No default look changes.

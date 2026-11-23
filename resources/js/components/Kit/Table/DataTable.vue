@@ -533,11 +533,13 @@ const showToolbar = computed(
                             </th>
                         </tr>
                     </thead>
-                    <tbody class="max-sm:grid max-sm:gap-3 max-sm:p-3">
+                    <tbody
+                        class="max-sm:grid max-sm:grid-cols-[minmax(0,1fr)] max-sm:gap-3 max-sm:p-3"
+                    >
                         <tr
                             v-for="row in tanstack.getRowModel().rows"
                             :key="row.id"
-                            class="border-border border-b last:border-b-0 max-sm:grid max-sm:gap-1 max-sm:rounded-lg max-sm:border max-sm:p-3 max-sm:last:border-b"
+                            class="border-border border-b last:border-b-0 max-sm:grid max-sm:grid-cols-[minmax(0,1fr)] max-sm:gap-1 max-sm:rounded-lg max-sm:border max-sm:p-3 max-sm:last:border-b"
                             data-row
                             :data-selected="
                                 selectable &&
@@ -573,7 +575,7 @@ const showToolbar = computed(
                             <td
                                 v-for="(cell, index) in row.getVisibleCells()"
                                 :key="cell.id"
-                                class="first:bg-card px-4 py-3 align-middle first:sticky first:left-0 max-sm:flex max-sm:items-center max-sm:justify-between max-sm:gap-3 max-sm:px-0 max-sm:py-1 max-sm:first:static"
+                                class="first:bg-card px-4 py-3 align-middle first:sticky first:left-0 max-sm:flex max-sm:min-w-0 max-sm:items-center max-sm:justify-between max-sm:gap-3 max-sm:px-0 max-sm:py-1 max-sm:first:static"
                                 :class="align(meta(cell.column))"
                                 :data-cell="cell.column.id"
                             >
@@ -636,6 +638,7 @@ const showToolbar = computed(
                                             meta(cell.column)
                                                 .date as DateTimeFormat
                                         "
+                                        class="whitespace-nowrap"
                                     /><template v-else>{{
                                         text(cell.getValue())
                                     }}</template></slot

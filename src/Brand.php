@@ -234,10 +234,17 @@ final class Brand
     public static function css(array $t): string
     {
         $light = $dark = $bar = '';
-        if (! self::rolesAreDefault($t)) {
-            $light = ($t['button'] === 'accent' ? '--primary:'.$t['accent'].';--primary-foreground:'.$t['accent_foreground'] : '--primary:'.$t['ink'].';--primary-foreground:#ffffff')
-                .';--ring:'.$t['accent_strong'].';--brand-marker:'.($t['marker'] === 'strong' ? $t['accent_strong'] : $t['accent']);
-            $dark = ($t['button_dark'] === 'accent' ? '--primary:'.$t['accent_dark'].';--primary-foreground:'.$t['accent_dark_foreground'].';' : '').'--ring:'.$t['accent_dark'].';--brand-marker:'.$t['accent_dark'];
+        // An ink header alone leaves the buttons, ring and marker as the theme's: the header is the bar block's (below).
+        $lightOnly = '';
+        if (! self::rolesAreDefault(['header' => 'theme'] + $t)) {
+            $primary = $t['button'] === 'accent' ? '--primary:'.$t['accent'].';--primary-foreground:'.$t['accent_foreground'] : '--primary:'.$t['ink'].';--primary-foreground:#ffffff';
+            // A dark button that is the theme's own (mono's default) must not inherit the light one: :root and .dark are equally specific and this prints
+            // later, so the light pair is scoped to light mode.
+            $lightOnly = $t['button_dark'] === 'theme' ? $primary : '';
+            $light = ($lightOnly === '' ? $primary.';' : '').'--ring:'.$t['accent_strong'].';--brand-marker:'.($t['marker'] === 'strong' ? $t['accent_strong'] : $t['accent']);
+            // The neutral accent (#52525b) is a light-mode ring; in dark, where no dark accent was chosen, the theme's own ring and marker stay.
+            $darkAccent = $t['accent_dark'] === self::NEUTRAL_ACCENT ? '' : '--ring:'.$t['accent_dark'].';--brand-marker:'.$t['accent_dark'];
+            $dark = trim(($t['button_dark'] === 'accent' ? '--primary:'.$t['accent_dark'].';--primary-foreground:'.$t['accent_dark_foreground'].';' : '').$darkAccent, ';');
         }
         // Each surface prints under its token: `accent_surface` is the hover and active wash (--accent, not the brand accent), and `outline` (ButtonGroup's
         // ring, the outline tier) follows the brand's border unless set itself.
@@ -259,7 +266,7 @@ final class Brand
         if ($t['header'] === 'ink') {
             $bar = '[data-shell-bar]{--background:'.$t['ink'].';--foreground:#ffffff;--muted:#27272a;--muted-foreground:#a1a1aa;--accent:#27272a;--accent-foreground:#ffffff;--border:#27272a;--shell-bar-field:#27272a;--shell-bar-field-edge:#71717a;--kit-field:#27272a;--kit-field-edge:#71717a;--ring:'.$t['accent'].';--brand-marker:'.$t['accent'].'}';
         }
-        $css = ($light === '' ? '' : ':root{'.$light.'}').($dark === '' ? '' : '.dark{'.$dark.'}').$bar;
+        $css = ($light === '' ? '' : ':root{'.$light.'}').($lightOnly === '' ? '' : ':root:not(.dark){'.$lightOnly.'}').($dark === '' ? '' : '.dark{'.$dark.'}').$bar;
         if ($t['header_rule'] !== null) {
             $css .= '[data-shell-bar]{border-bottom-width:2px;border-bottom-color:'.($t['header_rule'] === 'accent' ? $t['accent'] : $t['header_rule']).'}'
                 .($t['header_rule'] === 'accent' && $t['accent_dark'] !== $t['accent'] ? '.dark [data-shell-bar]{border-bottom-color:'.$t['accent_dark'].'}' : '');
