@@ -7903,6 +7903,36 @@ test('a sticky top-(--shell-top) row sits flush under the shell after scrolling,
     }
 });
 
+// ── DataTable's sticky header (shell.html?module=1&table, #2092): one page scroll; the header sticks under the shell's bar and nothing inside scrolls ──
+for (const scheme of ['light', 'dark'])
+    test(`a DataTable's header sticks under the bar as the window scrolls, with no scroll box of its own (${scheme})`, async () => {
+        const context = await browser.newContext({ viewport: { width: 1280, height: 600 }, colorScheme: scheme });
+        try {
+            const tab = await context.newPage();
+            await tab.goto(`${authUrl}shell.html?module=1&table${scheme === 'dark' ? '&dark' : ''}`);
+            await tab.waitForSelector('[data-table] thead');
+            await tab.waitForFunction(() => parseFloat(document.documentElement.style.getPropertyValue('--shell-top')) > 0);
+            await tab.evaluate(() => window.scrollTo(0, 1200));
+            await tab.waitForFunction(() => window.scrollY >= 1200);
+            const box = await tab.evaluate(() => {
+                const head = document.querySelector('[data-table] thead').getBoundingClientRect();
+                const bar = document.querySelector('[data-shell-top]').getBoundingClientRect();
+                const scrollers = [...document.querySelectorAll('[data-table-card], [data-table-card] *')].filter((el) => el.scrollHeight > el.clientHeight + 1 && ['auto', 'scroll', 'hidden'].includes(getComputedStyle(el).overflowY)).length;
+                return { head: head.top, bar: bar.bottom, scrollers, page: document.scrollingElement.scrollTop };
+            });
+            assert.ok(box.page >= 1200, 'the window itself scrolled');
+            assert.ok(Math.abs(box.head - box.bar) <= 1, `the header's top (${box.head}) is the bar's bottom (${box.bar})`);
+            assert.equal(box.scrollers, 0, 'nothing inside the table scrolls');
+            // A table wider than its column keeps a sideways scroll, so every column stays reachable.
+            await tab.goto(`${authUrl}shell.html?module=1&table&wide${scheme === 'dark' ? '&dark' : ''}`);
+            await tab.waitForSelector('[data-table-scroll="x"]');
+            const wide = await tab.evaluate(() => { const el = document.querySelector('[data-table-scroll]'); return { x: el.scrollWidth > el.clientWidth, y: el.scrollHeight > el.clientHeight + 1 }; });
+            assert.deepEqual(wide, { x: true, y: false }, 'a wide table scrolls sideways only');
+        } finally {
+            await context.close();
+        }
+    });
+
 // ── A long workspace name (shell.html?name=…, #1177): the switcher gives way before search; the name ellipsizes with its full name in title ──
 for (const scheme of ['light', 'dark'])
     test(`the shell bar with a long workspace name (${scheme}): the name ellipsizes first, search keeps its width, no overflow, no axe target-size failure`, async () => {
@@ -13771,8 +13801,8 @@ test('Row gaps: an unsectioned menu draws a divider before its trailing destruct
     });
 });
 
-test('DataTable sticky header is desktop-only: at phone width the row cards flow with the page (no inner scroll box); at desktop the header still sticks in a capped box', async () => {
-    for (const [width, inner] of [[390, false], [1280, true]]) {
+test('DataTable has no inner vertical scroll box at any width: the row cards and the desktop table both flow with the page (#2092)', async () => {
+    for (const [width, inner] of [[390, false], [1280, false]]) {
         const context = await browser.newContext({ viewport: { width, height: 700 } });
         try {
             const tab = await context.newPage();

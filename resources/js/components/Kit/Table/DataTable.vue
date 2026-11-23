@@ -173,6 +173,21 @@ const stops = [
     router.on('finish', () => (busy.value = false)),
 ];
 onBeforeUnmount(() => stops.forEach((stop) => stop()));
+// `wide`: the table is wider than its column, so the box scrolls sideways (sm and up) rather than clipping columns away.
+const scroller = ref<HTMLElement | null>(null);
+const wide = ref(false);
+// Watched rather than read on mount: the box comes and goes with the empty states.
+watch(scroller, (box, _, onCleanup) => {
+    if (!box || typeof ResizeObserver === 'undefined') return;
+    const table = box.firstElementChild as HTMLElement;
+    const measure = () =>
+        (wide.value = table.scrollWidth > box.clientWidth + 1);
+    const observer = new ResizeObserver(measure);
+    observer.observe(box);
+    observer.observe(table);
+    measure();
+    onCleanup(() => observer.disconnect());
+});
 const current = () => new URLSearchParams(window.location.search);
 const tabKey = computed(
     () => props.table.tabs.find((tab) => tab.current)?.key ?? null,
@@ -444,21 +459,25 @@ const showToolbar = computed(
             :class="[
                 // relative: the card and its scroll box clip what they hold, so the row actions' absolutely positioned sr-only text
                 // (a disabled action's reason, the menu label) stays inside them instead of adding blank scroll past the page on a phone.
-                'relative',
+                // min-w-0: clip, unlike hidden, leaves a grid or flex item's automatic minimum width at its content, so a wide table would stretch the card.
+                'relative min-w-0',
+                // overflow-clip, not hidden: clip makes no scroll container, so the sticky header pins under the shell's bar as the page scrolls.
                 surface
-                    ? '-mx-4 -mb-4 overflow-hidden border-t first:-mt-4 first:border-t-0'
+                    ? '-mx-4 -mb-4 overflow-clip border-t first:-mt-4 first:border-t-0'
                     : onCard
-                      ? 'overflow-hidden'
-                      : 'bg-card text-card-foreground ring-border overflow-hidden rounded-lg ring-1',
+                      ? 'overflow-clip'
+                      : 'bg-card text-card-foreground ring-border overflow-clip rounded-lg ring-1',
                 busy ? 'opacity-60' : '',
             ]"
             data-table-card
         >
+            <!-- One page scroll: from sm up the box clips rather than scrolls, so the header sticks under the bar. Only a table wider than its
+                 column (`wide`) scrolls sideways here, and then its header stays at the top of the table instead. Phones stack rows. -->
             <div
-                class="relative overflow-x-auto"
-                :class="
-                    stickyHeader ? 'sm:max-h-[70svh] sm:overflow-y-auto' : ''
-                "
+                ref="scroller"
+                class="relative max-sm:overflow-x-auto"
+                :class="wide ? 'sm:overflow-x-auto' : 'sm:overflow-clip'"
+                :data-table-scroll="wide ? 'x' : null"
             >
                 <table
                     class="w-full border-collapse text-sm max-sm:block"
@@ -467,7 +486,11 @@ const showToolbar = computed(
                 >
                     <thead
                         class="bg-muted/60 text-muted-foreground text-xs max-sm:sr-only"
-                        :class="stickyHeader ? 'sticky top-0 z-10' : ''"
+                        :class="
+                            stickyHeader
+                                ? 'sticky top-[var(--kit-sticky-top,var(--shell-top,0px))] z-10'
+                                : ''
+                        "
                     >
                         <tr
                             v-for="group in tanstack.getHeaderGroups()"
