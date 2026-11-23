@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.48.2
 
 Features affected: none re-pinned; PackageMigrator (the package's migration order and pre-0.43 adopt migrations).
 
