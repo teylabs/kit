@@ -304,9 +304,12 @@ final class PageShell implements ShellSource
             if ((string) $request->route('workspace') === (string) $workspace->id) {
                 $allowed['module'] = self::moduleNavigation(app(Registry::class), $primary, fn (string $ability): bool => $this->may($user, $ability), fn (array $page): string => WorkspaceUrl::to($workspace, $page['suffix'], null, $request), fn (array $page): bool => $this->active($request, $workspace, $page));
                 // A section is current whenever one of its pages is, including a page matched only through its own `active` (Admin › Settings on settings/*).
+                // A module with no primary link of its own whose row holds a primary link's page as a sibling pill (the dashboard among HC's Home pills,
+                // #1878) makes that link current, unless another one already is.
                 if ($allowed['module'] !== null && in_array(true, array_column($allowed['module']['items'], 'current'), true)) {
+                    $sibling = in_array(true, array_column($allowed['primary'], 'current'), true) ? [] : array_column($allowed['module']['items'], 'url');
                     foreach ($allowed['primary'] as $index => $link) {
-                        if ($link['label'] === $allowed['module']['label']) {
+                        if ($link['label'] === $allowed['module']['label'] || in_array($link['url'], $sibling, true)) {
                             $allowed['primary'][$index]['current'] = true;
                             break;
                         }

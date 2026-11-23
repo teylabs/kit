@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+Features affected: core (Composer), session-ui (PageShell's current primary link); pins unchanged. No default look changes.
+
+### Added
+
+- **`Composer` takes `rows`.** The open field's height in lines, 3 by default as before; `rows=1` keeps it a single line with no empty space below the text, for a one-line check-in field (Hubcommons #1878).
+
+### Fixed
+
+- **A sibling pill makes its primary link current.** When the dashboard is one pill of a module with no primary link of its own (Home, Front desk, Guests, Sales), the top bar's Dashboard link is current on every one of those pills, not only on the dashboard: the rule of #1215, matched by the link's URL in the module's row (Hubcommons #1878; L4).
+
+### Notes
+
+- **Pills on the kit's own dashboard need nothing new.** With the dashboard registered as a page of that module (`modulePage('desk', …, 'Home', '', active: '')`) and no module of its own, the kit's dashboard page already draws the module's row with Home current, so an app can drop a `Registry::dashboardComponent()` override it kept only for that. ModuleTabsCheck now pins it.
+
 ## v0.48.2
 
 Features affected: none re-pinned; PackageMigrator (the package's migration order and pre-0.43 adopt migrations).
