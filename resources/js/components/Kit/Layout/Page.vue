@@ -121,6 +121,7 @@ const page = usePage<{
             }[];
             nested?: boolean;
             sidebar?: boolean;
+            variant?: string | null;
         }[];
         width?: 'xs' | 'sm' | 'md' | 'lg' | 'xl' | 'full' | null;
         navigationHeader?: {
