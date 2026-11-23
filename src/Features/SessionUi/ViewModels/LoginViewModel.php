@@ -17,8 +17,9 @@ final class LoginViewModel extends PageViewModel
      * @param  ?array{url: string, email: string}  $localLogin  an app's one-click local sign-in offer (null where it is not available)
      * @param  ?string  $register  the "Create an account" link, while Fortify's registration feature is on (null where registration is closed)
      * @param  ?array{options_url: string, login_url: string}  $passkey  Fortify's passkey sign-in endpoints, while its passkeys feature is on (else null)
+     * @param  ?string  $forgot  the "Forgot your password?" link, while Fortify's resetPasswords feature is on (null where it is off: the route does not exist)
      */
-    public function __construct(private string $title, private ?string $status = null, private ?array $localLogin = null, private ?string $register = null, private ?array $passkey = null) {}
+    public function __construct(private string $title, private ?string $status = null, private ?array $localLogin = null, private ?string $register = null, private ?array $passkey = null, private ?string $forgot = null) {}
 
     public function title(): string
     {
@@ -39,6 +40,11 @@ final class LoginViewModel extends PageViewModel
     public function register(): ?string
     {
         return $this->register;
+    }
+
+    public function forgot(): ?string
+    {
+        return $this->forgot;
     }
 
     /** @return ?array{options_url: string, login_url: string} */

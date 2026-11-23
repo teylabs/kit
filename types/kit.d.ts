@@ -823,6 +823,7 @@ url: string,
 email: string,
 } | null,
 readonly register: string | null,
+readonly forgot: string | null,
 readonly passkey: {
 options_url: string,
 login_url: string,

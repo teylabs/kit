@@ -196,6 +196,15 @@ try {
     check(($body['props']['shell']['kind'] ?? null) === 'guest' && ($body['props']['shell']['product']['name'] ?? null) === 'Northwind Farms' && isset($body['props']['shell']['footer']), 'the sign-in page carries the shared `shell` prop: a guest\'s, with the product and the footer');
     check(is_array($body['props']['kitPassword'] ?? null) && array_key_exists('passkeyOffer', $body['props']) && array_key_exists('environment', $body['props']), 'and session-ui\'s own props: kitPassword, passkeyOffer and environment');
 
+    // "Forgot your password?" only while Fortify's resetPasswords feature is on: with it off there is no /forgot-password route, so no link to a 404.
+    check(($body['props']['forgot'] ?? null) === '/forgot-password', 'with password reset on, the sign-in page links to /forgot-password');
+    $features = config('fortify.features', []);
+    config(['fortify.features' => array_values(array_diff($features, [Laravel\Fortify\Features::resetPasswords()]))]);
+    $noReset = json_decode((string) $dispatch(Request::create('https://kit.test/login', 'GET', server: $inertia))->getContent(), true) ?? [];
+    config(['fortify.features' => $features]);
+    check(array_key_exists('forgot', $noReset['props'] ?? []) && $noReset['props']['forgot'] === null, 'with it off, the page offers no "Forgot your password?" link (forgot: '.json_encode($noReset['props']['forgot'] ?? 'missing').')');
+    check(str_contains((string) file_get_contents(__DIR__.'/../resources/features/session-ui/pages/Auth/Login/Page.vue.stub'), '<Link v-if="forgot" :href="forgot"'), 'and the sign-in page draws the link only from that prop');
+
     // Signing in: Fortify's POST /login with the right password authenticates the session and lands on the app's own home (kit.home).
     Auth::guard('web')->logout();
     $wrong = $dispatch(Request::create('https://kit.test/login', 'POST', ['email' => 'ada@example.test', 'password' => 'not the passphrase']));

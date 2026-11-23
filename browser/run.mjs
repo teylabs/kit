@@ -8290,7 +8290,7 @@ test('the shell bar\'s ⌘K hint and the rest of the bar pass axe contrast under
     const presets = {
         neutral: '',
         fill: ':root{--primary:#2563eb;--primary-foreground:#ffffff;--ring:#1d4ed8;--brand-marker:#1d4ed8}',
-        'mono-ink': ':root{--primary:#050505;--primary-foreground:#ffffff;--ring:#15803d;--brand-marker:#16a34a}' + inkBar('#050505', '#16a34a'),
+        'mono-ink': ':root{--ring:#15803d;--brand-marker:#16a34a}:root:not(.dark){--primary:#050505;--primary-foreground:#ffffff}' + inkBar('#050505', '#16a34a'),
         'ink-gold': inkBar('#1a181b', '#c9a227'),
     };
     for (const [name, css] of Object.entries(presets)) {
@@ -10763,6 +10763,37 @@ async function rowAction(tab, name, label) {
 // The visible text only: the phone card's field label is hidden at this width.
 const roleOf = async (tab, name) => (await peopleRow(tab, name).locator('[data-cell="roles"]').innerText()).trim();
 
+test('People on a phone: a long email is truncated, and the row still shows its role and join date inside the screen; a join date never wraps (starter review)', async () => {
+    const store = peopleStore();
+    store.members[1].email = 'ana.lopez-hernandez.accounts-receivable@northwind-farms-example.com';
+    await peoplePage(store, peopleAt(), async ({ tab }) => {
+        await tab.setViewportSize({ width: 390, height: 800 });
+        const row = peopleRow(tab, 'Ana Lopez');
+        await row.waitFor();
+        const seen = await row.evaluate((tr) => {
+            const box = (el) => (el ? el.getBoundingClientRect() : null);
+            const email = [...tr.querySelectorAll('[data-person] span.truncate')].find((el) => el.textContent.includes('@'));
+            const cells = ['roles', 'joined'].map((key) => tr.querySelector(`[data-cell="${key}"]`)).filter(Boolean);
+            return {
+                width: innerWidth,
+                truncated: email.scrollWidth > email.clientWidth,
+                emailRight: box(email).right,
+                cells: cells.map((cell) => ({ key: cell.dataset.cell, right: box(cell).right, width: box(cell).width, text: cell.innerText.trim() })),
+                pageScroll: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+            };
+        });
+        assert.ok(seen.truncated && seen.emailRight <= seen.width, `the email is cut with an ellipsis inside the screen (${JSON.stringify(seen)})`);
+        assert.ok(seen.cells.length >= 1 && seen.cells.every((cell) => cell.width > 0 && cell.right <= seen.width && cell.text !== ''), `the role and join date show inside the screen (${JSON.stringify(seen)})`);
+        assert.ok(seen.pageScroll <= 0, `the page does not scroll sideways (${JSON.stringify(seen)})`);
+        if (process.env.KIT_PEOPLE_SHOTS) await row.screenshot({ path: `${process.env.KIT_PEOPLE_SHOTS}/people-phone.png` });
+        // At 1280 a wide row (long email, written-out actions) squeezes Joined: a date stays on one line.
+        await tab.setViewportSize({ width: 1280, height: 800 });
+        await tab.evaluate(() => { for (const cell of document.querySelectorAll('[data-cell="joined"]')) cell.style.width = '40px'; });
+        const lines = await tab.$$eval('[data-cell="joined"] time', (times) => times.map((time) => time.getClientRects().length));
+        assert.ok(lines.length > 0 && lines.every((count) => count === 1), `each join date is one line in a narrow column (${JSON.stringify(lines)})`);
+    });
+});
+
 test('People, Change role: a person opens Change role on a member, picks Admin and presses Save; the modal closes, the row shows Admin, also after a reload', async () => {
     const store = peopleStore();
     await peoplePage(store, peopleAt(), async ({ tab, posts, reload }) => {
@@ -10827,7 +10858,7 @@ test('surface tokens on a tinted theme: a FormCard draws --kit-card-shadow, a fi
             assert.match(dialog.shadow, themed ? /rgba\(50, 52, 39, 0\.07\) 0px 5px 15px 0px/ : /rgba\(28, 25, 23, 0\.2\) 0px 15px 35px 0px/, 'the Dialog draws --kit-modal-shadow (elevation level 5 by default)');
         } finally { await context.close(); }
     }
-    // A field's fill and edge, on their own: by default white-filled with a 3:1 edge (#8f8f8f on white) and shadow-xs; a theme's --kit-field and --kit-field-edge set them.
+    // A field's fill and edge, on their own: by default white-filled with a 3:1 edge (#8f8f8c on white) and shadow-xs; a theme's --kit-field and --kit-field-edge set them.
     for (const themed of [false, true]) {
         const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
         try {
@@ -10836,7 +10867,7 @@ test('surface tokens on a tinted theme: a FormCard draws --kit-card-shadow, a fi
             if (themed) await tab.addStyleTag({ content: surfaceTheme });
             const field = await tab.locator('textarea').first().evaluate(el => (el.blur(), { fill: getComputedStyle(el).backgroundColor, edge: getComputedStyle(el).borderTopColor, shadow: getComputedStyle(el).boxShadow }));
             assert.equal(field.fill, themed ? 'rgb(254, 254, 254)' : 'rgb(255, 255, 255)', `${themed ? 'tinted' : 'default'}: a field fills with --kit-field (the card's white by default)`);
-            assert.equal(field.edge, themed ? 'rgb(122, 128, 96)' : 'rgb(143, 143, 143)', `${themed ? 'tinted' : 'default'}: a field's edge is --kit-field-edge (3:1 on white by default)`);
+            assert.equal(field.edge, themed ? 'rgb(122, 128, 96)' : 'rgb(143, 143, 140)', `${themed ? 'tinted' : 'default'}: a field's edge is --kit-field-edge (3:1 on white by default)`);
             assert.match(field.shadow, /rgba\(28, 25, 23, 0\.1\) 0px 1px 3px 0px$/, 'a field draws the smallest shadow, elevation level 1');
         } finally { await context.close(); }
     }
@@ -10863,6 +10894,67 @@ test('certification: an unchecked InputSwitch track reaches 3:1 against its surf
     }
 });
 
+
+test('field edge (c, Jasper #1899): a field\'s edge reaches 3:1 against its own fill and against the card, under every brand preset, light and dark', async () => {
+    const presets = {
+        neutral: '',
+        fill: ':root{--primary:#2563eb;--primary-foreground:#ffffff;--ring:#1d4ed8;--brand-marker:#1d4ed8}',
+        'mono-ink': ':root{--ring:#15803d;--brand-marker:#16a34a}:root:not(.dark){--primary:#050505;--primary-foreground:#ffffff}' + inkBar('#050505', '#16a34a'),
+        'ink-gold': inkBar('#1a181b', '#c9a227'),
+    };
+    for (const [name, css] of Object.entries(presets)) {
+        for (const dark of [false, true]) {
+            const scheme = `${name} ${dark ? 'dark' : 'light'}`;
+            const context = await browser.newContext({ viewport: { width: 1024, height: 700 } });
+            try {
+                const tab = await context.newPage();
+                await tab.goto(`${url}?textarea${dark ? '&dark' : ''}`);
+                if (css) await tab.addStyleTag({ content: css });
+                await tab.evaluate(contrastOn);
+                const seen = await tab.locator('textarea').first().evaluate((el) => {
+                    el.blur();
+                    const probe = (value) => { const c = document.createElement('canvas').getContext('2d'); c.fillStyle = '#000'; c.fillStyle = value; c.fillRect(0, 0, 1, 1); return [...c.getImageData(0, 0, 1, 1).data]; };
+                    const lum = (c) => { const [r, g, b] = c.slice(0, 3).map(v => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+                    const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m); return (x + 0.05) / (y + 0.05); };
+                    const style = getComputedStyle(el);
+                    const card = probe(getComputedStyle(document.documentElement).getPropertyValue('--card').trim());
+                    const over = (top, under) => { const a = top[3] / 255; return [0, 1, 2].map(i => top[i] * a + under[i] * (1 - a)); };
+                    const fill = over(probe(style.backgroundColor), card);
+                    const edge = over(probe(style.borderTopColor), fill);
+                    return { onFill: ratio(edge, fill), onCard: ratio(over(probe(style.borderTopColor), card), card), edge: style.borderTopColor, fill: style.backgroundColor };
+                });
+                assert.ok(seen.onFill >= 3, `${scheme}: the edge ${seen.edge} on fill ${seen.fill} is ${seen.onFill.toFixed(2)}:1 on the field's fill (3:1)`);
+                assert.ok(seen.onCard >= 3, `${scheme}: the edge ${seen.edge} is ${seen.onCard.toFixed(2)}:1 on the card (3:1)`);
+            } finally { await context.close(); }
+        }
+    }
+});
+
+test('dark fields (Jasper #1913, HC #1914): no field component carries a dark:bg-input class, and a theme\'s --kit-field fills every field in light and dark', async () => {
+    const formDir = path.join(here, '../resources/js/components/Kit/Form');
+    const carrying = readdirSync(formDir).filter((name) => name.endsWith('.vue') && /dark:bg-input\b/.test(readFileSync(path.join(formDir, name), 'utf8')));
+    assert.deepEqual(carrying, [], 'no Kit/Form component hard-codes a dark:bg-input fill');
+    const names = ['Input', 'Select', 'InputSelect', 'InputNumber', 'InputDate', 'InputDateRange', 'InputTime', 'InputTimeRange', 'PeriodPicker', 'Textarea'];
+    for (const dark of [false, true]) {
+        const context = await browser.newContext({ viewport: { width: 1024, height: 1200 } });
+        try {
+            const tab = await context.newPage();
+            await tab.goto(`${url}?fields-fill${dark ? '&dark' : ''}`);
+            await tab.waitForSelector('[data-field="Textarea"] textarea');
+            const fills = async () => tab.evaluate((list) => Object.fromEntries(list.map((name) => {
+                const box = document.querySelector(`[data-field="${name}"]`);
+                const el = [...box.querySelectorAll('*')].find((node) => /kit-field,/.test(node.getAttribute('class') ?? ''));
+                return [name, el ? getComputedStyle(el).backgroundColor : 'no field'];
+            })), names);
+            const card = await tab.evaluate(() => { const p = document.createElement('div'); p.style.background = 'var(--card)'; document.body.append(p); const c = getComputedStyle(p).backgroundColor; p.remove(); return c; });
+            const before = await fills();
+            assert.deepEqual(Object.entries(before).filter(([, fill]) => fill !== card), [], `${dark ? 'dark' : 'light'}: every field fills with the card by default (${card})`);
+            await tab.addStyleTag({ content: ':root,.dark{--kit-field:rgb(18, 52, 86)}' });
+            const themed = await fills();
+            assert.deepEqual(Object.entries(themed).filter(([, fill]) => fill !== 'rgb(18, 52, 86)'), [], `${dark ? 'dark' : 'light'}: a theme's --kit-field reaches every field`);
+        } finally { await context.close(); }
+    }
+});
 
 test('certification: a long chosen option in a searchable InputSelect stays inside its 220px span-2 column, at 1280 and 390 (AppraisalBench #1846)', async () => {
     for (const width of [1280, 390]) {
