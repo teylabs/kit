@@ -134,6 +134,9 @@ try {
             WorkspaceRoutes::page(Route::middleware('web')->get('accounts', $render(false)), $full, 'billing', 'accounts.index', 'Accounts', ['session-ui', 'workspaces.dashboard.index']);
             WorkspaceRoutes::page(Route::middleware('web')->get('accounts/plans', $render(false)), $full, 'billing', 'accounts.plans', 'Plans', ['billing', 'accounts.index']);
             WorkspaceRoutes::page(Route::middleware('web')->get('accounts/tax', $render(false)), $full, 'billing', 'accounts.tax', 'Tax', ['billing', 'accounts.index']);
+            WorkspaceRoutes::page(Route::middleware('web')->get('desk', $render(false)), $full, 'billing', 'desk.index', 'Front desk', ['session-ui', 'workspaces.dashboard.index']);
+            WorkspaceRoutes::page(Route::middleware('web')->get('desk/sales', $render(false)), $full, 'billing', 'desk.sales', 'Sales', ['desk', 'desk.index']);
+            WorkspaceRoutes::page(Route::middleware('web')->get('guests', $render(false)), $full, 'billing', 'guests.index', 'Guests', ['session-ui', 'workspaces.dashboard.index']);
         });
         PHP);
     $app->make(Registry::class)->routes($base.'/billing-routes.php')->modulePage('billing', 'dashboard.read', 'Summary', 'billing')->modulePage('billing', 'members.manage', 'Invoices', 'billing/invoices', icon: 'receipt')->modulePage('billing', 'dashboard.read', 'Run', 'billing/run')
@@ -319,6 +322,22 @@ try {
     check($row($covered) === [['Summary', false], ['Invoices', true], ['Run', false]], 'a module under a current primary link that has no pages of its own still draws its row, one page current (got '.json_encode($row($covered)).')');
     check(in_array(['Admin', true], array_map(fn (array $link): array => [$link['label'], $link['current']], $covered['shell']['navigation']), true), 'and the covering primary link stays current');
     check($groups($billing('owner', 'accounts/plans')) === [[null, true, [['Overview', false]]], ['Catalogue', true, [['Plans', true]]], ['Setup', true, [['Tax', false]]]], 'the same for a sidebar module: its groups, one page current');
+
+    // The dashboard as a pill of its own sibling module (HC's Home pills, #1878: Home, Front desk, Guests, Sales): with any of its pills open, the
+    // dashboard's primary link is current, the same rule as #1215 for a module that has no primary link of its own.
+    $app->make(Registry::class)->modulePage('desk', 'dashboard.read', 'Home', '', active: '')->modulePage('desk', 'dashboard.read', 'Front desk', 'desk')->modulePage('desk', 'dashboard.read', 'Sales', 'desk/sales')->modulePage('desk', 'dashboard.read', 'Guests', 'guests');
+    $topBar = fn (array $props): array => array_map(fn (array $link): array => [$link['label'], $link['current']], $props['shell']['navigation'] ?? []);
+    foreach (['desk', 'desk/sales', 'guests'] as $pill) {
+        $nested = $billing('owner', $pill);
+        check(in_array(['Dashboard', true], $topBar($nested), true) && in_array([match ($pill) { 'desk' => 'Front desk', 'desk/sales' => 'Sales', 'guests' => 'Guests' }, true], $row($nested), true), 'with the sibling pill '.$pill.' open, its pill is current and so is the dashboard\'s primary link (got '.json_encode([$topBar($nested), $row($nested)]).')');
+    }
+
+    // The kit's own dashboard draws the sibling module's row when the dashboard has no module of its own (HC drops its dashboardComponent override).
+    $pages = new ReflectionProperty(Registry::class, 'modulePages');
+    $registry = $app->make(Registry::class);
+    $pages->setValue($registry, array_filter($pages->getValue($registry), fn (array $entry): bool => $entry['module'] !== ''));
+    $home = $billing('owner', '');
+    check($row($home) === [['Home', true], ['Front desk', false], ['Sales', false], ['Guests', false]] && in_array(['Dashboard', true], $topBar($home), true), 'the kit\'s dashboard, with no module of its own, draws its sibling module\'s row with Home current (got '.json_encode([$row($home), $topBar($home)]).')');
 
     echo "Module tab checks on SQLite memory with real Concierge, spatie teams and Pennant; Inertia JSON through router dispatch without the global middleware stack. No browser here: <Page> drawing the tabs is browser/run.mjs's.\n";
 } catch (Throwable $error) {

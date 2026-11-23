@@ -6,7 +6,8 @@ import { computed, nextTick, ref } from 'vue';
  * `#avatar` before the placeholder. Focus it, or give it text, and it opens in place: the field grows to a few lines, `#below` shows under it (chosen files,
  * an error), and a toolbar row shows `#tools` (attach, colour) on the left and Cancel and the submit button on the right. The whole box draws the focus ring.
  * Escape or Cancel closes it while it is empty; ⌘/Ctrl+Enter submits. `as="form"` (the default) emits `submit` with the text; `as="div"` sits inside the
- * page's own <Form> (Inertia's), whose fields it submits: the textarea is a named field (`name`), and Post is that form's submit button.
+ * page's own <Form> (Inertia's), whose fields it submits: the textarea is a named field (`name`), and Post is that form's submit button. `rows` (3) is
+ * the open field's height in lines; `rows=1` keeps it one line, with no empty space below the text.
  */
 const props = withDefaults(
     defineProps<{
@@ -21,6 +22,7 @@ const props = withDefaults(
         maxlength?: number;
         invalid?: boolean;
         describedby?: string;
+        rows?: number;
     }>(),
     {
         as: 'form',
@@ -34,6 +36,7 @@ const props = withDefaults(
         submitLabel: 'Post',
         busy: false,
         open: false,
+        rows: 3,
     },
 );
 const body = defineModel<string>({ default: '' });
@@ -89,7 +92,7 @@ function submit() {
                 :aria-describedby="describedby"
                 :aria-label="label ?? placeholder"
                 :placeholder="placeholder"
-                :rows="expanded ? 3 : 1"
+                :rows="expanded ? rows : 1"
                 class="placeholder:text-muted-foreground min-h-0 w-full flex-1 resize-none bg-transparent py-1.5 text-sm outline-none"
                 data-composer-field
                 @focus="expand"

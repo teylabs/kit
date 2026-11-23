@@ -10884,6 +10884,21 @@ test('certification: a long chosen option in a searchable InputSelect stays insi
     }
 });
 
+test('Composer rows: an open composer is three lines by default, and rows=1 keeps it one line with no empty space below the text (Hubcommons #1878)', async () => {
+    const tab = await browser.newPage({ viewport: { width: 900, height: 500 } });
+    try {
+        await tab.goto(`${url}?composer-rows`);
+        await tab.waitForSelector('#one[data-composer-field]');
+        const seen = await tab.evaluate(() => Object.fromEntries(['three', 'one'].map((id) => {
+            const field = document.getElementById(id);
+            const line = parseFloat(getComputedStyle(field).lineHeight);
+            return [id, { rows: field.rows, lines: Math.round((field.clientHeight - parseFloat(getComputedStyle(field).paddingTop) - parseFloat(getComputedStyle(field).paddingBottom)) / line) }];
+        })));
+        assert.deepEqual(seen, { three: { rows: 3, lines: 3 }, one: { rows: 1, lines: 1 } }, JSON.stringify(seen));
+        if (process.env.KIT_COMPOSER_SHOTS) await tab.screenshot({ path: `${process.env.KIT_COMPOSER_SHOTS}/composer-rows.png` });
+    } finally { await tab.close(); }
+});
+
 // ── v0.48.0 defaults: the near-white ground with lifted white cards, the five-level elevation scale, and --kit-outline following --border ──
 test('defaults (v0.48.0): a near-white ground (#fafaf9) with lifted white cards at elevation 1, menus at elevation 3, dark cards lighter than the ground, and --kit-outline is --border', async () => {
     for (const scheme of ['light', 'dark']) {
