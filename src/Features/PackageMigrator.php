@@ -88,7 +88,58 @@ final class PackageMigrator extends Migrator
             $files += array_filter(parent::getMigrationFiles([self::directory($id)]), fn (string $file): bool => ! in_array(self::name($file), $own, true));
         }
 
-        return (new Collection($this->withoutAdopted($files)))->sortBy(fn (string $file, string $name): string => $name)->all();
+        $files = $this->withoutAdopted($files);
+        $after = $this->afterCopies($files);
+
+        return (new Collection($files))->sortBy(fn (string $file, string $name): string => $after[$name] ?? $name)->all();
+    }
+
+    /**
+     * Where each package migration sorts when the app has stamped copies of its feature: just after the app's copy with the highest order below
+     * its own (`0001_01_02_000211_…` follows `2026_10_29_…_000210_…`), so a package migration added after kit:add stamped the copies never runs
+     * ahead of the tables they create. Only the undated baselines (`0001_01_02_`) move: the dated 0.18 renames keep their place (asWritten()). A
+     * package migration with no such copy, or one already later, keeps its own name.
+     *
+     * @param  array<string, string>  $files
+     * @return array<string, string> migration name => sort key
+     */
+    private function afterCopies(array $files): array
+    {
+        $keys = [];
+        foreach ($this->copies as $id => $copies) {
+            $own = $package = [];
+            foreach ($files as $name => $file) {
+                $order = self::order($file);
+                if ($order === null) {
+                    continue;
+                }
+                if (dirname($file) === $copies) {
+                    $own[$order] = $name;
+                } elseif (dirname($file) === self::directory($id) && str_starts_with(basename($file), '0001_01_02_')) {
+                    $package[$name] = $order;
+                }
+            }
+            ksort($own);
+            foreach ($package as $name => $order) {
+                $before = null;
+                foreach ($own as $copyOrder => $copy) {
+                    if ($copyOrder < $order) {
+                        $before = $copy;
+                    }
+                }
+                if ($before !== null && strcmp($before, $name) > 0) {
+                    $keys[$name] = $before.'~'.$name;
+                }
+            }
+        }
+
+        return $keys;
+    }
+
+    /** A kit migration's six-digit order (`000211`), the last one after its timestamp; null for a file without one. */
+    private static function order(string $file): ?string
+    {
+        return preg_match('/\A\d{4}_\d{2}_\d{2}_(?:\d{6}_)*(\d{6})_/', basename($file), $m) === 1 ? $m[1] : null;
     }
 
     /**
@@ -116,12 +167,38 @@ final class PackageMigrator extends Migrator
 
     protected function runUp($file, $batch, $pretend)
     {
-        $this->asWritten($file, $pretend, fn () => parent::runUp($file, $batch, $pretend));
+        $this->withKitMeta($file, $pretend, fn () => $this->asWritten($file, $pretend, fn () => parent::runUp($file, $batch, $pretend)));
     }
 
     protected function runDown($file, $migration, $pretend)
     {
-        $this->asWritten($file, $pretend, fn () => parent::runDown($file, $migration, $pretend));
+        $this->withKitMeta($file, $pretend, fn () => $this->asWritten($file, $pretend, fn () => parent::runDown($file, $migration, $pretend)));
+    }
+
+    /**
+     * Runs one migration. An adopt migration kit:scaffold --adopt wrote before 0.43 (`*_adopt_*_tables.php`) reads and writes kit_meta, which core's
+     * 000102 renames to app_meta, and on a fresh database that rename runs first. Where only app_meta exists, such a migration runs with it named
+     * kit_meta again, and the name is put back after it, so its records land in app_meta. A database that still has kit_meta runs it as it is.
+     */
+    private function withKitMeta(string $file, bool $pretend, Closure $run): void
+    {
+        if ($pretend || ! preg_match('/_adopt_[a-z_]+_tables\.php\z/', $file) || ! str_contains($source = (string) file_get_contents($file), "'kit_meta'") || str_contains($source, "'app_meta'")) {
+            $run();
+
+            return;
+        }
+        $schema = $this->resolveConnection($this->resolvePath($file)->getConnection())->getSchemaBuilder();
+        if ($schema->hasTable('kit_meta') || ! $schema->hasTable('app_meta')) {
+            $run();
+
+            return;
+        }
+        $schema->rename('app_meta', 'kit_meta');
+        try {
+            $run();
+        } finally {
+            $schema->rename('kit_meta', 'app_meta');
+        }
     }
 
     /**

@@ -397,6 +397,26 @@ try {
         $refusal = $error->getMessage();
     }
     check(str_contains((string) $refusal, 'A signed_in_devices table already exists') && Schema::getColumnListing('signed_in_devices') === ['id', 'push_token'], 'with an app\'s own signed_in_devices table, migrate refuses, naming it, and leaves the app\'s table as it was');
+    // IB's shape (0.48.2): stamped copies of workspaces up to 000210, written by kit:add before 000211 and 000212 existed, and a 0.19 adopt
+    // migration that requires kit_meta. On a fresh database the package's 000211 runs after the stamped workspaces copies, not before them, and the
+    // adopt migration finds its kit_meta though core's 000102 already named it app_meta; its record ends in app_meta.
+    $since025 = ['unprefix_kit_tables.php', 'create_kit_tags_tables.php', 'unprefix_and_protect_tags_tables.php'];
+    $stamped025 = array_filter(copies('2026_10_29_122619'), fn (string $path): bool => ! in_array(preg_replace('/\A(?:\d+_)+/', '', basename($path)), $since025, true), ARRAY_FILTER_USE_KEY);
+    $adopt019 = "<?php\n\nuse Illuminate\\Support\\Facades\\DB;\nuse Illuminate\\Support\\Facades\\Schema;\n\nreturn new class extends Illuminate\\Database\\Migrations\\Migration\n{\n    public function up(): void\n    {\n        if (! Schema::hasTable('kit_meta')) {\n            throw new RuntimeException('kit_meta is missing');\n        }\n        DB::table('kit_meta')->insert(['key' => 'adopt.synthetic', 'value' => 'renamed']);\n    }\n\n    public function down(): void\n    {\n        DB::table('kit_meta')->where('key', 'adopt.synthetic')->delete();\n    }\n};\n";
+    $ib = host($stamped025 + ['database/migrations/2026_11_14_032334_adopt_session_ui_tables.php' => $adopt019]);
+    $ran = migrate($ib);
+    check(array_search('2026_10_29_122619_000210_add_deleting_at_to_kit_workspaces_table', $ran, true) < array_search('0001_01_02_000211_create_kit_tags_tables', $ran, true)
+        && array_search('0001_01_02_000211_create_kit_tags_tables', $ran, true) < array_search('0001_01_02_000212_unprefix_and_protect_tags_tables', $ran, true), 'on a fresh database the package\'s 000211 and 000212 run after the app\'s stamped workspaces copies ('.implode(', ', array_slice($ran, 0, 40)).')');
+    check(Schema::hasTable('app_meta') && ! Schema::hasTable('kit_meta') && $ib['db']->table('app_meta')->where('key', 'adopt.synthetic')->value('value') === 'renamed', 'a 0.19 adopt migration that requires kit_meta runs on a fresh database, and its record is in app_meta');
+
+    // An app on a 0.25 schema (its stamped copies ran, kit_meta still named so) that adds its 0.19 adopt migration with the upgrade: 000102 runs
+    // first and renames kit_meta, and the adopt migration still runs.
+    $up025 = host($stamped025);
+    migrate017($up025);
+    check(Schema::hasTable('kit_meta') && ! Schema::hasTable('app_meta'), 'the 0.25 app has kit_meta');
+    file_put_contents($up025->databasePath('migrations/2026_11_14_032334_adopt_session_ui_tables.php'), $adopt019);
+    $ran = migrate($up025);
+    check(in_array('0001_01_02_000102_unprefix_kit_tables', $ran, true) && in_array('2026_11_14_032334_adopt_session_ui_tables', $ran, true) && $up025['db']->table('app_meta')->where('key', 'adopt.synthetic')->value('value') === 'renamed' && ! Schema::hasTable('kit_meta'), 'upgrading the 0.25 app runs 000102 and the 0.19 adopt migration, which records in app_meta');
     echo 'Package migrations and the 0.18 renames on '.(getenv('DB_CONNECTION') === 'pgsql' ? 'PostgreSQL (throwaway schemas)' : 'SQLite files').", synthetic apps and rows. A consumer app is not covered here.\n";
 } catch (Throwable $error) {
     fwrite(STDERR, 'FAIL '.$error->getMessage()."\n".$error->getTraceAsString()."\n");
