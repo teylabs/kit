@@ -6396,6 +6396,51 @@ test('CommentItem: Reply opens a composer below the comment, focused, that posts
     });
 });
 
+// ── Dashboard header actions (dashboard.html?actions, HC #2100): Registry::dashboardActions() drawn as any page header: one primary, two secondaries, More ──
+test('the dashboard draws its header actions: New booking filled, Log mail and New sale outline, the rest under More', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${authUrl}dashboard.html?actions`);
+        await tab.waitForSelector('[data-widget-grid]');
+        const header = tab.locator('[data-header-actions]');
+        await header.waitFor({ timeout: 5000 });
+        const drawn = await header.evaluate((el) => [...el.querySelectorAll('[data-header-action]')].map((b) => [b.dataset.headerAction, b.textContent.trim()]));
+        assert.deepEqual(drawn, [['primary', 'New booking'], ['secondary', 'Log mail'], ['secondary', 'New sale']], 'one primary, then two secondaries, in order');
+        assert.equal(await header.getByText('Add guest', { exact: true }).count(), 0, 'the fourth action is not drawn in the header');
+        await header.locator('[data-header-more]').first().click();
+        await tab.getByRole('menuitem', { name: 'Add guest' }).waitFor();
+        assert.equal(await tab.getByRole('menuitem', { name: 'Export day' }).count(), 1, 'More holds the rest, in order');
+    } finally {
+        await context.close();
+    }
+});
+
+// ── WidgetGrid on a phone (dashboard.html, HC #2100): below md the aside (You, then the status cards) comes before the main feed; from md main is left ──
+test('WidgetGrid below md stacks the aside first, then the main column; from md main is on the left as before', async () => {
+    for (const width of [390, 1280]) {
+        const context = await browser.newContext({ viewport: { width, height: 800 } });
+        try {
+            const tab = await context.newPage();
+            await tab.goto(`${authUrl}dashboard.html?setup`);
+            await tab.waitForSelector('[data-widget-region="aside"]');
+            const box = await tab.evaluate(() => {
+                const r = (region) => document.querySelector(`[data-widget-region="${region}"]`).getBoundingClientRect();
+                const cards = [...document.querySelectorAll('[data-widget-region] > *')].sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top);
+                return { aside: r('aside'), main: r('main'), first: cards[0].textContent.includes('Ada Example') };
+            });
+            if (width === 390) {
+                assert.ok(box.aside.bottom <= box.main.top + 1, `390: the aside (bottom ${box.aside.bottom}) is above the main column (top ${box.main.top})`);
+                assert.equal(box.first, true, '390: the You card is the first card on the page');
+            } else {
+                assert.ok(box.main.right <= box.aside.left + 1 && Math.abs(box.main.top - box.aside.top) <= 1, `1280: main is left of the aside, side by side (${JSON.stringify([box.main.left, box.aside.left])})`);
+            }
+        } finally {
+            await context.close();
+        }
+    }
+});
+
 // ── The You card's avatar (dashboard.html&avatar=…): one scale step (lg) in every state, and a photo that fails to load shows the initials ───────────
 test('the You card avatar: the lg step with initials, a photo and a broken photo; a broken src shows the initials with no image left', async () => {
     const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });

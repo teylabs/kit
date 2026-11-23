@@ -30,8 +30,9 @@ final class DashboardViewModel extends PageViewModel
      * card in the sixth place is a TypeError, and `welcome:` an unknown named argument.
      *
      * @param  array<string, mixed>  $lists
+     * @param  list<\Tey\Kit\Features\Core\Data\Action>  $actions
      */
-    public function __construct(private string $title, private string $workspace, private string $next_label, private string $next_url, private string $greeting = '', private array $widgets = [], array $lists = [], private string $aside = 'narrow', private bool $mergeWidgets = false)
+    public function __construct(private string $title, private string $workspace, private string $next_label, private string $next_url, private string $greeting = '', private array $widgets = [], array $lists = [], private string $aside = 'narrow', private bool $mergeWidgets = false, private array $actions = [])
     {
         $this->lists = $lists;
     }
@@ -72,6 +73,12 @@ final class DashboardViewModel extends PageViewModel
     {
         // `mergeWidgets`: the partial reload after a Sort by choice, carrying only that widget's frame, which the page swaps in by key.
         return $this->mergeWidgets ? Inertia::merge($this->widgets)->matchOn('key') : $this->widgets;
+    }
+
+    /** @return list<\Tey\Kit\Features\Core\Data\Action> the page's header actions, from `Registry::dashboardActions()` (Page `actions`: one primary, up to two secondaries, the rest under More) */
+    public function actions(): array
+    {
+        return array_values($this->actions);
     }
 
     /** @return array<string, mixed> */

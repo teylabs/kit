@@ -833,6 +833,25 @@ final class Registry
         return $this;
     }
 
+    private ?Closure $dashboardActions = null;
+
+    /**
+     * The kit dashboard's header actions: `fn (Request $request): list<Action>`, called on each dashboard request inside the workspace. They are drawn as any
+     * page header's (Page `actions`, headerSplit): one primary, up to two secondaries and the rest under More, in order. One only.
+     */
+    public function dashboardActions(?Closure $actions = null): self|Closure|null
+    {
+        if ($actions === null) {
+            return $this->dashboardActions;
+        }
+        if ($this->dashboardActions !== null) {
+            throw new RuntimeException('Dashboard actions are already registered.');
+        }
+        $this->dashboardActions = $actions;
+
+        return $this;
+    }
+
     /** @var list<array{key: string, widget: class-string, order: int, ability: string}> */
     private array $widgets = [];
 

@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+Features affected: session-ui (Registry::dashboardActions(), DashboardViewModel), workspace-ui (the dashboard's Page and WidgetGrid, re-pinned `sha256:fe33abcd294f` → `sha256:472e3ef070d8`). Run `kit:scaffold plan|apply` for `workspace-ui` to re-take the dashboard pages. The dashboard ViewModel gains `actions`: regenerate types (Upgrading).
+
+### Added
+
+- **The dashboard can carry header actions.** `Registry::dashboardActions(fn (Request $request): array => [...])` gives the kit dashboard's heading its actions, drawn as any page's: one primary, up to two secondaries, the rest under More (ui-page.header-actions; Hubcommons #2100). They reach the page as `actions` on `WorkspaceDashboardViewModel`. docs/dashboard.md, "Header actions".
+
+### Changed
+
+- **On a phone the dashboard shows the aside first.** Below `md`, WidgetGrid now stacks the aside's cards (You, then the status and count cards) before the main column's feed, which put them several screens down (Hubcommons #2100, as approved). From `md` up the layout is unchanged.
+
+### Upgrading
+
+- `WorkspaceDashboardViewModel` gained `actions`, so the generated types changed: run `php artisan types:generate` after bumping, or a ViewModel type check (such as ViewModelStandardTest) fails.
+
 ## v0.49.5
 
 Features affected: core (DataTable); pins unchanged. No ViewModel changes shape.
