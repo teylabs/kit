@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.49.3
 
 Features affected: core (Registry::moduleVariant(), NavGroup, Page), session-ui (PageShell, Auth/Register, re-pinned `sha256:99ac1823af2e` → `sha256:ec07b4f15174`), workspace-ui (People, the dashboard's WidgetCard and WidgetGrid, re-pinned `sha256:1b23b8729b95` → `sha256:fe33abcd294f`). Run `kit:scaffold plan|apply` for `session-ui` and `workspace-ui` to re-take the pages. NavGroup gains `variant`: regenerate types (Upgrading).
 
