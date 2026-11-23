@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.49.1
 
 Features affected: session-ui (Auth/Login, re-pinned `sha256:bb7a6db1db38` → `sha256:99ac1823af2e`), workspace-ui (People, re-pinned `sha256:b1c9acb0ea15` → `sha256:1b23b8729b95`), core (DataTable, Brand::css, kit.css `--input`, the form fields' dark fill; re-pinned `sha256:8ea7c266355a` → `sha256:110b3565abeb`). Run `kit:scaffold plan|apply` for `session-ui` and `workspace-ui`.
 
