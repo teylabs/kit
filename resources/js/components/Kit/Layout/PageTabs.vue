@@ -1,6 +1,14 @@
 <script setup lang="ts">
 import { Link, router } from '@inertiajs/vue3';
-import { computed, inject, onBeforeUnmount } from 'vue';
+import {
+    computed,
+    inject,
+    nextTick,
+    onBeforeUnmount,
+    onMounted,
+    ref,
+    watch,
+} from 'vue';
 import InputSelect from '@/components/Kit/Form/InputSelect.vue';
 import SectionIcon from '@/components/Kit/Layout/SectionIcon.vue';
 
@@ -38,6 +46,24 @@ const reveal = (event: FocusEvent) => {
     if (event.target instanceof HTMLElement)
         event.target.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 };
+// The current tab is scrolled wholly into the row when the row first draws, and when the current page changes: a row wider than a phone would
+// otherwise open at its start, with the current pill off-screen (Hubcommons #2016). Only the row scrolls, never the page.
+const row = ref<HTMLElement | null>(null);
+const showCurrent = () => {
+    const list = row.value;
+    const tab = list?.querySelector<HTMLElement>('[aria-current="page"]');
+    if (!list || !tab || list.scrollWidth <= list.clientWidth) return;
+    const start =
+        tab.getBoundingClientRect().left -
+        list.getBoundingClientRect().left +
+        list.scrollLeft;
+    const end = start + tab.getBoundingClientRect().width;
+    if (start < list.scrollLeft) list.scrollLeft = start;
+    else if (end > list.scrollLeft + list.clientWidth)
+        list.scrollLeft = end - list.clientWidth;
+};
+onMounted(showCurrent);
+watch(active, () => nextTick(showCurrent));
 const tabClass = (href: string) =>
     pills.value
         ? [
@@ -126,6 +152,7 @@ const go = (href: unknown) => {
                     ? 'gap-1 py-2'
                     : 'gap-6 shadow-[inset_0_-1px_0_var(--color-border)]',
             ]"
+            ref="row"
             @focusin="reveal"
         >
             <li v-for="tab in tabs" :key="tab.href" class="shrink-0">
