@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.49.2
 
 Features affected: core (Brand::css's ink bar block); pins unchanged.
 
