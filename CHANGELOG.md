@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.49.6
 
 Features affected: session-ui (Registry::dashboardActions(), DashboardViewModel), workspace-ui (the dashboard's Page and WidgetGrid, re-pinned `sha256:fe33abcd294f` → `sha256:472e3ef070d8`). Run `kit:scaffold plan|apply` for `workspace-ui` to re-take the dashboard pages. The dashboard ViewModel gains `actions`: regenerate types (Upgrading).
 
