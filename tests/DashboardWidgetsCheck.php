@@ -448,7 +448,9 @@ try {
     ] as $provider) {
         $app->register($provider);
     }
-    $app->make(Registry::class)->widget('app.queue', QueueWidget::class, -40)->widget('app.broken', BrokenWidget::class, 5)->widget('app.admin', QueueWidget::class, 6, 'members.manage')->widget('app.sideways', SidewaysWidget::class, 7)->widget('app.oddkind', OddKindWidget::class, 8)->widget('app.tall', TallWidget::class, 9)->widget('app.stretchy', StretchyWidget::class, 10)->widget('app.ownheight', OwnHeightWidget::class, 11)->widget('app.cases', CasesWidget::class, 12)->widget('app.case-stats', CaseStatsWidget::class, 13)->widget('app.legacy-cases', LegacyCasesWidget::class, 14)->widget('app.limbo', LimboWidget::class, 15);
+    $app->make(Registry::class)->widget('app.queue', QueueWidget::class, -40)->widget('app.broken', BrokenWidget::class, 5)->widget('app.admin', QueueWidget::class, 6, 'members.manage')->widget('app.sideways', SidewaysWidget::class, 7)->widget('app.oddkind', OddKindWidget::class, 8)->widget('app.tall', TallWidget::class, 9)->widget('app.stretchy', StretchyWidget::class, 10)->widget('app.ownheight', OwnHeightWidget::class, 11)->widget('app.cases', CasesWidget::class, 12)->widget('app.case-stats', CaseStatsWidget::class, 13)->widget('app.legacy-cases', LegacyCasesWidget::class, 14)->widget('app.limbo', LimboWidget::class, 15)
+        // The dashboard's header actions (HC #2100), built per request inside the workspace: New booking primary, then the rest in order.
+        ->dashboardActions(fn (Request $request): array => [new Tey\Kit\Features\Core\Data\Action('New booking', '/bookings/new', 'get', key: 'booking', priority: 'primary'), new Tey\Kit\Features\Core\Data\Action('Log mail', '/mail/new', 'get', key: 'mail'), new Tey\Kit\Features\Core\Data\Action('In '.(string) Tey\Kit\Features\Workspaces\Workspaces::required()->name, '/x', 'get', key: 'where')]);
     // The host's `web` group, with an Inertia middleware (the kit's plain one): session-ui's props are shared by its provider, not by a middleware.
     $app->make(Illuminate\Contracts\Http\Kernel::class)->setMiddlewareGroups(['web' => [Illuminate\Session\Middleware\StartSession::class, Tey\Kit\Features\SessionUi\Http\Middleware\HandleInertiaRequests::class]]);
     $app->boot();
@@ -600,6 +602,16 @@ try {
     $partial = json_decode($body, true);
     check($status === 200 && array_key_exists('shell', $partial['props'] ?? []), 'a partial reload of / for the shell answers it');
     check(RecordingShell::$builtIn === [$workspace->id] && Tey\Kit\Features\Workspaces\Workspaces::current() === null, 'and builds it inside the workspace too, with none current after');
+    check(array_column($owner['props']['actions'], 'key') === ['booking', 'mail', 'where'] && $owner['props']['actions'][0]['priority'] === 'primary' && $owner['props']['actions'][2]['label'] === 'In '.$workspace->name, 'Registry::dashboardActions() reaches the page as its header actions, in order, built inside the workspace');
+    check((function (): bool {
+        try {
+            (new Registry)->dashboardActions(fn () => [])->dashboardActions(fn () => []);
+        } catch (RuntimeException) {
+            return true;
+        }
+
+        return false;
+    })(), 'dashboard actions register once: a second registration is refused');
     check(! array_key_exists('welcome', $owner['props']) && $owner['props']['aside'] === 'narrow', 'the dashboard has no welcome prop (removed in 0.17), and the aside is narrow by default');
     $widgets = array_column($owner['props']['widgets'], null, 'key');
     check(array_keys($widgets) === ['app.queue', 'kit.you', 'kit.activity', 'kit.people', 'app.broken', 'app.admin', 'app.sideways', 'app.oddkind', 'app.tall', 'app.stretchy', 'app.ownheight', 'app.cases', 'app.case-stats', 'app.legacy-cases', 'app.limbo', 'kit.setup'], 'the owner sees every widget, in order, the setup card last');

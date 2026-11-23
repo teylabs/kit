@@ -45,7 +45,12 @@ const widgets = query.has('seamless') ? [post, ...all] : query.has('solo') ? [se
 const people = { key: 'people', title: 'People', state: 'ready', data: [person('1', 'Ada Example', 'Owner'), person('2', 'Ben Sample', 'Member')], empty: null, error: null };
 // `?legacy`: the whole dashboard Page with a `welcome` prop, as an app on the pre-0.15.41 WelcomeCardData still sends it; since 0.17 the Page renders no card for it.
 const welcome = { title: 'Welcome to Acme, Ada.', body: 'Your workspace is ready.', dismiss: { label: 'Dismiss welcome', url: '/me/welcome/1', method: 'delete' }, checklist: [{ id: 'timezone', label: 'Your timezone', hint: 'Confirm your timezone', url: '/welcome/timezone', state: 'done' }, { id: 'photo', label: 'Your photo', hint: 'Add a photo', url: '/welcome/photo', state: 'skipped' }], done: 1, total: 2 };
-const Page = query.has('legacy')
+// `?actions`: the whole dashboard Page with header actions as `Registry::dashboardActions()` sends them: New booking (primary), Log mail, New sale and two more.
+const act = (key: string, label: string, priority: string | null = null) => ({ key, label, url: `/@acme/${key}`, method: 'get', priority, disabled: false, reason: null, confirm: null, destructive: false });
+const headerActions = [act('booking', 'New booking', 'primary'), act('mail', 'Log mail'), act('sale', 'New sale'), act('guest', 'Add guest'), act('export', 'Export day')];
+const Page = query.has('actions')
+    ? { props: ['widgets'], render(this: { widgets: object[] }) { return h(DashboardPage as never, { title: 'Dashboard', workspace: 'Acme', next_label: 'Open settings', next_url: '/settings', greeting: 'Good morning, Ada', widgets: this.widgets, aside: 'narrow', actions: headerActions }); } }
+    : query.has('legacy')
     ? { props: ['widgets'], render(this: { widgets: object[] }) { return h(DashboardPage as never, { title: 'Dashboard', workspace: 'Acme', next_label: 'Open settings', next_url: '/settings', greeting: 'Good morning, Ada', welcome, widgets: this.widgets, aside: 'narrow' }); } }
     : { props: ['widgets'], setup() { (window as unknown as { kitPage: unknown }).kitPage = usePage(); }, render(this: { widgets: object[] }) { return h(WidgetGrid, { widgets: this.widgets, aside: query.has('wide') ? 'wide' : 'narrow' }); } };
 (window as unknown as { kitInitialPage: unknown }).kitInitialPage = { component: 'Dashboard', props: { errors: {}, widgets, people, cases }, url: '/@acme', scrollProps: { people: { pageName: 'people', previousPage: null, nextPage: null, currentPage: 1, reset: false }, cases: { pageName: 'cases', previousPage: null, nextPage: null, currentPage: 1, reset: false } }, version: null, flash: {}, clearHistory: false, encryptHistory: false };

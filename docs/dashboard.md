@@ -78,7 +78,7 @@ From `md` up the columns sit side by side, main 8 and aside 4 of 12 (PageGrid's 
 'dashboard' => ['widgets' => ['you', 'activity', 'people', 'setup'], 'aside' => 'wide'], // narrow (the default) or wide
 ```
 
-It reaches the page as the `aside` prop; any other value is `narrow`. Below `md` they are one column: every main widget first, then every aside widget. Within a column, widgets stack in `order` and each card spans the column's full width. When only one column has widgets, it takes the full width. A region other than `main` or `aside` makes the widget an error card.
+It reaches the page as the `aside` prop; any other value is `narrow`. Below `md` they are one column: every aside widget first (the You card, then the status and count cards), then every main widget, so a phone shows the counts before the feed rather than screens down. Within a column, widgets stack in `order` and each card spans the column's full width. When only one column has widgets, it takes the full width. A region other than `main` or `aside` makes the widget an error card.
 
 ### Kinds
 
@@ -301,6 +301,20 @@ An app that serves its own dashboard over MCP turns the kit's tool off, so an as
 ```
 
 A tool that is off is neither listed nor callable. `workspace_search` is turned off the same way.
+
+## Header actions
+
+The dashboard's heading can carry actions, drawn as any page's (`<Page :actions>`, headerSplit): one filled primary, up to two outline secondaries and the rest under More, in order. Register them once, as a closure the dashboard calls on each request inside the workspace, so it can check abilities and build workspace URLs:
+
+```php
+app(Registry::class)->dashboardActions(fn (Request $request): array => [
+    new Action('New booking', route('bookings.create'), 'get', key: 'booking', priority: 'primary'),
+    new Action('Log mail', route('mail.create'), 'get', key: 'mail'),
+    new Action('New sale', route('sales.create'), 'get', key: 'sale'),
+]);
+```
+
+They reach the page as the `actions` prop (`list<Action>`, empty by default). A second registration throws.
 
 ## Upgrading an app with its own dashboard widgets
 

@@ -62,8 +62,9 @@ class DashboardController
             $resolved = app(Widgets::class)->resolve($request, $principal, $workspace, $reserved);
         }
 
+        $actions = app(Registry::class)->dashboardActions();
         // Rendered here, inside the tenant context: a list's deferred rows load in the partial request that asks for them, and must see this workspace.
-        return Inertia::render($component, new DashboardViewModel('Dashboard', (string) Workspaces::required()->name, 'Open settings', WorkspaceUrl::to($workspace, 'settings', 'session-ui', $request), $this->greeting($request, $user), $resolved['widgets'], $resolved['lists'], (string) config('kit.dashboard.aside', 'narrow'), mergeWidgets: $only !== null))->toResponse($request);
+        return Inertia::render($component, new DashboardViewModel('Dashboard', (string) Workspaces::required()->name, 'Open settings', WorkspaceUrl::to($workspace, 'settings', 'session-ui', $request), $this->greeting($request, $user), $resolved['widgets'], $resolved['lists'], (string) config('kit.dashboard.aside', 'narrow'), mergeWidgets: $only !== null, actions: $actions !== null ? $actions($request) : []))->toResponse($request);
     }
 
     /**
