@@ -60,6 +60,12 @@ if (twoLevel) {
     items.splice(0, items.length, ...tabs.map(([label, suffix], index) => ({ label, url: `/@acme/${suffix}`, current: index === at, ...(tabIcons[suffix] ? { icon: tabIcons[suffix] } : {}) })));
     navigation[1].label = twoLevel === 'nested' ? 'Admin' : 'Front desk';
 }
+// `&home` (with `module=N`): Hubcommons's Home row, five pages each with an icon (Hub, Front desk, Guests, Mail, Sales), page N current; with `&module-pills`
+// it is a pill row wider than a phone.
+if (query.has('home')) {
+    const home: [string, string, string][] = [['Hub', '', 'home'], ['Front desk', 'frontdesk', 'user-check'], ['Guests', 'guests', 'users'], ['Mail', 'mail', 'mail'], ['Sales', 'sales', 'receipt']];
+    items.splice(0, items.length, ...home.map(([label, suffix, icon], index) => ({ label, url: `/@acme/${suffix}`, current: index === modulePage, icon })));
+}
 if (breakout) items.splice(0, items.length, ...[['Summary', 'billing'], ['Invoices', 'billing/invoices'], ['Payouts', 'billing/payouts'], ['Plans', 'billing/plans']].map(([label, suffix], index) => ({ label, url: `/@acme/${suffix}`, current: index === 1 })));
 const child = twoLevel === 'pills' ? { label: 'Sales', items: [['Sales', 'sales'], ['Café menu', 'sales/cafe-menu']].map(([label, suffix], index) => ({ label, url: `/@acme/${suffix}`, current: index === 1, ...(suffix === 'sales/cafe-menu' ? { icon: 'coffee' } : {}) })) } : twoLevel === 'nested' ? { label: 'Billing', items: [['Summary', 'billing'], ['Invoices', 'billing/invoices'], ['Payouts', 'billing/payouts'], ['Plans', 'billing/plans']].map(([label, suffix], index) => ({ label, url: `/@acme/${suffix}`, current: index === 1 })) } : null;
 // `&sidebar`: Billing as HC has it, a sidebar module (nine pages in three groups) with no primary link, as a with-trail breakout (with `&breakout`); with

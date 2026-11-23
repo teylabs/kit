@@ -8422,6 +8422,28 @@ test('the shell bar\'s search field has the bar\'s own fill and edge: a 3:1 edge
     }
 });
 
+test('a pill row wider than a phone opens with its current pill in view, at 390, light and dark (Hubcommons #2016)', async () => {
+    for (const dark of [false, true]) {
+        for (const page of [4, 2, 0]) {
+            const { context, tab } = await openShell(`module=${page}&home&module-pills`, 390, dark);
+            try {
+                await tab.waitForSelector('[data-page-module-tabs] [aria-current="page"]');
+                await tab.waitForTimeout(100);
+                const seen = await tab.evaluate(() => {
+                    const row = document.querySelector('[data-page-module-tabs] ul');
+                    const pill = row.querySelector('[aria-current="page"]').getBoundingClientRect();
+                    const box = row.getBoundingClientRect();
+                    return { label: row.querySelector('[aria-current="page"]').textContent.trim(), left: pill.left, right: pill.right, rowLeft: box.left, rowRight: Math.min(box.right, innerWidth), overflows: row.scrollWidth > row.clientWidth, icons: row.querySelectorAll('[data-page-tab-icon]').length, pageX: scrollX };
+                });
+                assert.ok(seen.overflows && seen.icons === 5, `the Home row with icons is wider than a 390 phone (${JSON.stringify(seen)})`);
+                assert.ok(seen.left >= seen.rowLeft - 0.5 && seen.right <= seen.rowRight + 0.5, `${dark ? 'dark' : 'light'}, page ${page}: the current pill ${seen.label} is wholly in view (${JSON.stringify(seen)})`);
+                assert.equal(seen.pageX, 0, 'only the row scrolls, not the page');
+                if (process.env.KIT_PILL_SHOTS && page === 4) await tab.screenshot({ path: `${process.env.KIT_PILL_SHOTS}/home-pills-390-${dark ? 'dark' : 'light'}.png`, clip: { x: 0, y: 0, width: 390, height: 260 } });
+            } finally { await context.close(); }
+        }
+    }
+});
+
 test('a top-level module that opts into pills (moduleVariant secondary) draws its own row as pills on its top page and a sibling page; without it, underline tabs (Hubcommons #1942, option B)', async () => {
     const shape = async (query) => {
         const { context, tab } = await openShell(query, 1280, false);
