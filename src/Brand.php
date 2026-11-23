@@ -245,6 +245,10 @@ final class Brand
             $light .= ($t[$surface] ?? null) !== null ? ($light === '' ? '' : ';').'--'.$token.':'.$t[$surface] : '';
             $dark .= ($t[$surface.'_dark'] ?? null) !== null ? ($dark === '' ? '' : ';').'--'.$token.':'.$t[$surface.'_dark'] : '';
         }
+        // With its own outline (or border), the outline tier's text, icons and hover wash follow the brand's greys too, rather than the kit's cool default (C5).
+        $outlineTones = '--kit-outline-foreground:var(--foreground);--kit-outline-muted:var(--muted-foreground);--kit-outline-wash:var(--accent)';
+        $light .= ($t['outline'] ?? null) !== null ? ($light === '' ? '' : ';').$outlineTones : '';
+        $dark .= ($t['outline_dark'] ?? null) !== null ? ($dark === '' ? '' : ';').$outlineTones : '';
         // A brand's `input` is also the fields' edge; in dark it's `input_dark`, else --input (the kit's dark edge).
         if (($t['input'] ?? null) !== null) {
             $light .= ($light === '' ? '' : ';').'--kit-field-edge:'.$t['input'];

@@ -8338,10 +8338,11 @@ test('the shell bar\'s search field has the bar\'s own fill and edge: a 3:1 edge
                     const fill = over(rgba(style.backgroundColor), bar);
                     const edge = over(rgba(style.borderTopColor), bar);
                     const placeholder = over(rgba(getComputedStyle(input, '::placeholder').color), fill);
-                    return { fillAlpha: rgba(style.backgroundColor)[3], edge: ratio(edge, bar), placeholder: ratio(placeholder, fill) };
+                    return { fillAlpha: rgba(style.backgroundColor)[3], edge: ratio(edge, bar), edgeOnFill: ratio(edge, fill), placeholder: ratio(placeholder, fill) };
                 });
                 assert.equal(seen.fillAlpha, 255, `${scheme}: the field is filled, not see-through`);
                 assert.ok(seen.edge >= 3, `${scheme}: the field's edge is ${seen.edge.toFixed(2)}:1 against the bar (3:1)`);
+                assert.ok(seen.edgeOnFill >= 3, `${scheme}: the field's edge is ${seen.edgeOnFill.toFixed(2)}:1 against its own fill (3:1, HC #1858)`);
                 assert.ok(seen.placeholder >= 4.5, `${scheme}: the placeholder is ${seen.placeholder.toFixed(2)}:1 on the field (4.5:1)`);
                 if (process.env.KIT_BAR_FIELD_SHOTS) await tab.screenshot({ path: `${process.env.KIT_BAR_FIELD_SHOTS}/bar-${name}-${dark ? 'dark' : 'light'}.png`, clip: { x: 0, y: 0, width: 1280, height: 72 } });
             } finally { await context.close(); }
@@ -10840,6 +10841,49 @@ test('surface tokens on a tinted theme: a FormCard draws --kit-card-shadow, a fi
         } finally { await context.close(); }
     }
 });
+// ── Refactoring UI certification (AppraisalBench #1833): an unchecked switch's track reaches 3:1 against its surface (WCAG 1.4.11, C6), light and dark.
+const contrastOn = () => {
+    const rgba = (value) => { const c = document.createElement('canvas').getContext('2d'); c.fillStyle = '#000'; c.fillStyle = value; c.fillRect(0, 0, 1, 1); return [...c.getImageData(0, 0, 1, 1).data]; };
+    const lum = (c) => { const [r, g, b] = c.slice(0, 3).map(v => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+    const surface = (el) => { for (let n = el.parentElement; n; n = n.parentElement) { const c = rgba(getComputedStyle(n).backgroundColor); if (c[3] === 255) return c; } const p = Object.assign(document.createElement('div'), { className: 'bg-background' }); document.body.append(p); const c = rgba(getComputedStyle(p).backgroundColor); p.remove(); return c; };
+    const over = (top, under) => { const a = top[3] / 255; return [0, 1, 2].map(i => top[i] * a + under[i] * (1 - a)); };
+    window.kitContrast = (el, prop) => { const under = surface(el); const [x, y] = [lum(over(rgba(getComputedStyle(el)[prop]), under)), lum(under)].sort((m, n) => n - m); return (x + 0.05) / (y + 0.05); };
+};
+test('certification: an unchecked InputSwitch track reaches 3:1 against its surface, light and dark (C6, WCAG 1.4.11)', async () => {
+    for (const dark of [false, true]) {
+        const context = await browser.newContext({ viewport: { width: 1024, height: 700 } });
+        try {
+            const tab = await context.newPage();
+            await tab.goto(`${url}?switch${dark ? '&dark' : ''}`);
+            await tab.waitForSelector('[data-probe="compact"]');
+            await tab.evaluate(contrastOn);
+            const ratio = await tab.evaluate(() => window.kitContrast(document.querySelector('#compact'), 'backgroundColor'));
+            assert.ok(ratio >= 3, `${dark ? 'dark' : 'light'}: the unchecked track is ${ratio.toFixed(2)}:1 on its surface (3:1)`);
+        } finally { await context.close(); }
+    }
+});
+
+
+test('certification: a long chosen option in a searchable InputSelect stays inside its 220px span-2 column, at 1280 and 390 (AppraisalBench #1846)', async () => {
+    for (const width of [1280, 390]) {
+        const context = await browser.newContext({ viewport: { width, height: 700 } });
+        try {
+            const tab = await context.newPage();
+            await tab.goto(`${url}?select-narrow`);
+            await tab.waitForSelector('[data-narrow] [role="combobox"]');
+            const box = await tab.evaluate(() => {
+                const field = document.querySelector('[data-narrow]');
+                const trigger = field.querySelector('[role="combobox"]').closest('.relative.flex') ?? field.querySelector('[role="combobox"]');
+                const card = field.parentElement.getBoundingClientRect();
+                const f = field.getBoundingClientRect(), t = trigger.getBoundingClientRect();
+                return { fieldRight: f.right, triggerRight: t.right, cardRight: card.right, fieldWidth: f.width, overflow: field.parentElement.scrollWidth - field.parentElement.clientWidth };
+            });
+            assert.ok(box.triggerRight <= box.fieldRight + 0.5, `${width}: the select ends inside its Field (${JSON.stringify(box)})`);
+            assert.ok(box.fieldRight <= box.cardRight + 0.5 && box.overflow <= 0, `${width}: the Field stays inside the card (${JSON.stringify(box)})`);
+        } finally { await context.close(); }
+    }
+});
+
 // ── v0.48.0 defaults: the near-white ground with lifted white cards, the five-level elevation scale, and --kit-outline following --border ──
 test('defaults (v0.48.0): a near-white ground (#fafaf9) with lifted white cards at elevation 1, menus at elevation 3, dark cards lighter than the ground, and --kit-outline is --border', async () => {
     for (const scheme of ['light', 'dark']) {
@@ -12756,7 +12800,7 @@ test('Field reads a Laravel dot-path error for a bracket, mixed or dot name, and
         assert.deepEqual(await control('name-1'), ['true', 'name-1-error']);
         assert.deepEqual(await control('name-0'), [null, 'name-0-description'], 'a name with no error stays valid');
         // The look is the same markup as before: the field's grid and the error's tokens.
-        assert.equal(await tab.$eval('[data-field="plain"]', (el) => el.className), 'grid content-start gap-2');
+        assert.equal(await tab.$eval('[data-field="plain"]', (el) => el.className), 'grid min-w-0 content-start gap-2');
         assert.equal(await tab.$eval('[data-field="plain"] > [role="alert"]', (el) => el.className), 'text-destructive-text text-sm');
 
         const lineErrors = () => tab.$$eval('[data-lines] [data-line-field]', (els) => els.map((el) => el.querySelector(':scope > [role="alert"]')?.textContent.trim() ?? ''));

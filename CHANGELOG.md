@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+Features affected: core (Field, InputSelect, InputSwitch); pins unchanged. Brand::css output changes for brands that set `outline` or `outline_dark`.
+
+### Fixed
+
+- **A long chosen option stays inside a narrow column.** Field's grid is `min-w-0`, and InputSelect's input shrinks and truncates, so a span-2 Field no longer spills into the gutter (AppraisalBench #1846; L6).
+- **An unchecked InputSwitch track reaches 3:1 in dark.** It was 2.60:1 against the card; it now uses the full `--input` edge colour (WCAG 1.4.11; C6).
+- **Outline buttons follow a brand's greys.** With `outline` set, Brand::css also prints `--kit-outline-foreground`, `--kit-outline-muted` and `--kit-outline-wash` from the brand's own tokens (C5).
+- **The shell bar's search field is checked against its own fill too.** Its edge measures 3.08:1 on the fill, and 4.22:1 (ink) and 3.65:1 (ink-gold) against the bar (HC #1858).
+
 ## v0.48.0
 
 Features affected: core (kit.css tokens, about 35 components on the elevation scale, re-pinned `sha256:23188284a86e` → `sha256:8ea7c266355a`), shell (GuestShell's card, re-pinned `sha256:eac4d0ccb0c8` → `sha256:2a78630af4a8`) and notes (NoteCard, re-pinned `sha256:24e4da893152` → `sha256:9c1c18a6c967`). Take the new `kit.css` with `php artisan kit:scaffold core --diff --only=resources/css/kit.css`, then `--force` it; until you do, fields fall back to the card and `--input`, and the elevation tokens are missing (no shadows). Take GuestShell and NoteCard the same way from `shell` and `notes`. Jasper approved every look change here (Fleet Space, 21:59Z and 22:00Z, kit audit items 1–5).
