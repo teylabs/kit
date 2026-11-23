@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.49.5
 
 Features affected: core (DataTable); pins unchanged. No ViewModel changes shape.
 
