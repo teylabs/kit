@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+Features affected: core (DataTable); pins unchanged. No ViewModel changes shape.
+
+### Fixed
+
+- **A DataTable scrolls with the page.** With `stickyHeader` (the default), the table no longer scrolls inside a box capped at 70svh within a clipped card, which gave a page two scrolls and pinned the header to the card. The card and table now clip rather than scroll, so the window is the only scroll, and the header sticks just under the app bar at `top: var(--kit-sticky-top, var(--shell-top, 0px))` (AppraisalBench #2092). Set `--kit-sticky-top` to pin it elsewhere, for example under a page's own sticky toolbar.
+- **A table wider than its column still scrolls sideways.** From `sm` up the table scrolls horizontally only while it is wider than its column, checked as it resizes (`data-table-scroll="x"`). While it does, its header stays at the top of the table rather than sticking to the window: a sideways scroll box can't also let the header stick to the page. Phones stack rows as before.
+
 ## v0.49.4
 
 Features affected: core (PageTabs); pins unchanged. No ViewModel changes shape.

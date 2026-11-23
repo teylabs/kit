@@ -4,6 +4,7 @@ import './app.css';
 import AppearanceToggle from '@/components/Kit/Appearance/AppearanceToggle.vue';
 import Page from '@/components/Kit/Layout/Page.vue';
 import PageTabs from '@/components/Kit/Layout/PageTabs.vue';
+import DataTable from '@/components/Kit/Table/DataTable.vue';
 import { focusFirstInvalid } from '@/components/Kit/Form/formFrame';
 import Layout from '@/pages/Workspace/Layout.vue';
 import inter400 from '../../resources/fonts/files/inter-latin-400-normal.woff2?url';
@@ -110,7 +111,20 @@ const recordTabs = ref(true);
 const trail = ref<'bar' | 'page'>('bar');
 (window as unknown as { kitTrail: (shown: boolean) => void }).kitTrail = (shown) => { trail.value = shown ? 'bar' : 'page'; };
 (window as unknown as { kitValidate: () => Promise<unknown> }).kitValidate = () => focusFirstInvalid(() => [document], { notes: 'Add a note.' });
-const content = query.has('top')
+// `&table` (with `module`): a 60-row DataTable on the page, whose header sticks under the bar as the window scrolls; `&wide` gives it 14 wide columns.
+const col = (key: string, label: string) => ({ key, label, sortable: false, hideable: false, hiddenByDefault: false, align: null, srOnlyLabel: false, sortBy: null });
+const wideTable = query.has('wide');
+const extra = wideTable ? Array.from({ length: 12 }, (_, i) => col(`c${i}`, `Long column heading ${i + 1}`)) : [];
+const tableData = {
+    rows: Array.from({ length: 60 }, (_, i) => ({ id: i + 1, name: `Member ${i + 1}`, email: `member${i + 1}@example.com`, ...Object.fromEntries(extra.map((c) => [c.key, 'Unbroken-long-cell-value-0001'])), actions: [] })),
+    columns: [col('name', 'Name'), col('email', 'Email'), ...extra],
+    sort: null, search: null, filters: [], tabs: [], bulkActions: [],
+    pagination: { page: 1, perPage: 60, total: 60, from: 1, to: 60, lastPage: 1 },
+    emptyState: null,
+};
+const content = query.has('table')
+    ? () => [h(DataTable, { table: tableData as never, toolbar: false, rowLabel: 'name' }), h('div', { style: 'height: 1500px' })]
+    : query.has('top')
     ? () => [
           h('div', { class: 'sticky top-(--shell-top) z-10 h-10 border-b bg-background text-sm', 'data-under-bar': '' }, 'Pinned under the bar'),
           h('div', { style: 'height: 1500px' }),
