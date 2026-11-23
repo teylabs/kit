@@ -2,11 +2,15 @@
 
 ## Unreleased
 
-Features affected: core (ButtonGroup); pins unchanged. No ViewModel changes shape.
+Features affected: core (ButtonGroup, DataTable, IndexToolbar); pins unchanged. No ViewModel changes shape.
 
 ### Fixed
 
 - **A focused segment in a ButtonGroup shows its focus ring.** The group strips its segments' own rings and clips, so a keyboard-focused outline or ghost Button showed no focus indicator at all (WCAG 2.4.7). Each segment now draws an inset `outline: 2px solid var(--ring)` at offset -2px, inside the clip, in every appearance (AppraisalBench #2109). With the kit's default `--ring` it measures 19.8:1 (light) and 3.82:1 (dark) on an outline segment, and 13.4:1 on a ghost one in dark. An app that added its own inset outline to buttons in a group can drop it.
+
+### Changed
+
+- **On a phone a DataTable's filters sit behind one Filters button.** Below `sm`, the toolbar no longer stacks one select per filter. A single Filters button (the kit's FilterPopover, with a count of the filters set) opens them and writes the same `filter[key]` params. From `sm` up the selects show as before (Hubcommons #2100 item 16, approved with the Schedule plan). IndexToolbar gains `phoneFilters` (default false) for an owner that does the same.
 
 ## v0.49.6
 

@@ -119,11 +119,16 @@ const tableData = {
     rows: Array.from({ length: 60 }, (_, i) => ({ id: i + 1, name: `Member ${i + 1}`, email: `member${i + 1}@example.com`, ...Object.fromEntries(extra.map((c) => [c.key, 'Unbroken-long-cell-value-0001'])), actions: [] })),
     columns: [col('name', 'Name'), col('email', 'Email'), ...extra],
     sort: null, search: null, filters: [], tabs: [], bulkActions: [],
+    // `&filters`: two filter selects (Role, Status). On a phone they sit behind one Filters button.
+    ...(query.has('filters') ? { choices: [
+        { key: 'role', label: 'Role', options: [{ value: 'admin', label: 'Admin' }, { value: 'member', label: 'Member' }] },
+        { key: 'status', label: 'Status', options: [{ value: 'active', label: 'Active' }, { value: 'suspended', label: 'Suspended' }] },
+    ] } : {}),
     pagination: { page: 1, perPage: 60, total: 60, from: 1, to: 60, lastPage: 1 },
     emptyState: null,
 };
 const content = query.has('table')
-    ? () => [h(DataTable, { table: tableData as never, toolbar: false, rowLabel: 'name' }), h('div', { style: 'height: 1500px' })]
+    ? () => [h(DataTable, { table: tableData as never, toolbar: query.has('filters'), rowLabel: 'name' }), h('div', { style: 'height: 1500px' })]
     : query.has('top')
     ? () => [
           h('div', { class: 'sticky top-(--shell-top) z-10 h-10 border-b bg-background text-sm', 'data-under-bar': '' }, 'Pinned under the bar'),

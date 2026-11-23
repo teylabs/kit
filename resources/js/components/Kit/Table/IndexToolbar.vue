@@ -20,6 +20,8 @@ const props = withDefaults(
         choices?: Choice[];
         searchLabel?: string;
         searchable?: boolean;
+        // Below `sm` the filter selects are hidden: the owner (DataTable) shows them behind one Filters button instead.
+        phoneFilters?: boolean;
     }>(),
     {
         search: null,
@@ -27,6 +29,7 @@ const props = withDefaults(
         choices: () => [],
         searchLabel: 'Search',
         searchable: true,
+        phoneFilters: false,
     },
 );
 const emit = defineEmits<{
@@ -74,7 +77,8 @@ onBeforeUnmount(() => clearTimeout(timer));
         <div
             v-for="choice in choices"
             :key="choice.key"
-            class="w-40 max-sm:flex-1"
+            class="w-40"
+            :class="phoneFilters ? 'max-sm:hidden' : 'max-sm:flex-1'"
             :data-table-filter="choice.key"
         >
             <InputSelect
