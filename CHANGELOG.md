@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+Features affected: core (Brand::css's ink bar block); pins unchanged.
+
+Released notes corrected: v0.49.1
+
+Its Upgrading notes now name the regenerated LoginViewModel type.
+
+### Fixed
+
+- **The ink bar reads on the neutral accent.** With `header => 'ink'` and no accent of its own, the bar block no longer sets `--brand-marker` or `--ring` to #52525b (2.57:1 on the bar): the current page's underline falls back to the bar's foreground (#ffffff), and the bar's focus ring is #d4d4d8 (14:1 on #09090b, 10:1 on the bar's field). A real accent keeps its marker and ring as before (starter review).
+- **The phone search button follows the ink bar.** The bar block sets `--secondary` (#27272a) and `--secondary-foreground` (#ffffff), so the button is the bar's own wash instead of a light chip, in light and dark (starter review).
+
 ## v0.49.1
 
 Features affected: session-ui (Auth/Login, re-pinned `sha256:bb7a6db1db38` → `sha256:99ac1823af2e`), workspace-ui (People, re-pinned `sha256:b1c9acb0ea15` → `sha256:1b23b8729b95`), core (DataTable, Brand::css, kit.css `--input`, the form fields' dark fill; re-pinned `sha256:8ea7c266355a` → `sha256:110b3565abeb`). Run `kit:scaffold plan|apply` for `session-ui` and `workspace-ui`.
@@ -18,6 +31,8 @@ Features affected: session-ui (Auth/Login, re-pinned `sha256:bb7a6db1db38` → `
 
 ### Upgrading
 
+- LoginViewModel gained `forgot` (the reset link, or null), so its generated type changed: run `php artisan types:generate` after bumping, or a ViewModel type check (such as ViewModelStandardTest) fails.
+- An app that renders the sign-in page itself (its own `Fortify::loginView` with `new LoginViewModel(...)`) passes the new last argument, `forgot` (`Features::enabled(Features::resetPasswords()) ? '/forgot-password' : null`); without it "Forgot your password?" stays hidden even with reset on.
 - A brand or theme that sets its own `--input` (or `input`/`input_dark` in config/brand.php) keeps its value: only the kit's defaults move. A theme that relied on the dark fields' `--input` wash sets `--kit-field` in `.dark` to keep it.
 
 ## v0.49.0
