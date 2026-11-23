@@ -15,7 +15,8 @@ import inter600 from '../../resources/fonts/files/inter-latin-600-normal.woff2?u
 // `?current=N` marks page N current (default the first); `?pages=four` gives the bar four pages instead, which fit at 1024 beside search. Invented names only.
 // `?module=N`: a module's page N (0 is its top page) in a <Page>, with the trail and `layout.navigation` the server would send (the module's sibling pages);
 // `&no-heading`: the page hides its heading (`:heading="false"`) and has a header action, which joins the tab row; `&with-actions`: the same with its heading.
-// `&record`: a record page whose frame draws its own PageTabs from `layout.navigation`; `&strip`: the Layout's `subNav="strip"`.
+// `&record`: a record page whose frame draws its own PageTabs from `layout.navigation`; `&strip`: the Layout's `subNav="strip"`; `&module-pills`: the module
+// opts into pills (Registry::moduleVariant(), `variant: 'secondary'` on its group).
 // window.kitRecordTabs(false) unmounts the record's PageTabs (a `v-if` turned off) and (true) brings it back.
 const query = new URLSearchParams(window.location.search);
 // `?dark` paints the dark tokens.
@@ -153,7 +154,7 @@ const fonts = appBar
     ? Promise.all(([[400, inter400], [500, inter500], [600, inter600]] as const).map(([weight, url]) => { const face = new FontFace('Inter', `url(${url})`, { weight: String(weight) }); document.fonts.add(face); return face.load(); })).then(() => { document.documentElement.style.fontFamily = 'Inter, sans-serif'; })
     : Promise.resolve();
 const Shown = { render: () => h(Layout, { shell: state, subNav: query.has('strip') ? 'strip' : undefined, breadcrumbs: trail.value }, slots) };
-const layout = module === null ? { documentTitle: 'Shell' } : { documentTitle: title, title, breadcrumbs, navigation: sidebar ? billingGroups.map(([group]) => ({ label: group, items: items.filter((item) => (item as { group?: string }).group === group), nested: false, sidebar: true })) : [{ label: record ? null : sectionLabel, items }, ...(child ? [{ label: child.label, items: child.items, nested: true }] : [])], width: query.get('width'), navigationHeader: breakout ? { label: 'Back to Admin', url: '/@acme/admin', trail: true } : null };
+const layout = module === null ? { documentTitle: 'Shell' } : { documentTitle: title, title, breadcrumbs, navigation: sidebar ? billingGroups.map(([group]) => ({ label: group, items: items.filter((item) => (item as { group?: string }).group === group), nested: false, sidebar: true })) : [{ label: record ? null : sectionLabel, items, ...(query.has('module-pills') ? { variant: 'secondary' } : {}) }, ...(child ? [{ label: child.label, items: child.items, nested: true }] : [])], width: query.get('width'), navigationHeader: breakout ? { label: 'Back to Admin', url: '/@acme/admin', trail: true } : null };
 (window as unknown as { kitInitialPage: unknown }).kitInitialPage = { component: 'Shell', props: { errors: {}, layout }, url: module === null ? navigation[current].url : (child?.items.find((item) => item.current) ?? items.find((item) => item.current)!).url, version: null, flash: {}, clearHistory: false, encryptHistory: false };
 void fonts.then(() => createInertiaApp({
     page: (window as unknown as { kitInitialPage: never }).kitInitialPage,

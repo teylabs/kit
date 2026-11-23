@@ -1771,10 +1771,22 @@ test('Register (Fortify\'s /register): name focused on load, novalidate, the fou
     });
 });
 
+test('scaffolded pages use kit Fields, not bare <label>s (AppraisalBench #1931); the Notes colour swatches are the one labelled radio group left', () => {
+    const root = path.join(here, '../resources/features');
+    const stubs = [];
+    const walk = (dir) => readdirSync(dir).forEach((name) => { const file = path.join(dir, name); if (statSync(file).isDirectory()) walk(file); else if (name.endsWith('.vue.stub')) stubs.push(file); });
+    walk(root);
+    const bare = stubs.filter((file) => /<label\b/.test(readFileSync(file, 'utf8'))).map((file) => path.relative(root, file));
+    assert.deepEqual(bare, ['notes/pages/Workspace/Notes/Index/Partials/NoteComposer.vue.stub']);
+});
+
 test('Register, an invited account (view model): the address is text with its hint, no email input, posted through `submit`; the heading and lead are the view model\'s; a name error refocuses name; an `email` or `invitation` error is one top alert', async () => {
     await authPage('Register', async ({ tab, submit, count, text, posted }) => {
         assert.deepEqual(await tab.locator('[data-register-email]').evaluate(el => [el.tagName, el.readOnly, el.disabled, el.type, el.autocomplete, el.name, el.value]), ['INPUT', true, false, 'email', 'username', '', 'ada@example.com'], 'a read-only username field for password managers, not posted by name');
-        assert.equal(await text('#register-email-hint'), 'The invitation was sent to this address.');
+        assert.equal(await text('#register-email-description'), 'The invitation was sent to this address.');
+        // A kit Field, not a bare <label> (AppraisalBench #1931): the same accessible name and description, still read-only.
+        assert.equal(await tab.getByRole('textbox', { name: 'Email address', exact: true }).getAttribute('data-register-email'), '');
+        assert.match(await tab.getAttribute('[data-register-email]', 'aria-describedby') ?? '', /register-email-description/);
         assert.equal(await text('h1'), 'Create your account');
         assert.equal(await text('[data-register-lead]'), 'You have been invited to join Northwind Farms.');
         assert.equal(await tab.getAttribute('[data-guest-card] form', 'action'), '/invitations/token/register');
@@ -6748,6 +6760,17 @@ test('a seamless Composer widget (headless frame) draws no heading or title bar,
                 assert.equal(seen.visibleText, 0, `${width} ${mode}: its title is not drawn as text above the Composer`);
                 assert.equal(seen.named, 'Post an update', `${width} ${mode}: the card keeps its title as its accessible name`);
                 assert.equal(seen.textareas, 1, `${width} ${mode}: its body is the Composer`);
+                // No frame (HC #1942, the seamless-composer ruling): the Composer is its own card, so the widget draws no border, padding or fill around it.
+                const frame = await tab.evaluate(() => {
+                    const card = document.querySelector('[data-widget="app.post"]');
+                    const box = (el) => { const cs = getComputedStyle(el); return { border: cs.borderTopWidth, padding: cs.paddingTop, fill: cs.backgroundColor }; };
+                    const framed = [...card.querySelectorAll('*')].filter((el) => el !== card && !el.closest('[data-composer]') && getComputedStyle(el).borderTopWidth !== '0px').length;
+                    const you = document.querySelector('[data-widget="kit.you"]');
+                    return { card: box(card), framed, you: you ? getComputedStyle(you).borderTopWidth : null };
+                });
+                assert.deepEqual(frame.card, { border: '0px', padding: '0px', fill: 'rgba(0, 0, 0, 0)' }, `${width} ${mode}: the headless widget has no border, padding or fill`);
+                assert.equal(frame.framed, 0, `${width} ${mode}: nothing between the widget and its Composer draws an edge`);
+                if (frame.you !== null) assert.notEqual(frame.you, '0px', `${width} ${mode}: the kit's You card keeps its frame`);
                 assert.equal(seen.first, 'app.post', 'it is first in main, where it was registered');
                 assert.equal(seen.people[0], 'People', `${width} ${mode}: a headed card beside it keeps its heading`);
                 assert.deepEqual(await notesAxe(tab), [], `${width} ${mode}: axe`);
@@ -8396,6 +8419,26 @@ test('the shell bar\'s search field has the bar\'s own fill and edge: a 3:1 edge
                 if (process.env.KIT_BAR_FIELD_SHOTS) await tab.screenshot({ path: `${process.env.KIT_BAR_FIELD_SHOTS}/bar-${name}-${dark ? 'dark' : 'light'}.png`, clip: { x: 0, y: 0, width: 1280, height: 72 } });
             } finally { await context.close(); }
         }
+    }
+});
+
+test('a top-level module that opts into pills (moduleVariant secondary) draws its own row as pills on its top page and a sibling page; without it, underline tabs (Hubcommons #1942, option B)', async () => {
+    const shape = async (query) => {
+        const { context, tab } = await openShell(query, 1280, false);
+        try {
+            await tab.waitForSelector('[data-page-module-tabs]');
+            return await tab.evaluate(() => {
+                const row = document.querySelector('[data-page-module-tabs]');
+                return { pills: row.matches('[data-page-pills]') || row.querySelector('[data-page-pills]') !== null, items: [...new Set([...row.querySelectorAll('a')].map((a) => a.textContent.trim()))].join('|') };
+            });
+        } finally { await context.close(); }
+    };
+    for (const page of ['module=0', 'module=1']) {
+        const plain = await shape(page);
+        const pills = await shape(`${page}&module-pills`);
+        assert.equal(plain.pills, false, `${page}: without a variant the module's row is underline tabs`);
+        assert.equal(pills.pills, true, `${page}: with variant secondary the module's row is pills`);
+        assert.equal(pills.items, plain.items, `${page}: the same pages either way`);
     }
 });
 
@@ -10837,6 +10880,13 @@ test('People on a phone: a long email is truncated, and the row still shows its 
         if (process.env.KIT_PEOPLE_SHOTS) await row.screenshot({ path: `${process.env.KIT_PEOPLE_SHOTS}/people-phone.png` });
         // At 1280 a wide row (long email, written-out actions) squeezes Joined: a date stays on one line.
         await tab.setViewportSize({ width: 1280, height: 800 });
+        const wide = await row.evaluate((tr) => {
+            const person = tr.querySelector('[data-person]');
+            let scroller = tr.parentElement; while (scroller && getComputedStyle(scroller).overflowX === 'visible') scroller = scroller.parentElement;
+            return { person: person.getBoundingClientRect().width, overflow: scroller ? scroller.scrollWidth - scroller.clientWidth : 0 };
+        });
+        if (process.env.KIT_PEOPLE_SHOTS) await tab.locator('table').first().screenshot({ path: `${process.env.KIT_PEOPLE_SHOTS}/people-1280.png` });
+        assert.ok(wide.person <= 288.5 && wide.overflow <= 0, `at 1280 the identity cell is capped and the table does not scroll in its card (${JSON.stringify(wide)})`);
         await tab.evaluate(() => { for (const cell of document.querySelectorAll('[data-cell="joined"]')) cell.style.width = '40px'; });
         const lines = await tab.$$eval('[data-cell="joined"] time', (times) => times.map((time) => time.getClientRects().length));
         assert.ok(lines.length > 0 && lines.every((count) => count === 1), `each join date is one line in a narrow column (${JSON.stringify(lines)})`);
