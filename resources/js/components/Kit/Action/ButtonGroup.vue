@@ -95,7 +95,7 @@ function checkIcons(el: unknown): void {
         <div
             v-if="$slots.default"
             :class="[
-                'flex min-w-0 items-stretch [&>*]:min-w-0 [&>*]:truncate [&>*]:rounded-none [&>*]:border-0 [&>*]:shadow-none [&>*]:ring-0',
+                'flex min-w-0 items-stretch [&>*]:min-w-0 [&>*]:truncate [&>*]:rounded-none [&>*]:border-0 [&>*]:shadow-none [&>*]:ring-0 [&>*:focus-visible]:[outline:2px_solid_var(--ring)]! [&>*:focus-visible]:[outline-offset:-2px]!',
                 !text &&
                     'bg-paper text-outline-foreground ring-outline overflow-hidden rounded-md shadow-(--kit-elevation-1) ring-1 ring-inset dark:shadow-none',
                 !text && $slots.menu && 'rounded-r-none',
