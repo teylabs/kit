@@ -8042,6 +8042,32 @@ test('DataTable filters: at 390 one Filters button opens them (no selects in the
     }
 });
 
+// ── DataTable toolbar on a phone (HC #2194): search on its own full-width row, Filters and Columns side by side under it ──
+test('DataTable toolbar at 390: the search spans the toolbar and its placeholder is not clipped; Filters and Columns share the row below', async () => {
+    const context = await browser.newContext({ viewport: { width: 390, height: 800 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${authUrl}shell.html?module=1&table&filters`);
+        await tab.waitForSelector('[data-columns-menu]');
+        const seen = await tab.evaluate(() => {
+            const r = (sel) => document.querySelector(sel).getBoundingClientRect();
+            const input = document.querySelector('[data-table-search]');
+            const row = input.closest('[data-table-card]')?.parentElement ?? document.querySelector('[data-columns-menu]').parentElement;
+            const bar = document.querySelector('[data-columns-menu]').parentElement.getBoundingClientRect();
+            const ctx = document.createElement('canvas').getContext('2d');
+            const st = getComputedStyle(input);
+            ctx.font = `${st.fontWeight} ${st.fontSize} ${st.fontFamily}`;
+            const room = input.clientWidth - parseFloat(st.paddingLeft) - parseFloat(st.paddingRight);
+            return { search: r('[data-table-search]'), bar, filters: r('[data-table-phone-filters] [data-filter-popover]'), columns: r('[data-columns-menu]'), fits: ctx.measureText(input.placeholder).width <= room };
+        });
+        assert.ok(seen.search.width >= seen.bar.width - 2, `the search (${seen.search.width}) spans the toolbar (${seen.bar.width})`);
+        assert.ok(seen.fits, 'the placeholder is not clipped');
+        assert.ok(seen.filters.top >= seen.search.bottom && Math.abs((seen.filters.top + seen.filters.bottom) - (seen.columns.top + seen.columns.bottom)) <= 4 && seen.filters.right <= seen.columns.left, 'Filters and Columns sit side by side under the search');
+    } finally {
+        await context.close();
+    }
+});
+
 // ── A long workspace name (shell.html?name=…, #1177): the switcher gives way before search; the name ellipsizes with its full name in title ──
 for (const scheme of ['light', 'dark'])
     test(`the shell bar with a long workspace name (${scheme}): the name ellipsizes first, search keeps its width, no overflow, no axe target-size failure`, async () => {

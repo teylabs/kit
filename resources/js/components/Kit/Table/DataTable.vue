@@ -392,7 +392,7 @@ const showToolbar = computed(
                 :choices="singleChoices"
                 :search-label="searchLabel"
                 :phone-filters="singleChoices.length > 0"
-                class="flex-1"
+                class="flex-1 max-sm:basis-full"
                 @search="(value) => visit({ search: value }, true)"
                 @filter="(name, value) => visit({ filters: { [name]: value } })"
             >

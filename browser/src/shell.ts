@@ -117,7 +117,7 @@ const wideTable = query.has('wide');
 const extra = wideTable ? Array.from({ length: 12 }, (_, i) => col(`c${i}`, `Long column heading ${i + 1}`)) : [];
 const tableData = {
     rows: Array.from({ length: 60 }, (_, i) => ({ id: i + 1, name: `Member ${i + 1}`, email: `member${i + 1}@example.com`, ...Object.fromEntries(extra.map((c) => [c.key, 'Unbroken-long-cell-value-0001'])), actions: [] })),
-    columns: [col('name', 'Name'), col('email', 'Email'), ...extra],
+    columns: [col('name', 'Name'), { ...col('email', 'Email'), hideable: query.has('filters') }, ...extra],
     sort: null, search: null, filters: [], tabs: [], bulkActions: [],
     // `&filters`: two filter selects (Role, Status). On a phone they sit behind one Filters button.
     ...(query.has('filters') ? { choices: [
@@ -128,7 +128,7 @@ const tableData = {
     emptyState: null,
 };
 const content = query.has('table')
-    ? () => [h(DataTable, { table: tableData as never, toolbar: query.has('filters'), rowLabel: 'name' }), h('div', { style: 'height: 1500px' })]
+    ? () => [h(DataTable, { table: tableData as never, toolbar: query.has('filters'), rowLabel: 'name', searchLabel: query.has('filters') ? 'Search by name or email' : 'Search' }), h('div', { style: 'height: 1500px' })]
     : query.has('top')
     ? () => [
           h('div', { class: 'sticky top-(--shell-top) z-10 h-10 border-b bg-background text-sm', 'data-under-bar': '' }, 'Pinned under the bar'),
