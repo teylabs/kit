@@ -3587,6 +3587,10 @@
       "reason": "Inertia live props plumbing (docs/live-props.md): a host wires it into configureLive and its own pages; no kit surface renders it."
     },
     {
+      "ref": "@/components/Kit:bridgeInertiaUIToasts",
+      "reason": "Setup call in app.ts that hands inertiaui/notifications' Toaster to the shell's Toaster (kit.toasts.driver inertiaui); no page uses it."
+    },
+    {
       "ref": "@/components/Kit:useStickyBars",
       "reason": "Internal registry for StickyBar and FloatingToolbar."
     },

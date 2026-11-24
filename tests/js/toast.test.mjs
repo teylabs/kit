@@ -8,7 +8,7 @@ import { pathToFileURL } from 'node:url';
 const kit = new URL('../../resources/js/components/Kit/', import.meta.url);
 const dir = mkdtempSync(join(tmpdir(), 'kit-toast-'));
 copyFileSync(new URL('Feedback/toastPlacement.ts', kit), join(dir, 'toastPlacement.ts'));
-const { resolvePosition, toastPlacement, flashedToast, resolveTrigger, toastPlan, toastTiming, isAway, whenBack, toastGate } = await import(pathToFileURL(join(dir, 'toastPlacement.ts')).href);
+const { resolvePosition, toastPlacement, flashedToast, resolveTrigger, toastPlan, toastTiming, isAway, whenBack, toastGate, fromInertiaUI, toInertiaUI } = await import(pathToFileURL(join(dir, 'toastPlacement.ts')).href);
 
 const shell = (over = {}) => ({ bars: { count: 0, height: 0 }, small: false, headerActions: false, ...over });
 const bar = { count: 1, height: 56 };
@@ -126,4 +126,21 @@ test('dedupe: only a few recent ids are kept', () => {
     ['1', '2', '3'].forEach((id) => fresh({ id, type: 'info', message: 'x' }));
     assert.equal(fresh({ id: '3', type: 'info', message: 'x' }), false);
     assert.equal(fresh({ id: '1', type: 'info', message: 'x' }), true, 'the oldest id has been forgotten');
+});
+
+// The inertiaui shim (kit.toasts.driver inertiaui): the package's list carries kit toasts as InertiaUIToasts::payload makes them.
+test('inertiaui: a kit toast in the package\'s list reads back as the kit\'s toast, trigger and style included', () => {
+    const payload = { uuid: '01K', id: '01K', type: 'success', title: 'Saved', actions: [{ label: 'Undo', href: '/undo', method: 'post' }], duration: 8000, data: { kit: { from: 'save', style: 'fly-out' } } };
+    assert.deepEqual(fromInertiaUI(payload), { id: '01K', type: 'success', message: 'Saved', action: { label: 'Undo', href: '/undo', method: 'post' }, from: 'save', style: 'fly-out', duration: 8000 });
+    assert.deepEqual(fromInertiaUI({ ...payload, actions: [{ label: 'Open', href: '/x' }], duration: null }).action, { label: 'Open', href: '/x', method: 'get' }, 'a GET action has no method in the package\'s shape');
+    assert.equal(fromInertiaUI({ ...payload, duration: null }).duration, null, 'null stays until dismissed');
+});
+test('inertiaui: a toast the package made itself, or one the kit cannot render, is left alone', () => {
+    assert.equal(fromInertiaUI({ uuid: 'a', type: 'success', title: 'Quota' }), null, 'no data.kit: the package\'s own');
+    assert.equal(fromInertiaUI({ uuid: 'a', type: 'loading', title: 'Working', data: { kit: {} } }), null, 'a type the kit does not have');
+    assert.equal(fromInertiaUI({ type: 'success', title: 'x', data: { kit: {} } }), null, 'no uuid');
+});
+test('inertiaui: a kit:toast:show toast becomes the package\'s toast() call with its id and duration', () => {
+    assert.deepEqual(toInertiaUI({ id: 't1', type: 'warning', message: 'Order kept', description: 'Refused', duration: null }), { title: 'Order kept', options: { id: 't1', type: 'warning', description: 'Refused', duration: null } });
+    assert.deepEqual(toInertiaUI({ id: 't2', type: 'info', message: 'x', action: { label: 'Open', href: '/a' }, duration: 4000 }).options.actions, [{ label: 'Open', href: '/a', method: 'get' }]);
 });

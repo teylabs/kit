@@ -81,13 +81,13 @@ toastCheck(refuses(fn () => Toast::success(' ')), 'a toast needs a message');
 toastCheck(refuses(fn () => Toast::success('Saved')->style('confetti')), 'an unknown style is refused');
 toastCheck(refuses(fn () => Toast::success('Saved')->from(' ')), 'a blank trigger is refused');
 
-toastCheck(Toast::shared() === ['position' => 'auto'], 'the position defaults to auto');
+toastCheck(Toast::shared() === ['position' => 'auto', 'driver' => 'kit'], 'the position defaults to auto');
 foreach (['top-center', 'top-right', 'bottom-right', 'bottom-center'] as $position) {
     config(['kit.toasts.position' => $position]);
-    toastCheck(Toast::shared() === ['position' => $position], "{$position} is shared as set");
+    toastCheck(Toast::shared() === ['position' => $position, 'driver' => 'kit'], "{$position} is shared as set");
 }
 config(['kit.toasts.position' => 'top-left']);
-toastCheck(Toast::shared() === ['position' => 'auto'], 'an unknown position falls back to auto');
+toastCheck(Toast::shared() === ['position' => 'auto', 'driver' => 'kit'], 'an unknown position falls back to auto');
 $shipped = require dirname(__DIR__).'/config/kit.php';
 toastCheck($shipped['toasts']['position'] === 'auto', 'the shipped config is auto');
 
