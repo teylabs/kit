@@ -1,0 +1,18 @@
+# typecheck/ is a test-only harness (vue-tsc, Prettier and the renderMarkdown corpus in CI), pinned on purpose, not installed by any app;
+# Dependabot can't update its lockfile, so its security-update jobs there fail and turn main red.
+# open-pull-requests-limit: 0 turns off version updates; security updates still run outside typecheck/.
+version: 2
+updates:
+  - package-ecosystem: composer
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+  - package-ecosystem: npm
+    directories:
+      - "/**"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+    exclude-paths:
+      - "typecheck/**"
