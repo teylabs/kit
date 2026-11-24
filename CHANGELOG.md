@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.50.1
 
 Features affected: workspaces (Rls), core (FileInput); pins unchanged. No ViewModel changes shape.
 
