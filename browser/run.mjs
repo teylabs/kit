@@ -9026,6 +9026,9 @@ test('Dropzones guard the page: a file dropped outside every zone is kept from t
     assert.equal(await page.textContent('[data-signature]'), '', 'a file over maxBytes is refused in the browser');
     await dropInto('sig.png', 100);
     await page.waitForFunction(() => document.querySelector('[data-signature]').textContent === 'sig.png');
+    // BulkDrop names the chosen file ("sig.png · ready"); FileInput does not name it a second time (Hubcommons, Jasper 20:53Z).
+    assert.equal(await page.locator('[data-state="file-input"] [data-file-chosen]').count(), 0, 'the chosen file is named once, by the zone');
+    assert.equal((await page.textContent('[data-state="file-input"] [data-file-input-dropzone]')).split('sig.png').length - 1, 1, 'sig.png shows once');
 });
 
 test('the notes composer: a second browse replaces the chosen files, while a drop and a paste add to them, and the save sends exactly the list shown', async () => {

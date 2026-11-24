@@ -2,11 +2,12 @@
 
 ## Unreleased
 
-Features affected: workspaces (Rls); pins unchanged. No ViewModel changes shape.
+Features affected: workspaces (Rls), core (FileInput); pins unchanged. No ViewModel changes shape.
 
 ### Fixed
 
 - **The tenant setting is asked once per transaction.** Under row-level security, `Rls` now remembers `kit.workspace_id` for the open transaction, so Workspaces::current(), the page's layout and nested `within()` calls no longer each run `current_setting`, and a `set_config` to the value already set is skipped. The memory is dropped on a new outermost transaction, the outermost commit, any rollback (a savepoint's restores the old value) and any other statement that could change the setting (Hubcommons, query tuning round 2). The kit's switcher page under RLS goes from 23 to 22 queries; SwitcherRlsCheck now fails if a page sets or reads the setting more than once.
+- **A dropzone FileInput names the chosen file once.** With `dropzone`, BulkDrop already shows "name · ready", and FileInput no longer repeats the name under it. A saved file (`current`), which the zone doesn't show, is still named (Hubcommons, Jasper's report).
 
 ## v0.50.0
 
