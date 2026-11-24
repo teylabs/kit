@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.50.0
 
 Features affected: core (Toast, Toaster); pins unchanged. No ViewModel changes shape. `kitToasts` gains `driver`.
 
