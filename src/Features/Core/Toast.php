@@ -12,6 +12,7 @@ use InvalidArgumentException;
  * validation or inline response, so an error toast is never the only signal. An action is one item, never destructive (no delete, remove or the like), and stays up longer.
  * `from('save')` names the trigger by its action-descriptor key (no DOM knowledge here); `style()` picks fly-out, anchored or pulse, else pulse for success, plain otherwise.
  * Use it statically (`Toast::success('Saved')->from('save')`) or through the Toastable concern (`$this->toast('Saved')->from('save')`). Each change re-flashes.
+ * With `kit.toasts.driver` set to `inertiaui`, the same calls flash into inertiaui/notifications' list instead (InertiaUIToasts), and its Toaster renders them.
  */
 final class Toast
 {
@@ -20,6 +21,9 @@ final class Toast
     public const STYLES = ['plain', 'fly-out', 'anchored', 'pulse'];
 
     public const POSITIONS = ['auto', 'top-center', 'top-right', 'bottom-right', 'bottom-center'];
+
+    /** Who delivers and renders a flashed toast (`kit.toasts.driver`): the kit's own Toaster, or inertiaui/notifications through the kit's shim (docs/toasts.md). */
+    public const DRIVERS = ['kit', 'inertiaui'];
 
     public const DURATION = 4000;
 
@@ -116,12 +120,23 @@ final class Toast
         return $toast;
     }
 
-    /** What every page shares as `kitToasts`: where the shell's Toaster sits (`kit.toasts.position`), `auto` for an unknown value. */
+    /** What every page shares as `kitToasts`: where the shell's Toaster sits (`kit.toasts.position`), `auto` for an unknown value, and the driver. */
     public static function shared(): array
     {
         $position = config('kit.toasts.position', 'auto');
 
-        return ['position' => in_array($position, self::POSITIONS, true) ? $position : 'auto'];
+        return ['position' => in_array($position, self::POSITIONS, true) ? $position : 'auto', 'driver' => self::driver()];
+    }
+
+    /** `kit.toasts.driver`; an unknown value is refused, not guessed. */
+    public static function driver(): string
+    {
+        $driver = config('kit.toasts.driver', 'kit');
+        if (! in_array($driver, self::DRIVERS, true)) {
+            throw new InvalidArgumentException('kit.toasts.driver is one of: '.implode(', ', self::DRIVERS).'.');
+        }
+
+        return $driver;
     }
 
     /**
@@ -144,7 +159,11 @@ final class Toast
 
     private function flash(): self
     {
-        Inertia::flash('toast', $this->toArray());
+        if (self::driver() === 'inertiaui') {
+            InertiaUIToasts::flash($this->toArray());
+        } else {
+            Inertia::flash('toast', $this->toArray());
+        }
 
         return $this;
     }

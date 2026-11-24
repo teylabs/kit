@@ -241,3 +241,71 @@ export function toastPlan(
             return plain;
     }
 }
+
+// inertiaui/notifications' toast as the kit's shim flashes it (InertiaUIToasts::payload): only a toast carrying `data.kit` is the kit's own, so a toast the
+// package made itself is left to the package. Returns the kit's FlashedToast, so trigger, style and history work the same under either driver.
+export function fromInertiaUI(value: unknown): FlashedToast | null {
+    if (!value || typeof value !== 'object') return null;
+    const toast = value as Record<string, unknown>;
+    const kit = (
+        toast.data as { kit?: { from?: unknown; style?: unknown } } | undefined
+    )?.kit;
+    if (!kit || typeof toast.uuid !== 'string') return null;
+    const action = Array.isArray(toast.actions)
+        ? (toast.actions[0] as
+              { label?: unknown; href?: unknown; method?: unknown } | undefined)
+        : undefined;
+    return flashedToast({
+        id: toast.uuid,
+        type: toast.type,
+        message: toast.title,
+        ...(typeof toast.description === 'string'
+            ? { description: toast.description }
+            : {}),
+        ...(action &&
+        typeof action.label === 'string' &&
+        typeof action.href === 'string'
+            ? {
+                  action: {
+                      label: action.label,
+                      href: action.href,
+                      method:
+                          typeof action.method === 'string'
+                              ? action.method
+                              : 'get',
+                  },
+              }
+            : {}),
+        ...(typeof kit.from === 'string' ? { from: kit.from } : {}),
+        style: typeof kit.style === 'string' ? kit.style : 'plain',
+        duration: toast.duration === undefined ? null : toast.duration,
+    });
+}
+
+// The package's `toast()` options for a kit toast raised in the browser (`kit:toast:show`): its id (so it shows once and the shim finds it by
+// `data-toast-id`), the kit's duration as is (null stays), and its one action as a visit.
+export function toInertiaUI(toast: FlashedToast): {
+    title: string;
+    options: Record<string, unknown>;
+} {
+    return {
+        title: toast.message,
+        options: {
+            id: toast.id,
+            type: toast.type,
+            ...(toast.description ? { description: toast.description } : {}),
+            duration: toast.duration ?? null,
+            ...(toast.action
+                ? {
+                      actions: [
+                          {
+                              label: toast.action.label,
+                              href: toast.action.href,
+                              method: toast.action.method ?? 'get',
+                          },
+                      ],
+                  }
+                : {}),
+        },
+    };
+}

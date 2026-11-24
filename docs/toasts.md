@@ -112,10 +112,59 @@ The notice is one quiet toast, "A new version is available.", with a Reload acti
 
 The failed chunk's own request is cheap: a missing file under the build directory is a plain 404 before the session starts ([deploy.md](deploy.md#a-missing-build-file)).
 
+## Testing
+
+The kit registers two `TestResponse` macros once the app has booted. They have the same names and arguments as inertiaui/notifications' own, so an app's tests keep passing when it moves to that package ([below](#inertia-notifications)):
+
+```php
+$this->post('/cases/1', $data)->assertToast('Changes saved', 'success');
+$this->post('/cases/1', $data)->assertToast(fn (array $toast): bool => $toast['data']['kit']['from'] === 'save');
+$this->get('/dashboard')->assertNoToasts();
+```
+
+- **What counts:** the toasts a response delivers. That's a flash after a redirect (or an Inertia location or redirect response), in an Inertia page's flash data (JSON or the first HTML view), or in the package's `X-InertiaUI-Toasts` header. A plain response leaves a flashed toast in the session for a later page, so it delivers none.
+- **One shape under either driver.** Each toast reads as the package's: `title`, `type`, `description`, `actions`, `duration`, and the kit's trigger and style under `data.kit` (`from`, `style`). The kit's `toast` key and the package's list both count, one toast per id.
+- **The type** is `success`, `info`, `warning` or `error`, or the package's `ToastType` enum.
+- This replaces reading `session(SessionKey::FLASH_DATA)['toast']` by hand.
+
+## Inertia Notifications
+
+`kit.toasts.driver` (`KIT_TOASTS_DRIVER`) picks who delivers and renders toasts: `kit` (the default, the Toaster above) or `inertiaui` ([inertiaui/notifications](https://inertiaui.com/inertia-notifications)). Under `inertiaui`, nothing at a call site changes. `Toast::success(...)`, `$this->toast(...)->from('save')`, `->style()`, `kit:toast:show` and the shell's `<Toaster />` stay as they are, and every rule (types, one non-destructive action, durations) is still checked in `Toast`. Only the delivery moves:
+
+- **Server.** A kit toast flashes into the package's list (`flash.inertiaui.toasts`), so it shows beside toasts the package makes itself and passes its `Toast::fake()` / response assertions. Its `uuid` and `id` are the kit's id, so a re-flash replaces its own entry. Its duration is the kit's (null stays until dismissed). Its trigger and style travel as `data.kit`. An `anchored` toast stays on the kit's own `toast` key, because it is no corner toast.
+- **Client.** The shell's `<Toaster />` mounts the package's Toaster at the kit's resolved position (`kit.toasts.position`, `auto` included), moved under the shell's pinned top and above the sticky bars and the safe area. It still meets each kit toast's trigger: pulse and fly-out find the rendered toast by `data-toast-id`, and anchored shows the kit's bubble. It also dispatches `kit:toast` for each kit toast, renders `kit:toast:show` through the package's `toast()`, and shows the new-version notice there.
+
+### Moving an app
+
+1. `composer require inertiaui/notifications` and `npm install @inertiaui/notifications-vue`. The package needs `inertiajs/inertia-laravel` 3.8+, `@inertiajs/vue3` 3.11+ and Tailwind 4.3+.
+2. In `resources/css/app.css`: `@import '@inertiaui/notifications-vue/theme.css';`, then `@import '@inertiaui/notifications-vue/shadcn.css';` (the toasts take the app's shadcn tokens), and `@source '../../node_modules/@inertiaui/notifications-vue/dist';`.
+3. In `resources/js/app.ts`, before `createInertiaApp()`: `initNotifications()`, then hand the Toaster over (the kit never imports the package itself, so an app on the `kit` driver builds without it):
+
+   ```ts
+   import { Toaster, initNotifications, toast } from '@inertiaui/notifications-vue';
+   import { bridgeInertiaUIToasts } from '@kit/ui';
+
+   initNotifications();
+   bridgeInertiaUIToasts({ Toaster, toast });
+   ```
+
+4. Set `KIT_TOASTS_DRIVER=inertiaui`. Don't mount the package's `<Toaster />` yourself: the shell's is the one Toaster. A second gives two stacks, and every toast shows twice.
+5. Tests that read `session(...)['toast']` move to `assertToast()` / `assertNoToasts()` ([Testing](#testing)) first, while the app is still on the `kit` driver. The same assertions then pass after the switch.
+
+### What the shim can't keep
+
+- **The look.** Toasts render with the package's markup and theme (through its shadcn token map), not vue-sonner's rich colours. That's a visible change.
+- **The guardrails, outside kit calls.** The kit refuses destructive actions, unknown types and more than one action only in `Toast`. A toast made with the package's own `Toast` or the browser `toast()` (`ToastAction::make('Delete')->delete()`, say) isn't checked.
+- **One app-wide position.** The package also accepts `->position()` and named Toasters per toast. Kit calls never set them.
+- **Timing while away.** The package's own pause (hover, focus, hidden tab, blurred window, at least one more second on resume) replaces the kit's "start the timer when they're back".
+- **`kit:toast` history** covers kit toasts only. A toast the package makes itself, or an inbox arrival, isn't dispatched.
+- **One toast per request** is gone: under `inertiaui`, two toasts in a request both show, in order.
+
 ## Coverage
 
-- `tests/ToastCheck.php` covers the PHP helper: the payload, the refusals, `from` and `style`, and the shared position.
-- `tests/js/toast.test.mjs` covers each `auto` branch, trigger resolution, the fallbacks, reduced motion and the shell's single mount.
+- `tests/ToastCheck.php` covers the PHP helper: the payload, the refusals, `from` and `style`, and the shared position and driver.
+- `tests/ToastDeliveryCheck.php` covers delivery over real requests under both drivers, with the real package booted. That includes the package's shape, one entry per re-flash, anchored on the kit's key, kit and package toasts in one list, and `assertToast()` / `assertNoToasts()` passing and failing.
+- `tests/js/toast.test.mjs` covers each `auto` branch, trigger resolution, the fallbacks, reduced motion, the shell's single mount, and reading a kit toast back out of the package's list.
 - `tests/js/new-version.test.mjs` covers the new-version decision (each hook, clean and unsaved), the handled error, the one persistent notice and its Reload. The browser job (`leave.html`, on the real `@inertiajs/vue3`) dispatches `vite:preloadError` with a clean form (the page reloads) and a dirty one (the notice shows, and the edit is kept), and answers a background reload with a version change (the page is kept, and the notice shows).
 - The kit has no browser harness, so the FLIP animation, the bubble's position and vue-sonner's rendering are not checked in a browser.
 - The kit's FocusShell (`@kit/shell`, which the Workspace Layout renders for a focus shell) mounts the Toaster, with `:toaster="false"` to leave it to the host's own root shell. A host that renders its own focus shell mounts `<Toaster />` there.

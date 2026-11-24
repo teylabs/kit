@@ -90,6 +90,8 @@ export {
 } from './Feedback/stageNotice';
 // The app's one toast renderer, mounted by the shell; it renders the server's flashed `toast` (toasts.md). Sticky bottom bars register with useStickyBars.
 export { default as Toaster } from './Feedback/Toaster.vue';
+// With kit.toasts.driver `inertiaui`: the app hands over inertiaui/notifications' Toaster and toast() once (toasts.md#inertia-notifications).
+export { bridgeInertiaUIToasts, type InertiaUIToasts } from './Feedback/inertiaui';
 export { useStickyBars } from './Layout/stickyBars';
 export { default as Avatar } from './Layout/Avatar.vue';
 export { avatarColor, avatarPalette } from './Layout/avatarColor';

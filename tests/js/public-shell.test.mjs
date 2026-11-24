@@ -58,7 +58,8 @@ test('the PublicShell mounts the kit Toaster by default, so a public form\'s fla
     // The Toaster renders the page's flashed `toast` on mount and each later flash; a public contact form's redirect toast is an ordinary one.
     const kit = new URL('../../resources/js/components/Kit/', import.meta.url);
     const toaster = flat(code(readFileSync(new URL('Feedback/Toaster.vue', kit), 'utf8')));
-    assert.match(toaster, /show\(\(page as unknown as \{ ?flash\?: Record<string, unknown> ?\}\)\.flash\?\.toast\);/);
+    assert.match(toaster, /flashed\(\(page as unknown as \{ ?flash\?: Record<string, unknown> ?\}\)\.flash\);/);
+    assert.match(toaster, /show\(flash\?\.toast\);/);
     assert.match(toaster, /router\.on\('flash', /);
     const { mkdtempSync, copyFileSync } = await import('node:fs');
     const { join } = await import('node:path');

@@ -1,21 +1,32 @@
 <script setup lang="ts">
 import { router, usePage } from '@inertiajs/vue3';
 import { Check } from '@lucide/vue';
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
+import {
+    computed,
+    nextTick,
+    onBeforeUnmount,
+    onMounted,
+    ref,
+    watchEffect,
+} from 'vue';
 import { Toaster as Sonner, toast } from 'vue-sonner';
 import 'vue-sonner/style.css';
 import { pageUnsaved } from '@/components/Kit/Form/formFrame';
 import { useStickyBars } from '@/components/Kit/Layout/stickyBars';
 import { useTopLayer } from '@/components/Kit/Overlay/layer';
+import { inertiaUIToasts } from './inertiaui';
 import { installNewVersion } from './newVersion';
+import { fly, pulse } from './toastMotion';
 import {
     flashedToast,
+    fromInertiaUI,
     isAway,
     resolveTrigger,
     toastGate,
     toastPlacement,
     toastPlan,
     toastTiming,
+    toInertiaUI,
     whenBack,
     type FlashedToast,
 } from './toastPlacement';
@@ -31,8 +42,13 @@ import {
  * toast waits: its duration starts when they are back.
  * It also installs, once, the reload after a deploy (newVersion.ts): a lazy chunk that fails to load reloads a page with nothing unsaved; otherwise, and on
  * an Inertia version change, it shows one persistent "A new version is available." toast with Reload.
+ * With `kitToasts.driver` `inertiaui` (kit.toasts.driver), inertiaui/notifications delivers and renders the corner toasts: this mounts the package's Toaster
+ * (handed over with bridgeInertiaUIToasts) at the same resolved position and offsets, and still meets each kit toast's trigger, finding the rendered toast by
+ * its `data-toast-id`. Anchored toasts stay on the kit's `toast` key and render here as the bubble. The package times its own toasts while the tab is away.
  */
-const page = usePage<{ kitToasts?: { position?: string } }>();
+const page = usePage<{ kitToasts?: { position?: string; driver?: string } }>();
+const iui =
+    page.props.kitToasts?.driver === 'inertiaui' ? inertiaUIToasts() : null;
 const bars = useStickyBars();
 const small = ref(false);
 const headerActions = ref(false);
@@ -74,46 +90,13 @@ function trigger(from: string | undefined): HTMLElement | null {
     );
 }
 
-function pulse(el: HTMLElement): void {
-    el.animate?.(
-        [
-            {
-                boxShadow:
-                    '0 0 0 0 color-mix(in oklab, var(--color-primary) 55%, transparent)',
-            },
-            { boxShadow: '0 0 0 8px transparent' },
-        ],
-        { duration: 700, easing: 'ease-out' },
-    );
-}
-
-// FLIP: the newest shell toast starts over the trigger and settles where it is.
-function fly(from: HTMLElement): void {
-    requestAnimationFrame(() => {
-        const to = document.querySelector<HTMLElement>(
-            '[data-kit-toaster] [data-sonner-toast][data-front="true"]',
-        );
-        if (!to) return;
-        const a = from.getBoundingClientRect();
-        const b = to.getBoundingClientRect();
-        to.animate?.(
-            [
-                {
-                    transform: `translate(${a.left - b.left}px, ${a.top - b.top}px) scale(${Math.max(0.2, a.width / b.width)}, ${Math.max(0.2, a.height / b.height)})`,
-                    opacity: 0.4,
-                },
-                { transform: 'none', opacity: 1 },
-            ],
-            { duration: 300, easing: 'cubic-bezier(0.2, 0, 0, 1)' },
-        );
-    });
-}
-
 // The first page's flash arrives both on the page and as the router's first `flash` event (an equal copy): one toast per server id, not two.
 const fresh = toastGate();
-async function show(value: unknown): Promise<void> {
+async function show(value: unknown, added = false): Promise<void> {
     if (!fresh(value)) return;
-    const flashed: FlashedToast | null = flashedToast(value);
+    const flashed: FlashedToast | null = added
+        ? fromInertiaUI(value)
+        : flashedToast(value);
     if (!flashed) return;
     // Headless history: the app can record every shown toast (a notification bell, say) without the kit owning one.
     window.dispatchEvent(new CustomEvent('kit:toast', { detail: flashed }));
@@ -134,6 +117,19 @@ async function show(value: unknown): Promise<void> {
             animate: plan.animate,
         };
         bubbleTimer = setTimeout(() => (bubble.value = null), 2500);
+        return;
+    }
+    if (iui) {
+        // A flashed toast is already in the package's list (`added`); one from `kit:toast:show` is added here.
+        if (!added) {
+            const { title, options } = toInertiaUI(flashed);
+            iui.toast(title, options);
+        }
+        await nextTick();
+        const sel = `[data-toast-id="${CSS.escape(flashed.id ?? '')}"]`;
+        if (el && plan.flight)
+            fly(el, () => document.querySelector<HTMLElement>(sel));
+        if (el && plan.pulse) pulse(el);
         return;
     }
     const action = flashed.action;
@@ -164,9 +160,38 @@ async function show(value: unknown): Promise<void> {
         waiting.add(cancel);
     }
     await nextTick();
-    if (el && plan.flight) fly(el);
+    if (el && plan.flight)
+        fly(el, () =>
+            document.querySelector<HTMLElement>(
+                '[data-kit-toaster] [data-sonner-toast][data-front="true"]',
+            ),
+        );
     if (el && plan.pulse) pulse(el);
 }
+
+// The package's list sits `--toast-offset` from the edge, in a layer: one unlayered rule moves it to the kit's resolved offset (under the shell's pinned top,
+// above the sticky bars and the safe area), read from custom properties this keeps current. Its Toaster renders into its own host on <body>, out of reach of a prop.
+function placeInertiaUI(): void {
+    if (!document.getElementById('kit-iui-toasts')) {
+        const rule = document.createElement('style');
+        rule.id = 'kit-iui-toasts';
+        rule.textContent =
+            ".iui-toast-list[data-position^='top']{top:var(--kit-iui-toast-top)}.iui-toast-list[data-position^='bottom']{bottom:var(--kit-iui-toast-bottom)}";
+        document.head.append(rule);
+    }
+}
+watchEffect(() => {
+    if (!iui || typeof document === 'undefined') return;
+    const root = document.documentElement.style;
+    root.setProperty(
+        '--kit-iui-toast-top',
+        `calc(var(--shell-top, 0px) + ${placement.value.offset}px)`,
+    );
+    root.setProperty(
+        '--kit-iui-toast-bottom',
+        `calc(${placement.value.offset}px + env(safe-area-inset-bottom))`,
+    );
+});
 
 let media: MediaQueryList | undefined;
 const onMedia = () => (small.value = !!media?.matches);
@@ -191,8 +216,18 @@ onMounted(() => {
             (router.on as unknown as UntypedOn)('location', listener),
         unsaved: pageUnsaved,
         reload: () => window.location.reload(),
-        toast,
+        toast: iui
+            ? (message, { id, action }) =>
+                  iui.toast(message, {
+                      id,
+                      duration: null,
+                      actions: [
+                          { label: action.label, onClick: action.onClick },
+                      ],
+                  })
+            : toast,
     });
+    if (iui) placeInertiaUI();
     window.addEventListener('kit:toast:show', onClientToast);
     media = window.matchMedia('(max-width: 39.99rem)');
     onMedia();
@@ -200,11 +235,19 @@ onMounted(() => {
     document.addEventListener('pointerdown', onActivate, true);
     document.addEventListener('keydown', onActivate, true);
     measureShell();
-    show((page as unknown as { flash?: Record<string, unknown> }).flash?.toast);
+    const flashed = (flash: Record<string, unknown> | undefined) => {
+        show(flash?.toast);
+        // The package's list (its default flash key): its own Toaster adds them; here each kit toast meets its trigger and reaches `kit:toast`.
+        if (iui)
+            for (const toast of (flash?.inertiaui as { toasts?: unknown[] })
+                ?.toasts ?? [])
+                show(toast, true);
+    };
+    flashed((page as unknown as { flash?: Record<string, unknown> }).flash);
     stop = router.on(
         'flash',
         (event: CustomEvent<{ flash?: Record<string, unknown> }>) =>
-            show(event.detail.flash?.toast),
+            flashed(event.detail.flash),
     );
 });
 onBeforeUnmount(() => {
@@ -221,8 +264,15 @@ onBeforeUnmount(() => {
 const layer = useTopLayer();
 </script>
 <template>
+    <component
+        :is="iui.Toaster"
+        v-if="iui"
+        :position="placement.position"
+        data-kit-toaster
+    />
     <Teleport :to="layer" :disabled="layer === 'body'">
         <Sonner
+            v-if="!iui"
             :position="placement.position"
             :offset="offset"
             :mobile-offset="offset"

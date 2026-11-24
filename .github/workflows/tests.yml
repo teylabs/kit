@@ -566,6 +566,9 @@ jobs:
       - name: Toasts
         timeout-minutes: 4
         run: composer test:toast
+      - name: Toast delivery and test helpers
+        timeout-minutes: 4
+        run: composer test:toast-delivery
       - name: Tables
         timeout-minutes: 4
         run: composer test:tables

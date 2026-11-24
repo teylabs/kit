@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+Features affected: core (Toast, Toaster); pins unchanged. No ViewModel changes shape. `kitToasts` gains `driver`.
+
+### Added
+
+- **Toast assertions for an app's tests.** `assertToast('Changes saved', 'success')`, `assertToast(fn (array $toast) => ...)` and `assertNoToasts()` on the test response, named and shaped like inertiaui/notifications' own, under either driver. They replace reading `session(...)['toast']` by hand (docs/toasts.md, "Testing").
+- **`kit.toasts.driver`: toasts through inertiaui/notifications.** With `inertiaui`, kit toasts flash into the package's list and its Toaster renders them, mounted by the shell's `<Toaster />` at the kit's position and offsets. Call sites, triggers (pulse, fly-out, anchored), `kit:toast`, `kit:toast:show` and the new-version notice stay. An app hands over the package's Toaster once with `bridgeInertiaUIToasts()`. The default stays `kit`; nothing changes until an app opts in (docs/toasts.md, "Inertia Notifications", including what the shim can't keep).
 ## v0.49.8
 
 Features affected: core (DataTable, IndexToolbar); pins unchanged. No ViewModel changes shape.

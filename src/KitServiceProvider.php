@@ -7,12 +7,14 @@ use Illuminate\Contracts\Http\Kernel as KernelContract;
 use Illuminate\Foundation\Http\Kernel as HttpKernel;
 use Illuminate\Image\ImageManager;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Testing\TestResponse;
 use Inertia\Inertia;
 use Tey\Kit\Features\Core\Clock;
 use Tey\Kit\Features\Core\Kit;
 use Tey\Kit\Features\Core\KitShares;
 use Tey\Kit\Features\Core\Toast;
 use Tey\Kit\Support\MiddleTruncate;
+use Tey\Kit\Testing\ToastAssertions;
 
 final class KitServiceProvider extends ServiceProvider
 {
@@ -48,6 +50,10 @@ final class KitServiceProvider extends ServiceProvider
             }
         });
         $this->registerImageDriver();
+        // assertToast() / assertNoToasts() for an app's tests, after every provider has booted, so they take precedence over inertiaui/notifications' own (docs/toasts.md#testing).
+        if (class_exists(TestResponse::class)) {
+            $this->app->booted(fn () => ToastAssertions::register());
+        }
         $this->commands([Console\BrandCommand::class, Console\BrandMigrateCommand::class, Console\ScaffoldCommand::class, Media\Console\PruneUploadsCommand::class]);
         // Off by default: a host opts in with `kit.media.prune_schedule` (true for daily at 03:00, or a cron expression).
         $this->callAfterResolving(Schedule::class, fn (Schedule $schedule) => Media\Console\PruneUploadsCommand::schedule($schedule));

@@ -171,6 +171,8 @@ return [
         'position' => env('KIT_TOASTS_POSITION', 'auto'),
         // Milliseconds per type; null stays until dismissed. A toast with an action stays at least 8000 (docs/toasts.md).
         'durations' => ['success' => 4000, 'info' => 4000, 'warning' => null, 'error' => null],
+        // 'kit' (the kit's Toaster) or 'inertiaui' (inertiaui/notifications delivers and renders; the kit's calls stay as they are, docs/toasts.md).
+        'driver' => env('KIT_TOASTS_DRIVER', 'kit'),
     ],
 
     // Where the bar shows the workspace's Settings link: 'primary' (among the pages), 'menu' (the account menu) or false (nowhere, for an app that places
