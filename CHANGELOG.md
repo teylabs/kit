@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.49.8
 
 Features affected: core (DataTable, IndexToolbar); pins unchanged. No ViewModel changes shape.
 
