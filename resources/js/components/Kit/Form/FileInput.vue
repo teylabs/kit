@@ -108,7 +108,11 @@ defineExpose({
             handle-drops
             @files="(files) => (model = files[0] ?? null)"
         />
-        <p v-if="shown" class="text-muted-foreground text-sm" data-file-chosen>
+        <p
+            v-if="!model && shown"
+            class="text-muted-foreground text-sm"
+            data-file-chosen
+        >
             {{ shown.name }}
         </p>
     </div>
