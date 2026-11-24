@@ -64,8 +64,8 @@ final class Rls
             });
         }
         $previous = self::read($db);
-        // Already this workspace's (a page's nested runs for the workspace it is in): nothing to set and nothing to put back. Decided from the
-        // transaction's own value, never a copy kept here, so a change made any other way is still seen.
+        // Already this workspace's (a page's nested runs for the workspace it is in): nothing to set and nothing to put back. The value is the
+        // transaction's, remembered only while it is known (see $known), so a change made any other way is still seen.
         if ($previous === (string) $workspaceId) {
             return $fn();
         }
@@ -219,17 +219,61 @@ final class Rls
         $db->statement('alter default privileges in schema '.$schema.' grant usage, select, update on sequences to '.$r);
     }
 
+    /**
+     * The setting's value in each connection's open transaction, as this class last set or read it, so a page asks the database once rather than at every
+     * Workspaces::current() and nested within(). Keyed by connection object; null is a known empty value. forget() drops it whenever the value could have
+     * changed without this class: a new outermost transaction, the outermost commit, any rollback (a rolled-back savepoint restores the old value), and any
+     * other statement that names set_config or the setting. Outside a transaction nothing is kept: SET LOCAL there does not last.
+     *
+     * @var array<int, ?string>
+     */
+    private static array $known = [];
+
+    private static bool $own = false;
+
+    /** Drops the remembered value for `$db` (FeaturesServiceProvider calls it on transaction events and on a statement that may change the setting). */
+    public static function forget(Connection $db): void
+    {
+        unset(self::$known[spl_object_id($db)]);
+    }
+
+    /** Whether a statement that just ran may have changed the setting behind this class's back. */
+    public static function touches(string $sql): bool
+    {
+        return ! self::$own && preg_match('/set_config|\\bset\\s+(local\\s+|session\\s+)?kit\\.|\\breset\\b|\\bdiscard\\b/i', $sql) === 1;
+    }
+
     private static function set(Connection $db, string $value): void
     {
+        $key = spl_object_id($db);
+        if ($db->transactionLevel() > 0 && array_key_exists($key, self::$known) && self::$known[$key] === ($value === '' ? null : $value)) {
+            return;
+        }
         // Always a bound parameter, and always `true` (SET LOCAL): never a session-level setting.
-        $db->select('select set_config(?, ?, true)', [self::SETTING, $value]);
+        self::$own = true;
+        try {
+            $db->select('select set_config(?, ?, true)', [self::SETTING, $value]);
+        } finally {
+            self::$own = false;
+        }
+        if ($db->transactionLevel() > 0) {
+            self::$known[$key] = $value === '' ? null : $value;
+        }
     }
 
     private static function read(Connection $db): ?string
     {
+        $key = spl_object_id($db);
+        if ($db->transactionLevel() > 0 && array_key_exists($key, self::$known)) {
+            return self::$known[$key];
+        }
         $value = $db->selectOne('select nullif(current_setting(?, true), \'\') as id', [self::SETTING])->id;
+        $value = $value === null ? null : (string) $value;
+        if ($db->transactionLevel() > 0) {
+            self::$known[$key] = $value;
+        }
 
-        return $value === null ? null : (string) $value;
+        return $value;
     }
 
     private static function driver(string $connection): ?string

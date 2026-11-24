@@ -476,6 +476,9 @@ try {
     $reads = $protectedReads();
     switcherCheck($status === 200 && $listed($page) === ['Switch Home' => 'switch-home', 'Switch Admin' => 'switch-admin', 'Switch Member' => 'switch-member', 'Switch Unplanned' => 'switch-unplanned', 'Switch Off' => 'switch-off'] && ! str_contains(json_encode($page['props']['shell']['switcher']), '"url"'), 'five workspaces under RLS: the page\'s switcher lists each by name and slug, with no link ('.json_encode($listed($page)).')');
     switcherCheck($misplaced($reads) === [] && collect($reads)->pluck('setting')->unique()->values()->all() === [$home->id], 'the page reads protected rows only in Home, the workspace it shows ('.json_encode(collect($reads)->pluck('setting')->unique()->values()->all()).')');
+    // The tenant setting is set and read once per page, not at every Workspaces::current() and nested within() (Hubcommons, query tuning round 2).
+    $tenant = collect($log)->filter(fn (array $q): bool => str_contains($q['sql'], 'set_config') || str_contains($q['sql'], 'current_setting(?'))->countBy(fn (array $q): string => str_contains($q['sql'], 'set_config') ? 'set:'.json_encode($q['bindings']) : 'read')->all();
+    switcherCheck(max($tenant ?: [0]) <= 1, 'the page sets the tenant setting at most once per value and reads it at most once ('.json_encode($tenant).')');
     switcherCheck($fivePage === $onePage, 'the page costs the same queries under RLS with one workspace and five ('.$onePage.' and '.$fivePage.')');
 
     // (2) The switcher, opened: each workspace decided inside it. Protected tables never batched, never read outside the workspace they belong to, and

@@ -7,6 +7,7 @@ use Illuminate\Database\Events\MigrationsEnded;
 use Illuminate\Database\Events\NoPendingMigrations;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Database\Events\TransactionBeginning;
+use Illuminate\Database\Events\TransactionCommitted;
 use Illuminate\Database\Events\TransactionRolledBack;
 use Illuminate\Foundation\Events\DiagnosingHealth;
 use Illuminate\Mail\Events\MessageSending;
@@ -30,6 +31,7 @@ use Tey\Kit\Features\Core\Deploy\PreflightCommand;
 use Tey\Kit\Features\Core\QueryReportCommand;
 use Tey\Kit\Features\Core\Registry;
 use Tey\Kit\Features\Core\RequestMemo;
+use Tey\Kit\Features\Workspaces\Rls;
 use Tey\Kit\Features\Core\ViewModels\PageLayouts;
 use Tey\Kit\Features\Core\ViewModels\PlainPageLayouts;
 use Tey\Kit\Features\Core\Workbench\NullWorkbenchPreferences;
@@ -239,6 +241,19 @@ final class FeaturesServiceProvider extends ServiceProvider
         Event::listen([TransactionBeginning::class, TransactionRolledBack::class], static function (TransactionBeginning|TransactionRolledBack $event): void {
             if (app()->resolved(RequestMemo::class) && ($event instanceof TransactionRolledBack || ($event->connection->getDriverName() === 'sqlite' && $event->connection->transactionLevel() === 1))) {
                 app(RequestMemo::class)->flush();
+            }
+        });
+        // Rls remembers its setting for the open transaction only: a new outermost transaction, the outermost commit, any rollback (a savepoint's restores
+        // the old value) and any other statement that could change it make it ask the database again. Never autoloaded here: a host without workspaces
+        // never loads Rls, and then there is nothing remembered to drop.
+        Event::listen([TransactionBeginning::class, TransactionCommitted::class, TransactionRolledBack::class], static function (TransactionBeginning|TransactionCommitted|TransactionRolledBack $event): void {
+            if (class_exists(Rls::class, false) && ($event instanceof TransactionRolledBack || $event->connection->transactionLevel() <= ($event instanceof TransactionBeginning ? 1 : 0))) {
+                Rls::forget($event->connection);
+            }
+        });
+        Event::listen(QueryExecuted::class, static function (QueryExecuted $query): void {
+            if (class_exists(Rls::class, false) && Rls::touches($query->sql)) {
+                Rls::forget($query->connection);
             }
         });
     }
