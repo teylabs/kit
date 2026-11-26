@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.50.3
 
 Features affected: mcp (GatedByCapability); pins unchanged. No ViewModel changes shape.
 
