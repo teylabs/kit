@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.50.2
 
 Features affected: core (StartKitRequest on MCP, `concierge.active`), mcp (routes); pins unchanged. No ViewModel changes shape.
 
