@@ -338,6 +338,26 @@ try {
     $mcpRoute = $app['router']->getRoutes()->match(Request::create('https://kit.test/mcp', 'POST'));
     httpCheck($mcpRoute->uri() === 'mcp' && in_array(BindMcpConnection::class, $mcpRoute->gatherMiddleware(), true) && in_array('auth:api', $mcpRoute->gatherMiddleware(), true), 'POST /mcp is an MCP route behind auth:api and the connection binding');
     httpCheck($mcp($people['owner'], $token, null) === 200, 'the one address /mcp opens MCP with a bound token');
+    // Round 2 (Hubcommons): the MCP routes start the request's memos first, so ~100 tools' scope, membership and capability checks are read once, not per tool.
+    foreach (['/mcp', '/mcp/connections/1'] as $uri) {
+        $stack = $app['router']->getRoutes()->match(Request::create('https://kit.test'.$uri, 'POST'))->gatherMiddleware();
+        $at = array_flip($stack);
+        httpCheck(isset($at[Tey\Kit\Features\Core\Http\Middleware\StartKitRequest::class], $at['auth:api']) && $at[Tey\Kit\Features\Core\Http\Middleware\StartKitRequest::class] < $at['auth:api'], 'POST '.$uri.' starts the request memos before auth:api');
+    }
+    httpCheck(($app['router']->getMiddleware()['concierge.active'] ?? null) === Tey\Kit\Features\Core\Http\Middleware\EnsureAccountActive::class, 'concierge.active is the kit\'s, reading the account through RequestMemo');
+    $accountReads = 0;
+    Illuminate\Support\Facades\DB::listen(function ($query) use (&$accountReads): void {
+        $accountReads += str_contains($query->sql, 'concierge_accounts') ? 1 : 0;
+    });
+    $probe = Request::create('https://kit.test/mcp', 'POST');
+    $app->instance('request', $probe);
+    $probe->setUserResolver(fn () => $people['owner']);
+    (new Tey\Kit\Features\Core\Http\Middleware\StartKitRequest)->handle($probe, fn () => (new Tey\Kit\Features\Core\Http\Middleware\EnsureAccountActive(app(Tey\Concierge\Concierge::class)))->handle($probe, function () use ($people) {
+        Tey\Kit\Features\Core\RequestMemo::account($people['owner']);
+
+        return response('ok');
+    }));
+    httpCheck($accountReads === 1, 'concierge.active and a later read share one concierge_accounts query ('.$accountReads.')');
     $unbound = Token::query()->forceCreate(['id' => bin2hex(random_bytes(40)), 'user_id' => $people['owner']->id, 'client_id' => $client->id, 'name' => null, 'scopes' => ['mcp:use'], 'revoked' => false, 'expires_at' => now()->addHour()]);
     httpCheck($mcp($people['owner'], $unbound, null) === 401, 'the one address refuses a token bound to no connection (401)');
     httpCheck($mcp($people['admin'], $token, null) === 401, "the one address refuses another person's token (401)");

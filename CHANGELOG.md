@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+Features affected: core (StartKitRequest on MCP, `concierge.active`), mcp (routes); pins unchanged. No ViewModel changes shape.
+
+### Fixed
+
+- **An MCP call reads its checks once.** `/mcp` and `/mcp/connections/{connection}` run `auth:api` without the `web` group, so the request's memos (RequestMemo, Permissions, Capabilities, Entitlements) never started, and each registered tool re-read the connection's scopes, the membership, capability overrides, roles and permissions: Hubcommons measured 750 queries on one tools/call. Both routes now run StartKitRequest before `auth:api` (Hubcommons, query tuning round 2).
+- **The account is read once per request.** `concierge.active` is now the kit's subclass of Concierge's middleware, reading the account through `RequestMemo::account`, so the shell's and Operators' later reads reuse it instead of querying `concierge_accounts` again. It refuses exactly as Concierge's does, and is aliased only where Concierge registered `concierge.active`.
+
 ## v0.50.1
 
 Features affected: workspaces (Rls), core (FileInput); pins unchanged. No ViewModel changes shape.
