@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+Features affected: mcp (GatedByCapability); pins unchanged. No ViewModel changes shape.
+
+### Fixed
+
+- **A bound MCP request reads its connection's scopes once.** GatedByCapability read the connection's scopes from `connections` again for every registered tool it weighed, even with the request's memos started; it now reads them through RequestMemo, once per request. A revoke is a write, which empties the memo (Hubcommons, query tuning round 2).
+
 ## v0.50.2
 
 Features affected: core (StartKitRequest on MCP, `concierge.active`), mcp (routes); pins unchanged. No ViewModel changes shape.

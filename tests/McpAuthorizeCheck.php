@@ -358,6 +358,29 @@ try {
         return response('ok');
     }));
     httpCheck($accountReads === 1, 'concierge.active and a later read share one concierge_accounts query ('.$accountReads.')');
+    // Round 2 (Hubcommons): a list or call gates every registered tool; the bound connection's scopes are read once per request, not once per tool.
+    $scopeReads = 0;
+    Illuminate\Support\Facades\DB::listen(function ($query) use (&$scopeReads): void {
+        $scopeReads += str_contains($query->sql, 'from "connections"') ? 1 : 0;
+    });
+    $gated = fn (): object => new class
+    {
+        use Tey\Kit\Features\Mcp\GatedByCapability;
+
+        public const ABILITY = 'settings.read';
+    };
+    $gate = Request::create('https://kit.test/mcp', 'POST');
+    $app->instance('request', $gate);
+    $gate->setUserResolver(fn () => $people['owner']);
+    $gate->attributes->set('mcp.principal', new Tey\Kit\Features\Core\Principal((int) $people['owner']->id, (int) $pending->id));
+    (new Tey\Kit\Features\Core\Http\Middleware\StartKitRequest)->handle($gate, function () use ($gated) {
+        foreach (range(1, 5) as $tool) {
+            $gated()->unavailable();
+        }
+
+        return response('ok');
+    });
+    httpCheck($scopeReads === 1, 'five gated tools on one bound request share one read of the connection\'s scopes ('.$scopeReads.')');
     $unbound = Token::query()->forceCreate(['id' => bin2hex(random_bytes(40)), 'user_id' => $people['owner']->id, 'client_id' => $client->id, 'name' => null, 'scopes' => ['mcp:use'], 'revoked' => false, 'expires_at' => now()->addHour()]);
     httpCheck($mcp($people['owner'], $unbound, null) === 401, 'the one address refuses a token bound to no connection (401)');
     httpCheck($mcp($people['admin'], $token, null) === 401, "the one address refuses another person's token (401)");

@@ -36,7 +36,8 @@ trait GatedByCapability
         if ($ability !== null) {
             $principal = request()->attributes->get('mcp.principal');
             $bound = $principal instanceof \Tey\Kit\Features\Core\Principal && $principal->connectionId !== null;
-            $held = $bound ? (array) json_decode((string) \Illuminate\Support\Facades\DB::table('connections')->where('id', $principal->connectionId)->whereNull('revoked_at')->value('scopes'), true) : [];
+            // Read once per request (RequestMemo), not once per tool: a list or call weighs every registered tool. A revoke is a write, which empties the memo.
+            $held = $bound ? RequestMemo::instance()->get('connection-scopes:'.$principal->connectionId, fn (): array => (array) json_decode((string) \Illuminate\Support\Facades\DB::table('connections')->where('id', $principal->connectionId)->whereNull('revoked_at')->value('scopes'), true)) : [];
             $explicit = $attribute !== null && $attribute->explicit();
             // Outside a bound connection (the binding runs before any MCP list or call) there is nothing to be narrower than; an explicit tool still needs its grant named.
             if (($bound || $explicit) && ! \Tey\Kit\Features\Mcp\Operations\WorkspaceConnection::covers($held, $ability)) {
