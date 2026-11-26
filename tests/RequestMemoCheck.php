@@ -322,16 +322,16 @@ try {
     $repeatedOff = array_filter($count($off), fn (int $n): bool => $n > 1);
     memoCheck($offStatus === 200 && array_keys($repeatedOff) === ['user_state', 'settings', 'avatar', 'membership', 'ownership', 'account (kit)', 'permission set'], 'with once() off the dashboard repeats each covered lookup it makes: user_state, settings, avatar, membership, ownership, account and the permission set ('.json_encode($repeatedOff).')');
     memoCheck($count($offSettings)['workspace by id'] > 1, 'with once() off the General settings page reads its workspace by id more than once ('.$count($offSettings)['workspace by id'].')');
-    memoCheck($status === 200 && ($dashboard['component'] ?? null) === 'Workspace/Dashboard/Page' && $count($on) === ['workspace by id' => 0, 'user_state' => 3, 'settings' => 1, 'avatar' => 1, 'membership' => 1, 'ownership' => 1, 'account (kit)' => 2, 'permission set' => 1]
+    memoCheck($status === 200 && ($dashboard['component'] ?? null) === 'Workspace/Dashboard/Page' && $count($on) === ['workspace by id' => 0, 'user_state' => 3, 'settings' => 1, 'avatar' => 1, 'membership' => 1, 'ownership' => 1, 'account (kit)' => 1, 'permission set' => 1]
         && count(array_filter($on, fn (array $query): bool => str_contains($query[0], 'from "user_state" where ("user_id" = ? and "workspace_id" = ?)'))) === 2, 'on the dashboard each lookup runs once: user_state once for Ada\'s own state, once for hers in Acme and once for Acme\'s confirmed timezone, and one settings, avatar, membership, ownership and permission-set read ('.json_encode($count($on)).')');
     memoCheck($peopleStatus === 200 && $count($onPeople) === $count($on), 'the dashboard\'s deferred people list runs each lookup once too ('.json_encode($count($onPeople)).')');
     memoCheck($settingsStatus === 200 && $count($onSettings)['workspace by id'] === 1 && $count($onSettings)['settings'] === 1 && $count($onSettings)['user_state'] === 1, 'the General settings page reads its workspace by id, its settings and user_state once each ('.json_encode($count($onSettings)).')');
-    // The duplicates that are left, documented: Concierge reads the account itself before the kit's memo does (concierge#164), and spatie reloads the roles
+    // The duplicate that is left, documented: spatie reloads the roles (Concierge's own account read, concierge#164, now goes through the kit's memo)
     // pivot inside each Concierge context run (once for the You card's role, once for the permission set), so roles from another workspace never answer here.
-    $documented = ['"concierge_accounts" ×2', '"roles" ×2'];
+    $documented = ['"roles" ×2'];
     memoCheck($duplicates($on) === $documented, 'the dashboard\'s only exact duplicates are the documented ones ('.json_encode($duplicates($on)).')');
-    memoCheck($duplicates($onPeople) === $documented && $duplicates($onSettings) === ['"concierge_accounts" ×2'], 'and so are the people list\'s and the settings page\'s ('.json_encode([$duplicates($onPeople), $duplicates($onSettings)]).')');
-    memoCheck(count($on) === 18 && count($onPeople) === 19 && count($onSettings) === 15, 'the budgets: 18 queries for the dashboard, 19 for its people list, 15 for General settings ('.count($on).', '.count($onPeople).', '.count($onSettings).')');
+    memoCheck($duplicates($onPeople) === $documented && $duplicates($onSettings) === [], 'and so are the people list\'s and the settings page\'s ('.json_encode([$duplicates($onPeople), $duplicates($onSettings)]).')');
+    memoCheck(count($on) === 17 && count($onPeople) === 18 && count($onSettings) === 14, 'the budgets: 17 queries for the dashboard, 18 for its people list, 14 for General settings ('.count($on).', '.count($onPeople).', '.count($onSettings).')');
 
     // (2) A write, then a read, in one request: each lookup sees the write, whichever way it was made.
     $ada = (int) $people['ada']->id;

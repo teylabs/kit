@@ -64,6 +64,15 @@ final class CoreProvider extends ServiceProvider implements Contributes
                 $kernel->prependToMiddlewarePriority(StartKitRequest::class);
             }
         }
+        // `concierge.active` reads the account through RequestMemo (Http\Middleware\EnsureAccountActive), so later reads reuse it. Set once every
+        // provider has booted, after Concierge's own alias.
+        $this->app->booted(function (): void {
+            // Only where Concierge registered it: a host without Concierge never loads its classes.
+            $router = $this->app->make(\Illuminate\Routing\Router::class);
+            if (array_key_exists('concierge.active', $router->getMiddleware())) {
+                $router->aliasMiddleware('concierge.active', Http\Middleware\EnsureAccountActive::class);
+            }
+        });
         // Only the framework's own handler takes these: under `artisan`, Collision wraps it in an adapter without them, and HTTP errors are not its job.
         $handler = $this->app->make(ExceptionHandler::class);
         if (! $handler instanceof FrameworkHandler) {
