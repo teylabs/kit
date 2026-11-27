@@ -5,6 +5,7 @@ namespace Tey\Kit\Features\Settings\Adapters;
 use Tey\Kit\Features\Core\Principal;
 use Tey\Kit\Features\Settings\Mail\WorkspaceMailIdentity;
 use Tey\Kit\Features\Settings\Operations\WorkspaceProfile;
+use Tey\Kit\Features\Settings\Setup\Setup;
 use Tey\Kit\Features\Workspaces\Workspaces;
 
 final class SettingsUi
@@ -41,6 +42,21 @@ final class SettingsUi
     {
         return Workspaces::run($workspaceId, function () use ($principal) {
             return app(WorkspaceMailIdentity::class)->check($principal)->toArray();
+        });
+    }
+
+    /** @return array{rows: list<\Tey\Kit\Features\Settings\Setup\SetupRow>, app_rows: bool} */
+    public function setup(Principal $principal, int $workspaceId): array
+    {
+        return Workspaces::run($workspaceId, function () use ($principal) {
+            return app(Setup::class)->read($principal);
+        });
+    }
+
+    public function sendSetupTestMail(Principal $principal, int $workspaceId): string
+    {
+        return Workspaces::run($workspaceId, function () use ($principal) {
+            return app(Setup::class)->sendTest($principal);
         });
     }
 }

@@ -2,7 +2,16 @@
 
 ## Unreleased
 
-Features affected: access (workspace_entitlements), mcp (mcp_connections), workspaces (Concierge's tables), core (health checks); pins unchanged. No ViewModel changes shape.
+Features affected: access (workspace_entitlements), mcp (mcp_connections), workspaces (Concierge's tables), core (health checks, Registry), settings (settings registry, workspace secrets, Setup page, `workspace_setup_read`). settings re-pinned: `sha256:222aa233…4757` → `sha256:ea5e22e0…bf2a` (the Setup page stub, the workspace_secrets migration stub and the manifest). A new ViewModel, `SetupViewModel`, and Data class, `SetupRow`.
+
+### Added
+
+- **A settings registry.** `Registry::setting(key, scope, type, default, encrypted, env, check)` declares an `app` or `workspace` setting; `SettingValues::get()`, `resolve()`, `put()` and `forget()` read and write it. A value resolves as its environment variable, then the stored value, then the default, so an app that only ever set the variable behaves as before.
+- **Workspace secrets.** A new `workspace_secrets` table (`workspace_id`, `key`, `value`, unique per workspace and key) holds workspace settings, encrypted with the app key, under row-level security in its own migration.
+- **Settings → Setup.** A page for owners and admins (operators also see the app-wide rows) listing Mail, Media, RLS, Queue, Telescope (when installed), registered settings and the steps done by hand, each OK, info, warning, failing, missing, held back, set by env, by hand or not applicable, with its fix and a link. A Send a test mail button mails the viewer. `Registry::setupRow()` adds an app's own rows. A fresh local app (local mail and disk, no Cloud or bucket keys) shows nothing missing or failing: production-only rows are not applicable while `APP_ENV=local` or `APP_PROFILE=iterating`.
+- **`workspace_setup_read`,** the MCP read of the same rows and states.
+- **docs/deploy.md › Queues**, the queue rules the Setup page checks. New config: `kit.setup.queue` (`worker_timeout`, `flex`, `failed_count`, `failed_url`).
+- **Tests.** `test:setup` (resolution order, the secret unreadable raw, every row's states and thresholds, the local and production runs, the page and the MCP read); `test:rls` covers `workspace_secrets` under RLS.
 
 ### Changed
 
@@ -17,6 +26,7 @@ For apps on 0.50:
 1. `composer require tey/concierge:^0.12 tey/kit:^0.51`, then `php artisan migrate` (with RLS, on the admin connection). Concierge renames its tables, and the kit renames `connections` and `entitlements`; rows are kept.
 2. Search your app for the old names and update each: your own RLS policies and migrations, `kit.tenancy.rls.except` in config/kit.php if you publish it, raw SQL and `DB::table()` calls, validation rules (`exists:concierge_memberships,id`, `unique:connections,...`) and any subclassed model that sets `$table`. The old names are `concierge_memberships`, `concierge_membership_scopes`, `concierge_ownerships`, `concierge_invitations`, `concierge_accounts`, `concierge_tenant_invitations`, `connections` and `entitlements`.
 3. If a migration refuses, a table under the new name already exists (often one of your own). Nothing was renamed. Keep the table that holds the data, rename or drop the other, then migrate again. If your `entitlements` table is the host's own, adopted in place, the kit refuses to rename it: set `'tables' => ['entitlement' => 'entitlements']` in config/kit.php to keep its name, then migrate again.
+4. Run `php artisan migrate` for `workspace_secrets`, then `php artisan kit:scaffold settings` for the Setup page, and `php artisan types:generate` for the new `SetupViewModel` and `SetupRow` types.
 
 ## v0.50.4
 
