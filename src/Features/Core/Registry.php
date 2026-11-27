@@ -482,6 +482,80 @@ final class Registry
         return $this;
     }
 
+    /** @var array<string, array{key: string, scope: string, type: string, default: mixed, encrypted: bool, env: ?string, check: ?callable}> */
+    private array $settingDefinitions = [];
+
+    /** @var list<array{group: string, key: string, check: callable, scope: string, order: int}> */
+    private array $setupRows = [];
+
+    /**
+     * A setting the app reads through SettingValues: `app` (one value) or `workspace` (one per workspace, kept encrypted in `workspace_secrets`).
+     * It resolves as the `env` variable when set, then the stored value, then `default`, so an app that only ever set the variable keeps working.
+     * `type` is `string`, `bool`, `int` or `json`. `encrypted` stores an app value encrypted and never shows a value on the setup page or over MCP.
+     * `check` takes the resolved value and returns why it is wrong, or null when it is fine; the setup page shows it on the setting's row.
+     *
+     * @param  ?callable(mixed): ?string  $check
+     */
+    public function setting(string $key, string $scope, string $type = 'string', mixed $default = null, bool $encrypted = false, ?string $env = null, ?callable $check = null): self
+    {
+        if (! preg_match('/\A[a-z0-9_]+(?:\.[a-z0-9_]+)*\z/', $key)) {
+            throw new RuntimeException('Invalid setting key: '.$key);
+        }
+        if (! in_array($scope, ['app', 'workspace'], true)) {
+            throw new RuntimeException('Unknown setting scope: '.$scope);
+        }
+        if (! in_array($type, ['string', 'bool', 'int', 'json'], true)) {
+            throw new RuntimeException('Unknown setting type: '.$type);
+        }
+        if (isset($this->settingDefinitions[$key])) {
+            throw new RuntimeException('Setting registered twice: '.$key);
+        }
+        $this->settingDefinitions[$key] = ['key' => $key, 'scope' => $scope, 'type' => $type, 'default' => $default, 'encrypted' => $encrypted, 'env' => $env, 'check' => $check];
+
+        return $this;
+    }
+
+    /** @return array<string, array{key: string, scope: string, type: string, default: mixed, encrypted: bool, env: ?string, check: ?callable}> the registered settings, by key, in registration order */
+    public function settings(): array
+    {
+        return $this->settingDefinitions;
+    }
+
+    /**
+     * A row of Settings → Setup (and `workspace_setup_read`). `check` returns a SetupRow, or null to leave the row out (a package that isn't installed).
+     * `app` rows report on the whole app and are shown only to operators; `workspace` rows to the workspace's owners and admins too. Groups keep the
+     * order of their first row; rows within a group go lower `order` first, then registration order.
+     *
+     * @param  callable(): ?\Tey\Kit\Features\Settings\Setup\SetupRow  $check
+     */
+    public function setupRow(string $group, string $key, callable $check, string $scope = 'app', int $order = 0): self
+    {
+        if (! preg_match('/\A[a-z0-9]+(?:[.-][a-z0-9]+)*\z/', $key)) {
+            throw new RuntimeException('Invalid setup row key: '.$key);
+        }
+        if (! in_array($scope, ['app', 'workspace'], true)) {
+            throw new RuntimeException('Unknown setup row scope: '.$scope);
+        }
+        foreach ($this->setupRows as $row) {
+            if ($row['key'] === $key) {
+                throw new RuntimeException('Setup row registered twice: '.$key);
+            }
+        }
+        $this->setupRows[] = ['group' => $group, 'key' => $key, 'check' => $check, 'scope' => $scope, 'order' => $order];
+
+        return $this;
+    }
+
+    /** @return list<array{group: string, key: string, check: callable, scope: string, order: int}> the setup rows, grouped (groups in first-registration order) and ordered */
+    public function setupRows(): array
+    {
+        $groups = array_values(array_unique(array_column($this->setupRows, 'group')));
+        $rows = $this->setupRows;
+        usort($rows, fn (array $a, array $b): int => [array_search($a['group'], $groups, true), $a['order']] <=> [array_search($b['group'], $groups, true), $b['order']]);
+
+        return $rows;
+    }
+
     /** @param array<string, string> $scopes */
     public function scopes(array $scopes): self
     {

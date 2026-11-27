@@ -101,6 +101,7 @@ Laravel Cloud's Serverless Postgres is Neon. From the documentation (not verifie
 - a workspace request through `ResolveWorkspace`;
 - queued jobs on the database queue: a tenant-aware job in its workspace and one without, an undeclared job with and without a workspace, a `NotTenantAware` job, the default on and the `tenant_aware_jobs` list, and Concierge's invitation jobs;
 - the guard and `kit:preflight`'s RLS problems (superuser, `BYPASSRLS`, owner, unprotected table, admin as runtime);
+- `workspace_secrets` (protected by its own migration): forced RLS with the policy, and refused reads, updates and inserts across workspaces;
 - the no-op on SQLite.
 
 `composer test:switcher-rls` (PostgreSQL only, also in the PostgreSQL job) covers the shell's switcher on Inertia pages and its links (`GET /me/switcher`): the page reads only the workspace it shows, at the same queries with one workspace or five; the links read protected tables only inside their own workspace, also with one listed in `except` or a protected permission pivot; the tenant, permission team and RLS setting restored after each workspace, also when a check throws; and roles changed mid-request answered afresh.

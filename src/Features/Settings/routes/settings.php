@@ -4,6 +4,8 @@ use Illuminate\Support\Facades\Route;
 use Tey\Kit\Features\Settings\Http\MailDomainCheckController;
 use Tey\Kit\Features\Settings\Http\MailIdentityController;
 use Tey\Kit\Features\Settings\Http\SettingsController;
+use Tey\Kit\Features\Settings\Http\SetupController;
+use Tey\Kit\Features\Settings\Http\SetupTestMailController;
 use Tey\Kit\Features\Workspaces\WorkspaceRoutes;
 
 // The General section of a workspace's settings; the landing page that lists the sections is session-ui's.
@@ -17,6 +19,12 @@ WorkspaceRoutes::define(function (bool $full): void {
         Route::put('', 'update');
     });
     Route::controller(MailDomainCheckController::class)->prefix('settings/email/domain-checks')->group(function (): void {
+        Route::post('', 'store');
+    });
+    Route::controller(SetupController::class)->prefix('settings/setup')->group(function () use ($full): void {
+        WorkspaceRoutes::page(Route::get('', 'show'), $full, 'settings', 'workspaces.settings.setup', 'Setup', ['session-ui', 'workspaces.settings.index']);
+    });
+    Route::controller(SetupTestMailController::class)->prefix('settings/setup/test-mail')->group(function (): void {
         Route::post('', 'store');
     });
 });

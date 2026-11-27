@@ -445,6 +445,21 @@ try {
     Rls::within($a, fn () => DB::table('tags')->insert(['workspace_id' => null, 'type' => 'flag', 'name' => json_encode(['en' => 'stale']), 'slug' => json_encode(['en' => 'stale'])]));
     rlsCheck($admin->table('tags')->whereNull('workspace_id')->count() === 2, 'a workspace may add a shared flag');
 
+    // workspace_secrets (settings' 000404) is created and protected as the migrator; through the runtime role a workspace reads and writes only its own.
+    $secrets = require dirname(__DIR__).'/database/migrations/settings/0001_01_02_000404_create_workspace_secrets_table.php';
+    $config->set('database.default', 'pgsql_admin');
+    $secrets->up();
+    $config->set('database.default', 'pgsql');
+    $policy = $admin->selectOne("select c.relrowsecurity as r, c.relforcerowsecurity as f, (select count(*) from pg_policy p where p.polrelid = c.oid and p.polname = 'workspace_isolation') as p from pg_class c where c.relname = 'workspace_secrets'");
+    rlsCheck($policy->r && $policy->f && (int) $policy->p === 1 && ! in_array('workspace_secrets', Rls::unprotected(), true), 'workspace_secrets has RLS forced with the workspace_isolation policy, and is not unprotected');
+    $admin->table('workspace_secrets')->insert([['workspace_id' => $a, 'key' => 'crm.api_key', 'value' => 'enc-a'], ['workspace_id' => $b, 'key' => 'crm.api_key', 'value' => 'enc-b']]);
+    rlsCheck(DB::table('workspace_secrets')->count() === 0, 'with no workspace set, workspace_secrets shows no rows');
+    rlsCheck(Rls::within($a, fn () => DB::table('workspace_secrets')->pluck('value')->all()) === ['enc-a'], 'a workspace reads only its own secrets, with app scoping removed');
+    rlsCheck(Rls::within($a, fn () => DB::table('workspace_secrets')->where('workspace_id', $b)->update(['value' => 'x'])) === 0 && $admin->table('workspace_secrets')->where('workspace_id', $b)->value('value') === 'enc-b', 'another workspace\'s secret cannot be changed');
+    $refused = Rls::within($a, fn () => rlsRefusal(fn () => DB::table('workspace_secrets')->insert(['workspace_id' => $b, 'key' => 'x', 'value' => 'x'])));
+    rlsCheck($refused !== null && str_contains($refused, 'row-level security'), 'a secret for another workspace is refused');
+    $admin->table('workspace_secrets')->delete();
+
     // Nested: an inner workspace inside an open transaction, then the outer one back, also after a throw.
     $nested = Rls::within($a, function () use ($b): array {
         $inner = Rls::within($b, fn () => [Rls::current(), DB::table('rls_notes')->count()]);

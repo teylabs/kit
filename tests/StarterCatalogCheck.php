@@ -21,7 +21,7 @@ const PINS = [
     'core' => 'sha256:110b3565abeb834679e2dc5d52e974cb0754b903747ad9485de4f3fb54b2dc81',
     'workspaces' => 'sha256:b9d980603245c47565b9bf0e49064faf6cb29b9863da5db2be2abe0338e576a4',
     'access' => 'sha256:98af2e26dd12f50c7e65dcf10e9692afdbc611248571e12d379e0cc7405a2de6',
-    'settings' => 'sha256:222aa23365087ff10406af69e5481f58b5a9a691059611d51e77ce7898914757',
+    'settings' => 'sha256:ea5e22e036df0eef78e0344d1d701b2e56a292c4203f4535c2a370552648bf2a',
     'shell' => 'sha256:2a78630af4a8a79f98acc54916042067cdc01348de54f64e3b05904958c94724',
     'session-ui' => 'sha256:ec07b4f151747df409e26868731b0368015b6a6ee9bb6dd08fc9276a68bc5e67',
     'workspace-ui' => 'sha256:472e3ef070d81ddc0c0677c3cb5b68c7a5bda2a98ee67981e2072e2e470957ab',
@@ -251,7 +251,7 @@ try {
     $blocks = array_map(fn (string $id): int => (int) substr($id, 14, 2), $kitRan);
     $sorted = $blocks;
     sort($sorted);
-    starterCheck(count($kitRan) === 29 && $blocks === $sorted && $ran[0] === '0001_01_01_000000_create_users_table', 'the host migrations run first, then the kit migrations in requires order');
+    starterCheck(count($kitRan) === 30 && $blocks === $sorted && $ran[0] === '0001_01_01_000000_create_users_table', 'the host migrations run first, then the kit migrations in requires order');
     foreach (array_keys($files) as $path) {
         if (str_starts_with($path, 'database/migrations/kit/')) {
             [, , , $feature, $name] = explode('/', $path);

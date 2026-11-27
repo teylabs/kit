@@ -208,6 +208,18 @@ return [
         'media' => ['disk' => env('KIT_NOTES_DISK', 'local'), 'accept' => ['image/png', 'image/jpeg', 'application/pdf'], 'max_files' => 5, 'max_kb' => (int) env('KIT_NOTES_MAX_KB', 10240)],
     ],
 
+    // Settings → Setup's queue rows (docs/deploy.md › Queues). `worker_timeout`: the worker's --timeout, compared with the connection's retry_after (or
+    // visibility_timeout). `flex`: the queue runs on Laravel Cloud Flex, which stops a job after 85 seconds. `failed_count`: a callable adding Cloud's
+    // failed-job store to failed_jobs. `failed_url`: the failed-jobs list the row links to. Every key is read with a default, so this block is optional.
+    'setup' => [
+        'queue' => [
+            'worker_timeout' => (int) env('KIT_QUEUE_WORKER_TIMEOUT', 60),
+            'flex' => (bool) env('KIT_QUEUE_FLEX', false),
+            'failed_count' => null,
+            'failed_url' => env('KIT_QUEUE_FAILED_URL'),
+        ],
+    ],
+
     // Direct uploads (docs/media.md › Large files: S3 multipart). Off by default. When on, a file over `threshold_bytes` on an S3 disk uploads in parts
     // of about `part_bytes` (at least 5 MiB, the S3 minimum) when the host also gives the client a `complete` route; any other upload is a single PUT.
     // `part_checksums` signs each part's SHA-256; turn it off for a store that rejects per-part checksum headers (R2, MinIO). Either way the server

@@ -4,6 +4,7 @@
   "owns": [
     "resources/js/pages/Workspace/Settings/General",
     "resources/js/pages/Workspace/Settings/Email",
+    "resources/js/pages/Workspace/Settings/Setup",
     "database/migrations/kit/settings"
   ],
   "files": {
@@ -14,6 +15,11 @@
     },
     "resources/js/pages/Workspace/Settings/Email/Page.vue": {
       "stub": "pages/Workspace/Settings/Email/Page.vue.stub",
+      "scaffold": "kit",
+      "ownership": "generated"
+    },
+    "resources/js/pages/Workspace/Settings/Setup/Page.vue": {
+      "stub": "pages/Workspace/Settings/Setup/Page.vue.stub",
       "scaffold": "kit",
       "ownership": "generated"
     }
