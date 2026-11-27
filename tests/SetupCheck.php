@@ -274,6 +274,9 @@ try {
             $_ENV[$name] = $_SERVER[$name] = $value;
         }
     };
+    // Unset, the queue rows assume the documented worker (docs/deploy.md): --timeout=85 on a Flex queue.
+    $shipped = require dirname(__DIR__).'/config/kit.php';
+    setupCheck(getenv('KIT_QUEUE_WORKER_TIMEOUT') !== false || ($shipped['setup']['queue']['worker_timeout'] === 85 && $shipped['setup']['queue']['flex'] === true), 'unset, the worker timeout defaults to 85 on a Flex queue, the documented worker');
     setupCheck($values->resolve('billing.vendor') === ['value' => 'none', 'source' => 'default'], 'with nothing stored and no variable, a setting is its default');
     $values->put('billing.vendor', 'stripe');
     setupCheck($values->resolve('billing.vendor') === ['value' => 'stripe', 'source' => 'database'], 'a stored value beats the default');

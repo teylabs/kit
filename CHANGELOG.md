@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+Features affected: settings (Setup queue rows); pins unchanged. No ViewModel changes shape.
+
+### Changed
+
+- **The queue rows assume the documented worker.** With `KIT_QUEUE_WORKER_TIMEOUT` and `KIT_QUEUE_FLEX` unset, Setup now reads the worker as `--timeout=85` on a Flex queue, as docs/deploy.md documents, instead of 60 on a non-Flex queue. Set both if your worker differs.
+- **The Last job row says what it reads.** It comes from a cache mark each finished job leaves, and the row now says this is not yet confirmed on Laravel Cloud's managed queue.
+
 ## v0.51.2
 
 Features affected: core (kitImports); pins unchanged. No ViewModel changes shape.

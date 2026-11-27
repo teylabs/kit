@@ -213,8 +213,8 @@ return [
     // failed-job store to failed_jobs. `failed_url`: the failed-jobs list the row links to. Every key is read with a default, so this block is optional.
     'setup' => [
         'queue' => [
-            'worker_timeout' => (int) env('KIT_QUEUE_WORKER_TIMEOUT', 60),
-            'flex' => (bool) env('KIT_QUEUE_FLEX', false),
+            'worker_timeout' => (int) env('KIT_QUEUE_WORKER_TIMEOUT', 85),
+            'flex' => (bool) env('KIT_QUEUE_FLEX', true),
             'failed_count' => null,
             'failed_url' => env('KIT_QUEUE_FAILED_URL'),
         ],
