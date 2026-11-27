@@ -314,7 +314,7 @@ None of these breaks a build; each makes the kit's components harder to read.
 
 ## Tinted page grounds
 
-Since v0.48.0 the kit's default ground is near-white, `#fafaf9`, with white cards lifted by elevation level 1 (`--kit-ground: tinted` is in the kit's own defaults); in dark mode the cards (`hsl(0 0% 9%)`) are lighter than the page (`hsl(0 0% 3.9%)`). An app picks its own tint with the same tokens, and one that wants the old white ground sets `--kit-ground: white` and `--background: #fff`. A theme whose ground is tinted (a warm paper, a pale green) declares it with **one token**, in its own `resources/css/app.css`:
+Since v0.48.0 the kit's default ground is near-white (`#fafafa` since v0.51.4), with white cards lifted by elevation level 1 (`--kit-ground: tinted` is in the kit's own defaults); in dark mode the cards (`#24201b`) are lighter than the page (`#1a1612`). An app picks its own tint with the same tokens, and one that wants the old white ground sets `--kit-ground: white` and `--background: #fff`. A theme whose ground is tinted (a warm paper, a pale green) declares it with **one token**, in its own `resources/css/app.css`:
 
 ```css
 :root {

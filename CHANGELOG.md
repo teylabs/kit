@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+Features affected: core (css/kit.css); re-pinned `core` `sha256:110b3565…dc81` → `sha256:392b935b…eba0`. No ViewModel changes shape.
+
+### Changed
+
+- **The kit's default palette is warm grey.** With no theme of its own, an app's surfaces, text, borders, fields and focus ring now take a warm-grey palette instead of the Laravel starter kit's neutral: ink `#28231f` on a `#fafafa` ground with white cards in light mode, and `#24201b` cards on `#1a1612` with a gold (`#deb100`) primary and focus ring in dark mode. The light focus ring is dark amber `#8a6a00` (5.07:1 on a card). The destructive and status-text tokens are unchanged. A host that sets its own `:root` and `.dark` tokens sees no change. Every text token still meets 4.5:1 on its surface, and fields hold 3:1 against the card (`composer test:token-contrast`).
+
+### Upgrading
+
+- Run `kit:update plan|apply` for `core` to take the new `css/kit.css`.
+
 ## v0.51.3
 
 Features affected: settings (Setup queue rows); pins unchanged. No ViewModel changes shape.

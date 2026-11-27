@@ -24,8 +24,10 @@ function block(selector) {
 }
 
 function rgb(value) {
+    const hex = value.match(/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
+    if (hex) return hex.slice(1).map(h => parseInt(h, 16) / 255);
     const match = value.match(/^hsl\(\s*([\d.]+)\s+([\d.]+)%\s+([\d.]+)%\s*\)$/);
-    assert.ok(match, `an hsl() colour: ${value}`);
+    assert.ok(match, `an hsl() or #rrggbb colour: ${value}`);
     const [h, s, l] = [Number(match[1]), Number(match[2]) / 100, Number(match[3]) / 100];
     const f = n => { const k = (n + h / 30) % 12; return Math.round((l - s * Math.min(l, 1 - l) * Math.max(-1, Math.min(k - 3, 9 - k, 1))) * 255) / 255; };
     return [f(0), f(8), f(4)];
