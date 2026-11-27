@@ -309,7 +309,7 @@ final class SetupChecks
             return SetupRow::of('Last job', 'warning', $detail.' None has finished in '.self::STALE_MINUTES.' minutes.', 'Check a worker is running (php artisan queue:work).', SetupRow::link('Queues', self::QUEUE_DOCS));
         }
 
-        return SetupRow::of('Last job', 'ok', $detail);
+        return SetupRow::of('Last job', 'ok', $detail.' (Read from a mark each finished job leaves in the cache; not yet confirmed on Laravel Cloud\'s managed queue.)');
     }
 
     public static function queuePruneFailed(): ?SetupRow
