@@ -6012,7 +6012,9 @@ for (const scheme of ['light', 'dark'])
                     const st = getComputedStyle(b);
                     const rgb = (c) => { const x = document.createElement('canvas').getContext('2d'); x.fillStyle = c; x.fillRect(0, 0, 1, 1); const d = x.getImageData(0, 0, 1, 1).data; return [d[0], d[1], d[2], d[3]]; };
                     const lum = ([r, g, bl]) => { const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }; return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(bl); };
-                    let bg = null; for (let e = b; e && !bg; e = e.parentElement) { const c = rgb(getComputedStyle(e).backgroundColor); if (c[3] > 0) bg = c; }
+                    // The fill as drawn: translucent layers (a dark outline Button's bg-input/30) composited over the first opaque one below.
+                    const layers = []; for (let e = b; e; e = e.parentElement) { const c = rgb(getComputedStyle(e).backgroundColor); if (c[3] > 0) layers.push(c); if (c[3] === 255) break; }
+                    const bg = layers.reverse().reduce((under, c) => under.map((v, i) => i < 3 ? v + (c[i] - v) * (c[3] / 255) : 255), [255, 255, 255, 255]);
                     const ring = rgb(st.outlineColor);
                     const [hi, lo] = [lum(ring), lum(bg)].sort((x, y) => y - x);
                     const box = b.getBoundingClientRect(), clip = b.closest('[data-button-group] > div').getBoundingClientRect();
@@ -11371,7 +11373,7 @@ test('Composer rows: an open composer is three lines by default, and rows=1 keep
 });
 
 // ── v0.48.0 defaults: the near-white ground with lifted white cards, the five-level elevation scale, and --kit-outline following --border ──
-test('defaults (v0.48.0): a near-white ground (#fafaf9) with lifted white cards at elevation 1, menus at elevation 3, dark cards lighter than the ground, and --kit-outline is --border', async () => {
+test('defaults (v0.48.0): a near-white ground (#fafafa since v0.51.4) with lifted white cards at elevation 1, menus at elevation 3, dark cards lighter than the ground, and --kit-outline is --border', async () => {
     for (const scheme of ['light', 'dark']) {
         const context = await browser.newContext({ viewport: { width: 1024, height: 700 }, timezoneId: 'UTC', locale: 'en-US' });
         try {
@@ -11385,7 +11387,7 @@ test('defaults (v0.48.0): a near-white ground (#fafaf9) with lifted white cards 
                 return { ground, kitGround: root.getPropertyValue('--kit-ground').trim(), card: card.backgroundColor, shadow: card.boxShadow, outline: root.getPropertyValue('--kit-outline').trim(), border: root.getPropertyValue('--border').trim() };
             });
             assert.equal(seen.kitGround, 'tinted', `${scheme}: the default declares a tinted ground`);
-            assert.deepEqual([seen.ground, seen.card], scheme === 'dark' ? ['rgb(10, 10, 10)', 'rgb(23, 23, 23)'] : ['rgb(250, 250, 249)', 'rgb(255, 255, 255)'], `${scheme}: the page is the ground, the card stands off it`);
+            assert.deepEqual([seen.ground, seen.card], scheme === 'dark' ? ['rgb(26, 22, 18)', 'rgb(36, 32, 27)'] : ['rgb(250, 250, 250)', 'rgb(255, 255, 255)'], `${scheme}: the page is the ground, the card stands off it`);
             assert.match(seen.shadow, scheme === 'dark' ? /rgba\(0, 0, 0, 0\.4\) 0px 1px 3px 0px$/ : /rgba\(28, 25, 23, 0\.1\) 0px 1px 3px 0px$/, `${scheme}: a card is lifted at elevation level 1`);
             const outline = await tab.evaluate(() => { const probe = Object.assign(document.createElement('div'), { style: 'color: var(--kit-outline); border-color: var(--border)' }); document.body.append(probe); const c = getComputedStyle(probe); const r = [c.color, c.borderTopColor]; probe.remove(); return r; });
             assert.equal(outline[0], outline[1], `${scheme}: --kit-outline follows --border`);

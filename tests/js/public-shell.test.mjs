@@ -86,6 +86,8 @@ test('a branded site, all opt-in: the site measure, bars on it, a --shell-bar he
     const css = readFileSync(new URL('../../resources/features/core/css/kit.css.stub', import.meta.url), 'utf8');
     const light = css.match(/\.kit-theme-light \{([^}]*)\}/)?.[1] ?? '';
     assert.match(light, /color-scheme: light;/);
-    for (const token of ['background', 'foreground', 'card', 'popover', 'muted', 'muted-foreground', 'accent', 'border', 'input']) assert.match(light, new RegExp(`--${token}: hsl\\(`), token);
+    const root = css.match(/:where\(:root\) \{\n    --background:([^}]*)\}/)?.[0] ?? '';
+    const value = (block, token) => block.match(new RegExp(`--${token}: ([^;]+);`))?.[1];
+    for (const token of ['background', 'foreground', 'card', 'popover', 'muted', 'muted-foreground', 'accent', 'border', 'input']) assert.equal(value(light, token), value(root, token), `${token} restates the light value`);
     assert.doesNotMatch(light, /--primary/, 'a host\'s brand primary stands');
 });
