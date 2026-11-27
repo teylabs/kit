@@ -260,6 +260,9 @@ jobs:
       - name: Settings ViewModel (extendable General page)
         timeout-minutes: 3
         run: composer test:settings-view-model
+      - name: Settings registry, workspace secrets and the Setup page
+        timeout-minutes: 4
+        run: composer test:setup
       - name: Resource tamper checks
         timeout-minutes: 4
         run: composer test:resources
