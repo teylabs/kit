@@ -205,7 +205,7 @@ onBeforeUnmount(() => {
                 : 'gap-3 border-t px-6 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]',
             sticky && 'sticky bottom-0',
             sticky && pinned
-                ? 'border-border bg-background/95 shadow-[0_-4px_12px_-8px_rgb(0_0_0/0.15)]'
+                ? 'border-border bg-background/95 shadow-[0_-4px_12px_-8px_rgb(0_0_0/0.15)] dark:shadow-[0_-4px_12px_-8px_rgb(0_0_0/0.6)]'
                 : 'border-transparent',
         ]"
     >

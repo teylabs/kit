@@ -45,7 +45,12 @@ export const TONE_DOT: Record<Tone, string> = {
 };
 
 /** An unknown name (from the server, say) falls back to neutral rather than rendering nothing. */
-export const toneOf = (name: string | null | undefined): Tone =>
-    (TONES as readonly string[]).includes(name ?? '')
-        ? (name as Tone)
-        : 'neutral';
+export const toneOf = (name: string | null | undefined): Tone => {
+    if ((TONES as readonly string[]).includes(name ?? '')) return name as Tone;
+    // In development, a misspelt tone says so instead of quietly turning neutral.
+    if (name && import.meta.env?.DEV)
+        console.warn(
+            `Kit: unknown tone "${name}"; using neutral. Known tones: ${TONES.join(', ')}.`,
+        );
+    return 'neutral';
+};

@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+Features affected: core (Select, InputDate, InputTime, InputTimeRange, InputDateRange, InputNumber, FormActions, ButtonGroup, Badge tones), mcp (ConnectionCard); pins unchanged. No ViewModel changes shape.
+
+### Fixed
+
+- **Dark-mode error rings match Textarea's.** An invalid Select, InputDate, InputTime, InputTimeRange, InputDateRange or InputNumber now draws its ring at 40% destructive in dark mode, as Textarea does, instead of a faint 20%.
+- **ConnectionCard's error text meets AA.** It uses `text-destructive-text` (4.5:1) instead of `text-destructive` (3.76:1 on white).
+- **ButtonGroup's ⌄ trigger meets 3:1.** The icon-only trigger is `text-muted-foreground` instead of `text-outline-muted` (about 2.5:1).
+- **FormActions' pinned shadow shows in dark mode.** The shadow above the sticky bar is stronger on a dark ground; light mode is unchanged.
+- **An unknown tone warns in development.** Badge and ColourDot still fall back to neutral, and now say so in the console during development.
+
 ## v0.50.3
 
 Features affected: mcp (GatedByCapability); pins unchanged. No ViewModel changes shape.

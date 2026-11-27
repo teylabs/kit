@@ -113,7 +113,7 @@ const badge = computed(
             <p
                 v-if="error"
                 role="alert"
-                class="text-destructive text-sm"
+                class="text-destructive-text text-sm"
                 data-connection-error
             >
                 {{ error }}
