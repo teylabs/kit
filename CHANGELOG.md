@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.50.4
 
 Features affected: core (Select, InputDate, InputTime, InputTimeRange, InputDateRange, InputNumber, FormActions, ButtonGroup, Badge tones), mcp (ConnectionCard); pins unchanged. No ViewModel changes shape.
 
