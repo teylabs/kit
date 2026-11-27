@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-Features affected: shell (PrimaryNav, Layout); re-pinned `shell` `sha256:2a78630a…4724` → `sha256:d664e822…920b`. No ViewModel changes shape.
+Features affected: shell (PrimaryNav, Layout); re-pinned `shell` `sha256:2a78630a…4724` → `sha256:a9ed46a7…fc80`. No ViewModel changes shape.
 
 ### Changed
 

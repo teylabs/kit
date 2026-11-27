@@ -34,7 +34,7 @@ const focus = computed((): FocusShellShape | null => (props.shell.kind === 'focu
 const app = computed(() => props.shell as Tey.Kit.Features.Shell.Data.ShellData);
 const drawer = computed(() => !focus.value && Boolean(app.value.user) && (Boolean(slots.nav) || Boolean(slots['drawer-nav']) || (app.value.navigation?.length ?? 0) > 0));
 // The document title comes from the page's `layout` (composed on the server), never set per page.
-const page = usePage<{ layout?: { documentTitle: string; navigationHeader?: { label: string; url: string; trail?: boolean } | null; breadcrumbs?: unknown[] }; environment?: { label: string; colour: string } | null }>();
+const page = usePage<{ layout?: { documentTitle: string; navigationHeader?: { label: string; url: string; trail?: boolean } | null; breadcrumbs?: { home?: boolean }[] }; environment?: { label: string; colour: string } | null }>();
 // The document title is the page's `layout.documentTitle`, written by the shell itself in the same flush as the page (documentTitle.ts: Inertia's debounced
 // <Head> could otherwise land an older page's title after Back). <Head> carries it only on the server, for the first HTML.
 useDocumentTitle(() => (props.documentTitle ? page.props.layout?.documentTitle : undefined));
@@ -176,7 +176,7 @@ onBeforeUnmount(() => {
                 </div>
             </header>
             <!-- The trail as a bar, unless the page has a "Back to <parent>" strip, which replaces the trail. -->
-            <div v-if="props.breadcrumbs === 'bar' && app.user && page.props.layout?.breadcrumbs?.some((crumb) => !(crumb as { home?: boolean }).home) && (!page.props.layout?.navigationHeader || page.props.layout.navigationHeader.trail)" ref="subbar" :class="['border-b border-shell-subbar-border bg-shell-subbar text-foreground', subbarBlur && 'backdrop-blur-(--shell-subbar-blur)']" :data-shell-subbar-blur="subbarBlur || undefined" data-shell-breadcrumbs>
+            <div v-if="props.breadcrumbs === 'bar' && app.user && page.props.layout?.breadcrumbs?.some((crumb) => !crumb.home) && (!page.props.layout?.navigationHeader || page.props.layout.navigationHeader.trail)" ref="subbar" :class="['border-b border-shell-subbar-border bg-shell-subbar text-foreground', subbarBlur && 'backdrop-blur-(--shell-subbar-blur)']" :data-shell-subbar-blur="subbarBlur || undefined" data-shell-breadcrumbs>
                 <div :class="['mx-auto flex h-10 min-w-0 items-center px-4 sm:px-6 lg:px-8', props.widthClass]">
                     <Breadcrumbs bar />
                 </div>
