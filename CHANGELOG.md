@@ -6,6 +6,8 @@ Features affected: settings (Setup queue rows); pins unchanged. No ViewModel cha
 
 ### Changed
 
+- **The queue rows come from tey/standards when it is installed.** Setup now calls standards' `StarterCheck::queue()->queueReport()` (v0.14), the same method as its preflight `queue.config`, so the page and the preflight agree. The Timeout row follows its `queue.retry-after` and `queue.cloud-tier` checks, the Prune failed jobs row its `queue.prune-failed` check, and a new Worker and jobs row its `queue.worker-command`, `queue.job-timeouts` and `queue.job-tries` checks. Locally the Cloud-tier and worker-command checks are not applicable. Without standards (it is often a dev dependency, so a production install may not have it), or with `kit.setup.queue.standards` set to false, the kit's own rules and `KIT_QUEUE_*` answer as before. The kit now requires tey/standards ^0.14 for its own checks.
+
 - **The queue rows assume the documented worker.** With `KIT_QUEUE_WORKER_TIMEOUT` and `KIT_QUEUE_FLEX` unset, Setup now reads the worker as `--timeout=85` on a Flex queue, as docs/deploy.md documents, instead of 60 on a non-Flex queue. Set both if your worker differs.
 - **The Last job row says what it reads.** It comes from a cache mark each finished job leaves, and the row now says this is not yet confirmed on Laravel Cloud's managed queue.
 
