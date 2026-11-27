@@ -11,7 +11,7 @@ use Tey\Kit\Features\Core\RequestMemo;
 
 /**
  * Concierge's `concierge.active`, reading the account through RequestMemo, so the request's later reads of it (Operators, the shell) reuse this one rather
- * than querying concierge_accounts again. Refuses exactly as Concierge's does.
+ * than querying account_statuses again. Refuses exactly as Concierge's does.
  */
 final class EnsureAccountActive extends ConciergeEnsureAccountActive
 {

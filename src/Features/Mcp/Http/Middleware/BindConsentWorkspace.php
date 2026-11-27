@@ -58,7 +58,7 @@ class BindConsentWorkspace
         if (! in_array('mcp:use', $requested, true) || ! is_string($query['code'] ?? null)) {
             return $response;
         }
-        $id = DB::table('connections')->insertGetId(['workspace_id' => $workspace, 'actor_id' => (int) $user->getAuthIdentifier(), 'oauth_token_id' => null, 'oauth_client_id' => (string) $authRequest->getClient()->getIdentifier(),
+        $id = DB::table('mcp_connections')->insertGetId(['workspace_id' => $workspace, 'actor_id' => (int) $user->getAuthIdentifier(), 'oauth_token_id' => null, 'oauth_client_id' => (string) $authRequest->getClient()->getIdentifier(),
             'scopes' => json_encode($scopes, JSON_THROW_ON_ERROR), 'expires_at' => now()->addSeconds(self::PENDING_TTL)]);
         app(Audit::class)->write((int) $user->getAuthIdentifier(), $workspace, 'workspace.connection.approved', ['connection_id' => $id, 'client_id' => $authRequest->getClient()->getIdentifier(), 'scopes' => $scopes, 'grants' => array_values($granted)]);
 

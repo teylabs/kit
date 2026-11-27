@@ -228,7 +228,7 @@ try {
         return $issue(HttpUser::query()->findOrFail($old->user_id), Client::query()->findOrFail($old->client_id));
     };
     $connect = function (HttpUser $user, Token $token, array $scopes = ['mcp:act']) use ($workspace): int {
-        return DB::table('connections')->insertGetId(['workspace_id' => $workspace->id, 'actor_id' => $user->id, 'oauth_token_id' => $token->id, 'scopes' => json_encode($scopes), 'intent_key' => bin2hex(random_bytes(4)), 'fingerprint' => 'x', 'expires_at' => $token->expires_at]);
+        return DB::table('mcp_connections')->insertGetId(['workspace_id' => $workspace->id, 'actor_id' => $user->id, 'oauth_token_id' => $token->id, 'scopes' => json_encode($scopes), 'intent_key' => bin2hex(random_bytes(4)), 'fingerprint' => 'x', 'expires_at' => $token->expires_at]);
     };
     // Runs $call inside the bound connection, as a tool call would: its result, or the HTTP status the binding refused with.
     $open = function (HttpUser $user, Token $token, int $connection, ?Closure $call = null) use ($app): mixed {
@@ -325,20 +325,20 @@ try {
 
         return $query;
     };
-    $before = DB::table('connections')->count();
+    $before = DB::table('mcp_connections')->count();
     $approved = $send($people['owner'], 'POST', '/oauth/authorize', ['_token' => $props['csrf_token'], 'auth_token' => $props['auth_token'], 'workspace_id' => $globex->id]);
     $code = $query($approved)['code'] ?? null;
     httpCheck($approved->isRedirect() && str_starts_with((string) $approved->headers->get('Location'), 'https://assistant.test/callback') && is_string($code) && ($query($approved)['state'] ?? null) === 'st4te', 'approve with the host\'s workspace_id field succeeds: Passport redirects to the client with a code (no 403)');
     httpCheck(DB::table('host_grants')->where('user_id', $people['owner']->id)->where('workspace_id', $globex->id)->count() === 1, 'the host\'s own approve middleware ran and kept its grant');
-    httpCheck(DB::table('connections')->count() === $before, 'approve writes no kit connection row');
+    httpCheck(DB::table('mcp_connections')->count() === $before, 'approve writes no kit connection row');
     $exchange = $send(null, 'POST', '/oauth/token', ['grant_type' => 'authorization_code', 'client_id' => $client->id, 'redirect_uri' => 'https://assistant.test/callback', 'code' => $code, 'code_verifier' => $verifier], ['HTTP_ACCEPT' => 'application/json']);
     httpCheck($exchange->getStatusCode() === 200 && is_string(json_decode((string) $exchange->getContent(), true)['access_token'] ?? null), 'the code is exchanged for an access token at Passport\'s token route');
     // A kit connection waiting for a token, as kit mode's consent leaves one: in host mode a later approve and code exchange never take it.
-    $waiting = DB::table('connections')->insertGetId(['workspace_id' => $globex->id, 'actor_id' => $people['owner']->id, 'oauth_client_id' => (string) $client->id, 'oauth_token_id' => null, 'scopes' => json_encode(['mcp:act']), 'expires_at' => now()->addHour()]);
+    $waiting = DB::table('mcp_connections')->insertGetId(['workspace_id' => $globex->id, 'actor_id' => $people['owner']->id, 'oauth_client_id' => (string) $client->id, 'oauth_token_id' => null, 'scopes' => json_encode(['mcp:act']), 'expires_at' => now()->addHour()]);
     $second = json_decode((string) $send($people['owner'], 'GET', $authorize(['prompt' => 'consent']))->getContent(), true) ?? [];
     $code = $query($send($people['owner'], 'POST', '/oauth/authorize', ['_token' => $second['csrf_token'] ?? '', 'auth_token' => $second['auth_token'] ?? '', 'workspace_id' => $globex->id]))['code'] ?? null;
     $exchange = $send(null, 'POST', '/oauth/token', ['grant_type' => 'authorization_code', 'client_id' => $client->id, 'redirect_uri' => 'https://assistant.test/callback', 'code' => $code, 'code_verifier' => $verifier], ['HTTP_ACCEPT' => 'application/json']);
-    httpCheck(is_string($code) && $exchange->getStatusCode() === 200 && DB::table('connections')->where('id', $waiting)->value('oauth_token_id') === null && DB::table('connections')->whereNotNull('oauth_token_id')->count() === 0, 'in host mode a code exchange binds no kit connection, even one waiting for its token');
+    httpCheck(is_string($code) && $exchange->getStatusCode() === 200 && DB::table('mcp_connections')->where('id', $waiting)->value('oauth_token_id') === null && DB::table('mcp_connections')->whereNotNull('oauth_token_id')->count() === 0, 'in host mode a code exchange binds no kit connection, even one waiting for its token');
 
     // An unknown value is refused, never guessed.
     foreach (['Host', 'none', '', true, 0] as $bad) {

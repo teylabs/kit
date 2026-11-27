@@ -485,7 +485,7 @@ try {
     // A workspace request, through ResolveWorkspace, with the controller's scoping removed.
     $admin->table('users')->insert(['name' => 'Member', 'email' => 'member@example.test', 'email_verified_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
     $user = RlsUser::query()->where('email', 'member@example.test')->firstOrFail();
-    $admin->table('concierge_memberships')->insert(['workspace_id' => $a, 'user_id' => $user->id, 'status' => MembershipStatus::Active->value, 'joined_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
+    $admin->table('memberships')->insert(['workspace_id' => $a, 'user_id' => $user->id, 'status' => MembershipStatus::Active->value, 'joined_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
     $request = function (string $path) use ($app, $user): array {
         Auth::guard('web')->setUser($user);
         $request = Request::create('https://kit.test'.$path, 'GET', server: ['HTTP_ACCEPT' => 'application/json']);
@@ -570,7 +570,7 @@ try {
 
     // The guard and the preflight.
     $unprotected = Rls::unprotected();
-    rlsCheck(in_array('rls_orphans', $unprotected, true) && ! in_array('rls_notes', $unprotected, true) && ! in_array('rls_later', $unprotected, true) && ! in_array('concierge_memberships', $unprotected, true), 'the guard lists a workspace table without the policy, not protected or excepted ones ('.implode(', ', $unprotected).')');
+    rlsCheck(in_array('rls_orphans', $unprotected, true) && ! in_array('rls_notes', $unprotected, true) && ! in_array('rls_later', $unprotected, true) && ! in_array('memberships', $unprotected, true), 'the guard lists a workspace table without the policy, not protected or excepted ones ('.implode(', ', $unprotected).')');
     $problems = Rls::problems();
     rlsCheck(count($problems) === 1 && str_contains($problems[0], 'without the RLS policy') && str_contains($problems[0], 'rls_orphans'), 'the preflight problems name the unprotected tables');
     [$code, $out] = $artisan('kit:preflight');

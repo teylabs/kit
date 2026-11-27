@@ -51,7 +51,7 @@ class WorkspaceConnection
                 throw new RuntimeException('connection_denied');
             }
             $fingerprint = hash('sha256', json_encode([$workspace->id, $data['token_id'], $data['scopes']], JSON_THROW_ON_ERROR));
-            $previous = DB::table('connections')->where('actor_id', $principal->actorId)->where('intent_key', $data['intent_key'])->first();
+            $previous = DB::table('mcp_connections')->where('actor_id', $principal->actorId)->where('intent_key', $data['intent_key'])->first();
             if ($previous) {
                 if ($previous->fingerprint !== $fingerprint) {
                     throw new RuntimeException('connection_intent_conflict');
@@ -62,10 +62,10 @@ class WorkspaceConnection
 
                 return ['id' => $previous->id, 'created' => false];
             }
-            if (DB::table('connections')->where('workspace_id', $workspace->id)->where('actor_id', $principal->actorId)->where('oauth_token_id', $token->id)->whereNull('revoked_at')->where('expires_at', '>', now())->exists()) {
+            if (DB::table('mcp_connections')->where('workspace_id', $workspace->id)->where('actor_id', $principal->actorId)->where('oauth_token_id', $token->id)->whereNull('revoked_at')->where('expires_at', '>', now())->exists()) {
                 throw new RuntimeException('connection_active');
             }
-            $id = DB::table('connections')->insertGetId(['workspace_id' => $workspace->id, 'actor_id' => $principal->actorId, 'oauth_token_id' => $token->id, 'scopes' => json_encode($data['scopes'], JSON_THROW_ON_ERROR), 'intent_key' => $data['intent_key'], 'fingerprint' => $fingerprint, 'expires_at' => $token->expires_at]);
+            $id = DB::table('mcp_connections')->insertGetId(['workspace_id' => $workspace->id, 'actor_id' => $principal->actorId, 'oauth_token_id' => $token->id, 'scopes' => json_encode($data['scopes'], JSON_THROW_ON_ERROR), 'intent_key' => $data['intent_key'], 'fingerprint' => $fingerprint, 'expires_at' => $token->expires_at]);
 
             app(Audit::class)->write($principal->actorId, $workspace->id, 'workspace.connection.approved', ['connection_id' => $id, 'client_id' => $token->client_id, 'scopes' => $data['scopes']]);
 
@@ -133,7 +133,7 @@ class WorkspaceConnection
         return DB::transaction(function () use ($principal, $connectionId, $scope): array {
             $workspace = app(Access::class)->authorize($principal, self::baseAbility());
             Workspaces::query()->whereKey($workspace->id)->lockForUpdate()->firstOrFail();
-            $connection = DB::table('connections')->where('id', $connectionId)->where('workspace_id', $workspace->id)->whereNull('revoked_at')->first();
+            $connection = DB::table('mcp_connections')->where('id', $connectionId)->where('workspace_id', $workspace->id)->whereNull('revoked_at')->first();
             $scopes = $connection === null ? [] : (array) json_decode($connection->scopes, true);
             abort_unless($connection !== null && self::explicit($scope) && in_array($scope, $scopes, true), 404);
             if ((int) $connection->actor_id !== $principal->actorId) {
@@ -141,7 +141,7 @@ class WorkspaceConnection
             }
             $kept = array_values(array_filter($scopes, fn (string $held): bool => $held !== $scope));
             sort($kept);
-            DB::table('connections')->where('id', $connectionId)->update(['scopes' => json_encode($kept, JSON_THROW_ON_ERROR)]);
+            DB::table('mcp_connections')->where('id', $connectionId)->update(['scopes' => json_encode($kept, JSON_THROW_ON_ERROR)]);
             app(Audit::class)->write($principal->actorId, $workspace->id, 'workspace.connection.grant_removed', ['connection_id' => $connectionId, 'scope' => $scope, 'scopes' => $kept]);
 
             return ['connection_id' => $connectionId, 'scopes' => $kept];
@@ -151,7 +151,7 @@ class WorkspaceConnection
     /** The connection guard Access calls for a delegated principal: the connection must be live, in this workspace, and cover the ability. */
     public static function guard(Principal $principal, object $workspace, string $ability): void
     {
-        $connection = DB::table('connections')->where('id', $principal->connectionId)->where('actor_id', $principal->actorId)->where('workspace_id', $workspace->id)->whereNull('revoked_at')->first();
+        $connection = DB::table('mcp_connections')->where('id', $principal->connectionId)->where('actor_id', $principal->actorId)->where('workspace_id', $workspace->id)->whereNull('revoked_at')->first();
         if (! $connection || ! self::covers((array) json_decode($connection->scopes, true), $ability)) {
             throw new RuntimeException('connection_denied');
         }
@@ -172,14 +172,14 @@ class WorkspaceConnection
         return DB::transaction(function () use ($principal, $connectionId): array {
             $workspace = app(Access::class)->authorize($principal, self::baseAbility());
             Workspaces::query()->whereKey($workspace->id)->lockForUpdate()->firstOrFail();
-            $connection = DB::table('connections')->where('id', $connectionId)->where('workspace_id', $workspace->id)->first();
+            $connection = DB::table('mcp_connections')->where('id', $connectionId)->where('workspace_id', $workspace->id)->first();
             abort_unless($connection, 404);
             if ((int) $connection->actor_id !== $principal->actorId) {
                 app(Access::class)->authorize($principal, self::manageAbility());
             }
             if ($connection->revoked_at === null) {
-                DB::table('connections')->where('id', $connectionId)->update(['revoked_at' => now()]);
-                if ($connection->oauth_token_id !== null && ! DB::table('connections')->where('oauth_token_id', $connection->oauth_token_id)->whereNull('revoked_at')->exists()) {
+                DB::table('mcp_connections')->where('id', $connectionId)->update(['revoked_at' => now()]);
+                if ($connection->oauth_token_id !== null && ! DB::table('mcp_connections')->where('oauth_token_id', $connection->oauth_token_id)->whereNull('revoked_at')->exists()) {
                     $token = Token::query()->find($connection->oauth_token_id);
                     $token?->revoke();
                     $token?->refreshToken?->revoke();

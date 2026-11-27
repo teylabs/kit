@@ -26,7 +26,7 @@ class BindMcpConnection
         abort_unless($token->can('mcp:use') && $fresh->client_id === $token->oauth_client_id && $fresh->can('mcp:use') && $fresh->client && ! $fresh->client->revoked && $fresh->client->hasGrantType('authorization_code'), 403);
         $origin = $request->header('Origin');
         abort_if($origin !== null && $origin !== rtrim(config('app.url'), '/'), 403);
-        $live = DB::table('connections')->where('actor_id', $user->id)->where('oauth_token_id', $fresh->id)->whereNull('revoked_at')->where('expires_at', '>', now());
+        $live = DB::table('mcp_connections')->where('actor_id', $user->id)->where('oauth_token_id', $fresh->id)->whereNull('revoked_at')->where('expires_at', '>', now());
         if ($request->route('connection') === null) {
             // The one address (/mcp): the token's own connection. None (unbound, revoked, expired) or more than one is a 401, so the assistant authorizes again.
             $matches = $live->limit(2)->get();

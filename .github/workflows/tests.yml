@@ -114,6 +114,15 @@ jobs:
           DB_DATABASE: kit_adopt_check
           DB_USERNAME: kit
           DB_PASSWORD: kit
+      # The table-naming rule on PostgreSQL: its own kit_table_names_* schemas.
+      - run: composer test:table-names
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_DATABASE: kit_adopt_check
+          DB_USERNAME: kit
+          DB_PASSWORD: kit
       # Domain table adoption (kit:scaffold --adopt): its own kit_domain_* schemas.
       - run: composer test:domain-adopt
         env:
@@ -430,6 +439,9 @@ jobs:
       - name: Package migrations, app copies and the 0.18 renames
         timeout-minutes: 4
         run: composer test:migrations
+      - name: Table names (no kit_* table, no generic bare noun)
+        timeout-minutes: 4
+        run: composer test:table-names
       - name: Domain tables adopted by the app (kit:scaffold --adopt and --check, the boot check)
         timeout-minutes: 4
         run: composer test:domain-adopt

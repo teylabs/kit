@@ -111,7 +111,7 @@ try {
         $t->string('email');
         $t->timestamp('email_verified_at')->nullable();
     });
-    $schema->create('concierge_accounts', function ($t): void {
+    $schema->create('account_statuses', function ($t): void {
         $t->unsignedBigInteger('user_id')->primary();
         $t->string('status', 16);
         $t->timestamps();
@@ -124,7 +124,7 @@ try {
     $unverified = OperatorsUser::query()->create(['name' => 'Unverified', 'email' => 'unverified@northwind.test', 'email_verified_at' => null]);
     $inactive = OperatorsUser::query()->create(['name' => 'Inactive', 'email' => 'inactive@acme.test', 'email_verified_at' => $now]);
     $stranger = OperatorsUser::query()->create(['name' => 'Not An Owner', 'email' => 'stranger@acme.test', 'email_verified_at' => $now]);
-    $app['db']->table('concierge_accounts')->insert(['user_id' => $inactive->id, 'status' => 'deactivated']);
+    $app['db']->table('account_statuses')->insert(['user_id' => $inactive->id, 'status' => 'deactivated']);
     $operators = fn (): array => $app['db']->table('operators')->orderBy('actor_id')->pluck('actor_id')->map(fn ($id): int => (int) $id)->all();
     $kernel = $app->make(Kernel::class);
 

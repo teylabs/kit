@@ -36,7 +36,7 @@ class KitAuthorizationController extends AuthorizationController
         $user = $this->guard->user();
         $clientId = (string) $authRequest->getClient()->getIdentifier();
         $workspace = WorkspaceUrl::currentMemberId($request);
-        $connection = $workspace === null || $user === null ? null : DB::table('connections')->where('actor_id', $user->getAuthIdentifier())->where('oauth_client_id', $clientId)->where('workspace_id', $workspace)
+        $connection = $workspace === null || $user === null ? null : DB::table('mcp_connections')->where('actor_id', $user->getAuthIdentifier())->where('oauth_client_id', $clientId)->where('workspace_id', $workspace)
             ->whereNotNull('oauth_token_id')->whereNull('revoked_at')->where('expires_at', '>', now())->orderByDesc('id')->value('id');
         if ($connection !== null && AuthorizationView::allows((int) $user->getAuthIdentifier(), $workspace)) {
             Cache::put(self::reuseKey($user->getAuthIdentifier(), $clientId), (int) $connection, BindConsentWorkspace::PENDING_TTL);

@@ -203,7 +203,7 @@ try {
         return $issue(HttpUser::query()->findOrFail($old->user_id), Client::query()->findOrFail($old->client_id));
     };
     $connect = function (HttpUser $user, Token $token, array $scopes = ['mcp:act']) use ($workspace): int {
-        return DB::table('connections')->insertGetId(['workspace_id' => $workspace->id, 'actor_id' => $user->id, 'oauth_token_id' => $token->id, 'scopes' => json_encode($scopes), 'intent_key' => bin2hex(random_bytes(4)), 'fingerprint' => 'x', 'expires_at' => $token->expires_at]);
+        return DB::table('mcp_connections')->insertGetId(['workspace_id' => $workspace->id, 'actor_id' => $user->id, 'oauth_token_id' => $token->id, 'scopes' => json_encode($scopes), 'intent_key' => bin2hex(random_bytes(4)), 'fingerprint' => 'x', 'expires_at' => $token->expires_at]);
     };
     // Runs $call inside the bound connection, as a tool call would: its result, or the HTTP status the binding refused with.
     $open = function (HttpUser $user, Token $token, int $connection, ?Closure $call = null) use ($app): mixed {
@@ -281,7 +281,7 @@ try {
     $authorize = fn (array $override = []) => '/oauth/authorize?'.http_build_query([...['client_id' => $client->id, 'redirect_uri' => 'https://assistant.test/callback', 'response_type' => 'code', 'scope' => 'mcp:use', 'state' => 'st4te',
         'code_challenge' => rtrim(strtr(base64_encode(hash('sha256', $verifier, true)), '+/', '-_'), '='), 'code_challenge_method' => 'S256'], ...$override]);
     $inertia = ['HTTP_X_INERTIA' => 'true', 'HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest', 'HTTP_ACCEPT' => 'text/html, application/xhtml+xml'];
-    $counts = fn (): array => [DB::table('connections')->count(), DB::table('oauth_auth_codes')->count(), DB::table('oauth_access_tokens')->count()];
+    $counts = fn (): array => [DB::table('mcp_connections')->count(), DB::table('oauth_auth_codes')->count(), DB::table('oauth_access_tokens')->count()];
     $query = function (Symfony\Component\HttpFoundation\Response $response): array {
         parse_str((string) parse_url((string) $response->headers->get('Location'), PHP_URL_QUERY), $query);
 
@@ -316,7 +316,7 @@ try {
         }
         $exchange = $send(null, 'POST', '/oauth/token', ['grant_type' => 'authorization_code', 'client_id' => $client->id, 'redirect_uri' => 'https://assistant.test/callback', 'code' => $query($approved)['code'] ?? '', 'code_verifier' => $verifier], ['HTTP_ACCEPT' => 'application/json']);
         // Tokens issued within one second tie on created_at: the newest connection of this person and client, then its token.
-        $connection = DB::table('connections')->where('actor_id', $people['owner']->id)->where('oauth_client_id', (string) $client->id)->whereNotNull('oauth_token_id')->orderByDesc('id')->first();
+        $connection = DB::table('mcp_connections')->where('actor_id', $people['owner']->id)->where('oauth_client_id', (string) $client->id)->whereNotNull('oauth_token_id')->orderByDesc('id')->first();
         $token = $connection ? Token::query()->findOrFail($connection->oauth_token_id) : null;
 
         return ['status' => 'connected', 'props' => $props, 'token' => $token, 'connection' => $connection, 'scopes' => $connection ? json_decode($connection->scopes, true) : null, 'refresh' => json_decode((string) $exchange->getContent(), true)['refresh_token'] ?? null];
@@ -373,12 +373,12 @@ try {
     $reused = $connectOnce(['presentations:publish']);
     httpCheck($reused['status'] === 'reused' && str_contains($reused['location'], 'code='), 'with a live connection, consent is skipped: the posted grant never reaches a page');
     $exchange = $send(null, 'POST', '/oauth/token', ['grant_type' => 'authorization_code', 'client_id' => $client->id, 'redirect_uri' => 'https://assistant.test/callback', 'code' => $query(new Illuminate\Http\RedirectResponse($reused['location']))['code'], 'code_verifier' => $verifier], ['HTTP_ACCEPT' => 'application/json']);
-    $reusedToken = Token::query()->findOrFail(DB::table('connections')->where('id', $plain['connection']->id)->value('oauth_token_id'));
-    httpCheck($exchange->getStatusCode() === 200 && json_decode(DB::table('connections')->where('id', $plain['connection']->id)->value('scopes'), true) === ['mcp:act'] && $reusedToken->id !== $plain['token']->id && ! $reusedToken->revoked && DB::table('connections')->count() === 1, 'the reused connection moved onto the new token and keeps acts-as-me only: an existing connection never gains a grant without a consent page');
+    $reusedToken = Token::query()->findOrFail(DB::table('mcp_connections')->where('id', $plain['connection']->id)->value('oauth_token_id'));
+    httpCheck($exchange->getStatusCode() === 200 && json_decode(DB::table('mcp_connections')->where('id', $plain['connection']->id)->value('scopes'), true) === ['mcp:act'] && $reusedToken->id !== $plain['token']->id && ! $reusedToken->revoked && DB::table('mcp_connections')->count() === 1, 'the reused connection moved onto the new token and keeps acts-as-me only: an existing connection never gains a grant without a consent page');
     $refreshed = $send(null, 'POST', '/oauth/token', ['grant_type' => 'refresh_token', 'client_id' => $client->id, 'refresh_token' => json_decode((string) $exchange->getContent(), true)['refresh_token'] ?? ''], ['HTTP_ACCEPT' => 'application/json']);
-    httpCheck($refreshed->getStatusCode() === 200 && json_decode(DB::table('connections')->where('id', $plain['connection']->id)->value('scopes'), true) === ['mcp:act'], 'a refresh keeps the connection\'s scopes as they were');
+    httpCheck($refreshed->getStatusCode() === 200 && json_decode(DB::table('mcp_connections')->where('id', $plain['connection']->id)->value('scopes'), true) === ['mcp:act'], 'a refresh keeps the connection\'s scopes as they were');
     // Revoke it so the next consent shows a page.
-    DB::table('connections')->where('id', $plain['connection']->id)->update(['revoked_at' => now()]);
+    DB::table('mcp_connections')->where('id', $plain['connection']->id)->update(['revoked_at' => now()]);
 
     // Ticking the grant names the scope on the connection; the tool is then listed and callable.
     $granted = $connectOnce(['presentations:publish']);
@@ -392,13 +392,13 @@ try {
 
     // Removing the one grant from the AI assistants page keeps the connection and its token.
     $removal = $send($people['owner'], 'DELETE', '/@'.$workspace->slug.'/settings/connections/'.$grantedId.'/grants/presentations:publish', ['_token' => $granted['props']['csrf_token']], ['HTTP_ACCEPT' => 'application/json']);
-    httpCheck($removal->getStatusCode() === 200 && json_decode(DB::table('connections')->where('id', $grantedId)->value('scopes'), true) === ['mcp:act'] && DB::table('connections')->where('id', $grantedId)->whereNull('revoked_at')->exists() && ! Token::query()->findOrFail($granted['token']->id)->revoked, 'removing the grant leaves the connection live, its token live, and acts-as-me alone');
+    httpCheck($removal->getStatusCode() === 200 && json_decode(DB::table('mcp_connections')->where('id', $grantedId)->value('scopes'), true) === ['mcp:act'] && DB::table('mcp_connections')->where('id', $grantedId)->whereNull('revoked_at')->exists() && ! Token::query()->findOrFail($granted['token']->id)->revoked, 'removing the grant leaves the connection live, its token live, and acts-as-me alone');
     $removed = DB::table('audit_events')->where('event', 'workspace.connection.grant_removed')->orderByDesc('id')->first();
     httpCheck($removed !== null && (json_decode($removed->details, true)['scope'] ?? null) === 'presentations:publish', 'the removal is audited');
     httpCheck($viewTool($granted['token'], $grantedId) === 'scope_required', 'the tool is absent again straight away');
     httpCheck($send($people['owner'], 'DELETE', '/@'.$workspace->slug.'/settings/connections/'.$grantedId.'/grants/presentations:publish', ['_token' => $granted['props']['csrf_token']], ['HTTP_ACCEPT' => 'application/json'])->getStatusCode() === 404, 'removing it again is not found');
     httpCheck($send($people['owner'], 'DELETE', '/@'.$workspace->slug.'/settings/connections/'.$grantedId.'/grants/mcp:act', ['_token' => $granted['props']['csrf_token']], ['HTTP_ACCEPT' => 'application/json'])->getStatusCode() === 404, 'acts-as-me is not a grant that can be removed this way');
-    DB::table('connections')->where('id', $grantedId)->update(['revoked_at' => now()]);
+    DB::table('mcp_connections')->where('id', $grantedId)->update(['revoked_at' => now()]);
 
     // A grant the person may not hold is refused, as is one that is not an explicit scope; the OAuth scope parameter alone grants nothing.
     $forged = $connectOnce(['settings.write']);
@@ -407,46 +407,46 @@ try {
     httpCheck($forgedExplicit['status'] === 403, 'an unknown grant among valid ones refuses the whole approval');
     $asked = $connectOnce([], ['scope' => 'mcp:use presentations:publish']);
     httpCheck($asked['status'] === 'connected' && $asked['scopes'] === ['mcp:act'] && $viewTool($asked['token'], (int) $asked['connection']->id) === 'scope_required', 'a client that asks for the explicit scope in its OAuth request gets it only by the tick: unticked, the connection does not hold it');
-    DB::table('connections')->where('id', $asked['connection']->id)->update(['revoked_at' => now()]);
+    DB::table('mcp_connections')->where('id', $asked['connection']->id)->update(['revoked_at' => now()]);
     // An admin (no publish permission) sees no grant to tick and cannot post it.
     $adminPage = $send($people['admin'], 'GET', $authorize(), [], $inertia);
     $adminProps = json_decode((string) $adminPage->getContent(), true)['props'] ?? [];
     httpCheck($adminPage->getStatusCode() === 200 && ($adminProps['grants'] ?? null) === [], 'a person whose role may not publish is offered no publish grant');
     $adminApproved = $send($people['admin'], 'POST', '/oauth/authorize', ['_token' => $adminProps['csrf_token'], 'auth_token' => $adminProps['auth_token'], 'workspace' => $workspace->id, 'grants' => ['presentations:publish']]);
-    httpCheck($adminApproved->getStatusCode() === 403 && DB::table('connections')->where('actor_id', $people['admin']->id)->doesntExist(), 'and posting it anyway is refused (403), with no connection made');
+    httpCheck($adminApproved->getStatusCode() === 403 && DB::table('mcp_connections')->where('actor_id', $people['admin']->id)->doesntExist(), 'and posting it anyway is refused (403), with no connection made');
 
     // Off means absent for narrow connections too: a connection covering settings.read only sees the settings read tool, not the write tool, and a call to the write tool anyway is connection_denied.
     $read = Tey\Kit\Features\Settings\Integrations\Mcp\ReadSettings::class;
     $write = Tey\Kit\Features\Settings\Integrations\Mcp\UpdateSettings::class;
     $narrowToken = Token::query()->forceCreate(['id' => bin2hex(random_bytes(40)), 'user_id' => $people['owner']->id, 'client_id' => $client->id, 'name' => null, 'scopes' => ['mcp:use', 'settings.read'], 'revoked' => false, 'expires_at' => now()->addHour()]);
-    $narrowConnection = (int) DB::table('connections')->insertGetId(['workspace_id' => $workspace->id, 'actor_id' => $people['owner']->id, 'oauth_token_id' => $narrowToken->id, 'oauth_client_id' => (string) $client->id, 'scopes' => json_encode(['settings.read']), 'intent_key' => 'n1', 'fingerprint' => 'n', 'expires_at' => $narrowToken->expires_at]);
+    $narrowConnection = (int) DB::table('mcp_connections')->insertGetId(['workspace_id' => $workspace->id, 'actor_id' => $people['owner']->id, 'oauth_token_id' => $narrowToken->id, 'oauth_client_id' => (string) $client->id, 'scopes' => json_encode(['settings.read']), 'intent_key' => 'n1', 'fingerprint' => 'n', 'expires_at' => $narrowToken->expires_at]);
     httpCheck($viewTool($narrowToken, $narrowConnection, false, $read, 'workspace_settings_read') === 'listed' && $viewTool($narrowToken, $narrowConnection, false, $write, 'workspace_settings_write') === 'connection_denied', 'a narrow settings.read connection lists the settings read tool and not the write tool (connection_denied)');
     httpCheck($viewTool($narrowToken, $narrowConnection, true, $write, $app->make($write)->name()) === 'connection_denied', 'a call to the write tool anyway is refused connection_denied, the same code as before');
     httpCheck($viewTool($narrowToken, $narrowConnection, false) === 'scope_required', 'and the explicit publish tool is scope_required for it');
     $wideToken = Token::query()->forceCreate(['id' => bin2hex(random_bytes(40)), 'user_id' => $people['owner']->id, 'client_id' => $client->id, 'name' => null, 'scopes' => ['mcp:use'], 'revoked' => false, 'expires_at' => now()->addHour()]);
-    $wideConnection = (int) DB::table('connections')->insertGetId(['workspace_id' => $workspace->id, 'actor_id' => $people['owner']->id, 'oauth_token_id' => $wideToken->id, 'oauth_client_id' => (string) $client->id, 'scopes' => json_encode(['mcp:act']), 'intent_key' => 'w1', 'fingerprint' => 'w', 'expires_at' => $wideToken->expires_at]);
+    $wideConnection = (int) DB::table('mcp_connections')->insertGetId(['workspace_id' => $workspace->id, 'actor_id' => $people['owner']->id, 'oauth_token_id' => $wideToken->id, 'oauth_client_id' => (string) $client->id, 'scopes' => json_encode(['mcp:act']), 'intent_key' => 'w1', 'fingerprint' => 'w', 'expires_at' => $wideToken->expires_at]);
     httpCheck($viewTool($wideToken, $wideConnection, false, $read, 'r') === 'listed' && $viewTool($wideToken, $wideConnection, false, $write, 'w') === 'listed' && $viewTool($wideToken, $wideConnection, false) === 'scope_required', 'an acts-as-me connection lists every non-explicit tool, and still not the explicit one');
-    DB::table('connections')->whereIn('id', [$narrowConnection, $wideConnection])->update(['revoked_at' => now()]);
+    DB::table('mcp_connections')->whereIn('id', [$narrowConnection, $wideConnection])->update(['revoked_at' => now()]);
 
     // The settings page's own approval (WorkspaceConnection::approve) can never bind an explicit scope, however the token was issued: grantable scopes leave it out, and posting it is refused.
     httpCheck(! in_array('presentations:publish', WorkspaceConnection::grantableScopes(), true) && in_array('mcp:act', WorkspaceConnection::grantableScopes(), true), 'grantable scopes for the settings page leave the explicit scope out');
     $askedToken = Token::query()->forceCreate(['id' => bin2hex(random_bytes(40)), 'user_id' => $people['owner']->id, 'client_id' => $client->id, 'name' => null, 'scopes' => ['mcp:use', 'mcp:act', 'presentations:publish'], 'revoked' => false, 'expires_at' => now()->addHour()]);
-    $before = DB::table('connections')->count();
+    $before = DB::table('mcp_connections')->count();
     try {
         $app->make(Tey\Kit\Features\Workspaces\TenantBoundary::class)->run($workspace->id, fn () => $app->make(WorkspaceConnection::class)->approve(new Tey\Kit\Features\Core\Principal((int) $people['owner']->id), ['token_id' => $askedToken->id, 'scopes' => ['mcp:act', 'presentations:publish'], 'intent_key' => 'probe-431']));
         throw new LogicException('bound');
     } catch (Illuminate\Validation\ValidationException $error) {
-        httpCheck(DB::table('connections')->count() === $before, 'a token that asked for the explicit scope cannot be bound with it on the settings page: refused, no connection (the review\'s probe)');
+        httpCheck(DB::table('mcp_connections')->count() === $before, 'a token that asked for the explicit scope cannot be bound with it on the settings page: refused, no connection (the review\'s probe)');
     }
     $plainBind = $app->make(Tey\Kit\Features\Workspaces\TenantBoundary::class)->run($workspace->id, fn () => $app->make(WorkspaceConnection::class)->approve(new Tey\Kit\Features\Core\Principal((int) $people['owner']->id), ['token_id' => $askedToken->id, 'scopes' => ['mcp:act'], 'intent_key' => 'probe-431b']));
     httpCheck(($plainBind['created'] ?? false) === true && $viewTool($askedToken, (int) $plainBind['id']) === 'scope_required', 'bound as acts-as-me instead, the publish tool is still absent under that token');
-    DB::table('connections')->where('id', $plainBind['id'])->update(['revoked_at' => now()]);
+    DB::table('mcp_connections')->where('id', $plainBind['id'])->update(['revoked_at' => now()]);
 
     // A host running its own consent writes its own connections: without the scope named, the tool stays absent.
     $hostToken = Token::query()->forceCreate(['id' => bin2hex(random_bytes(40)), 'user_id' => $people['owner']->id, 'client_id' => $client->id, 'name' => null, 'scopes' => ['mcp:use'], 'revoked' => false, 'expires_at' => now()->addHour()]);
-    $hostConnection = (int) DB::table('connections')->insertGetId(['workspace_id' => $workspace->id, 'actor_id' => $people['owner']->id, 'oauth_token_id' => $hostToken->id, 'oauth_client_id' => (string) $client->id, 'scopes' => json_encode(['mcp:act']), 'intent_key' => 'h1', 'fingerprint' => 'h', 'expires_at' => $hostToken->expires_at]);
+    $hostConnection = (int) DB::table('mcp_connections')->insertGetId(['workspace_id' => $workspace->id, 'actor_id' => $people['owner']->id, 'oauth_token_id' => $hostToken->id, 'oauth_client_id' => (string) $client->id, 'scopes' => json_encode(['mcp:act']), 'intent_key' => 'h1', 'fingerprint' => 'h', 'expires_at' => $hostToken->expires_at]);
     httpCheck($viewTool($hostToken, $hostConnection) === 'scope_required', 'a host-written acts-as-me connection does not hold the explicit scope');
-    DB::table('connections')->where('id', $hostConnection)->update(['scopes' => json_encode(['mcp:act', 'presentations:publish'])]);
+    DB::table('mcp_connections')->where('id', $hostConnection)->update(['scopes' => json_encode(['mcp:act', 'presentations:publish'])]);
     httpCheck($viewTool($hostToken, $hostConnection) === 'listed', 'one that names it does');
 
     // The settings page's Approve posts only its own fields: a stray browser field is dropped and the approval goes through; a bad value comes back as a
@@ -457,10 +457,10 @@ try {
     $app['session.store']->forget('errors');
     $bad = $send($people['owner'], 'POST', $approveUrl, ['_token' => $csrf, 'token_id' => $webToken->id, 'scopes' => ['not-a-scope'], 'intent_key' => 'web-bad', 'stray_field' => 'x'], $inertia);
     $bag = $app['session.store']->get('errors')?->getBag('default');
-    httpCheck($bad->isRedirect() && $bag?->has('scopes.0') && ! $bag->has('unknown_arguments') && DB::table('connections')->where('oauth_token_id', $webToken->id)->doesntExist(), 'a scope that cannot be granted goes back with errors.scopes.0, not the 422 error page, and binds nothing');
+    httpCheck($bad->isRedirect() && $bag?->has('scopes.0') && ! $bag->has('unknown_arguments') && DB::table('mcp_connections')->where('oauth_token_id', $webToken->id)->doesntExist(), 'a scope that cannot be granted goes back with errors.scopes.0, not the 422 error page, and binds nothing');
     $app['session.store']->forget('errors');
     $approved = $send($people['owner'], 'POST', $approveUrl, ['_token' => $csrf, 'token_id' => $webToken->id, 'scopes' => ['mcp:act'], 'intent_key' => 'web-extra', 'stray_field' => 'x', 'remember' => '1'], $inertia);
-    httpCheck($approved->isRedirect() && ! $app['session.store']->has('errors') && DB::table('connections')->where('oauth_token_id', $webToken->id)->whereNull('revoked_at')->exists(), 'an approval with a stray form field drops it and binds the connection');
+    httpCheck($approved->isRedirect() && ! $app['session.store']->has('errors') && DB::table('mcp_connections')->where('oauth_token_id', $webToken->id)->whereNull('revoked_at')->exists(), 'an approval with a stray form field drops it and binds the connection');
     $unknown = null;
     try {
         $app->make(Tey\Kit\Features\Workspaces\TenantBoundary::class)->run($workspace->id, fn () => $app->make(WorkspaceConnection::class)->approve(new Tey\Kit\Features\Core\Principal((int) $people['owner']->id), ['token_id' => $webToken->id, 'scopes' => ['mcp:act'], 'intent_key' => 'web-op', 'stray_field' => 'x']));
@@ -474,7 +474,7 @@ try {
     // The browser job's recorded Approve (tests/fixtures/form-payloads/consent.json, the page's form fields in order) posted as the browser encodes it. Only
     // the values the server issued or owns are swapped in by name (the CSRF and auth tokens, the workspace id, the grant's scope); the field names and
     // their shape (`grants[]`) are the recorded ones.
-    DB::table('connections')->whereNull('revoked_at')->update(['revoked_at' => now()]);
+    DB::table('mcp_connections')->whereNull('revoked_at')->update(['revoked_at' => now()]);
     $recorded = json_decode((string) file_get_contents(dirname(__DIR__).'/tests/fixtures/form-payloads/consent.json'), true, flags: JSON_THROW_ON_ERROR);
     $fromFixture = function (array $props) use ($recorded, $workspace): array {
         $values = ['_token' => $props['csrf_token'] ?? '', 'auth_token' => $props['auth_token'] ?? '', 'workspace' => (string) $workspace->id, 'grants[]' => 'presentations:publish'];

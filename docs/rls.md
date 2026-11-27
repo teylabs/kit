@@ -67,7 +67,7 @@ Some tables have a `workspace_id` column but are read before a workspace is chos
 - Concierge's membership tables, which admission reads before the workspace transaction starts;
 - the permission tables (`roles`, `model_has_roles`, `model_has_permissions`), whose team column is `workspace_id` and which hold global roles.
 
-The kit's other tables with a `workspace_id` column (`audit_events`, `kit_notes`, `entitlements`, settings, MCP and delivery tables, and so on) have **not been verified under RLS**. Some are read outside a workspace, or keep rows whose `workspace_id` is null. Protect each one in your own migration once your app's paths are checked, or list it in `except`. The preflight lists every one you haven't decided on.
+The kit's other tables with a `workspace_id` column (`audit_events`, `kit_notes`, `workspace_entitlements`, `mcp_connections`, settings, MCP and delivery tables, and so on) have **not been verified under RLS**. Some are read outside a workspace, or keep rows whose `workspace_id` is null. Protect each one in your own migration once your app's paths are checked, or list it in `except`. The preflight lists every one you haven't decided on.
 
 ## Pitfalls
 

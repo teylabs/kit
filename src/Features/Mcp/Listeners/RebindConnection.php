@@ -44,7 +44,7 @@ class RebindConnection
         DB::transaction(function () use ($token): void {
             $previous = $this->refreshed($token);
             if ($previous !== null) {
-                DB::table('connections')->where('actor_id', $token->user_id)->where('oauth_token_id', $previous)->whereNull('revoked_at')
+                DB::table('mcp_connections')->where('actor_id', $token->user_id)->where('oauth_token_id', $previous)->whereNull('revoked_at')
                     ->update(['oauth_token_id' => $token->getKey(), 'expires_at' => $token->expires_at]);
 
                 return;
@@ -53,12 +53,12 @@ class RebindConnection
             if (McpProvider::consent() === 'host') {
                 return;
             }
-            $pending = DB::table('connections')->where('actor_id', $token->user_id)->where('oauth_client_id', (string) $token->client_id)->whereNull('oauth_token_id')->whereNull('revoked_at')
+            $pending = DB::table('mcp_connections')->where('actor_id', $token->user_id)->where('oauth_client_id', (string) $token->client_id)->whereNull('oauth_token_id')->whereNull('revoked_at')
                 ->where('expires_at', '>', now())->orderByDesc('id')->lockForUpdate()->value('id');
-            $pending ??= DB::table('connections')->where('id', Cache::pull(KitAuthorizationController::reuseKey($token->user_id, $token->client_id)))->where('actor_id', $token->user_id)
+            $pending ??= DB::table('mcp_connections')->where('id', Cache::pull(KitAuthorizationController::reuseKey($token->user_id, $token->client_id)))->where('actor_id', $token->user_id)
                 ->where('oauth_client_id', (string) $token->client_id)->whereNull('revoked_at')->value('id');
             if ($pending !== null) {
-                DB::table('connections')->where('id', $pending)->update(['oauth_token_id' => $token->getKey(), 'expires_at' => $token->expires_at]);
+                DB::table('mcp_connections')->where('id', $pending)->update(['oauth_token_id' => $token->getKey(), 'expires_at' => $token->expires_at]);
             }
         });
     }

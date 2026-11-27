@@ -19,11 +19,11 @@ use Illuminate\Support\Collection;
  */
 final class PackageMigrator extends Migrator
 {
-    /** The 0.18 renames, by feature. An app's copy that sorts after its feature's rename runs with the rename undone around it (asWritten()). */
+    /** The renames (0.18, 0.51), by feature, oldest first. An app's copy that sorts after its feature's renames runs with them undone around it (asWritten()). */
     public const RENAMES = [
-        'access' => '2026_11_14_000304_rename_access_tables',
-        'session-ui' => '2026_11_14_000506_rename_session_ui_tables',
-        'mcp' => '2026_11_14_000605_rename_mcp_tables',
+        'access' => ['2026_11_14_000304_rename_access_tables', '2026_11_27_000305_rename_entitlements_table'],
+        'session-ui' => ['2026_11_14_000506_rename_session_ui_tables'],
+        'mcp' => ['2026_11_14_000605_rename_mcp_tables', '2026_11_27_000606_rename_connections_table'],
     ];
 
     /**
@@ -202,27 +202,33 @@ final class PackageMigrator extends Migrator
     }
 
     /**
-     * Runs one migration, up or down. An app's copy that sorts after its feature's 0.18 rename once that rename has run (kit:add stamped copies with
-     * the day it ran, so on a fresh database they can follow it) was written for the old kit_ names: the rename is undone before it and done again
+     * Runs one migration, up or down. An app's copy that sorts after its feature's renames once they have run (kit:add stamped copies with
+     * the day it ran, so on a fresh database they can follow it) was written for the old names: the renames are undone before it, newest first, and done again
      * after it, so the copy meets the tables it was written for and the database keeps the new names, whatever the order, on the way up and down.
      * Both through the migrator's own connection handling, so `--database` applies.
      */
     private function asWritten(string $file, bool $pretend, Closure $run): void
     {
         $id = array_search(dirname($file), $this->copies, true);
-        $rename = $id === false ? null : (self::RENAMES[$id] ?? null);
-        if ($pretend || $rename === null || strcmp($this->getMigrationName($file), $rename) < 0 || ! in_array($rename, $this->repository->getRan(), true)) {
+        $ran = $pretend || $id === false ? [] : $this->repository->getRan();
+        $renames = array_values(array_filter(self::RENAMES[$id] ?? [], fn (string $rename): bool => strcmp($this->getMigrationName($file), $rename) > 0 && in_array($rename, $ran, true)));
+        if ($renames === []) {
             $run();
 
             return;
         }
-        $migration = $this->resolvePath(self::directory($id).'/'.$rename.'.php');
-        $connection = $this->resolveConnection($migration->getConnection());
-        $this->runMethod($connection, $migration, 'down');
+        $undone = [];
         try {
+            foreach (array_reverse($renames) as $rename) {
+                $migration = $this->resolvePath(self::directory($id).'/'.$rename.'.php');
+                $this->runMethod($this->resolveConnection($migration->getConnection()), $migration, 'down');
+                $undone[] = $migration;
+            }
             $run();
         } finally {
-            $this->runMethod($connection, $migration, 'up');
+            foreach (array_reverse($undone) as $migration) {
+                $this->runMethod($this->resolveConnection($migration->getConnection()), $migration, 'up');
+            }
         }
     }
 

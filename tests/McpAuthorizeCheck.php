@@ -165,7 +165,7 @@ try {
         return $issue(HttpUser::query()->findOrFail($old->user_id), Client::query()->findOrFail($old->client_id));
     };
     $connect = function (HttpUser $user, Token $token, array $scopes = ['mcp:act']) use ($workspace): int {
-        return DB::table('connections')->insertGetId(['workspace_id' => $workspace->id, 'actor_id' => $user->id, 'oauth_token_id' => $token->id, 'scopes' => json_encode($scopes), 'intent_key' => bin2hex(random_bytes(4)), 'fingerprint' => 'x', 'expires_at' => $token->expires_at]);
+        return DB::table('mcp_connections')->insertGetId(['workspace_id' => $workspace->id, 'actor_id' => $user->id, 'oauth_token_id' => $token->id, 'scopes' => json_encode($scopes), 'intent_key' => bin2hex(random_bytes(4)), 'fingerprint' => 'x', 'expires_at' => $token->expires_at]);
     };
     // Runs $call inside the bound connection, as a tool call would: its result, or the HTTP status the binding refused with.
     $open = function (HttpUser $user, Token $token, int $connection, ?Closure $call = null) use ($app): mixed {
@@ -243,7 +243,7 @@ try {
     $authorize = fn (array $override = []) => '/oauth/authorize?'.http_build_query([...['client_id' => $client->id, 'redirect_uri' => 'https://assistant.test/callback', 'response_type' => 'code', 'scope' => 'mcp:use', 'state' => 'st4te',
         'code_challenge' => rtrim(strtr(base64_encode(hash('sha256', $verifier, true)), '+/', '-_'), '='), 'code_challenge_method' => 'S256'], ...$override]);
     $inertia = ['HTTP_X_INERTIA' => 'true', 'HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest', 'HTTP_ACCEPT' => 'text/html, application/xhtml+xml'];
-    $counts = fn (): array => [DB::table('connections')->count(), DB::table('oauth_auth_codes')->count(), DB::table('oauth_access_tokens')->count()];
+    $counts = fn (): array => [DB::table('mcp_connections')->count(), DB::table('oauth_auth_codes')->count(), DB::table('oauth_access_tokens')->count()];
     $query = function (Symfony\Component\HttpFoundation\Response $response): array {
         parse_str((string) parse_url((string) $response->headers->get('Location'), PHP_URL_QUERY), $query);
 
@@ -310,14 +310,14 @@ try {
     $approved = $send($people['owner'], 'POST', '/oauth/authorize', ['_token' => $props['csrf_token'], 'auth_token' => $props['auth_token'], 'workspace' => $globex->id]);
     $code = $query($approved)['code'] ?? null;
     httpCheck($approved->isRedirect() && str_starts_with((string) $approved->headers->get('Location'), 'https://assistant.test/callback') && is_string($code) && ($query($approved)['state'] ?? null) === 'st4te', 'approve redirects to the client with a code and its state');
-    $pending = DB::table('connections')->where('actor_id', $people['owner']->id)->orderByDesc('id')->first();
+    $pending = DB::table('mcp_connections')->where('actor_id', $people['owner']->id)->orderByDesc('id')->first();
     httpCheck($pending && (int) $pending->workspace_id === $globex->id && $pending->oauth_token_id === null && $pending->oauth_client_id === (string) $client->id && json_decode($pending->scopes, true) === ['mcp:act'], 'approve makes an acts-as-me connection in the chosen workspace, waiting for its token');
 
     // The code exchange: the new access token takes the waiting connection, and MCP opens on it.
     $exchange = $send(null, 'POST', '/oauth/token', ['grant_type' => 'authorization_code', 'client_id' => $client->id, 'redirect_uri' => 'https://assistant.test/callback', 'code' => $code, 'code_verifier' => $verifier], ['HTTP_ACCEPT' => 'application/json']);
     httpCheck($exchange->getStatusCode() === 200 && is_string(json_decode((string) $exchange->getContent(), true)['access_token'] ?? null), 'the code is exchanged for an access token at Passport\'s token route');
     $token = Token::query()->where('user_id', $people['owner']->id)->where('client_id', $client->id)->latest('created_at')->firstOrFail();
-    $bound = DB::table('connections')->where('id', $pending->id)->first();
+    $bound = DB::table('mcp_connections')->where('id', $pending->id)->first();
     httpCheck($bound->oauth_token_id === $token->id && (int) $bound->workspace_id === $globex->id && $bound->expires_at !== null && $bound->revoked_at === null, 'the code exchange binds the connection to the new token, in the chosen workspace');
     // Runs the MCP binding as the route does: a connection's own address, or with $connection null the one address /mcp.
     $mcp = function (HttpUser $user, Token $token, ?int $connection) use ($app): int {
@@ -347,7 +347,7 @@ try {
     httpCheck(($app['router']->getMiddleware()['concierge.active'] ?? null) === Tey\Kit\Features\Core\Http\Middleware\EnsureAccountActive::class, 'concierge.active is the kit\'s, reading the account through RequestMemo');
     $accountReads = 0;
     Illuminate\Support\Facades\DB::listen(function ($query) use (&$accountReads): void {
-        $accountReads += str_contains($query->sql, 'concierge_accounts') ? 1 : 0;
+        $accountReads += str_contains($query->sql, 'account_statuses') ? 1 : 0;
     });
     $probe = Request::create('https://kit.test/mcp', 'POST');
     $app->instance('request', $probe);
@@ -357,11 +357,11 @@ try {
 
         return response('ok');
     }));
-    httpCheck($accountReads === 1, 'concierge.active and a later read share one concierge_accounts query ('.$accountReads.')');
+    httpCheck($accountReads === 1, 'concierge.active and a later read share one account_statuses query ('.$accountReads.')');
     // Round 2 (Hubcommons): a list or call gates every registered tool; the bound connection's scopes are read once per request, not once per tool.
     $scopeReads = 0;
     Illuminate\Support\Facades\DB::listen(function ($query) use (&$scopeReads): void {
-        $scopeReads += str_contains($query->sql, 'from "connections"') ? 1 : 0;
+        $scopeReads += str_contains($query->sql, 'from "mcp_connections"') ? 1 : 0;
     });
     $gated = fn (): object => new class
     {
@@ -399,25 +399,25 @@ try {
     $none = $send($people['owner'], 'GET', $authorize(['prompt' => 'none']), [], $inertia);
     httpCheck($none->isRedirect() && ($query($none)['error'] ?? null) === 'consent_required', 'with prompt=none there it is consent_required, not a silent approval');
     $remember($globex->id);
-    $connectionsBefore = DB::table('connections')->count();
+    $connectionsBefore = DB::table('mcp_connections')->count();
     $skipped = $send($people['owner'], 'GET', $authorize(), [], $inertia);
     $skipCode = $query($skipped)['code'] ?? null;
     httpCheck($skipped->isRedirect() && is_string($skipCode), 'with a live connection for the client in the current workspace (Globex), consent is skipped and a code issued');
     $skipExchange = $send(null, 'POST', '/oauth/token', ['grant_type' => 'authorization_code', 'client_id' => $client->id, 'redirect_uri' => 'https://assistant.test/callback', 'code' => $skipCode, 'code_verifier' => $verifier], ['HTTP_ACCEPT' => 'application/json']);
     $reissued = Token::query()->where('user_id', $people['owner']->id)->where('client_id', $client->id)->whereKeyNot($token->id)->latest('created_at')->firstOrFail();
-    httpCheck(DB::table('connections')->count() === $connectionsBefore && DB::table('connections')->where('id', $pending->id)->value('oauth_token_id') === $reissued->id && $mcp($people['owner'], $reissued, null) === 200, 'the skipped consent reuses that connection: the new token takes it over, no new connection, and /mcp opens with it');
+    httpCheck(DB::table('mcp_connections')->count() === $connectionsBefore && DB::table('mcp_connections')->where('id', $pending->id)->value('oauth_token_id') === $reissued->id && $mcp($people['owner'], $reissued, null) === 200, 'the skipped consent reuses that connection: the new token takes it over, no new connection, and /mcp opens with it');
     // A real refresh at Passport's token route (league's refresh-token grant) moves exactly that connection onto the refreshed token.
-    $others = DB::table('connections')->where('id', '!=', $pending->id)->pluck('oauth_token_id', 'id')->all();
+    $others = DB::table('mcp_connections')->where('id', '!=', $pending->id)->pluck('oauth_token_id', 'id')->all();
     $refreshed = $send(null, 'POST', '/oauth/token', ['grant_type' => 'refresh_token', 'client_id' => $client->id, 'refresh_token' => json_decode((string) $skipExchange->getContent(), true)['refresh_token'] ?? ''], ['HTTP_ACCEPT' => 'application/json']);
     $afterRefresh = Token::query()->where('user_id', $people['owner']->id)->where('client_id', $client->id)->whereKeyNot($reissued->id)->whereKeyNot($token->id)->latest('created_at')->first();
-    httpCheck($refreshed->getStatusCode() === 200 && $afterRefresh !== null && Token::query()->findOrFail($reissued->id)->revoked && DB::table('connections')->where('id', $pending->id)->value('oauth_token_id') === $afterRefresh->id && $mcp($people['owner'], $afterRefresh, null) === 200, "a real refresh_token grant moves the refreshed token's connection onto the new token");
-    httpCheck(DB::table('connections')->where('id', '!=', $pending->id)->pluck('oauth_token_id', 'id')->all() === $others, 'the refresh moves no other connection');
+    httpCheck($refreshed->getStatusCode() === 200 && $afterRefresh !== null && Token::query()->findOrFail($reissued->id)->revoked && DB::table('mcp_connections')->where('id', $pending->id)->value('oauth_token_id') === $afterRefresh->id && $mcp($people['owner'], $afterRefresh, null) === 200, "a real refresh_token grant moves the refreshed token's connection onto the new token");
+    httpCheck(DB::table('mcp_connections')->where('id', '!=', $pending->id)->pluck('oauth_token_id', 'id')->all() === $others, 'the refresh moves no other connection');
     $token = $afterRefresh;
 
     // Revoking. The member and the admin each have a connection in Acme; revoke runs as the Agent Integration page's DELETE does.
     $connectAs = function (HttpUser $user) use ($client, $workspace): array {
         $token = Token::query()->forceCreate(['id' => bin2hex(random_bytes(40)), 'user_id' => $user->id, 'client_id' => $client->id, 'name' => null, 'scopes' => ['mcp:use'], 'revoked' => false, 'expires_at' => now()->addHour()]);
-        $id = DB::table('connections')->insertGetId(['workspace_id' => $workspace->id, 'actor_id' => $user->id, 'oauth_token_id' => $token->id, 'oauth_client_id' => (string) $client->id, 'scopes' => json_encode(['mcp:act']), 'expires_at' => $token->expires_at]);
+        $id = DB::table('mcp_connections')->insertGetId(['workspace_id' => $workspace->id, 'actor_id' => $user->id, 'oauth_token_id' => $token->id, 'oauth_client_id' => (string) $client->id, 'scopes' => json_encode(['mcp:act']), 'expires_at' => $token->expires_at]);
 
         return [$token, $id];
     };
@@ -472,13 +472,13 @@ try {
     httpCheck(isset($listed($people['owner'])[$memberConnection], $listed($people['owner'])[$adminConnection]), "an owner's Agent Integration page lists every member's connection in the workspace");
 
     httpCheck($revoke($people['member'], $adminConnection) === 'permission_denied' && $app->make(Registry::class)->status('permission_denied') === 403, "a member revoking another member's connection is refused with permission_denied (403)");
-    httpCheck(DB::table('connections')->where('id', $adminConnection)->value('revoked_at') === null && ! Token::query()->findOrFail($adminToken->id)->revoked, 'the refused revoke changes nothing');
-    httpCheck($revoke($people['member'], $memberConnection) === 'ok' && DB::table('connections')->where('id', $memberConnection)->value('revoked_at') !== null, 'a member revokes their own connection');
+    httpCheck(DB::table('mcp_connections')->where('id', $adminConnection)->value('revoked_at') === null && ! Token::query()->findOrFail($adminToken->id)->revoked, 'the refused revoke changes nothing');
+    httpCheck($revoke($people['member'], $memberConnection) === 'ok' && DB::table('mcp_connections')->where('id', $memberConnection)->value('revoked_at') !== null, 'a member revokes their own connection');
     httpCheck(Token::query()->findOrFail($memberToken->id)->revoked && $mcp($people['member'], $memberToken, $memberConnection) === 403, 'the revoked connection\'s token is revoked and no longer opens MCP');
     httpCheck($revoke($people['owner'], $adminConnection) === 'ok' && Token::query()->findOrFail($adminToken->id)->revoked && $mcp($people['admin'], $adminToken, $adminConnection) === 403, "an owner revokes another member's connection, and its token no longer opens MCP");
     [, $adminTarget] = $connectAs($people['member']);
     httpCheck(isset($listed($people['admin'])[$adminTarget]), "an admin's Agent Integration page lists other members' connections (connections.manage)");
-    httpCheck($revoke($people['admin'], $adminTarget) === 'ok' && DB::table('connections')->where('id', $adminTarget)->value('revoked_at') !== null, "an admin revokes another member's connection (connections.manage)");
+    httpCheck($revoke($people['admin'], $adminTarget) === 'ok' && DB::table('mcp_connections')->where('id', $adminTarget)->value('revoked_at') !== null, "an admin revokes another member's connection (connections.manage)");
     httpCheck(WorkspaceConnection::manageAbility() === 'connections.manage' && $app->make(Registry::class)->permissionFor('connections.manage') === 'workspace.connections.manage', 'the manage ability is connections.manage, backed by the workspace.connections.manage permission');
     httpCheck($revoke($people['owner'], $spareConnection) === 'ok' && $revoke($people['member'], $spareConnection) === 'ok', 'revoking an already revoked connection is a no-op for its owner');
     httpCheck($revoke($people['owner'], (int) $pending->id) === '404', 'a connection in another workspace is not found from this one');

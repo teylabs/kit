@@ -149,7 +149,7 @@ class DeleteWorkspace
     private static function owners(): array
     {
         $tables = [];
-        foreach ([['workspaces', 'taggables', false], ['workspaces', 'flag_dismissals', false], ['workspaces', 'tags', false], ['notes', 'note_intent', true], ['notes', 'note', true], ['mcp', 'connections', false], ['settings', 'settings_intents', false], ['access', 'complimentary_grant', true], ['access', 'entitlement', true], ['access', 'plan_entitlements', false], ['access', 'capability_overrides', false], ['session-ui', 'user_state', false]] as [$feature, $table, $domain]) {
+        foreach ([['workspaces', 'taggables', false], ['workspaces', 'flag_dismissals', false], ['workspaces', 'tags', false], ['notes', 'note_intent', true], ['notes', 'note', true], ['mcp', 'mcp_connections', false], ['settings', 'settings_intents', false], ['access', 'complimentary_grant', true], ['access', 'entitlement', true], ['access', 'plan_entitlements', false], ['access', 'capability_overrides', false], ['session-ui', 'user_state', false]] as [$feature, $table, $domain]) {
             if (Kit::enabled($feature)) {
                 $tables[$domain ? Kit::table($table) : $table] = $feature;
             }
@@ -181,12 +181,12 @@ class DeleteWorkspace
 
             return DB::table($table)->where($column, $id)->delete();
         };
-        if (Kit::present('mcp', 'connections') && Kit::present('mcp', 'mcp_intents')) {
-            DB::table('mcp_intents')->whereIn('connection_id', DB::table('connections')->where('workspace_id', $id)->select('id'))->delete();
+        if (Kit::present('mcp', 'mcp_connections') && Kit::present('mcp', 'mcp_intents')) {
+            DB::table('mcp_intents')->whereIn('connection_id', DB::table('mcp_connections')->where('workspace_id', $id)->select('id'))->delete();
         }
         // Every installed feature's rows go here, explicitly, before the workspace row. On RESTRICT foreign keys: notes (`kit_note_intents`, `kit_notes`), mcp
-        // (`connections`, whose `mcp_intents` cascade and were cleared above), settings (`settings_intents`) and access's commercial records
-        // (`complimentary_grants`, `entitlements`). `plan_entitlements` and `capability_overrides` cascade, and are cleared too for a connection that does not
+        // (`mcp_connections`, whose `mcp_intents` cascade and were cleared above), settings (`settings_intents`) and access's commercial records
+        // (`complimentary_grants`, `workspace_entitlements`). `plan_entitlements` and `capability_overrides` cascade, and are cleared too for a connection that does not
         // enforce foreign keys. Each table is guarded by its feature: a feature that is off is skipped, one that is on must have its table.
         foreach ($this->featureTables() as $table) {
             $where($table);

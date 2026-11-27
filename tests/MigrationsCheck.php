@@ -16,11 +16,11 @@ use Tey\Kit\Features\PackageMigrator;
 $loader = require $argv[1];
 $loader->addPsr4('Tey\\Kit\\', dirname(__DIR__).'/src', true);
 
-// Kit tables with a workspace_id that docs/rls.md lists as not yet verified under RLS. Frozen: a new workspace table is protected in its migration.
+// Kit tables with a workspace_id that docs/rls.md lists as not yet verified under RLS, by their names after migrate (the package renames applied). Frozen: a new workspace table is protected in its migration.
 const UNVERIFIED_RLS = [
-    'audit_events', 'entitlements', 'complimentary_grants', 'kit_user_state', 'kit_finalize_confirmations', 'kit_finalizations', 'connections', 'kit_notes',
-    'kit_note_intents', 'kit_mcp_runs', 'kit_deliveries', 'kit_delivery_recipients', 'kit_delivery_events', 'workspace_mail_identities', 'settings_intents',
-    'kit_capability_overrides', 'kit_entitlements',
+    'audit_events', 'workspace_entitlements', 'complimentary_grants', 'user_state', 'kit_finalize_confirmations', 'kit_finalizations', 'mcp_connections', 'kit_notes',
+    'kit_note_intents', 'mcp_runs', 'kit_deliveries', 'kit_delivery_recipients', 'kit_delivery_events', 'workspace_mail_identities', 'settings_intents',
+    'capability_overrides', 'plan_entitlements',
 ];
 // Domain tables still created as kit_* (each feature's adopt migration renames them to the app's names). Frozen: a new table is never named kit_*.
 const KIT_DOMAIN = [
@@ -32,14 +32,17 @@ const FEATURES = ['core', 'workspaces', 'access', 'shell', 'session-ui', 'mcp'];
 const RENAMES = [
     'kit_user_state' => 'user_state', 'kit_account_deletions' => 'account_deletions', 'kit_entitlements' => 'plan_entitlements', 'kit_permission_defaults' => 'permission_defaults',
     'kit_capability_overrides' => 'capability_overrides', 'kit_mcp_intents' => 'mcp_intents', 'kit_mcp_registrations' => 'mcp_registrations', 'kit_mcp_runs' => 'mcp_runs',
+    // 0.51: generic nouns take a prefix.
+    'entitlements' => 'workspace_entitlements', 'connections' => 'mcp_connections',
 ];
-const RENAME_MIGRATIONS = ['2026_11_14_000304_rename_access_tables', '2026_11_14_000506_rename_session_ui_tables', '2026_11_14_000605_rename_mcp_tables'];
+// 0.51's renames, one per feature, after the 0.18 ones.
+const RENAMES_051 = ['2026_11_27_000305_rename_entitlements_table', '2026_11_27_000606_rename_connections_table'];
 // 0.23: session-ui's signed_in_devices, an infrastructure table created by the package alone (no app ever had a copy).
 const DEVICE_MIGRATIONS = ['2026_11_14_000507_create_signed_in_devices_table', '2026_11_14_000508_add_user_foreign_key_to_signed_in_devices_table'];
 // What `migrate` runs on an app upgraded from 0.17, in order: the renames and the devices pair.
-const UPGRADE_MIGRATIONS = ['2026_11_14_000304_rename_access_tables', '2026_11_14_000506_rename_session_ui_tables', ...DEVICE_MIGRATIONS, '2026_11_14_000605_rename_mcp_tables'];
-// Kept as they are in 0.18: the domain tables (app-owned in 0.19), app_meta and app_adoptions (kit_meta and kit_adoptions before 0.43).
-const UNTOUCHED = ['app_meta', 'app_adoptions', 'kit_security_events', 'entitlements', 'complimentary_grants', 'workspaces'];
+const UPGRADE_MIGRATIONS = ['2026_11_14_000304_rename_access_tables', '2026_11_14_000506_rename_session_ui_tables', ...DEVICE_MIGRATIONS, '2026_11_14_000605_rename_mcp_tables', ...RENAMES_051];
+// Kept as they are: the domain tables (app-owned in 0.19), app_meta and app_adoptions (kit_meta and kit_adoptions before 0.43).
+const UNTOUCHED = ['app_meta', 'app_adoptions', 'kit_security_events', 'complimentary_grants', 'workspaces'];
 
 function check(bool $ok, string $message): void
 {
@@ -202,6 +205,14 @@ try {
         }
     }
     $protected = [...$protected, ...array_values(array_intersect_key($renamed ?? [], array_flip($protected)))];
+    // Each created table under the name it ends with: the package's dated renames (TABLES) applied.
+    $final = [];
+    foreach (glob(PACKAGE.'/*/2026_*_rename_*.php') ?: [] as $file) {
+        preg_match('/TABLES = \[(.*?)\];/s', (string) file_get_contents($file), $list);
+        preg_match_all("/'([a-z_]+)' => '([a-z_]+)'/", $list[1] ?? '', $pairs);
+        $final += array_combine($pairs[1], $pairs[2]);
+    }
+    $created = array_combine(array_map(fn (string $table): string => $final[$table] ?? $table, array_keys($created)), $created);
     $bare = array_diff(array_keys($created), $protected, UNVERIFIED_RLS);
     check(count($created) >= 20 && $bare === [], 'every kit table with a workspace_id is protected by a kit migration or on the frozen unverified list (bare: '.implode(', ', $bare).')');
     check(array_diff(UNVERIFIED_RLS, array_keys($created)) === [] && array_intersect(UNVERIFIED_RLS, $protected) === [], 'the unverified list names only unprotected kit tables (drop a table from it once protected)');
@@ -220,7 +231,7 @@ try {
     check($stubs !== [] && $baselines === $stubs, 'every package baseline is a catalog stub at the same feature, name and bytes ('.count($stubs).')');
     $others = array_map(fn (string $path): string => basename($path, '.php'), array_keys(array_diff_key($package, $baselines)));
     sort($others);
-    check($others === UPGRADE_MIGRATIONS, 'the package\'s only other migrations are the 0.18 renames, one per feature, and 0.23\'s signed_in_devices pair');
+    check($others === UPGRADE_MIGRATIONS, 'the package\'s only other migrations are the 0.18 renames, one per feature, 0.23\'s signed_in_devices pair and 0.51\'s renames');
 
     // A fresh app on 0.18 (no copies): the package's migrations run once each, and end at the new names.
     $fresh = host();
@@ -247,7 +258,7 @@ try {
     }
     check(count($seeded['kit_user_state']) === 3 && $seeded['kit_user_state'][0] !== $seeded['kit_user_state'][1], 'each old table holds three distinct synthetic rows');
     $ran = migrate($upgraded);
-    check($ran === UPGRADE_MIGRATIONS, 'after the upgrade migrate runs only the three renames and the signed_in_devices pair: no baseline runs twice ('.implode(', ', $ran).')');
+    check($ran === UPGRADE_MIGRATIONS, 'after the upgrade migrate runs only the renames and the signed_in_devices pair: no baseline runs twice ('.implode(', ', $ran).')');
     foreach (RENAMES as $from => $to) {
         check(! Schema::hasTable($from) && rows($to) === $seeded[$from], $from.' is now '.$to.', with the same '.count($seeded[$from]).' rows, column for column');
     }
@@ -285,7 +296,7 @@ try {
     seed('kit_user_state');
     $stampedRows = rows('kit_user_state');
     $ran = migrate($stampedUpgrade);
-    check($ran === UPGRADE_MIGRATIONS, 'after the upgrade the stamped app runs only the three renames and the devices pair: no create runs again ('.implode(', ', $ran).')');
+    check($ran === UPGRADE_MIGRATIONS, 'after the upgrade the stamped app runs only the renames and the devices pair: no create runs again ('.implode(', ', $ran).')');
     check(! Schema::hasTable('kit_user_state') && rows('user_state') === $stampedRows, 'and kit_user_state\'s rows are in user_state, intact');
     check(migrate($stampedUpgrade) === [], 'a second migrate on the stamped app runs nothing');
 
@@ -359,6 +370,39 @@ try {
         $refusal = $error->getMessage();
     }
     check(str_contains((string) $refusal, 'Both user_state and kit_user_state exist') && Schema::hasTable('account_deletions') && ! Schema::hasTable('kit_account_deletions'), 'down checks every pair first too: a conflict on its last table leaves the first unrenamed');
+    // 0.51's renames refuse the same way: with both names present, migrate names both and changes neither.
+    foreach (['entitlements' => 'workspace_entitlements', 'connections' => 'mcp_connections'] as $from => $to) {
+        $clash = host(copies());
+        migrate017($clash);
+        seed($from);
+        $kept = rows($from);
+        Schema::create($to, fn ($t) => $t->id());
+        $refusal = null;
+        try {
+            migrate($clash);
+        } catch (Throwable $error) {
+            $refusal = $error->getMessage();
+        }
+        check(str_contains((string) $refusal, 'Both '.$from.' and '.$to.' exist') && rows($from) === $kept && rows($to) === [], 'with both '.$from.' and '.$to.' present, migrate refuses, naming both, and changes neither');
+    }
+    // An app that names its own entitlements table in kit.tables keeps it: the rename leaves it, and the kit reads it.
+    $named = host(copies());
+    migrate017($named);
+    seed('entitlements');
+    $kept = rows('entitlements');
+    config(['kit.tables' => ['entitlement' => 'entitlements', 'complimentary_grant' => 'complimentary_grants']]);
+    migrate($named);
+    check(rows('entitlements') === $kept && ! Schema::hasTable('workspace_entitlements') && Tey\Kit\Features\Core\Kit::table('entitlement') === 'entitlements' && Schema::hasTable('mcp_connections'), 'with kit.tables.entitlement set, the rename leaves entitlements and its rows, and Kit::table() names it');
+    // A host's own entitlements table, adopted in place, is not renamed: migrate refuses until config/kit.php names it.
+    $hostTable = "<?php\n\nreturn new class extends Illuminate\\Database\\Migrations\\Migration\n{\n    public function up(): void\n    {\n        Illuminate\\Support\\Facades\\Schema::create('entitlements', function (\$t) { \$t->id(); \$t->unsignedBigInteger('workspace_id'); \$t->string('kind'); \$t->timestamp('revoked_at')->nullable(); });\n    }\n};\n";
+    $inPlace = host(['database/migrations/0001_01_01_000001_create_host_tables.php' => $hostTable]);
+    $refusal = null;
+    try {
+        migrate($inPlace);
+    } catch (Throwable $error) {
+        $refusal = $error->getMessage();
+    }
+    check(str_contains((string) $refusal, 'adopted in place') && str_contains((string) $refusal, "'entitlement' => 'entitlements'") && Schema::hasTable('entitlements') && ! Schema::hasTable('workspace_entitlements'), 'a host entitlements table adopted in place is not renamed: migrate refuses, saying how to keep it');
     // The adopt flags come from config alone. On, with the host's table not there yet, the kit's migration refuses to create it, and says why.
     foreach (['workspaces' => 'workspaces', 'access' => 'roles'] as $flag => $table) {
         $adopting = host([], [$flag => ['adopt' => true]]);
@@ -387,8 +431,8 @@ try {
     check(Schema::getColumnListing('signed_in_devices') === ['id', 'user_id', 'session_hash', 'session_id', 'browser', 'platform', 'ip_prefix', 'country', 'remembered', 'created_at', 'last_seen_at'], 'a fresh app creates signed_in_devices with its eleven columns, and none for a full IP, a user agent or a workspace');
     check($indexes === [[['last_seen_at'], false], [['session_hash'], true], [['user_id', 'last_seen_at'], false]] && array_column(Schema::getForeignKeys('signed_in_devices'), 'foreign_table') === ['users'] && array_column(Schema::getForeignKeys('signed_in_devices'), 'on_delete') === ['cascade'], 'with the session hash unique, the list and prune indexes, and a cascading foreign key to users'.json_encode($indexes));
     $kernel = $devices->make(Kernel::class);
-    check($kernel->call('migrate:rollback', ['--force' => true, '--step' => 3]) === 0 && ! Schema::hasTable('signed_in_devices') && Schema::hasTable('kit_mcp_runs'), 'rolling back the last three (the mcp rename and the devices pair) drops signed_in_devices');
-    check(migrate($devices) === [...DEVICE_MIGRATIONS, '2026_11_14_000605_rename_mcp_tables'] && Schema::hasTable('signed_in_devices') && Schema::getForeignKeys('signed_in_devices') !== [], 'migrating again creates it once more, with its foreign key');
+    check($kernel->call('migrate:rollback', ['--force' => true, '--step' => 5]) === 0 && ! Schema::hasTable('signed_in_devices') && Schema::hasTable('kit_mcp_runs') && Schema::hasTable('connections') && Schema::hasTable('entitlements'), 'rolling back the last five (the mcp rename, the devices pair and 0.51\'s renames) drops signed_in_devices');
+    check(migrate($devices) === [...DEVICE_MIGRATIONS, '2026_11_14_000605_rename_mcp_tables', ...RENAMES_051] && Schema::hasTable('signed_in_devices') && Schema::getForeignKeys('signed_in_devices') !== [], 'migrating again creates it once more, with its foreign key');
     $own = host(['database/migrations/0001_01_01_000001_create_signed_in_devices_table.php' => "<?php\n\nreturn new class extends Illuminate\\Database\\Migrations\\Migration\n{\n    public function up(): void\n    {\n        Illuminate\\Support\\Facades\\Schema::create('signed_in_devices', function (\$t) { \$t->id(); \$t->string('push_token'); });\n    }\n};\n"]);
     $refusal = null;
     try {
@@ -417,7 +461,7 @@ try {
     file_put_contents($up025->databasePath('migrations/2026_11_14_032334_adopt_session_ui_tables.php'), $adopt019);
     $ran = migrate($up025);
     check(in_array('0001_01_02_000102_unprefix_kit_tables', $ran, true) && in_array('2026_11_14_032334_adopt_session_ui_tables', $ran, true) && $up025['db']->table('app_meta')->where('key', 'adopt.synthetic')->value('value') === 'renamed' && ! Schema::hasTable('kit_meta'), 'upgrading the 0.25 app runs 000102 and the 0.19 adopt migration, which records in app_meta');
-    echo 'Package migrations and the 0.18 renames on '.(getenv('DB_CONNECTION') === 'pgsql' ? 'PostgreSQL (throwaway schemas)' : 'SQLite files').", synthetic apps and rows. A consumer app is not covered here.\n";
+    echo 'Package migrations and the 0.18 and 0.51 renames on '.(getenv('DB_CONNECTION') === 'pgsql' ? 'PostgreSQL (throwaway schemas)' : 'SQLite files').", synthetic apps and rows. A consumer app is not covered here.\n";
 } catch (Throwable $error) {
     fwrite(STDERR, 'FAIL '.$error->getMessage()."\n".$error->getTraceAsString()."\n");
     exit(1);

@@ -320,7 +320,7 @@ try {
     }
     $queries = [];
     [, $page] = $send($ada, '/me/workspaces');
-    $patterns = ['memberships' => '/from "concierge_memberships" where "user_id" = \? and "status" = \? and "workspace_id" in/', 'counts' => '/count\(\*\) as aggregate from "concierge_memberships"/', 'owners' => '/from "concierge_ownerships" where "workspace_id" in/', 'roles' => '/from "model_has_roles" inner join "roles"/'];
+    $patterns = ['memberships' => '/from "memberships" where "user_id" = \? and "status" = \? and "workspace_id" in/', 'counts' => '/count\(\*\) as aggregate from "memberships"/', 'owners' => '/from "ownerships" where "workspace_id" in/', 'roles' => '/from "model_has_roles" inner join "roles"/'];
     $seen = array_map(fn (string $pattern): int => count(preg_grep($pattern, $queries)), $patterns);
     httpCheck(count($page['props']['workspaces']) === 6 && $seen === ['memberships' => 1, 'counts' => 1, 'owners' => 1, 'roles' => 1], 'six workspaces: role, count and ownership are one query each, not one per workspace ('.json_encode($seen).')');
 
