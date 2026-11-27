@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.51.1
 
 Features affected: core (Brand); pins unchanged. No ViewModel changes shape.
 
