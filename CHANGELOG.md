@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.51.5
 
 Features affected: shell (PrimaryNav, Layout); re-pinned `shell` `sha256:2a78630a…4724` → `sha256:a9ed46a7…fc80`. No ViewModel changes shape.
 
