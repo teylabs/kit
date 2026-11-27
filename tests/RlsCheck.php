@@ -450,8 +450,9 @@ try {
     $config->set('database.default', 'pgsql_admin');
     $secrets->up();
     $config->set('database.default', 'pgsql');
-    $policy = $admin->selectOne("select c.relrowsecurity as r, c.relforcerowsecurity as f, (select count(*) from pg_policy p where p.polrelid = c.oid and p.polname = 'workspace_isolation') as p from pg_class c where c.relname = 'workspace_secrets'");
-    rlsCheck($policy->r && $policy->f && (int) $policy->p === 1 && ! in_array('workspace_secrets', Rls::unprotected(), true), 'workspace_secrets has RLS forced with the workspace_isolation policy, and is not unprotected');
+    $policy = $admin->selectOne("select c.relrowsecurity as r, c.relforcerowsecurity as f, (select count(*) from pg_policy p where p.polrelid = c.oid and p.polname = 'workspace_isolation') as p from pg_class c where c.oid = to_regclass('workspace_secrets')");
+    $unprotected = Rls::unprotected();
+    rlsCheck($policy->r && $policy->f && (int) $policy->p === 1 && ! in_array('workspace_secrets', $unprotected, true), 'workspace_secrets has RLS forced with the workspace_isolation policy, and is not unprotected ('.json_encode([$policy, $unprotected]).')');
     $admin->table('workspace_secrets')->insert([['workspace_id' => $a, 'key' => 'crm.api_key', 'value' => 'enc-a'], ['workspace_id' => $b, 'key' => 'crm.api_key', 'value' => 'enc-b']]);
     rlsCheck(DB::table('workspace_secrets')->count() === 0, 'with no workspace set, workspace_secrets shows no rows');
     rlsCheck(Rls::within($a, fn () => DB::table('workspace_secrets')->pluck('value')->all()) === ['enc-a'], 'a workspace reads only its own secrets, with app scoping removed');
