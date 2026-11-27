@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.51.4
 
 Features affected: core (css/kit.css); re-pinned `core` `sha256:110b3565…dc81` → `sha256:392b935b…eba0`. No ViewModel changes shape.
 
