@@ -141,7 +141,7 @@ function checkIcons(el: unknown): void {
                                 :class="
                                     text
                                         ? 'size-4'
-                                        : 'text-outline-muted size-5'
+                                        : 'text-muted-foreground size-5'
                                 "
                             />
                         </button>

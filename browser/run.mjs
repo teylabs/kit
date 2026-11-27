@@ -2156,6 +2156,25 @@ test('Select: describedby, aria-invalid, aria-required and data-* land on the ro
     });
 });
 
+test('An invalid field\'s error ring is stronger in dark mode (destructive at 40%, as Textarea), on Select and InputNumber', async () => {
+    await formAttrs(async (tab) => {
+        // The ring colour is `color-mix(… destructive N%, transparent)`; read N light, then with .dark on <html>.
+        const ring = (selector) =>
+            tab.evaluate((s) => {
+                const el = document.querySelector(s);
+                el.focus();
+                const box = el.matches('input') ? el.closest('.rounded-md') : el;
+                return getComputedStyle(box).getPropertyValue('--tw-ring-color').trim();
+            }, selector);
+        const alpha = (colour) => Number(colour.match(/\s([\d.]+)%,\s*transparent\)/)?.[1] ?? 100) / 100;
+        const light = { plan: alpha(await ring('#plan')), qty: alpha(await ring('#qty')) };
+        await tab.evaluate(() => document.documentElement.classList.add('dark'));
+        const dark = { plan: alpha(await ring('#plan')), qty: alpha(await ring('#qty')) };
+        assert.ok(Math.abs(light.plan - 0.2) < 0.01 && Math.abs(light.qty - 0.2) < 0.01, `light ring at 20% (${JSON.stringify(light)})`);
+        assert.ok(Math.abs(dark.plan - 0.4) < 0.01 && Math.abs(dark.qty - 0.4) < 0.01, `dark ring at 40% (${JSON.stringify(dark)})`);
+    });
+});
+
 test('FileInput: describedby, aria-invalid, required and data-* land on the <input type=file>', async () => {
     await formAttrs(async (tab) => {
         const c = await controlAttrs(tab, '#upload');
