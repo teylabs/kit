@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.51.2
 
 Features affected: core (kitImports); pins unchanged. No ViewModel changes shape.
 
