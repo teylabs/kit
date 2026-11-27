@@ -44,6 +44,14 @@ config(['kit.brand.presets.ink-only' => ['header' => 'ink']]);
 $inkOnly = Brand::css(Brand::tokens('ink-only'));
 variantCheck(str_starts_with($inkOnly, '[data-shell-bar]{') && ! str_contains($inkOnly, '--primary') && ! str_contains($inkOnly, ':root{--ring'), 'header ink alone prints only the bar, leaving primary buttons alone (got '.substr($inkOnly, 0, 60).')');
 variantCheck(str_contains($inkOnly, '--secondary:#27272a;--secondary-foreground:#ffffff;--ring:#d4d4d8}') && ! str_contains($inkOnly, '--brand-marker') && Brand::contrast('#d4d4d8', '#09090b') >= 3 && Brand::contrast('#d4d4d8', '#27272a') >= 3, 'on the neutral accent the ink bar keeps a light ring (3:1 on the bar and its field), its foreground as the marker, and its own --secondary for the phone search button');
+// An accent too dark for the ink bar (trades' Hi-vis: #9a3412 is 2.39:1 on #1c1917): the bar's ring and marker take the first of accent_dark and
+// accent_strong that holds 3:1 there, and the light page keeps the accent; an accent that already holds 3:1 is left as it is.
+config(['kit.brand.presets.hi-vis' => ['header' => 'ink', 'ink' => '#1c1917', 'accent' => '#9a3412', 'accent_dark' => '#fb923c']]);
+$hiVis = Brand::tokens('hi-vis');
+$bar = substr(Brand::css($hiVis), strpos(Brand::css($hiVis), '[data-shell-bar]{'));
+variantCheck(Brand::barAccent($hiVis) === '#fb923c' && str_contains($bar, '--ring:#fb923c;--brand-marker:#fb923c}') && ! str_contains($bar, '#9a3412'), 'a Hi-vis accent below 3:1 on the ink bar falls back to accent_dark there (got '.$bar.')');
+variantCheck(! in_array(true, array_map(fn (string $p): bool => str_contains($p, 'header highlight'), Brand::contrastProblems($hiVis)), true), 'and contrastProblems no longer flags the header highlight ('.json_encode(Brand::contrastProblems($hiVis)).')');
+variantCheck(Brand::barAccent(Brand::tokens('mono-one')) === Brand::tokens('mono-one')['accent'], 'an accent that holds 3:1 on the ink keeps it');
 // Mono on the neutral accent: in dark the theme's ring stays, not #52525b at 2.32:1 on the dark card.
 config(['kit.brand.presets.mono-neutral' => ['style' => 'mono']]);
 $monoNeutral = Brand::css(Brand::tokens('mono-neutral'));

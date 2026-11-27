@@ -266,7 +266,7 @@ final class Brand
         if ($t['header'] === 'ink') {
             $bar = '[data-shell-bar]{--background:'.$t['ink'].';--foreground:#ffffff;--muted:#27272a;--muted-foreground:#a1a1aa;--accent:#27272a;--accent-foreground:#ffffff;--border:#27272a;--shell-bar-field:#27272a;--shell-bar-field-edge:#71717a;--kit-field:#27272a;--kit-field-edge:#71717a;--secondary:#27272a;--secondary-foreground:#ffffff;'
                 // The neutral accent (#52525b) is 2.57:1 on ink: the bar keeps a light ring and its foreground as the current-page marker.
-                .($t['accent'] === self::NEUTRAL_ACCENT ? '--ring:#d4d4d8' : '--ring:'.$t['accent'].';--brand-marker:'.$t['accent']).'}';
+                .($t['accent'] === self::NEUTRAL_ACCENT ? '--ring:#d4d4d8' : '--ring:'.self::barAccent($t).';--brand-marker:'.self::barAccent($t)).'}';
         }
         $css = ($light === '' ? '' : ':root{'.$light.'}').($lightOnly === '' ? '' : ':root:not(.dark){'.$lightOnly.'}').($dark === '' ? '' : '.dark{'.$dark.'}').$bar;
         if ($t['header_rule'] !== null) {
@@ -284,6 +284,21 @@ final class Brand
     }
 
     /** The WCAG 2 contrast ratio of two #rrggbb colours (1 to 21). */
+    /**
+     * The accent the ink bar draws its focus ring and current-page marker in: the accent when it holds 3:1 on the ink (WCAG 1.4.11, a graphic),
+     * else accent_dark, then accent_strong, the first that does. When none does, the accent, which contrastProblems() reports.
+     */
+    public static function barAccent(array $t): string
+    {
+        foreach ([$t['accent'], $t['accent_dark'], $t['accent_strong']] as $candidate) {
+            if ($candidate !== self::NEUTRAL_ACCENT && self::contrast($candidate, $t['ink']) >= 3.0) {
+                return $candidate;
+            }
+        }
+
+        return $t['accent'];
+    }
+
     public static function contrast(string $foreground, string $background): float
     {
         $luminance = function (string $hex): float {
@@ -335,7 +350,7 @@ final class Brand
             $checks['accent_dark_foreground on accent_dark'] = [$t['accent_dark_foreground'], $t['accent_dark']];
         }
         if ($t['header'] === 'ink') {
-            $checks['accent on ink (the header highlight)'] = [$t['accent'], $t['ink']];
+            $checks['the bar accent on ink (the header highlight)'] = [self::barAccent($t), $t['ink']];
         }
         if ($accented && ($t['style'] === 'mono' || $t['background_dark'] !== null)) {
             $checks['accent_dark on the dark background (focus and the marker in dark mode)'] = [$t['accent_dark'], $darkPage];
