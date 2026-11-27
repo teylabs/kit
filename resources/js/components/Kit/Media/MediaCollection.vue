@@ -18,6 +18,7 @@ import CardFooter from '@/components/Kit/Card/CardFooter.vue';
 import type { ReorderAction } from '@/components/Kit/Data/sortable';
 import BulkDrop from '@/components/Kit/Form/BulkDrop.vue';
 import type { DirectRoutes } from '@/components/Kit/Form/directUpload';
+import EmptyState from '@/components/Kit/Feedback/EmptyState.vue';
 import PhotoTile from '@/components/Kit/Media/PhotoTile.vue';
 
 export type MediaItem = {
@@ -209,13 +210,14 @@ const itemLabel = (item: MediaItem, index: number) =>
         :aria-label="label"
         :data-media-collection="collection.collection"
     >
-        <p
+        <EmptyState
             v-if="items.length === 0 && !(photoTile && canAdd)"
-            class="text-muted-foreground text-sm"
+            compact
+            align="start"
+            icon="image"
+            :title="text.empty"
             data-media-empty
-        >
-            {{ text.empty }}
-        </p>
+        />
         <SortableList
             v-else-if="!single && items.length"
             :items="items"

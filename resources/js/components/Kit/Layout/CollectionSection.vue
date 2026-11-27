@@ -305,7 +305,7 @@ function choose(value: unknown): void {
                     :href="segment.url"
                     :aria-current="segment.current ? 'page' : undefined"
                     preserve-scroll
-                    class="border-border text-muted-foreground hover:text-foreground focus-visible:ring-ring aria-[current]:bg-foreground aria-[current]:text-background inline-flex min-h-7 items-center gap-1.5 rounded-full border px-3 text-xs font-medium focus-visible:ring-2 focus-visible:outline-none aria-[current]:border-transparent"
+                    class="border-border text-muted-foreground hover:text-foreground focus-visible:ring-ring aria-[current]:bg-foreground aria-[current]:text-background inline-flex min-h-8 items-center gap-1.5 rounded-full border px-3 text-xs font-medium focus-visible:ring-2 focus-visible:outline-none aria-[current]:border-transparent"
                     :aria-label="
                         segment.count != null
                             ? `${segment.label} (${segment.count})`

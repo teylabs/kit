@@ -1655,6 +1655,7 @@
           "@/components/Kit:PasswordRules",
           "@/components/Kit:TimezoneSelect",
           "@/components/Kit:RadioCardGroup",
+          "@/components/Kit:CheckboxCardGroup",
           "@/components/Kit:SegmentedToggle",
           "@/components/Kit:SwatchPicker",
           "@/components/Kit:Slider",

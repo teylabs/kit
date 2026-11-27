@@ -100,6 +100,9 @@ cpSync(path.join(here, '../resources/features/workspace-ui/pages/Workspace/Accou
 cpSync(path.join(here, '../resources/features/workspace-ui/pages/Workspace/Settings'), path.join(kit, 'Pages/Workspace/Settings'), { recursive: true });
 // workspace-ui's invitation page (auth.html?auth=Auth/Invitation/Show), a compact card like the guest pages.
 cpSync(path.join(here, '../resources/features/workspace-ui/pages/Auth'), path.join(kit, 'Pages/Auth'), { recursive: true });
+// The no-workspace page and global search's results page (rui.html).
+cpSync(path.join(here, '../resources/features/workspace-ui/pages/Provision'), path.join(kit, 'Pages/Provision'), { recursive: true });
+cpSync(path.join(here, '../resources/features/workspace-ui/pages/Workspace/Search'), path.join(kit, 'Pages/Workspace/Search'), { recursive: true });
 // mcp's consent page (auth.html?auth=Mcp/Authorize), a compact card like the guest pages.
 cpSync(path.join(here, '../resources/features/mcp/pages'), path.join(kit, 'Pages'), { recursive: true });
 const unstub = (dir) => readdirSync(dir).forEach((name) => {
@@ -8367,6 +8370,74 @@ test('the error page has exactly one h1, its title, in the public, guest and app
             assert.deepEqual(errors, [], shell);
             await tab.close();
         }
+    } finally {
+        await context.close();
+    }
+});
+
+// The first-deploy pages (rui.html): each passes axe with colour contrast, light and dark, at 1280 and 390px, with no page error. Each empty state is the
+// kit's EmptyState, a quiet page has no filled destructive button, and every primary step is a button. `KIT_RUI_SCREENSHOTS=<dir>` saves each page.
+const ruiPages = ['error', 'error-app', 'no-workspace', 'search-blank', 'search-none', 'people', 'security', 'invitation', 'login', 'dashboard', 'placeholder'];
+test('the first-deploy pages pass axe colour contrast in light and dark, at 1280 and 390px', async () => {
+    const shots = process.env.KIT_RUI_SCREENSHOTS;
+    for (const dark of [false, true]) {
+        for (const width of [1280, 390]) {
+            const context = await browser.newContext({ viewport: { width, height: 900 }, deviceScaleFactor: shots ? 2 : 1 });
+            try {
+                for (const name of ruiPages) {
+                    const scheme = `${name} ${dark ? 'dark' : 'light'} ${width}`;
+                    const tab = await context.newPage();
+                    const errors = [];
+                    tab.on('pageerror', error => errors.push(error.message));
+                    await tab.goto(`${authUrl}rui.html?page=${name}${dark ? '&dark' : ''}`);
+                    await tab.waitForSelector('h1');
+                    await tab.addScriptTag({ path: axeSource });
+                    const contrast = await tab.evaluate(async () => (await window.axe.run(document, { runOnly: ['color-contrast'] })).violations.map(v => `${v.id}: ${v.nodes.map(n => n.target.join(' ')).join(', ')}`));
+                    assert.deepEqual(contrast, [], `${scheme}: no colour-contrast violation`);
+                    assert.equal(await tab.locator('main [class*="bg-destructive"]:not([role=dialog] *)').count(), 0, `${scheme}: no filled destructive button outside a dialog`);
+                    const overflow = await tab.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+                    assert.ok(overflow <= 0, `${scheme}: the page fits (${overflow}px over)`);
+                    if (shots) await tab.screenshot({ path: `${shots}/${name}-${width}-${dark ? 'dark' : 'light'}.png`, fullPage: true });
+                    assert.deepEqual(errors, [], scheme);
+                    await tab.close();
+                }
+            } finally {
+                await context.close();
+            }
+        }
+    }
+});
+
+// The first-deploy pages' empty states and steps (rui.html): the designed empty state, not a bare line, and a real button for the next step.
+test('the first-deploy pages draw EmptyState for nothing-yet and a button for the next step', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    try {
+        const tab = await context.newPage();
+        const visit = async (name) => { await tab.goto(`${authUrl}rui.html?page=${name}`); await tab.waitForSelector('h1'); };
+        await visit('error');
+        assert.equal(await tab.locator('[data-error-state][data-empty-state]').count(), 1, 'the error page is an EmptyState');
+        assert.equal(await tab.locator('[data-error-state]').getByRole('link', { name: 'Sign in' }).count(), 1, 'a guest is offered signing in');
+        assert.match(await tab.getByRole('alert').textContent(), /sign in/i, 'a guest gets guest copy');
+        await visit('error-app');
+        assert.equal(await tab.getByRole('link', { name: 'Return to your workspaces' }).count(), 1, 'a member is offered their workspaces');
+        await visit('search-blank');
+        assert.equal(await tab.locator('[data-search-blank][data-empty-state]').count(), 1, 'a blank search has its empty state');
+        await visit('search-none');
+        assert.equal(await tab.locator('[data-search-none][data-empty-state]').count(), 1, 'no results is an EmptyState');
+        await visit('people');
+        assert.equal(await tab.locator('[data-people-only-owner][data-empty-state]').count(), 1, 'only the owner: the invite empty state');
+        await visit('dashboard');
+        assert.equal(await tab.locator('[data-dashboard-empty][data-empty-state]').count(), 1, 'no widgets: an EmptyState');
+        assert.equal(await tab.locator('[data-page-module-tabs] a[aria-current=page].rounded-full').count(), 1, "the dashboard's top row is pills");
+        await visit('placeholder');
+        assert.equal(await tab.locator('[data-slot=placeholder][data-empty-state]').count(), 1, 'a planned settings section is an EmptyState');
+        await visit('security');
+        assert.equal(await tab.locator('[data-passkeys-empty][data-empty-state]').count(), 1, 'no passkeys is an EmptyState');
+        assert.equal(await tab.locator('[data-device-sign-out] button.bg-destructive').count(), 0, "a device row's Sign out is quiet");
+        await visit('no-workspace');
+        assert.ok(await tab.locator('[data-test=create-workspace]').evaluate(el => el.className.includes('bg-primary')), 'creating a workspace is the primary button');
+        await visit('invitation');
+        assert.ok(await tab.locator('[data-test=invitation-sign-in]').evaluate(el => el.className.includes('bg-primary')), "the invitation's step is a primary button");
     } finally {
         await context.close();
     }

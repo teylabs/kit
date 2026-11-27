@@ -17,7 +17,7 @@ type Item = {
     badge?: string | null;
 };
 type Group = { label: string | null; items: Item[] };
-const page = usePage<{ layout?: { navigation: Group[] } }>();
+const page = usePage<{ layout?: { navigation: Group[]; title?: string } }>();
 // `label` names the sidebar (a module's, when <Page> frames a sidebar module); `select` makes it one select on phones with the groups as option groups (a
 // module's sidebar, per the nested-navigation rule), in place of the list at the top that settings keep.
 const props = withDefaults(
@@ -44,6 +44,14 @@ const go = (url: unknown) => {
 };
 // The sidebar is this page's navigation: the <Page> inside draws no tabs of it.
 provide('kit.navigation.framed', true);
+// On a phone the page's title comes first, above the section list: drawn here (hidden from assistive tech), while the page's own h1 stays its one heading, read
+// but not shown below md.
+const phoneTitle = computed(() =>
+    page.props.layout?.navigation.length
+        ? (page.props.layout?.title ?? null)
+        : null,
+);
+provide('kit.settings.phone-title', phoneTitle);
 </script>
 <template>
     <div
@@ -56,6 +64,14 @@ provide('kit.navigation.framed', true);
         ]"
         data-settings-frame
     >
+        <p
+            v-if="phoneTitle"
+            aria-hidden="true"
+            class="font-display text-2xl font-(weight:--font-display-weight) tracking-tight md:hidden"
+            data-settings-phone-title
+        >
+            {{ phoneTitle }}
+        </p>
         <nav
             v-if="page.props.layout?.navigation.length"
             :aria-label="props.label"

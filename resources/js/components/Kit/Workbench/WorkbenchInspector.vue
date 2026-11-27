@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import EmptyState from '@/components/Kit/Feedback/EmptyState.vue';
 import { useWorkbench } from './useWorkbench';
 
 /*
@@ -44,8 +45,14 @@ const items = computed(() =>
             :types="resolved.context.types"
             :current="resolved.context.current"
         />
-        <p v-else class="text-muted-foreground text-sm" data-inspector-empty>
-            {{ resolved.kind === 'document' ? emptyLabel : unsupportedLabel }}
-        </p>
+        <EmptyState
+            v-else
+            compact
+            align="start"
+            :title="
+                resolved.kind === 'document' ? emptyLabel : unsupportedLabel
+            "
+            data-inspector-empty
+        />
     </div>
 </template>

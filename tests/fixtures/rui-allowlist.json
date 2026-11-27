@@ -1,0 +1,59 @@
+{
+  "description": "Known exceptions to tests/RuiCheck.php. path is relative to the repository ('*' for every file), rule one of palette, px, destructive, empty, destructive-text, match a substring of the flagged text, reason one line.",
+  "allow": [
+    {
+      "path": "*",
+      "rule": "px",
+      "match": "ring-[3px]",
+      "reason": "shadcn-vue's focus ring width, the same on the host's own Button and Input, so a kit control's focus ring matches the host's."
+    },
+    {
+      "path": "resources/js/components/Kit/Data/MiddleTruncate.vue",
+      "rule": "px",
+      "match": "text-[0px]",
+      "reason": "Collapses the whitespace between the two halves of a truncated name; not a type size."
+    },
+    {
+      "path": "resources/features/shell/pages/Workspace/Partials/PrimaryNav.vue.stub",
+      "rule": "px",
+      "match": "after:h-[3px]",
+      "reason": "The current page's marker under the bar link, a stroke, not a spacing or type size."
+    },
+    {
+      "path": "resources/js/components/Kit/Feedback/alertVariants.ts",
+      "rule": "palette",
+      "match": "-",
+      "reason": "A pale Alert's ground and edge per tone; its text and icon take the *-text tokens (test:token-contrast and semantic-text)."
+    },
+    {
+      "path": "resources/features/notes/pages/Workspace/Notes/Index/Partials/colours.ts.stub",
+      "rule": "palette",
+      "match": "-",
+      "reason": "A note's own colour, chosen by its author: a fill, with the theme's foreground for its text."
+    },
+    {
+      "path": "resources/js/components/Kit/Comment/comments.ts",
+      "rule": "palette",
+      "match": "-",
+      "reason": "A NoteCard's colour swatch, the same note colours as the notes feature."
+    },
+    {
+      "path": "resources/js/components/Kit/Layout/ConnectionCard.vue",
+      "rule": "empty",
+      "match": "data-connection-empty",
+      "reason": "A connection's status line inside its own card, not an empty list."
+    },
+    {
+      "path": "resources/js/components/Kit/Workbench/WorkbenchNavigator.vue",
+      "rule": "empty",
+      "match": "data-workbench-empty",
+      "reason": "The navigator's focus target when a filter leaves nothing (tabindex -1), one line inside a narrow pane."
+    },
+    {
+      "path": "resources/features/notes/widgets/Notes.vue.stub",
+      "rule": "empty",
+      "match": "No notes yet",
+      "reason": "The sample notes widget is scaffolded byte for byte without @kit/ui (test:scaffold); a muted line under its composer."
+    }
+  ]
+}

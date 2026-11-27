@@ -36,7 +36,7 @@ watch(
 );
 const step = computed(() => props.size ?? (props.large ? 'xl' : 'md'));
 const sizes = {
-    xs: 'size-5 text-[10px]',
+    xs: 'size-5 text-xs',
     sm: 'size-7 text-xs',
     md: 'size-8 text-xs',
     lg: 'size-10 text-sm',

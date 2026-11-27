@@ -124,6 +124,7 @@ function confirm() {
                 >
                 <Button
                     variant="destructive"
+                    data-confirm-action
                     type="button"
                     :aria-busy="busy ? 'true' : undefined"
                     :disabled="busy"

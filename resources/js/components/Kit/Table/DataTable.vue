@@ -16,6 +16,7 @@ import type { ActionDescriptor } from '@/components/Kit/Action/actionPlacement';
 import DateTime from '@/components/Kit/Data/DateTime.vue';
 import type { DateTimeFormat } from '@/components/Kit/Data/dateTime';
 import Button from '@/components/Kit/Form/Button.vue';
+import EmptyState from '@/components/Kit/Feedback/EmptyState.vue';
 import {
     groundCard,
     tintedGround,
@@ -435,10 +436,13 @@ const showToolbar = computed(
             data-empty="first-use"
         >
             <slot name="empty-first-use"
-                ><p class="text-muted-foreground text-sm">
-                    Nothing here yet.
-                </p></slot
-            >
+                ><EmptyState
+                    compact
+                    align="start"
+                    icon="list"
+                    title="Nothing here yet"
+                    class="p-0"
+            /></slot>
         </div>
         <div
             v-else-if="table.emptyState === 'no-results'"
@@ -450,12 +454,18 @@ const showToolbar = computed(
             data-empty="no-results"
         >
             <slot name="empty-no-results"
-                ><p class="font-medium">
-                    No results<template v-if="table.search">
-                        for “{{ table.search }}”</template
-                    >
-                </p></slot
-            >
+                ><EmptyState
+                    compact
+                    align="start"
+                    icon="search"
+                    :title="
+                        table.search
+                            ? `No results for “${table.search}”`
+                            : 'No results'
+                    "
+                    body="Try a different search or fewer filters."
+                    class="p-0"
+            /></slot>
             <Button
                 variant="secondary"
                 type="button"

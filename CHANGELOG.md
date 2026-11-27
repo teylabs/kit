@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-Features affected: access (workspace_entitlements), mcp (mcp_connections), workspaces (Concierge's tables), core (health checks, Registry), settings (settings registry, workspace secrets, Setup page, `workspace_setup_read`). settings re-pinned: `sha256:222aa233…4757` → `sha256:ea5e22e0…bf2a` (the Setup page stub, the workspace_secrets migration stub and the manifest). A new ViewModel, `SetupViewModel`, and Data class, `SetupRow`.
+Features affected: access (workspace_entitlements), mcp (mcp_connections), workspaces (Concierge's tables), core (health checks, Registry), settings (settings registry, workspace secrets, Setup page, `workspace_setup_read`). settings re-pinned: `sha256:222aa233…4757` → `sha256:ea5e22e0…bf2a` (the Setup page stub, the workspace_secrets migration stub and the manifest). A new ViewModel, `SetupViewModel`, and Data class, `SetupRow`. session-ui re-pinned: `sha256:ec07b4f1…5e67` → `sha256:07925781…675c` and workspace-ui re-pinned: `sha256:472e3ef0…57ab` → `sha256:a7c5d817…d603` (the Refactoring UI pass: auth headings, the error, search, security, people, dashboard, invitation and no-workspace pages); core gains CheckboxCardGroup and EmptyState fallbacks.
 
 ### Added
 
@@ -12,12 +12,20 @@ Features affected: access (workspace_entitlements), mcp (mcp_connections), works
 - **`workspace_setup_read`,** the MCP read of the same rows and states.
 - **docs/deploy.md › Queues**, the queue rules the Setup page checks. New config: `kit.setup.queue` (`worker_timeout`, `flex`, `failed_count`, `failed_url`).
 - **Tests.** `test:setup` (resolution order, the secret unreadable raw, every row's states and thresholds, the local and production runs, the page and the MCP read); `test:rls` covers `workspace_secrets` under RLS.
+- **`CheckboxCardGroup`**, RadioCardGroup's many-choice twin: a card around each native checkbox, submitted as `name[]`, with a `badge` slot. RadioCardGroup gains the same `badge` slot.
+- **`composer test:rui`** (`tests/RuiCheck.php`) fails on a Tailwind palette colour or an arbitrary px size in a Kit component or feature stub, `variant="destructive"` outside a confirm (`data-confirm-action`) or the primary action (`data-primary-action`), a text-only empty state, and `text-destructive` as text. Exceptions are listed with a reason in `tests/fixtures/rui-allowlist.json`; a stale entry fails too. It runs in CI.
+- **The browser job checks every first-deploy page's contrast.** `rui.html` renders the error page (guest and member), No workspace, Search (blank and no results), People with only the owner, Security, the invitation, Sign in, the empty dashboard and a planned settings section, and axe's `color-contrast` runs on each in light and dark, at 1280 and 390px.
 
 ### Changed
 
 - **Concierge 0.12, with plain table names.** The kit requires `tey/concierge` `^0.12`, whose migrations rename its tables: `concierge_memberships` to `memberships`, `concierge_membership_scopes` to `membership_scopes`, `concierge_ownerships` to `ownerships`, `concierge_invitations` to `invitations`, `concierge_accounts` to `account_statuses` and `concierge_tenant_invitations` to `owner_invitations`. The default `kit.tenancy.rls.except` list and `/up`'s table check use the new names.
 - **Generic nouns take their feature's prefix.** mcp's `connections` is now `mcp_connections` (`2026_11_27_000606_rename_connections_table`) and access's `entitlements` is now `workspace_entitlements` (`2026_11_27_000305_rename_entitlements_table`, and the default of `Kit::table('entitlement')`). Each rename keeps every row, key and id sequence, refuses before renaming anything when both names exist, and has a down(). An app that names its entitlements table in `kit.tables.entitlement` keeps it; a host table the kit adopted in place is not renamed. `kit:scaffold access --adopt` now writes `workspace_entitlements`.
 - **The table-naming rule is checked.** `composer test:table-names` fails a fresh install with a new `kit_*` table or a generic one-word table outside a frozen list (docs/domain-tables.md, Table names).
+- **Empty states are designed.** The error page, Search, Security's passkeys, People ("It's only you so far"), the dashboard ("No widgets yet") and the settings Placeholder now use EmptyState, as do DataTable's, SearchBox's, DeliveryHistory's, CommentThread's, MediaCollection's, WorkbenchInspector's and Page's default empty states.
+- **The error page has a real button**, and a guest outside the app shell gets guest copy with Sign in and the home page.
+- **Destructive buttons are quiet until the dialog.** Security's and Profile's row buttons and PhotoField's Remove are secondary; the danger dialog's confirm stays red. InertiaAction's danger default is secondary unless the action's `priority` is `primary`.
+- **Stronger headings and primary steps.** The session-ui and welcome headings, No workspace and the invitation page use the display face at `text-2xl font-semibold`; each page's next step is a Button.
+- **Layout fixes.** SettingsFrame shows the title above the section list on phones; the dashboard's top row is pills, a select on phones (PageTabs `phone-select`); ListRow's actions wrap below the text at phone width; DescriptionList labels are normal weight; Avatar `xs` is `text-xs`; CollectionSection's chips are `min-h-8`; Widget drops its shadow and keeps its border.
 
 ### Upgrading
 
@@ -27,6 +35,8 @@ For apps on 0.50:
 2. Search your app for the old names and update each: your own RLS policies and migrations, `kit.tenancy.rls.except` in config/kit.php if you publish it, raw SQL and `DB::table()` calls, validation rules (`exists:concierge_memberships,id`, `unique:connections,...`) and any subclassed model that sets `$table`. The old names are `concierge_memberships`, `concierge_membership_scopes`, `concierge_ownerships`, `concierge_invitations`, `concierge_accounts`, `concierge_tenant_invitations`, `connections` and `entitlements`.
 3. If a migration refuses, a table under the new name already exists (often one of your own). Nothing was renamed. Keep the table that holds the data, rename or drop the other, then migrate again. If your `entitlements` table is the host's own, adopted in place, the kit refuses to rename it: set `'tables' => ['entitlement' => 'entitlements']` in config/kit.php to keep its name, then migrate again.
 4. Run `php artisan migrate` for `workspace_secrets`, then `php artisan kit:scaffold settings` for the Setup page, and `php artisan types:generate` for the new `SetupViewModel` and `SetupRow` types.
+5. Re-take the re-pinned pages with `php artisan kit:scaffold plan|apply` for `session-ui` and `workspace-ui`. A page you forked keeps its old look; compare it with the new stub.
+6. If you replaced `@kit/ui`, export `CheckboxCardGroup` too, or leave it to `export * from '@/components/Kit'`. A test that read the old empty-state text (`[data-search-none]`, `[data-comment-empty]` and so on) now finds an EmptyState with the same data attribute.
 
 ## v0.50.4
 

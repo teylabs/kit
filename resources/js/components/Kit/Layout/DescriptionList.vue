@@ -93,7 +93,7 @@ async function copy(item: DescriptionItem, index: number): Promise<void> {
                 :data-highlight="item.highlight || undefined"
                 data-description-item
             >
-                <dt class="text-muted-foreground min-w-0 font-medium">
+                <dt class="text-muted-foreground min-w-0 font-normal">
                     {{ item.term }}
                 </dt>
                 <dd class="text-foreground m-0 flex min-w-0 items-start gap-2">

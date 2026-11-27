@@ -141,6 +141,7 @@
         "test:input-select": "node --test tests/js/input-select.test.mjs",
         "test:iso-date": "@php tests/IsoDateCheck.php vendor/autoload.php",
         "test:resolved": "@php tests/ResolvedCheck.php vendor/autoload.php",
+        "test:rui": "@php tests/RuiCheck.php",
         "test:explanation": [
             "@php tests/ExplanationCheck.php vendor/autoload.php",
             "node --test tests/explanation/working.test.mjs"

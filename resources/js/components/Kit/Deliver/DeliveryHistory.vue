@@ -2,6 +2,7 @@
 import { router } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import type { ActionDescriptor } from '@/components/Kit/Action/actionPlacement';
+import EmptyState from '@/components/Kit/Feedback/EmptyState.vue';
 import Badge from '@/components/Kit/Feedback/Badge.vue';
 import Button from '@/components/Kit/Form/Button.vue';
 import type { DeliveryEntry } from './deliver';
@@ -156,7 +157,12 @@ function act(entry: DeliveryEntry, action: ActionDescriptor): void {
             </div>
         </li>
     </ol>
-    <p v-else class="text-muted-foreground text-sm" data-deliver-history-empty>
-        Nothing has been sent yet.
-    </p>
+    <EmptyState
+        v-else
+        compact
+        align="start"
+        icon="send"
+        title="Nothing has been sent yet"
+        data-deliver-history-empty
+    />
 </template>

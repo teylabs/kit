@@ -203,6 +203,7 @@ export { addTags, splitTags } from './Form/tags';
 export type { TagRejection, TagRules, TagsMessages } from './Form/tags';
 export { default as Textarea } from './Form/Textarea.vue';
 export { default as RadioCardGroup } from './Form/RadioCardGroup.vue';
+export { default as CheckboxCardGroup } from './Form/CheckboxCardGroup.vue';
 export { default as InputRichText } from './Form/InputRichText.vue';
 export {
     emptyDocument,
@@ -228,6 +229,7 @@ export {
     type RichTextTool,
 } from './Form/richText';
 export type { RadioCardOption } from './Form/RadioCardGroup.vue';
+export type { CheckboxCardOption } from './Form/CheckboxCardGroup.vue';
 export { default as SegmentedToggle } from './Form/SegmentedToggle.vue';
 export { default as SwatchPicker } from './Form/SwatchPicker.vue';
 export {

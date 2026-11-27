@@ -514,7 +514,7 @@ function remove() {
             <template #footer>
                 <Button
                     v-if="actions.remove && photo"
-                    variant="destructive"
+                    variant="secondary"
                     :disabled="working"
                     data-photo-field-remove
                     @click="confirming = true"

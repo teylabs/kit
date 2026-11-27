@@ -13,6 +13,7 @@ import HeaderActions from '@/components/Kit/Action/HeaderActions.vue';
 import HeaderStatus from '@/components/Kit/Action/HeaderStatus.vue';
 import type { ActionDescriptor } from '@/components/Kit/Action/actionPlacement';
 import type { HeaderStatus as HeaderStatusValue } from '@/components/Kit/Action/headerSplit';
+import EmptyState from '@/components/Kit/Feedback/EmptyState.vue';
 import Breadcrumbs from './Breadcrumbs.vue';
 import FocusPage from './FocusPage.vue';
 import PageTabs from './PageTabs.vue';
@@ -107,6 +108,11 @@ const OwnTabs = defineComponent({
     },
 });
 const framed = inject('kit.navigation.framed', false);
+// SettingsFrame shows the title above its section list on a phone; the h1 is then read there but not shown twice.
+const phoneTitle = inject<Ref<string | null> | null>(
+    'kit.settings.phone-title',
+    null,
+);
 const subNav = inject<Ref<'tabs' | 'strip'> | null>('kit.shell.subnav', null);
 const page = usePage<{
     layout?: {
@@ -184,10 +190,13 @@ const childLabel = computed(
         page.props.layout?.navigation?.find((group) => group.nested)?.label ??
         'Sections',
 );
-// A top-level module that opts into pills (Registry::moduleVariant()) draws its own row as pills; underline tabs otherwise.
+// A top-level module that opts into pills (Registry::moduleVariant()) draws its own row as pills; underline tabs otherwise. The dashboard's top row is
+// pills by default, with a select on phones (`phone-select`), so the home page never opens on a second underline row.
+const dashboard = computed(() => page.component === 'Workspace/Dashboard/Page');
 const tabsVariant = computed(() =>
+    dashboard.value ||
     page.props.layout?.navigation?.find((group) => !group.nested)?.variant ===
-    'secondary'
+        'secondary'
         ? 'secondary'
         : undefined,
 );
@@ -244,6 +253,7 @@ const size = computed(() =>
                         :tabs="tabs"
                         :label="tabsLabel"
                         :variant="tabsVariant"
+                        :phone-select="dashboard"
                         data-page-module-tabs
                     />
                     <PageTabs
@@ -258,6 +268,7 @@ const size = computed(() =>
                     :tabs="tabs"
                     :label="tabsLabel"
                     :variant="tabsVariant"
+                    :phone-select="dashboard"
                     data-page-module-tabs
                     ><template
                         v-if="
@@ -308,7 +319,10 @@ const size = computed(() =>
                         v-if="headingText"
                         data-slot="page-heading"
                         :title="headingText"
-                        class="font-display line-clamp-1 min-w-0 text-2xl font-(weight:--font-display-weight) tracking-tight break-words sm:flex-1 sm:text-3xl"
+                        :class="[
+                            'font-display line-clamp-1 min-w-0 text-2xl font-(weight:--font-display-weight) tracking-tight break-words sm:flex-1 sm:text-3xl',
+                            !nested && phoneTitle && 'max-md:sr-only',
+                        ]"
                     >
                         {{ headingText }}
                     </h1>
@@ -347,10 +361,8 @@ const size = computed(() =>
             </div>
             <div v-else-if="state === 'empty'" data-slot="page-empty">
                 <slot name="empty"
-                    ><p class="text-muted-foreground text-sm">
-                        Nothing here yet.
-                    </p></slot
-                >
+                    ><EmptyState compact align="start" title="Nothing here yet"
+                /></slot>
             </div>
             <div
                 v-else-if="state === 'error'"

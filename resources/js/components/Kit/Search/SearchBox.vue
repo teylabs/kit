@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { router } from '@inertiajs/vue3';
 import { computed, onBeforeUnmount, ref, useId, watch } from 'vue';
+import EmptyState from '@/components/Kit/Feedback/EmptyState.vue';
 import SeeAllLink from '@/components/Kit/Action/SeeAllLink.vue';
 import { flatten, move, type SearchGroup, type SearchOption } from './search';
 
@@ -219,14 +220,7 @@ defineExpose({ focus: () => input.value?.focus() });
                 >
                     Search is unavailable. Try again.
                 </p>
-                <p
-                    v-else-if="!options.length"
-                    class="text-muted-foreground px-2 py-1.5"
-                    data-search-empty
-                >
-                    No results
-                </p>
-                <template v-else>
+                <template v-else-if="options.length">
                     <div
                         v-for="group in shownGroups"
                         :key="group.key"
@@ -286,6 +280,15 @@ defineExpose({ focus: () => input.value?.focus() });
                     </p>
                 </template>
             </div>
+            <!-- Nothing found: outside the listbox too (it owns only options), so the empty state is a labelled region, not text among options. -->
+            <EmptyState
+                v-if="!shownBusy && !shownFailed && !options.length"
+                compact
+                icon="search"
+                title="No results"
+                body="Try other words."
+                data-search-empty
+            />
             <!-- The kit's see-all link (docs/see-all.md), "All results →": outside the listbox (which owns only options), and outside its scroll, so it stays in
                  view at the bottom while the results scroll. The click is taken on the way down so `go` closes the list and clears the field before it visits,
                  and the link's own visit never starts. -->
