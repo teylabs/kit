@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.51.0
 
 Features affected: access (workspace_entitlements), mcp (mcp_connections), workspaces (Concierge's tables), core (health checks, Registry), settings (settings registry, workspace secrets, Setup page, `workspace_setup_read`). settings re-pinned: `sha256:222aa233…4757` → `sha256:ea5e22e0…bf2a` (the Setup page stub, the workspace_secrets migration stub and the manifest). A new ViewModel, `SetupViewModel`, and Data class, `SetupRow`. session-ui re-pinned: `sha256:ec07b4f1…5e67` → `sha256:07925781…675c` and workspace-ui re-pinned: `sha256:472e3ef0…57ab` → `sha256:a7c5d817…d603` (the Refactoring UI pass: auth headings, the error, search, security, people, dashboard, invitation and no-workspace pages); core gains CheckboxCardGroup and EmptyState fallbacks.
 
