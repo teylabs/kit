@@ -42,7 +42,7 @@ return [
             'enabled' => filter_var(env('KIT_RLS', false), FILTER_VALIDATE_BOOL),
             'connection' => env('KIT_RLS_CONNECTION'),
             'admin_connection' => env('KIT_RLS_ADMIN_CONNECTION', 'pgsql_admin'),
-            'except' => ['concierge_memberships', 'concierge_membership_scopes', 'concierge_ownerships', 'concierge_invitations', 'concierge_tenant_invitations', 'roles', 'model_has_roles', 'model_has_permissions'],
+            'except' => ['memberships', 'membership_scopes', 'ownerships', 'invitations', 'owner_invitations', 'roles', 'model_has_roles', 'model_has_permissions'],
         ],
     ],
 
@@ -258,7 +258,7 @@ return [
         'media_upload' => Tey\Kit\Media\Models\MediaUpload::class,
     ],
 
-    // The domain tables the kit reads without a model (since 0.19). Null: the kit's own (`kit_note_intents`, and access's `entitlements` and
+    // The domain tables the kit reads without a model (since 0.19). Null: the kit's own (`kit_note_intents`, and access's `workspace_entitlements` and
     // `complimentary_grants`). `kit:scaffold notes --adopt` and `kit:scaffold access --adopt` set them to the app's tables.
     'tables' => ['note_intent' => null, 'entitlement' => null, 'complimentary_grant' => null],
 

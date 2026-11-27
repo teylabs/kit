@@ -349,7 +349,7 @@ try {
     $again = $send(null, 'POST', '/oauth/token', ['grant_type' => 'refresh_token', 'client_id' => $clientId, 'refresh_token' => $flow['refresh']], ['HTTP_ACCEPT' => 'application/json']);
     httpCheck($refreshed->getStatusCode() === 200 && is_string($json($refreshed)['refresh_token'] ?? null) && $json($refreshed)['refresh_token'] !== $flow['refresh'] && $again->getStatusCode() === 400 && ($json($again)['error'] ?? null) === 'invalid_grant', 'a refresh rotates the refresh token (the old one is invalid_grant afterwards), as OAuth 2.1 requires for a public client');
     $live = Token::query()->where('client_id', $clientId)->where('user_id', $owner->id)->where('revoked', false)->get();
-    httpCheck($live->count() === 1 && $live->first()->scopes === ['mcp:use'] && DB::table('connections')->where('oauth_token_id', $live->first()->id)->whereNull('revoked_at')->exists(), 'after the refresh one access token is live for the client, with the scope asked for, and the connection has moved onto it');
+    httpCheck($live->count() === 1 && $live->first()->scopes === ['mcp:use'] && DB::table('mcp_connections')->where('oauth_token_id', $live->first()->id)->whereNull('revoked_at')->exists(), 'after the refresh one access token is live for the client, with the scope asked for, and the connection has moved onto it');
 
     // A client registered before the kit's registration (the row laravel/mcp's registration stored, provider null, no scopes column) keeps working as it is.
     $legacy = Client::query()->forceCreate(['owner_type' => null, 'owner_id' => null, 'name' => 'Claude', 'secret' => null, 'provider' => null, 'redirect_uris' => [$claudeRedirect], 'grant_types' => ['authorization_code', 'refresh_token'], 'revoked' => false]);

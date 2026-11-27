@@ -93,7 +93,7 @@ try {
     check(health($core) !== null && str_contains(health($core), 'app_meta') && ! str_contains(health($core), 'workspaces'), 'core-only: /up asks for core\'s app_meta and for no workspace table');
     $core['db']->connection()->getSchemaBuilder()->create('users', fn ($t) => $t->id());
     $core['db']->connection()->getSchemaBuilder()->create('app_meta', fn ($t) => $t->string('key'));
-    check(health($core) === null, 'core-only: /up is healthy without workspaces, concierge_memberships or roles');
+    check(health($core) === null, 'core-only: /up is healthy without workspaces, memberships or roles');
     check($core['config']->get('mail.from') === ['address' => 'host@example.test', 'name' => 'Host Own Name'] && $core['config']->get('mail.reply_to') === null, 'core-only: mail.from and mail.reply_to are the host\'s');
     check(! listening($core, NoPendingMigrations::class, CatalogSync::class), 'core-only: CatalogSync is not registered');
 
@@ -145,7 +145,7 @@ try {
     // Full adoption keeps today's behaviour.
     $full = host(['core', 'workspaces', 'access', 'settings', 'session-ui', 'workspace-ui']);
     $message = health($full);
-    check($message !== null && str_contains($message, 'the table workspaces is missing') && str_contains($message, 'concierge_memberships') && str_contains($message, 'roles') && str_contains($message, 'app_meta'), 'full adoption: the health checks name every table');
+    check($message !== null && str_contains($message, 'the table workspaces is missing') && str_contains($message, 'memberships') && str_contains($message, 'roles') && str_contains($message, 'app_meta'), 'full adoption: the health checks name every table');
     // Unset brand_mail with the brand still at its placeholders: mail stays the host's, and /up never fails on placeholders (a default never takes /up red).
     check($full['config']->get('mail.from.name') === 'Host Own Name', 'full adoption with an unfilled brand: mail stays the host\'s');
     check($message === null || ! str_contains($message, 'brand'), 'full adoption with an unfilled brand: /up does not fail on brand placeholders');

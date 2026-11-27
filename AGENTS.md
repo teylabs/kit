@@ -17,6 +17,7 @@ composer test:features
 composer test:catalog
 composer test:host-boot
 composer test:migrations
+composer test:table-names
 composer test:resources
 composer test:library
 sh bin/privacy-check.sh

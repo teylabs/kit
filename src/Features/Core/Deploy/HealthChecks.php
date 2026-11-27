@@ -49,7 +49,7 @@ final class HealthChecks
             $failures[] = 'APP_KEY is not set';
         }
         $tables = ['users'];
-        foreach (['workspaces' => ['workspaces', 'concierge_memberships'], 'access' => ['roles'], 'core' => ['app_meta'], 'session-ui' => ['signed_in_devices']] as $feature => $owned) {
+        foreach (['workspaces' => ['workspaces', 'memberships'], 'access' => ['roles'], 'core' => ['app_meta'], 'session-ui' => ['signed_in_devices']] as $feature => $owned) {
             if (in_array($feature, $this->features, true)) {
                 array_push($tables, ...$owned);
             }

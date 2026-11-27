@@ -46,9 +46,9 @@ class ConnectionController
         app(Access::class)->authorize($principal, $base);
         // Only someone with the manage ability sees (and may revoke) the other members' connections; everyone else sees their own.
         $manages = AuthorizationView::allows($principal->actorId, $workspace, WorkspaceConnection::manageAbility());
-        $bound = DB::table('connections')->where('actor_id', $request->user()->getKey())->whereNull('revoked_at')->whereNotNull('oauth_token_id')->pluck('oauth_token_id')->all();
+        $bound = DB::table('mcp_connections')->where('actor_id', $request->user()->getKey())->whereNull('revoked_at')->whereNotNull('oauth_token_id')->pluck('oauth_token_id')->all();
         $tokens = Token::query()->where('user_id', $request->user()->getKey())->where('revoked', false)->where('expires_at', '>', now())->whereNotIn('id', $bound)->get()->filter(fn ($token) => $token->can('mcp:use') && WorkspaceConnection::tokenCovers($token->scopes, $base) && $token->client && ! $token->client->revoked && $token->client->hasGrantType('authorization_code'));
-        $connections = DB::table('connections')->where('workspace_id', $workspace)->when(! $manages, fn ($query) => $query->where('actor_id', $request->user()->getKey()))->whereNotNull('oauth_token_id')->whereNull('revoked_at')->orderBy('id')->get();
+        $connections = DB::table('mcp_connections')->where('workspace_id', $workspace)->when(! $manages, fn ($query) => $query->where('actor_id', $request->user()->getKey()))->whereNotNull('oauth_token_id')->whereNull('revoked_at')->orderBy('id')->get();
         $names = Users::model()::query()->whereIn('id', $connections->pluck('actor_id')->unique()->all())->pluck('name', 'id');
         $scopes = array_intersect_key(app(Registry::class)->tokenScopes(), array_flip(WorkspaceConnection::grantableScopes()));
 

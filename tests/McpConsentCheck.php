@@ -172,7 +172,7 @@ try {
         return $issue(HttpUser::query()->findOrFail($old->user_id), Client::query()->findOrFail($old->client_id));
     };
     $connect = function (HttpUser $user, Token $token, array $scopes = ['mcp:act']) use ($workspace): int {
-        return DB::table('connections')->insertGetId(['workspace_id' => $workspace->id, 'actor_id' => $user->id, 'oauth_token_id' => $token->id, 'scopes' => json_encode($scopes), 'intent_key' => bin2hex(random_bytes(4)), 'fingerprint' => 'x', 'expires_at' => $token->expires_at]);
+        return DB::table('mcp_connections')->insertGetId(['workspace_id' => $workspace->id, 'actor_id' => $user->id, 'oauth_token_id' => $token->id, 'scopes' => json_encode($scopes), 'intent_key' => bin2hex(random_bytes(4)), 'fingerprint' => 'x', 'expires_at' => $token->expires_at]);
     };
     // Runs $call inside the bound connection, as a tool call would: its result, or the HTTP status the binding refused with.
     $open = function (HttpUser $user, Token $token, int $connection, ?Closure $call = null) use ($app): mixed {

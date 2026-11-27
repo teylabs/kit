@@ -34,12 +34,12 @@ Settings › Delete workspace (`Workspace/Settings/Delete/Page`, at `GET /@{work
 - its Concierge rows (memberships, the ownership, invitations and tenant invitations)
 - spatie's team-scoped role and permission rows
 - its settings group (`workspace.{id}`) and settings intents
-- the access rows (entitlements, complimentary grants, capability overrides). `entitlements` and `complimentary_grants` are commercial records on RESTRICT foreign keys, so they're deleted explicitly before the workspace row.
+- the access rows (entitlements, complimentary grants, capability overrides). `workspace_entitlements` and `complimentary_grants` are commercial records on RESTRICT foreign keys, so they're deleted explicitly before the workspace row.
 - per-workspace user state
 - MCP connections and their intents
 - notes and note intents.
 
-Each feature's rows are deleted explicitly, children first, before the workspace row, because notes, mcp `connections`, `settings_intents`, `entitlements` and `complimentary_grants` are on RESTRICT foreign keys. Tables the host didn't migrate are skipped. `audit_events` rows are never deleted: the audit trail outlives the workspace, and the table's foreign key decides what happens to `workspace_id`. The workspace's own `delete()` runs last, so a host model with soft deletes keeps its row.
+Each feature's rows are deleted explicitly, children first, before the workspace row, because notes, mcp `mcp_connections`, `settings_intents`, `workspace_entitlements` and `complimentary_grants` are on RESTRICT foreign keys. Tables the host didn't migrate are skipped. `audit_events` rows are never deleted: the audit trail outlives the workspace, and the table's foreign key decides what happens to `workspace_id`. The workspace's own `delete()` runs last, so a host model with soft deletes keeps its row.
 
 Your own tables that reference the workspace are yours to clear, in your `PurgesWorkspaceData` handler (inside the same transaction, first). `WorkspaceDeleting` listeners and `WorkspaceDeleted` stay available for anything else.
 

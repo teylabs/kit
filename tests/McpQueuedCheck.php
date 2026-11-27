@@ -230,7 +230,7 @@ try {
     $connections = [];
     foreach (['owner', 'member'] as $who) {
         $token = Token::query()->forceCreate(['id' => bin2hex(random_bytes(40)), 'user_id' => $people[$who]->id, 'client_id' => $client->id, 'name' => null, 'scopes' => ['mcp:use', 'mcp:act'], 'revoked' => false, 'expires_at' => now()->addHour()]);
-        $connections[$who] = [$token, DB::table('connections')->insertGetId(['workspace_id' => $workspace->id, 'actor_id' => $people[$who]->id, 'oauth_token_id' => $token->id, 'scopes' => json_encode(['mcp:act']), 'intent_key' => bin2hex(random_bytes(4)), 'fingerprint' => 'x', 'expires_at' => $token->expires_at])];
+        $connections[$who] = [$token, DB::table('mcp_connections')->insertGetId(['workspace_id' => $workspace->id, 'actor_id' => $people[$who]->id, 'oauth_token_id' => $token->id, 'scopes' => json_encode(['mcp:act']), 'intent_key' => bin2hex(random_bytes(4)), 'fingerprint' => 'x', 'expires_at' => $token->expires_at])];
     }
     $connection = $connections['owner'][1];
     // Runs $then on a tool as the server would once BindMcpConnection has bound the person's connection: the token's user, its principal, in the workspace's context.
@@ -298,7 +298,7 @@ try {
 
     // Scoping: someone else, another connection of the same person, a made-up token and bad arguments.
     httpCheck($read(['run' => $run], 'member') === ['error', 'not_found'], 'another person reading the run gets not_found');
-    $second = DB::table('connections')->insertGetId(['workspace_id' => $workspace->id, 'actor_id' => $owner->id, 'oauth_token_id' => $connections['owner'][0]->id, 'scopes' => json_encode(['mcp:act']), 'intent_key' => 'second', 'fingerprint' => 'x', 'expires_at' => now()->addHour()]);
+    $second = DB::table('mcp_connections')->insertGetId(['workspace_id' => $workspace->id, 'actor_id' => $owner->id, 'oauth_token_id' => $connections['owner'][0]->id, 'scopes' => json_encode(['mcp:act']), 'intent_key' => 'second', 'fingerprint' => 'x', 'expires_at' => now()->addHour()]);
     httpCheck($read(['run' => $run], 'owner', $second) === ['error', 'not_found'], 'the same person on another connection gets not_found');
     httpCheck($read(['run' => 'run_'.str_repeat('a', 26)]) === ['error', 'not_found'] && $read(['run' => '../etc']) === ['error', 'not_found'], 'a made-up or malformed token is not_found');
     httpCheck($read(['run' => $run, 'more' => 1]) === ['error', 'unknown_arguments'], 'an argument besides run is unknown_arguments');
@@ -351,20 +351,20 @@ try {
     // Consent: a run queued before its connection is revoked or narrowed is refused at run time and at read time.
     [, $revokedRun] = $call(['id' => 11]);
     [, $narrowRun] = $call(['id' => 12]);
-    DB::table('connections')->where('id', $connection)->update(['scopes' => json_encode(['notes.read'])]);
+    DB::table('mcp_connections')->where('id', $connection)->update(['scopes' => json_encode(['notes.read'])]);
     $work($narrowRun['run']);
     httpCheck(DB::table('mcp_runs')->where('id', $narrowRun['run'])->value('error') === 'connection_denied', 'a connection narrowed after queueing fails the run with connection_denied');
-    DB::table('connections')->where('id', $connection)->update(['scopes' => json_encode(['mcp:act']), 'revoked_at' => now()]);
+    DB::table('mcp_connections')->where('id', $connection)->update(['scopes' => json_encode(['mcp:act']), 'revoked_at' => now()]);
     $work($revokedRun['run']);
     httpCheck(DB::table('mcp_runs')->where('id', $revokedRun['run'])->value('error') === 'connection_denied', 'a connection revoked after queueing fails the run with connection_denied');
     httpCheck($read(['run' => $revokedRun['run']]) === ['error', 'connection_denied'], 'and reading it on the revoked connection is refused');
-    DB::table('connections')->where('id', $connection)->update(['revoked_at' => null]);
+    DB::table('mcp_connections')->where('id', $connection)->update(['revoked_at' => null]);
 
     // Expiry: past the TTL a run reads as expired and its job does nothing; the next queue on the connection deletes it.
     [, $stale] = $call(['id' => 13]);
     // The connection's token outlives the run here, so only the run's own expiry is under test.
     DB::table('oauth_access_tokens')->update(['expires_at' => now()->addDays(3)]);
-    DB::table('connections')->update(['expires_at' => now()->addDays(3)]);
+    DB::table('mcp_connections')->update(['expires_at' => now()->addDays(3)]);
     Carbon::setTestNow(now()->addSeconds(86401));
     try {
         $work($stale['run']);

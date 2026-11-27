@@ -5,7 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-// The access feature's billing tables: entitlements and complimentary grants. Their names do not change; on a fresh database this creates them.
+// The access feature's billing tables: workspace entitlements and complimentary grants. Their names do not change; on a fresh database this creates them.
 // Written by `php artisan kit:scaffold access --adopt` (tey/kit 0.19), and the app's own from then on. On a database where the kit created the tables,
 // up() renames them, with their indexes, keys and sequences, and keeps every row; on a fresh one it creates them under the app's names. With both names of
 // a table present it refuses before changing anything: it never merges two tables. up() records in app_meta what it did to each table: renamed,
@@ -14,7 +14,7 @@ return new class extends Migration
 {
     /** The kit's name => the app's, parents first. */
     private const TABLES = [
-        'entitlements' => 'entitlements',
+        'workspace_entitlements' => 'workspace_entitlements',
         'complimentary_grants' => 'complimentary_grants',
     ];
 
@@ -82,8 +82,8 @@ return new class extends Migration
     private function create(): array
     {
         $missing = array_values(array_filter(self::TABLES, fn (string $table): bool => ! Schema::hasTable($table)));
-        if (! Schema::hasTable('entitlements')) {
-            Schema::create('entitlements', function (Blueprint $t): void {
+        if (! Schema::hasTable('workspace_entitlements')) {
+            Schema::create('workspace_entitlements', function (Blueprint $t): void {
                 $t->id();
                 $t->foreignId('workspace_id')->constrained();
                 $t->string('kind');

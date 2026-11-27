@@ -152,7 +152,7 @@ try {
         return $issue(HttpUser::query()->findOrFail($old->user_id), Client::query()->findOrFail($old->client_id));
     };
     $connect = function (HttpUser $user, Token $token) use ($workspace): int {
-        return DB::table('connections')->insertGetId(['workspace_id' => $workspace->id, 'actor_id' => $user->id, 'oauth_token_id' => $token->id, 'scopes' => json_encode(['settings.read']), 'intent_key' => bin2hex(random_bytes(4)), 'fingerprint' => 'x', 'expires_at' => $token->expires_at]);
+        return DB::table('mcp_connections')->insertGetId(['workspace_id' => $workspace->id, 'actor_id' => $user->id, 'oauth_token_id' => $token->id, 'scopes' => json_encode(['settings.read']), 'intent_key' => bin2hex(random_bytes(4)), 'fingerprint' => 'x', 'expires_at' => $token->expires_at]);
     };
     $open = function (HttpUser $user, Token $token, int $connection) use ($app): int {
         $request = Request::create('/mcp/connections/'.$connection, 'POST', server: ['HTTP_AUTHORIZATION' => 'Bearer synthetic']);
@@ -172,7 +172,7 @@ try {
     $connection = $connect($people['owner'], $first);
     httpCheck($open($people['owner'], $first, $connection) === 200, 'a connection opens with the token it was approved with');
     $second = $refresh($first);
-    httpCheck(DB::table('connections')->where('id', $connection)->value('oauth_token_id') === $second->id, 'a refresh moves the connection to the new access token');
+    httpCheck(DB::table('mcp_connections')->where('id', $connection)->value('oauth_token_id') === $second->id, 'a refresh moves the connection to the new access token');
     httpCheck($open($people['owner'], $second, $connection) === 200, 'the same connection opens with the refreshed token');
     httpCheck($open($people['owner'], $first, $connection) === 403, 'the old token is refused after the refresh');
     $third = $refresh($second);
@@ -182,28 +182,28 @@ try {
     $third->revoke();
     $issue($people['admin'], $claude);
     $issue($people['owner'], $other);
-    httpCheck(DB::table('connections')->where('id', $connection)->value('oauth_token_id') === $third->id, "another user's or another client's new token leaves the connection where it was");
+    httpCheck(DB::table('mcp_connections')->where('id', $connection)->value('oauth_token_id') === $third->id, "another user's or another client's new token leaves the connection where it was");
     // Nor does a new token for the same user and client that is not a refresh of its token: a spent connection stays spent.
     $fourth = $issue($people['owner'], $claude);
-    httpCheck(DB::table('connections')->where('id', $connection)->value('oauth_token_id') === $third->id && $open($people['owner'], $fourth, $connection) === 403, 'a new token for the same user and client that is not a refresh of its token does not revive a spent connection');
+    httpCheck(DB::table('mcp_connections')->where('id', $connection)->value('oauth_token_id') === $third->id && $open($people['owner'], $fourth, $connection) === 403, 'a new token for the same user and client that is not a refresh of its token does not revive a spent connection');
 
     // A revoked connection stays revoked across a refresh.
     $revokedToken = $issue($people['owner'], $claude);
     $revokedConnection = $connect($people['owner'], $revokedToken);
-    DB::table('connections')->where('id', $revokedConnection)->update(['revoked_at' => now()]);
+    DB::table('mcp_connections')->where('id', $revokedConnection)->update(['revoked_at' => now()]);
     $fifth = $refresh($revokedToken);
-    httpCheck(DB::table('connections')->where('id', $revokedConnection)->value('oauth_token_id') === $revokedToken->id && $open($people['owner'], $fifth, $revokedConnection) === 403, 'a revoked connection is not moved or reopened by a refresh');
+    httpCheck(DB::table('mcp_connections')->where('id', $revokedConnection)->value('oauth_token_id') === $revokedToken->id && $open($people['owner'], $fifth, $revokedConnection) === 403, 'a revoked connection is not moved or reopened by a refresh');
 
     // One connection per workspace for the same user and client: a code exchange binds only its own consent's connection, a refresh moves only its own token's.
     $globex = Workspace::create(['name' => 'Globex', 'slug' => 'globex']);
     $initech = Workspace::create(['name' => 'Initech', 'slug' => 'initech']);
     $assistant = $client('Third assistant');
     $inWorkspace = function (HttpUser $user, Token $token, Workspace $in) use ($assistant): int {
-        return DB::table('connections')->insertGetId(['workspace_id' => $in->id, 'actor_id' => $user->id, 'oauth_token_id' => $token->id, 'oauth_client_id' => (string) $assistant->id, 'scopes' => json_encode(['mcp:act']), 'expires_at' => $token->expires_at]);
+        return DB::table('mcp_connections')->insertGetId(['workspace_id' => $in->id, 'actor_id' => $user->id, 'oauth_token_id' => $token->id, 'oauth_client_id' => (string) $assistant->id, 'scopes' => json_encode(['mcp:act']), 'expires_at' => $token->expires_at]);
     };
     // A consent on the consent page (BindConsentWorkspace): a connection in the chosen workspace waiting for the code exchange's token.
     $consent = function (HttpUser $user, Workspace $in) use ($assistant): int {
-        return DB::table('connections')->insertGetId(['workspace_id' => $in->id, 'actor_id' => $user->id, 'oauth_token_id' => null, 'oauth_client_id' => (string) $assistant->id, 'scopes' => json_encode(['mcp:act']), 'expires_at' => now()->addMinutes(10)]);
+        return DB::table('mcp_connections')->insertGetId(['workspace_id' => $in->id, 'actor_id' => $user->id, 'oauth_token_id' => null, 'oauth_client_id' => (string) $assistant->id, 'scopes' => json_encode(['mcp:act']), 'expires_at' => now()->addMinutes(10)]);
     };
     $expire = fn (Token $token) => Token::query()->whereKey($token->id)->update(['expires_at' => now()->subMinute()]);
 
@@ -213,8 +213,8 @@ try {
     $expire($t1);
     $b = $consent($people['admin'], $globex);
     $t3 = $issue($people['admin'], $assistant);
-    httpCheck(DB::table('connections')->where('id', $b)->value('oauth_token_id') === $t3->id, '(a) the code exchange binds the new token to the consent\'s workspace B');
-    httpCheck(DB::table('connections')->where('id', $a)->value('oauth_token_id') === $t1->id && $open($people['admin'], $t3, $a) === 403, '(a) workspace A keeps its expired token: the code exchange does not move it');
+    httpCheck(DB::table('mcp_connections')->where('id', $b)->value('oauth_token_id') === $t3->id, '(a) the code exchange binds the new token to the consent\'s workspace B');
+    httpCheck(DB::table('mcp_connections')->where('id', $a)->value('oauth_token_id') === $t1->id && $open($people['admin'], $t3, $a) === 403, '(a) workspace A keeps its expired token: the code exchange does not move it');
 
     // (b) Two workspaces' tokens both spent; a refresh of one moves only that connection.
     $tA = $issue($people['member'], $assistant);
@@ -224,8 +224,8 @@ try {
     $expire($tA);
     $expire($tB);
     $tA2 = $refresh($tA);
-    httpCheck(DB::table('connections')->where('id', $inA)->value('oauth_token_id') === $tA2->id, "(b) a refresh moves the refreshed token's connection");
-    httpCheck(DB::table('connections')->where('id', $inB)->value('oauth_token_id') === $tB->id, "(b) the other workspace's spent connection stays on its own token");
+    httpCheck(DB::table('mcp_connections')->where('id', $inA)->value('oauth_token_id') === $tA2->id, "(b) a refresh moves the refreshed token's connection");
+    httpCheck(DB::table('mcp_connections')->where('id', $inB)->value('oauth_token_id') === $tB->id, "(b) the other workspace's spent connection stays on its own token");
 
     // (c) An expired, unrefreshed connection, then a fresh consent elsewhere: the expired one stays expired.
     $old = $issue($people['owner'], $assistant);
@@ -233,19 +233,19 @@ try {
     $expire($old);
     $elsewhere = $consent($people['owner'], $initech);
     $fresh = $issue($people['owner'], $assistant);
-    httpCheck(DB::table('connections')->where('id', $expired)->value('oauth_token_id') === $old->id && DB::table('connections')->where('id', $elsewhere)->value('oauth_token_id') === $fresh->id, '(c) a fresh consent elsewhere binds its own connection and leaves the expired one expired');
+    httpCheck(DB::table('mcp_connections')->where('id', $expired)->value('oauth_token_id') === $old->id && DB::table('mcp_connections')->where('id', $elsewhere)->value('oauth_token_id') === $fresh->id, '(c) a fresh consent elsewhere binds its own connection and leaves the expired one expired');
 
     // The record of revoked tokens is per request: Octane and the queue worker forget scoped instances between requests and jobs, so a revoke in one never makes a
     // later token a refresh. Request 1 revokes a token (no new token); request 2 issues one for the same user and client with no revoke: a code exchange.
     $fourthAssistant = $client('Fourth assistant');
     $spentToken = $issue($people['member'], $fourthAssistant);
-    $spent = DB::table('connections')->insertGetId(['workspace_id' => $workspace->id, 'actor_id' => $people['member']->id, 'oauth_token_id' => $spentToken->id, 'oauth_client_id' => (string) $fourthAssistant->id, 'scopes' => json_encode(['mcp:act']), 'expires_at' => $spentToken->expires_at]);
+    $spent = DB::table('mcp_connections')->insertGetId(['workspace_id' => $workspace->id, 'actor_id' => $people['member']->id, 'oauth_token_id' => $spentToken->id, 'oauth_client_id' => (string) $fourthAssistant->id, 'scopes' => json_encode(['mcp:act']), 'expires_at' => $spentToken->expires_at]);
     app(Laravel\Passport\Bridge\AccessTokenRepository::class)->revokeAccessToken($spentToken->id);
     $app->forgetScopedInstances();
-    $waiting = DB::table('connections')->insertGetId(['workspace_id' => $globex->id, 'actor_id' => $people['member']->id, 'oauth_token_id' => null, 'oauth_client_id' => (string) $fourthAssistant->id, 'scopes' => json_encode(['mcp:act']), 'expires_at' => now()->addMinutes(10)]);
+    $waiting = DB::table('mcp_connections')->insertGetId(['workspace_id' => $globex->id, 'actor_id' => $people['member']->id, 'oauth_token_id' => null, 'oauth_client_id' => (string) $fourthAssistant->id, 'scopes' => json_encode(['mcp:act']), 'expires_at' => now()->addMinutes(10)]);
     $next = $issue($people['member'], $fourthAssistant);
-    httpCheck(DB::table('connections')->where('id', $waiting)->value('oauth_token_id') === $next->id, "after the scoped reset, the next request's new token is a code exchange: it binds its own waiting connection");
-    httpCheck(DB::table('connections')->where('id', $spent)->value('oauth_token_id') === $spentToken->id && $open($people['member'], $next, $spent) === 403, "the earlier request's revoked connection stays spent: its revoke is not carried into the next request");
+    httpCheck(DB::table('mcp_connections')->where('id', $waiting)->value('oauth_token_id') === $next->id, "after the scoped reset, the next request's new token is a code exchange: it binds its own waiting connection");
+    httpCheck(DB::table('mcp_connections')->where('id', $spent)->value('oauth_token_id') === $spentToken->id && $open($people['member'], $next, $spent) === 403, "the earlier request's revoked connection stays spent: its revoke is not carried into the next request");
 
     echo "MCP refresh checks on SQLite memory with real Passport tables, Concierge and spatie teams; tokens are inserted, revoked through Passport's repository and AccessTokenCreated fired as league's grants do, with no OAuth HTTP exchange, PSR token parsing or MCP transport.\n";
 } catch (Throwable $error) {

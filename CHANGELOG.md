@@ -1,5 +1,23 @@
 # Changelog
 
+## Unreleased
+
+Features affected: access (workspace_entitlements), mcp (mcp_connections), workspaces (Concierge's tables), core (health checks); pins unchanged. No ViewModel changes shape.
+
+### Changed
+
+- **Concierge 0.12, with plain table names.** The kit requires `tey/concierge` `^0.12`, whose migrations rename its tables: `concierge_memberships` to `memberships`, `concierge_membership_scopes` to `membership_scopes`, `concierge_ownerships` to `ownerships`, `concierge_invitations` to `invitations`, `concierge_accounts` to `account_statuses` and `concierge_tenant_invitations` to `owner_invitations`. The default `kit.tenancy.rls.except` list and `/up`'s table check use the new names.
+- **Generic nouns take their feature's prefix.** mcp's `connections` is now `mcp_connections` (`2026_11_27_000606_rename_connections_table`) and access's `entitlements` is now `workspace_entitlements` (`2026_11_27_000305_rename_entitlements_table`, and the default of `Kit::table('entitlement')`). Each rename keeps every row, key and id sequence, refuses before renaming anything when both names exist, and has a down(). An app that names its entitlements table in `kit.tables.entitlement` keeps it; a host table the kit adopted in place is not renamed. `kit:scaffold access --adopt` now writes `workspace_entitlements`.
+- **The table-naming rule is checked.** `composer test:table-names` fails a fresh install with a new `kit_*` table or a generic one-word table outside a frozen list (docs/domain-tables.md, Table names).
+
+### Upgrading
+
+For apps on 0.50:
+
+1. `composer require tey/concierge:^0.12 tey/kit:^0.51`, then `php artisan migrate` (with RLS, on the admin connection). Concierge renames its tables, and the kit renames `connections` and `entitlements`; rows are kept.
+2. Search your app for the old names and update each: your own RLS policies and migrations, `kit.tenancy.rls.except` in config/kit.php if you publish it, raw SQL and `DB::table()` calls, validation rules (`exists:concierge_memberships,id`, `unique:connections,...`) and any subclassed model that sets `$table`. The old names are `concierge_memberships`, `concierge_membership_scopes`, `concierge_ownerships`, `concierge_invitations`, `concierge_accounts`, `concierge_tenant_invitations`, `connections` and `entitlements`.
+3. If a migration refuses, a table under the new name already exists (often one of your own). Nothing was renamed. Keep the table that holds the data, rename or drop the other, then migrate again. If your `entitlements` table is the host's own, adopted in place, the kit refuses to rename it: set `'tables' => ['entitlement' => 'entitlements']` in config/kit.php to keep its name, then migrate again.
+
 ## v0.50.4
 
 Features affected: core (Select, InputDate, InputTime, InputTimeRange, InputDateRange, InputNumber, FormActions, ButtonGroup, Badge tones), mcp (ConnectionCard); pins unchanged. No ViewModel changes shape.

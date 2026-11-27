@@ -45,7 +45,7 @@ final class RunQueuedTool implements NotTenantAware, ShouldQueue
             if (! in_array($run->class, $registry->mcpTools(), true) || ! is_subclass_of($run->class, QueuedCapabilityTool::class)) {
                 throw new RuntimeException('capability_unavailable');
             }
-            $connection = DB::table('connections')->where('id', $run->connection_id)->where('actor_id', $run->actor_id)->where('workspace_id', $run->workspace_id)
+            $connection = DB::table('mcp_connections')->where('id', $run->connection_id)->where('actor_id', $run->actor_id)->where('workspace_id', $run->workspace_id)
                 ->whereNull('revoked_at')->first();
             if ($connection === null || $run->ability === '' || ! WorkspaceConnection::covers((array) json_decode((string) $connection->scopes, true), (string) $run->ability)) {
                 throw new RuntimeException('connection_denied');

@@ -202,9 +202,9 @@ class DeleteAccount
                 DB::table($table)->where('user_id', $id)->delete();
             }
         }
-        if (Kit::present('mcp', 'connections') && Kit::present('mcp', 'mcp_intents')) {
-            DB::table('mcp_intents')->whereIn('connection_id', DB::table('connections')->where('actor_id', $id)->select('id'))->delete();
-            DB::table('connections')->where('actor_id', $id)->delete();
+        if (Kit::present('mcp', 'mcp_connections') && Kit::present('mcp', 'mcp_intents')) {
+            DB::table('mcp_intents')->whereIn('connection_id', DB::table('mcp_connections')->where('actor_id', $id)->select('id'))->delete();
+            DB::table('mcp_connections')->where('actor_id', $id)->delete();
         }
         foreach (['model_has_roles', 'model_has_permissions'] as $key) {
             $table = (string) config('permission.table_names.'.$key, $key);

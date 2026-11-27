@@ -241,9 +241,9 @@ try {
     starterCheck($paths === $expected, 'each adopted feature registers the app\'s database/migrations/kit/<feature>, then the package\'s directory, in canonical order');
     // This app has the catalog's copies under database/migrations/kit, as kit:add wrote them: of the package's, only the 0.18 renames are left to load.
     $package = array_filter($migrating['migrator']->getMigrationFiles($paths), fn (string $file): bool => ! str_starts_with($file, $temp.'/'));
-    starterCheck(count($package) === 2 && array_filter($package, fn (string $file): bool => ! str_contains($file, '_rename_')) === [], 'the migrator lists, of the package\'s migrations, only those the app has no copy of: the renames');
+    starterCheck(count($package) === 4 && array_filter($package, fn (string $file): bool => ! str_contains($file, '_rename_')) === [], 'the migrator lists, of the package\'s migrations, only those the app has no copy of: the renames (0.18 and 0.51)');
     starterCheck($kernel->call('migrate', ['--force' => true]) === 0, 'migrate runs the host and kit migrations on synthetic SQLite memory');
-    $tables = ['users', 'workspaces', 'operators', 'audit_events', 'entitlements', 'complimentary_grants', 'plan_entitlements', 'settings', 'settings_intents', 'connections', 'mcp_intents', 'mcp_runs', 'roles', 'permissions'];
+    $tables = ['users', 'workspaces', 'operators', 'audit_events', 'workspace_entitlements', 'complimentary_grants', 'plan_entitlements', 'settings', 'settings_intents', 'mcp_connections', 'mcp_intents', 'mcp_runs', 'roles', 'permissions'];
     starterCheck(array_filter($tables, fn (string $table): bool => ! Schema::hasTable($table)) === [], 'every kit table exists after migrate');
     starterCheck(Schema::hasColumn('workspaces', 'slug'), 'workspaces carry a slug');
     $ran = $migrating['db']->table('migrations')->pluck('migration')->all();

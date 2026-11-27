@@ -36,7 +36,7 @@ As user 1 in workspace acme: each page requested once to warm up, then once, eve
 
 GET /@acme  workspaces.dashboard.index
   200 · 15 queries · 2 duplicates · 22.4 ms (1 ms in queries)
-  2×   select * from "concierge_accounts" where "concierge_accounts"."user_id" = ? limit 1  (1 exact)
+  2×   select * from "account_statuses" where "account_statuses"."user_id" = ? limit 1  (1 exact)
 
 GET /@acme/notes  notes.index
   200 · 31 queries · 12 duplicates · 40.1 ms (6.3 ms in queries)

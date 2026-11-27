@@ -21,13 +21,21 @@ The domain tables:
 | finalize | `kit_finalize_confirmations` | `finalization_confirmations` | `finalization_confirmation` | `IsConfirmation`, `Contracts\Confirmation` |
 | notes | `kit_notes` | `notes` | `note` | `Notes\Concerns\IsNote`, `Notes\Contracts\Note` |
 | notes | `kit_note_intents` | `note_intents` | `note_intent` (a table, `kit.tables`) | none: read without a model |
-| access | `entitlements` | `entitlements` (unchanged) | `entitlement` (a table) | none |
+| access | `workspace_entitlements` (`entitlements` before 0.51) | `workspace_entitlements` (unchanged) | `entitlement` (a table) | none |
 | access | `complimentary_grants` | `complimentary_grants` (unchanged) | `complimentary_grant` (a table) | none |
 | session-ui | `kit_security_events` | `security_events` | `security_event` | `SessionUi\Concerns\IsSecurityEvent`, `SessionUi\Contracts\SecurityEvent` |
 | workspaces | `workspaces` | unchanged | `workspace` | `IsKitWorkspace`, Concierge's `Workspace` (bound through `concierge.models.workspace`, as before) |
 | media | `kit.media.uploads_table` | unchanged | `media_upload` | `Media\Concerns\IsMediaUpload`, `Media\Contracts\MediaUpload` |
 
 The namespaces are under `Tey\Kit\Features\` (media under `Tey\Kit\`).
+
+## Table names
+
+- A table is a plain noun for what it holds: `notes`, `signed_in_devices`, `account_deletions`.
+- A generic noun, one that another feature or package could just as well use, takes its feature's prefix: `mcp_connections`, `workspace_entitlements`, `mcp_runs`.
+- A table never takes a package prefix: no `kit_` or `concierge_`. The `kit_` domain tables above are the only ones left, until the app adopts them.
+
+`composer test:table-names` runs a fresh migrate with every feature and fails on a new `kit_*` table, or on a one-word table outside a frozen list (`users`, `migrations`, `workspaces`, `operators`, `roles`, `permissions`, `settings`, `tags`, `taggables`). Both lists only shrink.
 
 ## The registry
 

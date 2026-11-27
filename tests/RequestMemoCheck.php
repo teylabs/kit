@@ -224,7 +224,7 @@ try {
             app(Concierge::class)->context()->run($spaces[$slug], fn () => $people[$name]->assignRole($role), [$people[$name]]);
         }
     }
-    DB::table('concierge_ownerships')->insert(['workspace_id' => $spaces['acme']->id, 'membership_id' => $memberships['ada']['acme']->id, 'created_at' => now(), 'updated_at' => now()]);
+    DB::table('ownerships')->insert(['workspace_id' => $spaces['acme']->id, 'membership_id' => $memberships['ada']['acme']->id, 'created_at' => now(), 'updated_at' => now()]);
     $avatar = function (MemoUser $user, string $token): void {
         DB::table('media')->insert(['model_type' => 'user-avatar', 'model_id' => (string) $user->id, 'collection_name' => 'avatar', 'name' => 'photo', 'file_name' => 'photo.jpg', 'disk' => 'local', 'size' => 1,
             'manipulations' => '[]', 'custom_properties' => json_encode(['token' => $token]), 'generated_conversions' => '[]', 'responsive_images' => '[]', 'created_at' => now(), 'updated_at' => now()]);
@@ -280,9 +280,9 @@ try {
         'user_state' => '/from "user_state"/',
         'settings' => '/from "settings" where "group"/',
         'avatar' => '/from "media" where "model_type"/',
-        'membership' => '/from "concierge_memberships" where "workspace_id" = \? and "user_id" = \?/',
-        'ownership' => '/from "concierge_ownerships"/',
-        'account (kit)' => '/from "concierge_accounts"/',
+        'membership' => '/from "memberships" where "workspace_id" = \? and "user_id" = \?/',
+        'ownership' => '/from "ownerships"/',
+        'account (kit)' => '/from "account_statuses"/',
         'permission set' => '/from "permissions" inner join "model_has_permissions"/',
     ];
     $count = fn (array $log): array => array_map(fn (string $pattern): int => count(array_filter($log, fn (array $query): bool => preg_match($pattern, $query[0]) === 1)), $lookups);
@@ -362,8 +362,8 @@ try {
         });
         $seen['avatar'] = [Avatars::urls($grace), $avatar($people['grace'], str_repeat('g', 40)), Avatars::urls($grace)['url'] ?? null];
         $seen['workspace'] = [Workspaces::find($spaces['globex']->id)->name, DB::table('workspaces')->where('id', $spaces['globex']->id)->update(['name' => 'Globex Corp']), Workspaces::find($spaces['globex']->id)->name];
-        $seen['ownership'] = [RequestMemo::owns($memberships['ada']['globex']), DB::table('concierge_ownerships')->insert(['workspace_id' => $spaces['globex']->id, 'membership_id' => $memberships['ada']['globex']->id]), RequestMemo::owns($memberships['ada']['globex'])];
-        $seen['membership'] = [RequestMemo::membership($people['grace'], $spaces['acme'])?->isActive(), DB::table('concierge_memberships')->where('id', $memberships['grace']['acme']->id)->update(['status' => MembershipStatus::Suspended->value]), RequestMemo::membership($people['grace'], $spaces['acme'])?->isActive()];
+        $seen['ownership'] = [RequestMemo::owns($memberships['ada']['globex']), DB::table('ownerships')->insert(['workspace_id' => $spaces['globex']->id, 'membership_id' => $memberships['ada']['globex']->id]), RequestMemo::owns($memberships['ada']['globex'])];
+        $seen['membership'] = [RequestMemo::membership($people['grace'], $spaces['acme'])?->isActive(), DB::table('memberships')->where('id', $memberships['grace']['acme']->id)->update(['status' => MembershipStatus::Suspended->value]), RequestMemo::membership($people['grace'], $spaces['acme'])?->isActive()];
         // A rollback undoes a write the memo has seen since: the read after it is the row as it was.
         try {
             DB::transaction(function () use ($ada): void {
@@ -396,8 +396,8 @@ try {
     memoCheck(RequestMemo::writesOrLocks('select * from "users" where "id" = ? limit 1 for update') && RequestMemo::writesOrLocks('select * from "users" for no key update') && RequestMemo::writesOrLocks('select * from `users` lock in share mode') && RequestMemo::writesOrLocks('select * from "users" for share')
         && RequestMemo::writesOrLocks('insert or ignore into "user_state" ("key") values (?)') && RequestMemo::writesOrLocks('with "x" as (select 1) update "users" set "name" = ?') && RequestMemo::writesOrLocks('  delete from "media"')
         && ! RequestMemo::writesOrLocks('select set_config(?, ?, true)') && ! RequestMemo::writesOrLocks('select "updated_at", "deleted" from "updates"') && ! RequestMemo::writesOrLocks('select * from "users" where "name" = \'for\''), 'writesOrLocks(): writes on every grammar, behind a CTE, and locking reads (for update, no key update, share, lock in share mode) empty the memo; plain reads, set_config and a column named updated_at do not');
-    DB::table('concierge_memberships')->where('id', $memberships['grace']['acme']->id)->update(['status' => MembershipStatus::Active->value]);
-    DB::table('concierge_ownerships')->where('workspace_id', $spaces['globex']->id)->delete();
+    DB::table('memberships')->where('id', $memberships['grace']['acme']->id)->update(['status' => MembershipStatus::Active->value]);
+    DB::table('ownerships')->where('workspace_id', $spaces['globex']->id)->delete();
     DB::table('workspaces')->where('id', $spaces['globex']->id)->update(['name' => 'Globex']);
     UserState::set($ada, 'timezone', 'Europe/Paris');
     UserState::set($ada, 'timezone.confirmed');

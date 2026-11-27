@@ -192,7 +192,7 @@ try {
     Inertia::flushShared();
     HostTenantResolver::$seen = [];
     $page('/page');
-    DB::table('concierge_memberships')->where('user_id', $ada->id)->delete();
+    DB::table('memberships')->where('user_id', $ada->id)->delete();
     $page('/page');
     orderCheck((HostTenantResolver::$seen[0]['active'] ?? null) === true && array_key_exists('active', HostTenantResolver::$seen[1] ?? []) && HostTenantResolver::$seen[1]['active'] === null, 'no leak: a membership removed between two requests (no Eloquent event) is gone on the second, not answered from the first\'s memo ('.json_encode(HostTenantResolver::$seen).')');
 

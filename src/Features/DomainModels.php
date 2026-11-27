@@ -31,7 +31,7 @@ final class DomainModels
             'note_intent' => [null, null, 'kit_note_intents', 'note_intents', null],
         ],
         'access' => [
-            'entitlement' => [null, null, 'entitlements', 'entitlements', null],
+            'entitlement' => [null, null, 'workspace_entitlements', 'workspace_entitlements', null],
             'complimentary_grant' => [null, null, 'complimentary_grants', 'complimentary_grants', null],
         ],
         'session-ui' => [

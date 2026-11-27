@@ -31,7 +31,7 @@ const PAIRS = [
     'kit_deliveries' => 'deliveries', 'kit_delivery_recipients' => 'delivery_recipients', 'kit_delivery_events' => 'delivery_events',
     'kit_finalize_confirmations' => 'finalization_confirmations', 'kit_finalizations' => 'finalizations',
     'kit_notes' => 'notes', 'kit_note_intents' => 'note_intents', 'kit_security_events' => 'security_events',
-    'entitlements' => 'entitlements', 'complimentary_grants' => 'complimentary_grants',
+    'workspace_entitlements' => 'workspace_entitlements', 'complimentary_grants' => 'complimentary_grants',
 ];
 const BASELINES = ['create_kit_deliver_tables', 'add_finalization_ref_to_kit_deliveries', 'create_kit_finalize_tables', 'add_snapshot_to_kit_finalizations', 'create_kit_notes_table', 'create_kit_access_tables', 'create_kit_security_events_table', 'add_user_foreign_key_to_kit_security_events_table'];
 
@@ -283,7 +283,7 @@ try {
     migrate($app);
     $kitNames = array_keys(array_filter(PAIRS, fn (string $to, string $from): bool => $from !== $to, ARRAY_FILTER_USE_BOTH));
     check(array_filter($kitNames, fn (string $table): bool => ! Schema::hasTable($table)) === [] && array_filter(PAIRS, fn (string $to, string $from): bool => $from !== $to && Schema::hasTable($to), ARRAY_FILTER_USE_BOTH) === [], 'an app that does not adopt migrates the domain tables under the kit\'s names only');
-    check(DomainModels::problems() === [] && Kit::model('note') === Note::class && Kit::table('delivery') === 'kit_deliveries' && Kit::table('note_intent') === 'kit_note_intents' && Kit::table('entitlement') === 'entitlements', 'and Kit::model() and Kit::table() name the kit\'s own classes and tables');
+    check(DomainModels::problems() === [] && Kit::model('note') === Note::class && Kit::table('delivery') === 'kit_deliveries' && Kit::table('note_intent') === 'kit_note_intents' && Kit::table('entitlement') === 'workspace_entitlements', 'and Kit::model() and Kit::table() name the kit\'s own classes and tables');
     check(Kit::model('media_upload') === Tey\Kit\Media\Models\MediaUpload::class && Kit::table('media_upload') === 'media_uploads', 'Kit::model() and Kit::table() resolve media_upload too, a kit.models key that no feature registers');
     $malformed = [];
     foreach ([false, ''] as $value) {
@@ -334,7 +334,7 @@ try {
     check($models === ['Delivery.php', 'DeliveryEvent.php', 'DeliveryRecipient.php', 'Finalization.php', 'FinalizationConfirmation.php', 'Note.php', 'SecurityEvent.php'] && $migrations === ['adopt_access_tables.php', 'adopt_deliver_tables.php', 'adopt_finalize_tables.php', 'adopt_notes_tables.php', 'adopt_session_ui_tables.php'], 'it wrote one model per domain model and one migration per feature');
     check(str_contains((string) file_get_contents($rootA.'/app/Models/Delivery.php'), "class Delivery extends Model implements DeliveryContract\n{\n    use IsDelivery;\n\n    protected \$table = 'deliveries';"), 'the app model uses the kit\'s trait, implements its contract and names the app\'s table');
     $written = (static fn (string $file): array => require $file)($rootA.'/config/kit.php');
-    check($written['models']['delivery'] === 'App\\Models\\Delivery' && $written['models']['note'] === 'App\\Models\\Note' && $written['tables'] === ['note_intent' => 'note_intents', 'entitlement' => 'entitlements', 'complimentary_grant' => 'complimentary_grants'] && $written['models']['user'] === User::class && $written['features'] === FEATURES, 'config/kit.php names the app\'s models and tables, and nothing else in it changed meaning');
+    check($written['models']['delivery'] === 'App\\Models\\Delivery' && $written['models']['note'] === 'App\\Models\\Note' && $written['tables'] === ['note_intent' => 'note_intents', 'entitlement' => 'workspace_entitlements', 'complimentary_grant' => 'complimentary_grants'] && $written['models']['user'] === User::class && $written['features'] === FEATURES, 'config/kit.php names the app\'s models and tables, and nothing else in it changed meaning');
     $lines = fn (string $source): array => array_values(array_filter(explode("\n", $source), fn (string $line): bool => ! preg_match("/^\\s*'(delivery|delivery_recipient|delivery_event|finalization|finalization_confirmation|note|security_event)' =>|'tables' =>/", $line)));
     check($lines((string) file_get_contents($rootA.'/config/kit.php')) === $lines($config), 'every other line of config/kit.php is unchanged');
     [$code, $output] = artisan($app, 'kit:scaffold', ['feature' => 'deliver', '--adopt' => true]);
@@ -345,7 +345,7 @@ try {
     check(DomainModels::problems() === [] && Kit::model('delivery') === 'App\\Models\\Delivery' && Kit::table('delivery') === 'deliveries' && Kit::table('note_intent') === 'note_intents', 'the adopted app boots, and Kit::model() and Kit::table() name its own');
     $ran = migrate($app);
     check(count($ran) === 5 && count(preg_grep('/_adopt_[a-z_]+_tables\z/', $ran)) === 5, 'migrate runs the five adopt migrations and nothing else');
-    $expected = array_map(fn (string $to): string => 'renamed', array_flip(array_filter(PAIRS, fn (string $to, string $from): bool => $from !== $to, ARRAY_FILTER_USE_BOTH))) + ['entitlements' => 'left', 'complimentary_grants' => 'left'];
+    $expected = array_map(fn (string $to): string => 'renamed', array_flip(array_filter(PAIRS, fn (string $to, string $from): bool => $from !== $to, ARRAY_FILTER_USE_BOTH))) + ['workspace_entitlements' => 'left', 'complimentary_grants' => 'left'];
     ksort($expected);
     $deliverKey = Schema::getConnection()->table('app_meta')->where('key', 'like', 'adopt:%:deliveries')->value('key');
     check(records() === $expected && preg_match('/\Aadopt:\d{4}_\d{2}_\d{2}_\d{6}_adopt_deliver_tables:deliveries\z/', (string) $deliverKey) === 1, 'app_meta records, per adopt migration and table, each renamed table as renamed and the access tables the kit created as left');
@@ -371,7 +371,7 @@ try {
     [$code, $output] = artisan($app, 'migrate:rollback', ['--force' => true]);
     $restored = array_filter(PAIRS, fn (string $to, string $from): bool => ! Schema::hasTable($from) || ($from !== $to && Schema::hasTable($to)) || rows($from) !== $before[$from], ARRAY_FILTER_USE_BOTH);
     check($code === 0 && $restored === [] && preg_grep('/\Adeliveries_/', keyNames('kit_deliveries')) === [] && preg_grep('/\Akit_deliveries_/', keyNames('kit_deliveries')) !== [], 'rollback restores the kit\'s names, every row and the kit\'s key names'.($code === 0 ? '' : ': '.$output));
-    check(records() === [] && Schema::hasTable('entitlements') && Schema::hasTable('complimentary_grants'), 'and leaves the tables it left (entitlements, complimentary_grants) and no record behind');
+    check(records() === [] && Schema::hasTable('workspace_entitlements') && Schema::hasTable('complimentary_grants'), 'and leaves the tables it left (workspace_entitlements, complimentary_grants) and no record behind');
     $again = migrate($app);
     check(count($again) === 5 && array_filter(PAIRS, fn (string $to, string $from): bool => rows($to) !== $before[$from], ARRAY_FILTER_USE_BOTH) === [], 'migrating again renames them again, rows intact');
     $deliverPath = ['--force' => true, '--path' => glob($rootA.'/database/migrations/*_adopt_deliver_tables.php'), '--realpath' => true];
@@ -411,15 +411,15 @@ try {
     // A table the app already had under the app's name, which the kit never created here: up() records it as left, and down() leaves it, rows and all.
     // down() drops only what up() recorded as created; a table it has no record of stays as it is, never a guess.
     $adoptPaths = ['--force' => true, '--path' => glob($rootB.'/database/migrations/*_adopt_*.php'), '--realpath' => true];
-    foreach (['notes', 'entitlements'] as $table) {
+    foreach (['notes', 'workspace_entitlements'] as $table) {
         Schema::create($table, fn ($t) => $t->id());
         Schema::getConnection()->table($table)->insert(['id' => 42]);
     }
     migrate($fresh);
-    check(records()['notes'] === 'left' && records()['entitlements'] === 'left' && records()['note_intents'] === 'created' && records()['complimentary_grants'] === 'created', 'up() records an app table that was there before adoption as left, beside the tables it created');
+    check(records()['notes'] === 'left' && records()['workspace_entitlements'] === 'left' && records()['note_intents'] === 'created' && records()['complimentary_grants'] === 'created', 'up() records an app table that was there before adoption as left, beside the tables it created');
     [$code] = artisan($fresh, 'migrate:rollback', $adoptPaths);
     $kept = fn (string $table): bool => Schema::hasTable($table) && rows($table) === [['id' => 42]];
-    check($code === 0 && $kept('notes') && $kept('entitlements') && ! Schema::hasTable('note_intents') && ! Schema::hasTable('complimentary_grants') && ! Schema::hasTable('deliveries'), 'an app table that was there before adoption (notes, entitlements) survives the rollback with its rows; the tables up() created are dropped');
+    check($code === 0 && $kept('notes') && $kept('workspace_entitlements') && ! Schema::hasTable('note_intents') && ! Schema::hasTable('complimentary_grants') && ! Schema::hasTable('deliveries'), 'an app table that was there before adoption (notes, workspace_entitlements) survives the rollback with its rows; the tables up() created are dropped');
     migrate($fresh);
     Schema::getConnection()->table('app_meta')->where('key', 'like', 'adopt:%_adopt_notes_tables:%')->delete();
     [$code] = artisan($fresh, 'migrate:rollback', $adoptPaths);
@@ -444,7 +444,7 @@ try {
         check($code === 0, 'without the conflict, kit:scaffold '.$feature.' --adopt edits a pre-0.19 config/kit.php');
     }
     $written = (static fn (string $file): array => require $file)($rootC.'/config/kit.php');
-    check($written['models'] === ['delivery' => 'App\\Models\\Delivery', 'delivery_recipient' => 'App\\Models\\DeliveryRecipient', 'delivery_event' => 'App\\Models\\DeliveryEvent', 'user' => User::class] && $written['tables'] === ['entitlement' => 'entitlements', 'complimentary_grant' => 'complimentary_grants'], 'which then names the app\'s models and tables');
+    check($written['models'] === ['delivery' => 'App\\Models\\Delivery', 'delivery_recipient' => 'App\\Models\\DeliveryRecipient', 'delivery_event' => 'App\\Models\\DeliveryEvent', 'user' => User::class] && $written['tables'] === ['entitlement' => 'workspace_entitlements', 'complimentary_grant' => 'complimentary_grants'], 'which then names the app\'s models and tables');
     Schema::create('delivery_recipients', fn ($t) => $t->id());
     $app = boot($rootC);
     $refused = refusal(fn () => migrate($app));
@@ -517,7 +517,7 @@ try {
     $refused = refusal(fn () => boot(root(kitConfig('current', ['note' => 'false']), env: 'production')));
     check($refused !== null && str_contains($refused, 'kit.models.note'), 'kit.models.note set to false refuses, naming the key, rather than run on the kit\'s note table');
     $app = boot(root(str_replace("'note_intent' => null", "'note_intent' => ''", kitConfig('current')), env: 'production'));
-    check(refusal(fn () => Kit::table('note_intent')) !== null && str_contains((string) refusal(fn () => Kit::table('note_intent')), 'kit.tables.note_intent') && Kit::table('entitlement') === 'entitlements', 'kit.tables.note_intent set to an empty string refuses, naming the key; a null entry is still the kit\'s table');
+    check(refusal(fn () => Kit::table('note_intent')) !== null && str_contains((string) refusal(fn () => Kit::table('note_intent')), 'kit.tables.note_intent') && Kit::table('entitlement') === 'workspace_entitlements', 'kit.tables.note_intent set to an empty string refuses, naming the key; a null entry is still the kit\'s table');
 
     // A feature adopted in part is not adopted: outside local and testing the app boots (the problem logged), and the kit's create migrations still run,
     // so its tables exist.
