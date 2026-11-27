@@ -97,7 +97,10 @@ const shell = {
     search: { url: '/@acme/search', label: 'Search', placeholder: 'Search…' } as { url: string; label: string; placeholder: string } | null,
 };
 const title = breakout || sidebar ? 'Invoices' : twoLevel === 'pills' ? 'Café menu' : record ? 'Harbour refit' : twoLevel === 'nested' ? 'Invoices' : twoLevel === 'mixed' ? 'Check-in' : moduleLabels[modulePage];
-const breadcrumbs = breakout
+// `&home-trail` (with `module=N`): a trail that is only the home crumb, as on a module's home page; the shell then draws no trail bar.
+const breadcrumbs = query.has('home-trail')
+    ? [{ label: 'Acme Workshop', url: '/@acme', home: true, current: true }]
+    : breakout
     ? [['Acme Workshop', '/@acme'], ['Admin', '/@acme/admin'], ['Billing', '/@acme/billing'], ['Invoices', '/@acme/billing/invoices']].map(([label, url], index) => ({ label, url, home: index === 0, current: index === 3 }))
     : [
     { label: 'Acme Workshop', url: '/@acme', home: true, current: false },

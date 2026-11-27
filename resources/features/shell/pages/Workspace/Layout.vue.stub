@@ -20,7 +20,7 @@ import Wordmark from './Partials/Wordmark.vue';
  * pages themselves (`nav`, with `navigation` and `label`: replaces PrimaryNav at every width, one live copy, and the drawer then lists no pages), the drawer's page list (`drawer-nav`, same props: in place of the kit's pages, usually paired with `nav`), the footer and the
  * width (`widthClass`); the chrome comes from the server's `layout` props. Opt-ins: `wordmarkLabel` names the wordmark link (a tenant's name, say; the product's
  * by default), `guestHeader` draws the header for a guest too (no user menu, no drawer), `breadcrumbs` places the trail: `bar` (the default) is a full-width bar
- * under the header (the whole trail, the current page included; <Page> then draws none), `page` is <Page>'s small line of ancestors above its heading, and the page ground is `--shell-ground` (the theme's background unless
+ * under the header (the whole trail, the current page included; <Page> then draws none), and none on a page whose trail is only the home crumb, `page` is <Page>'s small line of ancestors above its heading, and the page ground is `--shell-ground` (the theme's background unless
  * the host sets it). For a host's own root shell: `toaster` false leaves the toasts to the host's single Toaster, `documentTitle` false leaves the <title> to the
  * pages' own <Head>, and `fill` makes an editor page (a Workbench) the viewport's height with no page scroll: the content area fills what the header leaves, unpadded
  * and overflow hidden, and the page scrolls its own panes. Each defaults to today's behaviour. With no pages to list (no `nav` or `drawer-nav` slot and no navigation) there is no drawer: the account menu stays in the bar at every width. A module's pages reach the page as its `layout.navigation` and its <Page> draws them as PageTabs at the top of the content;
@@ -176,7 +176,7 @@ onBeforeUnmount(() => {
                 </div>
             </header>
             <!-- The trail as a bar, unless the page has a "Back to <parent>" strip, which replaces the trail. -->
-            <div v-if="props.breadcrumbs === 'bar' && app.user && page.props.layout?.breadcrumbs?.length && (!page.props.layout?.navigationHeader || page.props.layout.navigationHeader.trail)" ref="subbar" :class="['border-b border-shell-subbar-border bg-shell-subbar text-foreground', subbarBlur && 'backdrop-blur-(--shell-subbar-blur)']" :data-shell-subbar-blur="subbarBlur || undefined" data-shell-breadcrumbs>
+            <div v-if="props.breadcrumbs === 'bar' && app.user && page.props.layout?.breadcrumbs?.some((crumb) => !(crumb as { home?: boolean }).home) && (!page.props.layout?.navigationHeader || page.props.layout.navigationHeader.trail)" ref="subbar" :class="['border-b border-shell-subbar-border bg-shell-subbar text-foreground', subbarBlur && 'backdrop-blur-(--shell-subbar-blur)']" :data-shell-subbar-blur="subbarBlur || undefined" data-shell-breadcrumbs>
                 <div :class="['mx-auto flex h-10 min-w-0 items-center px-4 sm:px-6 lg:px-8', props.widthClass]">
                     <Breadcrumbs bar />
                 </div>

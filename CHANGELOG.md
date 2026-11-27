@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+Features affected: shell (PrimaryNav, Layout); re-pinned `shell` `sha256:2a78630a…4724` → `sha256:d664e822…920b`. No ViewModel changes shape.
+
+### Changed
+
+- **The current top-nav page has one marker.** PrimaryNav's current page is full-strength text with its 3px underline; the tinted pill behind it is gone. The underline holds 3:1 on the bar (`Brand::barAccent`, v0.51.1).
+- **No trail bar for a home-only trail.** On a page whose trail is only the home crumb (a module's home, the workspace dashboard), the shell no longer draws a breadcrumb bar holding just the home icon. A trail with any page in it draws the bar as before.
+
+### Upgrading
+
+- Take the shell's files with `php artisan kit:scaffold shell --diff --only=resources/js/pages/Workspace/Layout.vue --only=resources/js/pages/Workspace/Partials/PrimaryNav.vue`, then `--force` those paths.
+
 ## v0.51.4
 
 Features affected: core (css/kit.css); re-pinned `core` `sha256:110b3565…dc81` → `sha256:392b935b…eba0`. No ViewModel changes shape.
