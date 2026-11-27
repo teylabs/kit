@@ -49,7 +49,9 @@ const items = computed(() =>
             v-else
             compact
             align="start"
-            :title="resolved.kind === 'document' ? emptyLabel : unsupportedLabel"
+            :title="
+                resolved.kind === 'document' ? emptyLabel : unsupportedLabel
+            "
             data-inspector-empty
         />
     </div>

@@ -47,7 +47,9 @@ provide('kit.navigation.framed', true);
 // On a phone the page's title comes first, above the section list: drawn here (hidden from assistive tech), while the page's own h1 stays its one heading, read
 // but not shown below md.
 const phoneTitle = computed(() =>
-    page.props.layout?.navigation.length ? (page.props.layout?.title ?? null) : null,
+    page.props.layout?.navigation.length
+        ? (page.props.layout?.title ?? null)
+        : null,
 );
 provide('kit.settings.phone-title', phoneTitle);
 </script>

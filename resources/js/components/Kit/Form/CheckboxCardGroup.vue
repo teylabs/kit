@@ -47,13 +47,12 @@ const toggle = (option: CheckboxCardOption, on: boolean) => {
     const rest = model.value.filter((value) => value !== option.value);
     model.value = on ? [...rest, option.value] : rest;
 };
-const grid = computed(
-    () =>
-        props.columns === 3
-            ? 'sm:grid-cols-3'
-            : props.columns === 2
-              ? 'sm:grid-cols-2'
-              : '',
+const grid = computed(() =>
+    props.columns === 3
+        ? 'sm:grid-cols-3'
+        : props.columns === 2
+          ? 'sm:grid-cols-2'
+          : '',
 );
 </script>
 <template>

@@ -109,7 +109,10 @@ const OwnTabs = defineComponent({
 });
 const framed = inject('kit.navigation.framed', false);
 // SettingsFrame shows the title above its section list on a phone; the h1 is then read there but not shown twice.
-const phoneTitle = inject<Ref<string | null> | null>('kit.settings.phone-title', null);
+const phoneTitle = inject<Ref<string | null> | null>(
+    'kit.settings.phone-title',
+    null,
+);
 const subNav = inject<Ref<'tabs' | 'strip'> | null>('kit.shell.subnav', null);
 const page = usePage<{
     layout?: {
