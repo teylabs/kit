@@ -238,7 +238,6 @@ export function kitImports(options = {}) {
 
     return {
         name: 'tey-kit-imports',
-        apply: 'serve',
         enforce: 'post',
         async transform(code, id) {
             if (

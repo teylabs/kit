@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+Features affected: core (kitImports); pins unchanged. No ViewModel changes shape.
+
+### Fixed
+
+- **kitImports runs in builds too.** The plugin no longer sets `apply: 'serve'`. A build tree-shakes the `@kit/ui` barrel, but Rolldown then puts every kit component any page uses into one shared chunk that every page loads. On a sign-in page that pulled in the rich-text editor and the data table, about 335 KB. With the rewrite each page loads only its own components: the starter's sign-in page went from Lighthouse mobile 66 to 93, with blocking time from 1,770 to 250 ms. An app that already calls `kitImports()` in vite.config gets this on its next build, with nothing to change. docs/kit-imports.md no longer says build output is unchanged.
+
 ## v0.51.1
 
 Features affected: core (Brand); pins unchanged. No ViewModel changes shape.

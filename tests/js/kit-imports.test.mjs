@@ -35,9 +35,9 @@ test('the barrel maps every value name to its file and skips type-only exports',
     assert.ok(names.size > 250);
 });
 
-test('the plugin runs only under vite serve, after the other transforms', () => {
+test('the plugin runs in dev and in builds, after the other transforms', () => {
     const plugin = kitImports();
-    assert.equal(plugin.apply, 'serve');
+    assert.equal(plugin.apply, undefined, 'builds need the rewrite too: Rolldown puts every barrel-reached component in one shared chunk');
     assert.equal(plugin.enforce, 'post');
 });
 

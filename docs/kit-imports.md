@@ -17,7 +17,7 @@ import KitPage from '/vendor/tey/kit/resources/js/components/Kit/Layout/Page.vue
 
 App code doesn't change, and the barrel stays the one place that names the UI, for types and for apps that replace it.
 
-- **Dev only.** It sets `apply: 'serve'`. A production build already tree-shakes the barrel, so `vite build` output stays byte-identical with the plugin on or off.
+- **Dev and builds.** It runs under `vite serve` and `vite build`. A build does tree-shake the barrel, but Rolldown then puts every kit component any page uses into one shared chunk that every page loads. On the starter's /login that was a 335 KB chunk, pulling in Tiptap, ProseMirror and TanStack Table. With the rewrite each page loads only its own components: /login went from Lighthouse mobile 66 to 93, with blocking time from 1,770 to 250 ms and transfer from 1,654 to 1,039 KiB.
 - **It reads the barrel `@kit/ui` resolves to.** That can be the kit's `index.ts` or your own module. It maps each `export { … } from '…'` name to its file, and follows `export * from '…'` into the modules it re-exports (`export * from '@/components/Kit'`). A name your module declares or exports itself stays in the barrel and wins over one a star brings in.
 - **It never drops a name.** Anything it can't place stays on an `import { … } from '@kit/ui'` and loads the barrel as before. That covers `import * as`, a default import, an unknown name and a star into `node_modules`. Type-only imports were already erased by TypeScript.
 - **It runs after the other transforms** (`enforce: 'post'`), so it sees plain JavaScript from `.vue` and `.ts` files alike, and it parses with Vite's own parser.
@@ -47,7 +47,7 @@ The kit's browser check (`browser/run.mjs`, "kitImports") serves the dashboard g
    ```
 
    If your config points `@kit/ui` at your own module, nothing else changes: the plugin follows that alias.
-3. Check: `npm run build` (output unchanged), `npx vue-tsc --noEmit`, then `npm run dev`. Load a page and confirm in the Network panel that `components/Kit/index.ts` is no longer requested.
+3. Check: `npm run build` (the shared kit chunk is gone; each page's chunk carries its own components), `npx vue-tsc --noEmit`, then `npm run dev`. Load a page and confirm in the Network panel that `components/Kit/index.ts` is no longer requested.
 
 From 0.18 the components load from the package: see [kit-components.md](kit-components.md) for the aliases and the import path above.
 
