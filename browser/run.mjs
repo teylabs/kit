@@ -7950,6 +7950,20 @@ const shellTop = async (tab) => tab.evaluate(() => ({
     measured: Math.round(document.querySelector('[data-shell-top]').getBoundingClientRect().height),
     bottom: document.querySelector('[data-shell-top]').getBoundingClientRect().bottom,
 }));
+test('the shell draws no trail bar when the trail is only the home crumb, and draws it once the trail has a page', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${authUrl}shell.html?module=1&home-trail`);
+        await tab.waitForSelector('[data-shell-top]');
+        assert.equal(await tab.locator('[data-shell-breadcrumbs]').count(), 0, 'a home-only trail draws no bar');
+        await tab.goto(`${authUrl}shell.html?module=1`);
+        await tab.waitForSelector('[data-shell-breadcrumbs]');
+        assert.ok(await tab.locator('[data-shell-breadcrumbs] li').count() >= 2, 'a trail with a page draws the bar');
+    } finally {
+        await context.close();
+    }
+});
 test('the shell publishes --shell-top as its pinned stack\'s height, and it follows the trail bar toggling and the bar wrapping at a narrow width', async () => {
     const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
     try {

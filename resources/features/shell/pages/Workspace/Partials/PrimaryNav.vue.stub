@@ -157,12 +157,12 @@ watch(
 // The pages take the room the Layout leaves between the switcher and the controls (a min-w-0 flex-1 box), so search and the account menu stay in the bar.
 const linkClass = (item: { current?: boolean }) => [
     'relative flex min-h-11 shrink-0 items-center rounded-md px-3 text-sm font-medium whitespace-nowrap transition-colors focus-visible:ring-2 focus-visible:ring-shell-bar-foreground/40 focus-visible:outline-none',
-    item.current ? 'bg-shell-bar-foreground/10 text-shell-bar-foreground after:absolute after:inset-x-3 after:-bottom-2.5 after:h-[3px] after:rounded-full after:bg-[var(--brand-marker,var(--shell-bar-foreground))]' : 'text-shell-bar-foreground/70 hover:bg-shell-bar-foreground/10 hover:text-shell-bar-foreground',
+    item.current ? 'text-shell-bar-foreground after:absolute after:inset-x-3 after:-bottom-2.5 after:h-[3px] after:rounded-full after:bg-[var(--brand-marker,var(--shell-bar-foreground))]' : 'text-shell-bar-foreground/70 hover:bg-shell-bar-foreground/10 hover:text-shell-bar-foreground',
 ];
 const moreClass =
     'flex min-h-11 shrink-0 items-center gap-1 rounded-md px-3 text-sm font-medium whitespace-nowrap text-shell-bar-foreground/70 transition-colors hover:bg-shell-bar-foreground/10 hover:text-shell-bar-foreground focus-visible:ring-2 focus-visible:ring-shell-bar-foreground/40 focus-visible:outline-none';
 </script>
-<!-- The current page: full-strength text on a tinted pill and a 3px marker under it, so it stands apart from the 70% links whatever the brand marker's colour. -->
+<!-- The current page: full-strength text and a 3px marker under it (one marker; the marker holds 3:1 on the bar, Brand::barAccent). -->
 <template>
     <div v-if="navigation.length" ref="root" class="relative flex w-full min-w-0 items-center" data-shell-nav-box>
         <nav :aria-label="label" class="flex min-w-0 items-center gap-0.5" data-shell-nav>
