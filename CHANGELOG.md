@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.51.3
 
 Features affected: settings (Setup queue rows); pins unchanged. No ViewModel changes shape.
 
