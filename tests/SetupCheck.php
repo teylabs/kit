@@ -357,6 +357,8 @@ try {
     $config->set('kit.tenancy.rls.enabled', false);
 
     // Queue.
+    // The kit's own queue rules first (standards off); its report's rows are checked after them.
+    $config->set('kit.setup.queue.standards', false);
     $config->set('queue', ['default' => 'sync', 'connections' => ['sync' => ['driver' => 'sync'], 'database' => ['driver' => 'database', 'table' => 'jobs', 'queue' => 'default', 'retry_after' => 90], 'sqs' => ['driver' => 'sqs', 'visibility_timeout' => 60]], 'failed' => ['driver' => 'database-uuids', 'table' => 'failed_jobs']]);
     $prod(true);
     $row = SetupChecks::queueConnection();
@@ -440,6 +442,23 @@ try {
     setupCheck($state(SetupChecks::queuePruneFailed()) === 'failing' && SetupChecks::queuePruneFailed()->link['url'] === SetupChecks::QUEUE_DOCS, 'prune-failed missing from the schedule: failing, linking to Queues');
     $schedule->command('queue:prune-failed --hours=168')->daily();
     setupCheck($state(SetupChecks::queuePruneFailed()) === 'ok', 'prune-failed scheduled: ok');
+
+    // With tey/standards (v0.14 queueReport, the same method as preflight's queue.config): the real report answers every stable id, and the rows map it.
+    $config->set('kit.setup.queue.standards', true);
+    $report = SetupChecks::standardsQueue();
+    setupCheck(is_array($report) && array_diff(['queue.worker-command', 'queue.retry-after', 'queue.cloud-tier', 'queue.job-timeouts', 'queue.job-tries', 'queue.prune-failed'], array_keys($report)) === [], 'standards: its queue report answers every stable check id for a real queue ('.json_encode(array_keys($report ?? [])).')');
+    $worker = $report['queue.worker-command']['status'] ?? null;
+    setupCheck($worker === 'fail' && $state(SetupChecks::queueWorker()) === 'failing' && str_contains(SetupChecks::queueWorker()->detail, 'queue:work'), 'standards: no committed worker command fails the Worker and jobs row with standards\' message');
+    $prune = $report['queue.prune-failed']['status'] ?? null;
+    setupCheck($prune === 'skipped' || $state(SetupChecks::queuePruneFailed()) === ['pass' => 'ok', 'warn' => 'warning', 'fail' => 'failing'][$prune], 'standards: the prune row follows its queue.prune-failed check ('.$prune.')');
+    $setEnv('APP_ENV', 'local');
+    $prod(false);
+    setupCheck(! in_array($state(SetupChecks::queueTimeout()), ['failing'], true) || ($report['queue.retry-after']['status'] ?? '') === 'fail', 'standards: locally the Cloud-tier check never fails the Timeout row');
+    $config->set('queue.default', 'sync');
+    setupCheck(SetupChecks::queueWorker() === null, 'standards: a sync queue has no Worker and jobs row');
+    $config->set('queue.default', 'database');
+    $config->set('kit.setup.queue.standards', false);
+    setupCheck(SetupChecks::standardsQueue() === null && SetupChecks::queueWorker() === null, 'standards off (or not installed): no report, no Worker row, the kit\'s own rules');
 
     setupCheck(SetupChecks::telescope() === null, 'Telescope: left out when it isn\'t installed');
 

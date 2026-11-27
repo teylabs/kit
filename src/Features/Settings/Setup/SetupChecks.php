@@ -47,6 +47,7 @@ final class SetupChecks
             ->setupRow('RLS', 'rls.unprotected', self::rlsUnprotected(...))
             ->setupRow('Queue', 'queue.connection', self::queueConnection(...))
             ->setupRow('Queue', 'queue.timeout', self::queueTimeout(...))
+            ->setupRow('Queue', 'queue.worker', self::queueWorker(...))
             ->setupRow('Queue', 'queue.failed', self::queueFailed(...))
             ->setupRow('Queue', 'queue.last-finished', self::queueLastFinished(...))
             ->setupRow('Queue', 'queue.prune-failed', self::queuePruneFailed(...))
@@ -229,10 +230,79 @@ final class SetupChecks
         return SetupRow::of('Connection', 'ok', $detail);
     }
 
+    /**
+     * tey/standards' queue report (StarterCheck::queue()->queueReport(), the same method its preflight queue.config runs), keyed by check id, or
+     * null when standards is not installed (it is often a dev dependency) or the report cannot run. With it, the Setup rows and the preflight agree.
+     *
+     * @return ?array<string, array{id: string, status: string, message: string}>
+     */
+    public static function standardsQueue(): ?array
+    {
+        $class = 'Tey\\Standards\\Preflight\\StarterCheck';
+        if (config('kit.setup.queue.standards', true) === false || ! class_exists($class) || ! method_exists($class, 'queue')) {
+            return null;
+        }
+        try {
+            $report = $class::queue(config(), base_path())->queueReport();
+        } catch (Throwable) {
+            return null;
+        }
+
+        return array_column((array) ($report['checks'] ?? []), null, 'id');
+    }
+
+    /**
+     * One row from standards' checks: the worst status among $ids (pass ok, warn warning, fail failing; skipped left out), with the messages of the
+     * checks that did not pass. Null when every check is skipped. Locally, production-only checks ($productionOnly) are not applicable.
+     *
+     * @param  array<string, array{id: string, status: string, message: string}>  $checks
+     * @param  list<string>  $ids
+     * @param  list<string>  $productionOnly
+     */
+    private static function fromStandards(string $label, array $checks, array $ids, array $productionOnly = []): ?SetupRow
+    {
+        $rank = ['pass' => 0, 'warn' => 1, 'fail' => 2];
+        $worst = null;
+        $messages = [];
+        foreach ($ids as $id) {
+            $check = $checks[$id] ?? null;
+            if ($check === null || ! isset($rank[$check['status']]) || (self::local() && in_array($id, $productionOnly, true))) {
+                continue;
+            }
+            $worst = $worst === null || $rank[$check['status']] > $rank[$worst] ? $check['status'] : $worst;
+            if ($check['status'] !== 'pass') {
+                $messages[] = $check['message'];
+            }
+        }
+        if ($worst === null) {
+            return null;
+        }
+        $link = SetupRow::link('Queues', self::QUEUE_DOCS);
+
+        return match ($worst) {
+            'pass' => SetupRow::of($label, 'ok', 'Checked by tey/standards ('.implode(', ', $ids).').'),
+            'warn' => SetupRow::of($label, 'warning', implode(' ', $messages), 'See Queues in the deploy guide.', $link),
+            default => SetupRow::of($label, 'failing', implode(' ', $messages), 'See Queues in the deploy guide.', $link),
+        };
+    }
+
+    /** The worker command and the jobs' own timeouts and tries, from tey/standards. Null without standards or on a sync queue. */
+    public static function queueWorker(): ?SetupRow
+    {
+        $checks = self::sync() ? null : self::standardsQueue();
+
+        return $checks === null ? null : self::fromStandards('Worker and jobs', $checks, ['queue.worker-command', 'queue.job-timeouts', 'queue.job-tries'], ['queue.worker-command']);
+    }
+
     public static function queueTimeout(): ?SetupRow
     {
         if (self::sync()) {
             return null;
+        }
+        // With standards installed, its retry-after and Cloud-tier checks read the committed worker command; KIT_QUEUE_* is the fallback without it.
+        $checks = self::standardsQueue();
+        if ($checks !== null && ($row = self::fromStandards('Timeout', $checks, ['queue.retry-after', 'queue.cloud-tier'], ['queue.cloud-tier'])) !== null) {
+            return $row;
         }
         $queue = self::queue();
         $timeout = (int) config('kit.setup.queue.worker_timeout', 60);
@@ -319,6 +389,10 @@ final class SetupChecks
         }
         if (self::local()) {
             return SetupRow::na('Prune failed jobs', 'Only matters in production.');
+        }
+        $checks = self::standardsQueue();
+        if ($checks !== null && ($row = self::fromStandards('Prune failed jobs', $checks, ['queue.prune-failed'])) !== null) {
+            return $row;
         }
         // A web request never loads routes/console.php, where the schedule is defined: the console kernel loads it (once) for this read.
         if (app()->hasBeenBootstrapped()) {

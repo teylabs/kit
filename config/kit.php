@@ -217,6 +217,8 @@ return [
             'flex' => (bool) env('KIT_QUEUE_FLEX', true),
             'failed_count' => null,
             'failed_url' => env('KIT_QUEUE_FAILED_URL'),
+            // tey/standards' queue report drives the timeout, worker and prune rows when it is installed; false keeps the kit's own rules.
+            'standards' => true,
         ],
     ],
 
