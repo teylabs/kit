@@ -28,7 +28,7 @@ export type RadioCardOption =
  * native group above, where arrowing selects. Each card carries `data-value` (the option's value): a hook for browser tests and styling.
  *
  * The `option` slot (`{ option, checked, disabled }`) replaces a card's body; the native radio, the label around it, the focus ring and the checked ring stay the
- * kit's. An option with an `image` and no slot is an image tile: the image in a square box (lazy, async, `object-cover`, so ~100 tiles load without layout shift),
+ * kit's. The `badge` slot (`{ option, checked }`) sits at the end of a plain card's label row ("Recommended"). An option with an `image` and no slot is an image tile: the image in a square box (lazy, async, `object-cover`, so ~100 tiles load without layout shift),
  * with the label under it if there is one. An option is named by its `label`, or by its image's `alt` when it has none; one of the two is required (a dev warning
  * otherwise). A checked image or slot tile also shows a check mark (aria-hidden: the radio carries the state), so the state isn't colour alone. A disabled option
  * is a native disabled radio: it can't be chosen and the arrow keys skip it, as the browser does. `columns` (2, 3, 4, 6 or `auto`, which fills the row with
@@ -256,6 +256,15 @@ const percent = (option: RadioCardOption) =>
                 <span class="min-w-0 text-base font-medium break-words">{{
                     option.label
                 }}</span>
+                <span
+                    v-if="$slots.badge"
+                    class="ml-auto shrink-0"
+                    data-radio-card-badge
+                    ><slot
+                        name="badge"
+                        :option="option"
+                        :checked="model === option.value"
+                /></span>
             </span>
             <span
                 v-if="tile(option) && model === option.value"

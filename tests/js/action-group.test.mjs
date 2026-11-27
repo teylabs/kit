@@ -29,7 +29,7 @@ const pages = {
     'session-ui/pages/Auth/Login/Page.vue.stub': [/^<Button type="submit"[^>]*data-test="login-button">/],
     'session-ui/pages/Auth/TwoFactor/Page.vue.stub': [/^<Button type="submit"[^>]*data-test="two-factor-submit">/],
     'session-ui/pages/Auth/VerifyEmail/Page.vue.stub': [/^<Button type="submit"[^>]*>\{\{ processing \? 'Sending…' : 'Send the link again' \}\}/],
-    'workspace-ui/pages/Auth/Invitation/Show/Page.vue.stub': [/^<Button type="submit"[^>]*data-test="accept-invitation">/, /^<Link href="\/switch-account" method="post" as="button" class="[^"]*\bbg-primary\b[^"]*"[^>]*data-test="invitation-switch-account">/],
+    'workspace-ui/pages/Auth/Invitation/Show/Page.vue.stub': [/^<Button type="submit"[^>]*data-test="accept-invitation">/, /^<Button href="\/switch-account" method="post"[^>]*data-test="invitation-switch-account">/],
 };
 
 test('Login, TwoFactor, VerifyEmail and the invitation page stack their actions in a column, the primary first, with no width of their own', () => {

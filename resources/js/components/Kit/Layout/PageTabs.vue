@@ -31,10 +31,14 @@ const props = defineProps<{
     current?: string;
     /** `secondary`: the pill row, a module's own small sub-navigation under the page tabs (a nested module's pages). Never a third row, never a filter. */
     variant?: 'primary' | 'secondary';
+    /** A select on phones even for a short pill row (the dashboard's top row). */
+    phoneSelect?: boolean;
 }>();
 const pills = computed(() => props.variant === 'secondary');
 // Five pills or fewer stay pills on a phone (the row scrolls sideways if it must); tabs, and a longer pill row, become a select there.
-const phoneRow = computed(() => pills.value && props.tabs.length <= 5);
+const phoneRow = computed(
+    () => pills.value && !props.phoneSelect && props.tabs.length <= 5,
+);
 const active = computed(
     () => props.current ?? props.tabs.find((tab) => tab.current)?.href ?? null,
 );

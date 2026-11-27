@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import EmptyState from '@/components/Kit/Feedback/EmptyState.vue';
 import PageSection from '@/components/Kit/Layout/PageSection.vue';
 import CommentForm from './CommentForm.vue';
 import CommentItem from './CommentItem.vue';
@@ -116,8 +117,13 @@ const shown = computed(() =>
                 </CommentItem>
             </li>
         </ol>
-        <p v-else class="text-muted-foreground text-sm" data-comment-empty>
-            {{ empty }}
-        </p>
+        <EmptyState
+            v-else
+            compact
+            align="start"
+            icon="message-square"
+            :title="empty"
+            data-comment-empty
+        />
     </PageSection>
 </template>

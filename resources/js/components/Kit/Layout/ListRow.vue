@@ -39,8 +39,10 @@ const inCard = useInCard();
         <div v-if="$slots.meta" class="flex items-center gap-2 text-sm">
             <slot name="meta" />
         </div>
+        <!-- shrink-0 and a wrap on a phone: the split button takes its own line rather than crushing the title at 390px. -->
         <ActionBar
             v-if="actions.length"
+            class="shrink-0 max-sm:basis-full max-sm:justify-end"
             :actions="actions"
             @action="(a: ActionDescriptor) => $emit('action', a)"
         />

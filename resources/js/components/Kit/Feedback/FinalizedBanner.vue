@@ -87,6 +87,7 @@ function submit(): void {
                         type="submit"
                         size="sm"
                         variant="destructive"
+                    data-confirm-action
                         :disabled="!reason.trim() || busy"
                         >{{ finalization.unfinalize.label }}</Button
                     >

@@ -380,6 +380,9 @@ jobs:
       - name: Kit token contrast
         timeout-minutes: 4
         run: composer test:token-contrast
+      - name: Refactoring UI rules (palette, px, destructive, empty states)
+        timeout-minutes: 2
+        run: composer test:rui
       - name: Theme tokens, theming advice and theme stylesheets
         timeout-minutes: 3
         run: composer test:theme

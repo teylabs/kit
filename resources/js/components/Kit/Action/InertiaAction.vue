@@ -30,8 +30,14 @@ const props = withDefaults(
 const normal = computed(() =>
     props.action ? normalAction(props.action) : null,
 );
+// A danger action is quiet (secondary, its confirm dialog is the destructive step) unless the descriptor makes it the primary action.
 const look = computed(
-    () => props.variant ?? (normal.value?.danger ? 'destructive' : 'secondary'),
+    () =>
+        props.variant ??
+        (normal.value?.danger &&
+        (props.action as { priority?: string } | null)?.priority === 'primary'
+            ? 'destructive'
+            : 'secondary'),
 );
 const asking = ref(false);
 // A disabled action is dimmed and described by its reason (a visually hidden element on aria-describedby), as RowActions does; the tooltip stays.

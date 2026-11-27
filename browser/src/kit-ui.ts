@@ -83,3 +83,7 @@ export { default as TextMarkdown } from '@/components/Kit/Text/TextMarkdown.vue'
 export { renderMarkdown } from '@/components/Kit/Text/markdown';
 // FilterPopover (?filter-popover).
 export { default as FilterPopover } from '@/components/Kit/Table/FilterPopover.vue';
+// The first-deploy pages' (rui.html): People's table, Search's end of page and the settings placeholder.
+export { default as DataTable } from '@/components/Kit/Table/DataTable.vue';
+export { default as PageEnd } from '@/components/Kit/Layout/PageEnd.vue';
+export { default as Placeholder } from '@/components/Kit/Feedback/Placeholder.vue';

@@ -57,7 +57,7 @@ const surface = useGroundSurface(() => !props.bare);
             bare
                 ? 'gap-3'
                 : [
-                      'bg-card text-card-foreground border-border overflow-hidden rounded-xl border shadow-(--kit-card-shadow)',
+                      'bg-card text-card-foreground border-border overflow-hidden rounded-xl border',
                       state === 'planned' && 'border-dashed',
                   ],
             surface && !bare && groundCard,

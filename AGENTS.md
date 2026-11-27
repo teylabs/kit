@@ -20,6 +20,7 @@ composer test:migrations
 composer test:table-names
 composer test:resources
 composer test:library
+composer test:rui
 sh bin/privacy-check.sh
 ```
 
