@@ -474,7 +474,7 @@ try {
 
     // An app's own row, and one that throws.
     $registry->setupRow('Billing', 'billing.webhook', fn () => SetupRow::of('Webhook', 'missing', 'No webhook yet.', 'Add it.', SetupRow::link('Billing', 'settings/billing')), 'workspace');
-    $registry->setupRow('Billing', 'billing.broken', fn () => throw new RuntimeException('boom'), 'workspace');
+    $registry->setupRow('Billing', 'billing.broken', function () { DB::table('failed_jobs')->insert(['uuid' => 'setup-broken', 'connection' => 'database', 'queue' => 'default', 'payload' => '{}', 'exception' => 'x', 'failed_at' => now()]); throw new RuntimeException('boom'); }, 'workspace');
 
     // The page: owners and admins; the app's rows for an operator only.
     [$status] = $call('member', 'GET', '');
@@ -487,6 +487,7 @@ try {
     $rows = array_column($body['rows'], null, 'key');
     setupCheck(str_ends_with($rows['billing.webhook']['link']['url'], '/settings/billing') && $rows['billing.webhook']['group'] === 'Billing', 'an app\'s row is placed in its group, with its relative link made the workspace\'s');
     setupCheck($rows['billing.broken']['state'] === 'failing' && str_contains($rows['billing.broken']['detail'], 'RuntimeException'), 'a row whose check throws is shown failing, not hidden');
+    setupCheck(DB::table('failed_jobs')->where('uuid', 'setup-broken')->doesntExist(), 'a row whose check throws runs in its own transaction, rolled back (on Postgres a failed query no longer aborts the rows after it)');
     DB::table('operators')->insert(['actor_id' => $people['owner']->id]);
     [$status, $body] = $call('owner', 'GET', '');
     $keys = array_column($body['rows'], 'key');

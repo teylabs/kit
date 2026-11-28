@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+Features affected: settings (Setup); pins unchanged. No ViewModel changes shape.
+
+### Fixed
+
+- **One failing Setup row no longer fails the rows after it on Postgres.** Each row's check now runs in its own transaction (a savepoint inside the request's), so a check whose query fails, such as one reading a missing table, is rolled back and shows failing on its own row. Before, Postgres aborted the page's transaction and every later row showed "The check failed (QueryException)" (25P02).
+
+## Unreleased
+
 Features affected: core (Kit/Overlay/Dialog, loaded from the package); pins unchanged. No ViewModel changes shape.
 
 ### Fixed
