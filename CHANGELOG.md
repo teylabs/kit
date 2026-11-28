@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.51.6
 
 Features affected: core (Kit/Overlay/Dialog, loaded from the package) and settings (Setup); pins unchanged. No ViewModel changes shape.
 
