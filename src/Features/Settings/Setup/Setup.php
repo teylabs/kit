@@ -2,6 +2,7 @@
 
 namespace Tey\Kit\Features\Settings\Setup;
 
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use RuntimeException;
 use Tey\Kit\Features\Access\Access;
@@ -28,8 +29,10 @@ final class Setup
             if ($entry['scope'] === 'app' && ! $operator) {
                 continue;
             }
+            // Each check in its own transaction (a savepoint inside the request's): on Postgres a failed query aborts the open transaction, and every
+            // later row would fail with 25P02. Rolled back, the failure stays on its own row.
             try {
-                $row = ($entry['check'])();
+                $row = DB::transaction(fn () => ($entry['check'])());
             } catch (\Throwable $error) {
                 $row = SetupRow::of($entry['key'], 'failing', 'The check failed ('.class_basename($error).').');
             }

@@ -57,6 +57,7 @@ final class SetupRow extends Data
     }
 
     /** @return array{label: string, url: string} */
+    /** A relative `$url` resolves from the workspace's root, not from /settings: a settings section is `settings/<key>`. */
     public static function link(string $label, string $url): array
     {
         return ['label' => $label, 'url' => $url];
