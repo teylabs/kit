@@ -2,19 +2,12 @@
 
 ## Unreleased
 
-Features affected: settings (Setup); pins unchanged. No ViewModel changes shape.
-
-### Fixed
-
-- **One failing Setup row no longer fails the rows after it on Postgres.** Each row's check now runs in its own transaction (a savepoint inside the request's), so a check whose query fails, such as one reading a missing table, is rolled back and shows failing on its own row. Before, Postgres aborted the page's transaction and every later row showed "The check failed (QueryException)" (25P02).
-
-## Unreleased
-
-Features affected: core (Kit/Overlay/Dialog, loaded from the package); pins unchanged. No ViewModel changes shape.
+Features affected: core (Kit/Overlay/Dialog, loaded from the package) and settings (Setup); pins unchanged. No ViewModel changes shape.
 
 ### Fixed
 
 - **Dialog's Confirm emits before it closes.** Confirm was Reka's AlertDialogAction, which closed the dialog (`update:open` false) before `confirm` fired, so a host that kept state on `v-model:open` had lost it in its confirm handler. Confirm now emits while the dialog is open, then closes it: at once, or with `action` once the visit succeeds, so a failed visit leaves the dialog open. Cancel, Escape and the backdrop are unchanged.
+- **One failing Setup row no longer fails the rows after it on Postgres.** Each row's check now runs in its own transaction (a savepoint inside the request's), so a check whose query fails, such as one reading a missing table, is rolled back and shows failing on its own row. Before, Postgres aborted the page's transaction and every later row showed "The check failed (QueryException)" (25P02).
 
 ## v0.51.5
 
