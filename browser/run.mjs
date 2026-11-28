@@ -4576,6 +4576,20 @@ test('Repeater with draggable: each row gets a grip whose ↓ moves the row (the
     });
 });
 
+test('Dialog: confirm emits while the dialog is still open, then closes it (a host\'s v-model:open state survives into its handler)', async () => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    try {
+        const tab = await context.newPage();
+        await tab.goto(`${url}?confirm`);
+        await tab.click('[data-open-stage]');
+        await tab.click('[role="alertdialog"] [data-confirm-action]');
+        await tab.waitForFunction(() => !document.querySelector('[role="alertdialog"]'));
+        assert.equal(await tab.textContent('[data-stage-at-confirm]'), 'true', 'open was still true in the confirm handler');
+    } finally {
+        await context.close();
+    }
+});
+
 // ── Typed confirmation (?confirm): Confirm stays off until the text matches, the match is announced, pasting works, each opening starts empty, and the
 // action visit carries the typed text as `confirmation` for the server to re-check; an ActionBar action with confirm.typed asks the same; axe ──────────────
 
