@@ -55,7 +55,7 @@ final class SettingsProvider extends ServiceProvider implements Contributes
                 $repository = SettingsRepositoryFactory::create();
                 // A compatibility mirror only: General reads and renames the workspace's own name (WorkspaceProfile).
                 $repository->createProperty(WorkspaceSettings::group(), 'display_name', '');
-                $repository->createProperty(WorkspaceSettings::group(), 'timezone', 'UTC');
+                $repository->createProperty(WorkspaceSettings::group(), 'timezone', (string) config('kit.workspaces.timezone', 'UTC'));
             })
             ->workspaceTimezoneUsing(
                 fn (): string => WorkspaceSettings::current()->timezone,

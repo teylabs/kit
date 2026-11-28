@@ -113,7 +113,7 @@ final class Onboarding
                 }) : null;
 
                 // A workspace nobody has set yet starts from its owner's own zone, not UTC.
-                return $current === null || $current === 'UTC' ? (UserState::get($user, 'timezone') ?? $current) : $current;
+                return $current === null || in_array($current, ['UTC', (string) config('kit.workspaces.timezone', 'UTC')], true) ? (UserState::get($user, 'timezone') ?? $current) : $current;
             });
     }
 

@@ -230,6 +230,16 @@ try {
             $provision($other);
         }
     });
+    // A new workspace starts on kit.workspaces.timezone (KIT_WORKSPACES_TIMEZONE), not a hard-coded UTC.
+    config(['kit.workspaces.timezone' => 'America/Toronto']);
+    $zoned = Workspace::create(['name' => 'Gamma', 'slug' => 'gamma']);
+    $zoned->execute(function () use ($registry, $zoned): void {
+        foreach ($registry->provisioners() as $provision) {
+            $provision($zoned);
+        }
+    });
+    setupCheck($zoned->execute(fn () => \Tey\Kit\Features\Settings\WorkspaceSettings::current()->timezone) === 'America/Toronto', 'a new workspace starts on kit.workspaces.timezone');
+    config(['kit.workspaces.timezone' => 'UTC']);
 
     $call = function (string $who, string $method, string $path, array $input = [], bool $inertia = false) use ($app, $people): array {
         Auth::guard('web')->setUser($people[$who]);
