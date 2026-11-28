@@ -302,7 +302,8 @@ return [
     // `adopt`: the host owns its workspaces table, so the kit's migration never creates one, on a fresh database too (it only adds the kit's missing columns).
     // Null adopts only a workspaces table the database already has.
     // move_ability: what MoveToWorkspace requires in BOTH the source and the target workspace (an Access ability).
-    'workspaces' => ['provisioning' => env('KIT_WORKSPACES_PROVISIONING', 'invite_only'), 'adopt' => env('KIT_WORKSPACES_ADOPT'), 'move_ability' => 'members.manage'],
+    // timezone: the zone a new workspace starts on until an owner sets its own (Settings → General, the welcome step). Not app.timezone, which stays UTC for storage.
+    'workspaces' => ['provisioning' => env('KIT_WORKSPACES_PROVISIONING', 'invite_only'), 'adopt' => env('KIT_WORKSPACES_ADOPT'), 'move_ability' => 'members.manage', 'timezone' => env('KIT_WORKSPACES_TIMEZONE', 'UTC')],
 
     // Workspace and account deletion: off by default (the routes 404, the settings sections hidden). Turning one on ALSO requires binding its purge handler for the
     // app's own data, Tey\Kit\Features\Workspaces\Contracts\PurgesWorkspaceData or Tey\Kit\Features\SessionUi\Contracts\PurgesAccountData (one that does nothing,

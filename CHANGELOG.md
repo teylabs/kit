@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+Features affected: settings (provisioning), session-ui (the welcome step); pins unchanged. No ViewModel changes shape.
+
+### Added
+
+- **`kit.workspaces.timezone` (`KIT_WORKSPACES_TIMEZONE`)**: the zone a new workspace starts on until an owner sets its own in Settings → General or the welcome step. It defaults to UTC, so nothing changes unless you set it. `app.timezone` stays UTC for storage. The welcome step still offers the owner's own zone while the workspace is on this default (or UTC).
+
 ## v0.51.9
 
 Features affected: core (Registry::ICONS, Kit/Layout/SectionIcon, loaded from the package); pins unchanged. No ViewModel changes shape.
