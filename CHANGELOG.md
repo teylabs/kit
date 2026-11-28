@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+Features affected: core (Kit/Form/CheckboxCardGroup, Kit/Form/InputSelect, loaded from the package); pins unchanged. No ViewModel changes shape.
+
+### Fixed
+
+- **A group's `name` ending in `[]` is no longer doubled.** CheckboxCardGroup and a `multiple` InputSelect add `[]` to `name` themselves, so `name="members[]"` posted `members[][]`: Laravel read nested arrays and a `members.*` rule failed or the values were dropped, often with no error. A trailing `[]` is now stripped first, so `members` and `members[]` both post `members[]`.
+
 ## v0.51.7
 
 Features affected: session-ui (module tabs, server side); pins unchanged. No ViewModel changes shape.

@@ -799,7 +799,7 @@ const layerTarget = useLayerTarget();
                             v-for="value in values"
                             :key="value"
                             type="hidden"
-                            :name="`${name}[]`"
+                            :name="`${name.replace(/\[\]$/, '')}[]`"
                             :value="value"
                     /></template>
                     <input

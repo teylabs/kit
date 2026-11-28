@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
+import CheckboxCardGroup from '@/components/Kit/Form/CheckboxCardGroup.vue';
 import RadioCardGroup, { type RadioCardOption } from '@/components/Kit/Form/RadioCardGroup.vue';
 
 // RadioCardGroup inside a form, for run.mjs (?radio-form): a v-model-only group (no `name`, or a null one) in each commit mode beside a named one. Submitting writes the
@@ -10,6 +11,12 @@ const tally = ref<string | number | null>(null);
 const nulled = ref<string | number | null>(null);
 const plan = ref<string | number | null>('b');
 const submitted = ref('');
+// A CheckboxCardGroup given `members[]` (the hidden-input pattern's name) still posts `members[]`, never `members[][]`.
+const members = ref<(string | number)[]>(['a', 'c']);
+const membersSubmitted = ref('');
+function submitMembers(event: Event): void {
+    membersSubmitted.value = JSON.stringify([...new FormData(event.target as HTMLFormElement).entries()]);
+}
 function submit(event: Event): void {
     submitted.value = JSON.stringify([...new FormData(event.target as HTMLFormElement).entries()]);
 }
@@ -24,6 +31,11 @@ function submit(event: Event): void {
             <RadioCardGroup id="plan" v-model="plan" name="plan" label="Plan" :options="options" data-group="plan" />
             <button type="submit" data-submit>Save</button>
         </form>
+        <form data-members-form @submit.prevent="submitMembers">
+            <CheckboxCardGroup id="members" v-model="members" name="members[]" label="Members" :options="options" />
+            <button type="submit" data-members-submit>Save members</button>
+        </form>
+        <pre data-members-submitted>{{ membersSubmitted }}</pre>
         <p data-view>{{ view }}</p>
         <pre data-submitted>{{ submitted }}</pre>
     </main>

@@ -5038,6 +5038,14 @@ const submitRadioForm = async (tab) => {
     return JSON.parse(await tab.textContent('[data-submitted]'));
 };
 
+test('CheckboxCardGroup given a name ending in [] posts name[] once, not name[][] (a trailing [] is not doubled)', async () => {
+    await radioForm(async tab => {
+        await tab.click('[data-members-submit]');
+        await tab.waitForFunction(() => document.querySelector('[data-members-submitted]')?.textContent.trim() !== '');
+        assert.deepEqual(JSON.parse(await tab.textContent('[data-members-submitted]')), [['members[]', 'a'], ['members[]', 'c']]);
+    });
+});
+
 test('RadioCardGroup without a name adds no key to its form\'s FormData, in either commit mode, even once chosen (a null name too)', async () => {
     await radioForm(async tab => {
         await tab.locator('[data-group="view"] label').nth(2).click();
