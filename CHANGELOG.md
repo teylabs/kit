@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.51.8
 
 Features affected: core (Kit/Form/CheckboxCardGroup, Kit/Form/InputSelect, loaded from the package); pins unchanged. No ViewModel changes shape.
 
