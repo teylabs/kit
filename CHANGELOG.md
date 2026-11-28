@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+Features affected: core (Registry::ICONS, Kit/Layout/SectionIcon, loaded from the package); pins unchanged. No ViewModel changes shape.
+
+### Added
+
+- **Three more section icons:** `cloud-rain`, `message-square` and `target`. A settings section or module using one drew the generic gear before.
+
 ## v0.51.8
 
 Features affected: core (Kit/Form/CheckboxCardGroup, Kit/Form/InputSelect, loaded from the package); pins unchanged. No ViewModel changes shape.
