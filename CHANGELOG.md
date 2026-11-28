@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.51.7
 
 Features affected: session-ui (module tabs, server side); pins unchanged. No ViewModel changes shape.
 
