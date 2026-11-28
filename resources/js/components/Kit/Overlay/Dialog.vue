@@ -3,7 +3,6 @@ import { router } from '@inertiajs/vue3';
 import { computed, nextTick, ref, useId, watch } from 'vue';
 import { TriangleAlert } from '@lucide/vue';
 import {
-    AlertDialogAction,
     AlertDialogCancel,
     AlertDialogContent,
     AlertDialogDescription,
@@ -78,6 +77,7 @@ const matches = computed(
 watch(open, (now) => {
     if (now) typed.value = '';
 });
+// Confirm emits while the dialog is still open (a host's `v-model:open` state is intact in its handler), then closes it: at once, or with `action` once the visit succeeds.
 function confirm() {
     if (!matches.value) return;
     const confirmation = asksTyped.value ? typed.value.trim() : undefined;
@@ -89,6 +89,8 @@ function confirm() {
             preserveScroll: true,
             onSuccess: () => (open.value = false),
         });
+    } else {
+        open.value = false;
     }
 }
 // Inside a Modal its overlay renders into the Modal's <dialog>, over it (layer.ts).
@@ -202,24 +204,22 @@ provideCard();
                                         >{{ cancelLabel }}</Button
                                     ></AlertDialogCancel
                                 >
-                                <AlertDialogAction as-child
-                                    ><Button
-                                        :variant="
-                                            variant === 'danger'
-                                                ? 'destructive'
-                                                : 'primary'
-                                        "
-                                        type="button"
-                                        :disabled="!matches || confirmDisabled"
-                                        :aria-describedby="
-                                            asksTyped
-                                                ? `${inputId}-hint`
-                                                : undefined
-                                        "
-                                        data-confirm-action
-                                        @click="confirm"
-                                        >{{ confirmLabel }}</Button
-                                    ></AlertDialogAction
+                                <Button
+                                    :variant="
+                                        variant === 'danger'
+                                            ? 'destructive'
+                                            : 'primary'
+                                    "
+                                    type="button"
+                                    :disabled="!matches || confirmDisabled"
+                                    :aria-describedby="
+                                        asksTyped
+                                            ? `${inputId}-hint`
+                                            : undefined
+                                    "
+                                    data-confirm-action
+                                    @click="confirm"
+                                    >{{ confirmLabel }}</Button
                                 >
                             </div>
                         </div>

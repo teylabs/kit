@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+Features affected: core (Kit/Overlay/Dialog, loaded from the package); pins unchanged. No ViewModel changes shape.
+
+### Fixed
+
+- **Dialog's Confirm emits before it closes.** Confirm was Reka's AlertDialogAction, which closed the dialog (`update:open` false) before `confirm` fired, so a host that kept state on `v-model:open` had lost it in its confirm handler. Confirm now emits while the dialog is open, then closes it: at once, or with `action` once the visit succeeds, so a failed visit leaves the dialog open. Cancel, Escape and the backdrop are unchanged.
+
 ## v0.51.5
 
 Features affected: shell (PrimaryNav, Layout); re-pinned `shell` `sha256:2a78630a…4724` → `sha256:a9ed46a7…fc80`. No ViewModel changes shape.
