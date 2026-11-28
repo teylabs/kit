@@ -64,7 +64,8 @@ final class SessionUiPageLayouts implements PageLayouts
      */
     private function moduleTabs(?array $module): array
     {
-        if ($module === null) {
+        // No module, or one page and no nested module: a lone tab says nothing the heading doesn't, so no row (the module's width still applies).
+        if ($module === null || (count($module['items']) === 1 && ! isset($module['child']))) {
             return [];
         }
         $items = fn (array $items): array => array_map(fn (array $item): NavItem => new NavItem($item['label'], $item['url'], $item['current'], $item['icon'] ?? null), $items);
