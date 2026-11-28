@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.51.9
 
 Features affected: core (Registry::ICONS, Kit/Layout/SectionIcon, loaded from the package); pins unchanged. No ViewModel changes shape.
 
