@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.51.10
 
 Features affected: settings (provisioning), session-ui (the welcome step); pins unchanged. No ViewModel changes shape.
 
