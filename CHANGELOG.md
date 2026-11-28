@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+Features affected: session-ui (module tabs, server side); pins unchanged. No ViewModel changes shape.
+
+### Changed
+
+- **No tab row for a module with one page.** A module whose only page the viewer may open (and no nested module) no longer draws a row holding that single tab under the breadcrumb, repeating the heading. `layout.navigation` is empty there; the module's declared width still applies.
+
 ## v0.51.6
 
 Features affected: core (Kit/Overlay/Dialog, loaded from the package) and settings (Setup); pins unchanged. No ViewModel changes shape.

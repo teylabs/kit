@@ -224,7 +224,7 @@ try {
 
     [$status, $body] = $page('member');
     $member = json_decode($body, true);
-    check($status === 200 && array_column($member['props']['layout']['navigation'][0]['items'] ?? [], 'label') === ['Overview'], 'a member without members.manage gets no tab for that page');
+    check($status === 200 && ($member['props']['layout']['navigation'] ?? null) === [], 'a member without members.manage gets no tab for that page, and the one page left draws no row: a lone tab repeats the heading');
     check(! str_contains($body, 'Staff rota') && ! str_contains($body, 'staff-rota'), 'and the forbidden page\'s descriptor is nowhere in the props (layout or shell)');
 
     [$status, $body] = $page('outsider');
