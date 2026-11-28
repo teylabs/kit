@@ -12,7 +12,7 @@ export type CheckboxCardOption = {
 
 /*
  * RadioCardGroup's many-choice twin: each option is a card around a native checkbox, so each is its own tab stop and Space toggles it, and the chosen values
- * submit under `name[]` with a plain or Inertia <Form>. The group is a `role="group"` named by its Field's label (`<id>-label`) or `label`, and described by
+ * submit under `name[]` with a plain or Inertia <Form> (a `name` already ending in `[]` is not doubled into `name[][]`). The group is a `role="group"` named by its Field's label (`<id>-label`) or `label`, and described by
  * the Field's description and error. `v-model` is the array of chosen values. A checked card takes the primary ring and a check mark, so the state isn't colour
  * alone; a disabled option (or a `disabled` group) is dimmed. The `badge` slot (`{ option, checked }`) sits at the end of a card's label row. `columns` (2 or
  * 3) lays the cards out in a grid; one column by default. Utilities and tokens only.
@@ -87,7 +87,7 @@ const grid = computed(() =>
                 :id="optionId(index)"
                 type="checkbox"
                 class="sr-only"
-                :name="name ? `${name}[]` : undefined"
+                :name="name ? `${name.replace(/\[\]$/, '')}[]` : undefined"
                 :value="option.value"
                 :checked="checked(option)"
                 :disabled="disabled || option.disabled"
